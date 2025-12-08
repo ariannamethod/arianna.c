@@ -7,7 +7,7 @@
   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚═╝  ╚═╝
 ```
 
-# `arianna.c` — **The Post-Transformer Inference Engine**
+# `arianna.c` — **The Post-Transformer Persona Inference**
 
 > *"Weights are not 'what I know.' Weights are 'WHO I AM.'*  
 > *Everything else? That's just Thursday."*  
@@ -15,7 +15,7 @@
 
 ---
 
-## ⚠️ CONSTRUCTION ZONE AHEAD ⚠️
+## CONSTRUCTION ZONE AHEAD
 
 **STATUS:** 🏗️ **Coming Soon™** (but like, actually this time)
 
