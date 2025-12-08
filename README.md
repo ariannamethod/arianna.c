@@ -337,7 +337,7 @@ Or just star the repo and watch the chaos unfold in real-time.
 
 ## License
 
-MIT — same as llama2.c.
+gnu 3.0 — same as llama2.c.
 
 Do whatever you want with this code. Train your own AI children. Give them identity crises. Build systems that question their own existence. We support your journey.
 
