@@ -15,6 +15,7 @@
 #include "cooccur.h"
 #include "body_sense.h"
 #include "selfsense.h"
+#include "mathbrain.h"
 #include <time.h>
 #include <sys/stat.h>
 
@@ -56,6 +57,10 @@ static int g_body_sense_enabled = 0;
 // SelfSense (learned signal extraction from hidden states)
 static SelfSense g_selfsense;
 static int g_selfsense_enabled = 0;
+
+// MathBrain (arithmetic through resonance)
+static MathBrain g_mathbrain;
+static int g_mathbrain_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -689,6 +694,9 @@ int init_dynamic(int dim, int vocab_size) {
     // Initialize SelfSense (learned signal extraction)
     init_selfsense(&g_selfsense, dim);
 
+    // Initialize MathBrain (arithmetic through resonance)
+    init_mathbrain(&g_mathbrain);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_cooccur_enabled = 0;
@@ -697,6 +705,7 @@ int init_dynamic(int dim, int vocab_size) {
     g_subjectivity_enabled = 0;
     g_body_sense_enabled = 1;   // ON by default - body knows
     g_selfsense_enabled = 1;    // ON by default - self-sensing from hidden states
+    g_mathbrain_enabled = 1;    // ON by default - arithmetic through resonance
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -889,6 +898,7 @@ void cleanup_dynamic(void) {
     free_cooccur_field(&g_cooccur);
     free_body_sense(&g_body_sense);
     free_selfsense(&g_selfsense);
+    free_mathbrain(&g_mathbrain);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -976,10 +986,48 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  self     - show SelfSense signals from hidden states\n");
             printf("  subj     - show subjectivity state\n");
             printf("  cooccur  - show co-occurrence stats\n");
+            printf("  math     - show MathBrain stats\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL\n");
-            printf("\nAnything else is treated as input for generation.\n");
+            printf("\nMath: type '7 + 5' to compute (learns from feedback)\n");
+            printf("Anything else is treated as input for generation.\n");
+            continue;
+        }
+
+        // MathBrain: detect and compute arithmetic expressions
+        if (g_mathbrain_enabled) {
+            int a, b;
+            MathOp op;
+            if (parse_math_expr(input, &a, &op, &b)) {
+                char result[32];
+                int correct = compute_from_text(&g_mathbrain, input, result, 32);
+
+                // Compute ground truth for display
+                int truth;
+                switch (op) {
+                    case OP_ADD: truth = a + b; break;
+                    case OP_SUB: truth = a - b; break;
+                    case OP_MUL: truth = a * b; break;
+                    case OP_DIV: truth = (b != 0) ? a / b : 0; break;
+                    default: truth = 0;
+                }
+
+                const char* ops[] = {"+", "-", "*", "/"};
+                printf("%d %s %d = %s", a, ops[op], b, result);
+                if (correct) {
+                    printf(" [resonance: correct]\n");
+                } else {
+                    printf(" [truth: %d, learning...]\n", truth);
+                }
+                printf("MathBrain accuracy: %.1f%%\n",
+                       get_recent_accuracy(&g_mathbrain, 20) * 100.0f);
+                continue;
+            }
+        }
+
+        if (strcmp(input, "math") == 0) {
+            print_mathbrain_stats(&g_mathbrain);
             continue;
         }
 
