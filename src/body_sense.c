@@ -431,14 +431,16 @@ int load_body_sense(BodySense* bs, const char* path) {
         return 0;
     }
 
-    fread(&bs->observations, sizeof(int), 1, f);
-    fread(&bs->running_loss, sizeof(float), 1, f);
-    fread(&bs->learning_rate, sizeof(float), 1, f);
-
-    fread(bs->mlp.w1, sizeof(float), BODY_HIDDEN_DIM * BODY_INPUT_DIM, f);
-    fread(bs->mlp.b1, sizeof(float), BODY_HIDDEN_DIM, f);
-    fread(bs->mlp.w2, sizeof(float), BODY_HIDDEN_DIM, f);
-    fread(&bs->mlp.b2, sizeof(float), 1, f);
+    if (fread(&bs->observations, sizeof(int), 1, f) != 1 ||
+        fread(&bs->running_loss, sizeof(float), 1, f) != 1 ||
+        fread(&bs->learning_rate, sizeof(float), 1, f) != 1 ||
+        fread(bs->mlp.w1, sizeof(float), BODY_HIDDEN_DIM * BODY_INPUT_DIM, f) != BODY_HIDDEN_DIM * BODY_INPUT_DIM ||
+        fread(bs->mlp.b1, sizeof(float), BODY_HIDDEN_DIM, f) != BODY_HIDDEN_DIM ||
+        fread(bs->mlp.w2, sizeof(float), BODY_HIDDEN_DIM, f) != BODY_HIDDEN_DIM ||
+        fread(&bs->mlp.b2, sizeof(float), 1, f) != 1) {
+        fclose(f);
+        return 0;
+    }
 
     fclose(f);
     bs->initialized = 1;
