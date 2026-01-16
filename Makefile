@@ -12,8 +12,8 @@ BIN_DIR = bin
 SRCS = $(SRC_DIR)/model.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
-# Dynamic version with delta + mood + guided attention + subjectivity support
-SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/delta.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/arianna_dynamic.c
+# Dynamic version with delta + mood + guided attention + subjectivity + cooccur support
+SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/delta.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/arianna_dynamic.c
 TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 
 .PHONY: all clean run init dynamic
@@ -29,7 +29,7 @@ $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS) -o $(TARGET) $(LDFLAGS)
 	@echo "Built $(TARGET)"
 
-$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h
+$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS)
 	@echo "Built $(TARGET_DYN)"

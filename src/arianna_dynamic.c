@@ -12,6 +12,7 @@
 #include "mood.h"
 #include "guided.h"
 #include "subjectivity.h"
+#include "cooccur.h"
 #include <time.h>
 
 // ============================================================
@@ -38,6 +39,11 @@ static int g_guided_enabled = 0;
 static Subjectivity g_subjectivity;
 static int g_subjectivity_enabled = 0;
 static char* g_origin_path = NULL;
+
+// Co-occurrence field (attention bias from corpus patterns)
+static CooccurField g_cooccur;
+static int g_cooccur_enabled = 0;
+static float g_cooccur_alpha = 0.15f;  // Blend strength
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -219,6 +225,13 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
         }
 
+        // Apply co-occurrence bias (corpus patterns shape generation)
+        if (g_cooccur_enabled) {
+            int ctx_start = (n_tokens > 8) ? n_tokens - 8 : 0;
+            bias_logits(&g_cooccur, t->state.logits, t->config.vocab_size,
+                       tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
+        }
+
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
         putchar((char)next_token);
@@ -349,6 +362,13 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
         }
 
+        // Apply co-occurrence bias (corpus patterns shape generation)
+        if (g_cooccur_enabled) {
+            int ctx_start = (n_tokens > 8) ? n_tokens - 8 : 0;
+            bias_logits(&g_cooccur, t->state.logits, t->config.vocab_size,
+                       tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
+        }
+
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
         char c = (char)next_token;
@@ -414,6 +434,11 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
 
     // 9. Post-generation: absorb output back into identity
     post_generation(&g_subjectivity, generated, gen_idx);
+
+    // 10. Online learning: observe generated tokens for co-occurrence
+    if (g_cooccur_enabled) {
+        observe_tokens(&g_cooccur, tokens, n_tokens);
+    }
 }
 
 // ============================================================
@@ -570,8 +595,12 @@ int init_dynamic(int dim, int vocab_size) {
     // Initialize subjectivity (no-seed-from-prompt)
     init_subjectivity(&g_subjectivity);
 
+    // Initialize co-occurrence field
+    init_cooccur_field(&g_cooccur);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
+    g_cooccur_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
     g_subjectivity_enabled = 0;
@@ -612,6 +641,30 @@ int load_subjectivity_origin(const char* origin_path) {
 // Print subjectivity debug info
 void print_subjectivity_debug(void) {
     print_subjectivity_state(&g_subjectivity);
+}
+
+// Enable co-occurrence field
+void enable_cooccur(int enable) {
+    g_cooccur_enabled = enable;
+}
+
+// Set co-occurrence blend alpha
+void set_cooccur_alpha(float alpha) {
+    g_cooccur_alpha = alpha;
+}
+
+// Load co-occurrence from corpus
+int load_cooccur_corpus(const char* path) {
+    if (load_cooccur_from_corpus(&g_cooccur, path)) {
+        g_cooccur_enabled = 1;
+        return 1;
+    }
+    return 0;
+}
+
+// Print co-occurrence stats
+void print_cooccur_debug(void) {
+    print_cooccur_stats(&g_cooccur);
 }
 
 // Add gravity centers (personality anchors)
@@ -730,6 +783,7 @@ void cleanup_dynamic(void) {
     free_microtrainer(&g_trainer);
     free_attention_bias(&g_attention_bias);
     free_subjectivity(&g_subjectivity);
+    free_cooccur_field(&g_cooccur);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -907,6 +961,13 @@ int main(int argc, char** argv) {
                    g_subjectivity.identity.n_fragments,
                    g_subjectivity.identity.n_trigrams,
                    g_subjectivity.identity.lexicon_size);
+
+            // Also load co-occurrence from origin (default: ON)
+            if (load_cooccur_corpus(origin_path)) {
+                printf("CooccurField: enabled (corpus patterns bias generation)\n");
+                printf("  Tokens observed: %llu, alpha: %.2f\n",
+                       (unsigned long long)g_cooccur.tokens_observed, g_cooccur_alpha);
+            }
         } else {
             if (origin_path != NULL) {
                 fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
