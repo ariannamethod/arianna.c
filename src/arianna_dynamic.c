@@ -243,7 +243,7 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         putchar((char)next_token);
 
         // Re-route periodically (every 16 tokens for responsive mood shifts)
-        if ((n_tokens % 16 == 0)) {
+        if (n_tokens > 0 && n_tokens % 16 == 0) {
             int start = (n_tokens > 64) ? n_tokens - 64 : 0;
             extract_signals(&g_signals, tokens + start, n_tokens - start, NULL);
 
@@ -391,8 +391,8 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             generated[gen_idx++] = c;
         }
 
-        // Re-route periodically
-        if (n_tokens % 16 == 0) {
+        // Re-route periodically (skip first iteration to avoid empty context)
+        if (n_tokens > 0 && n_tokens % 16 == 0) {
             int start = (n_tokens > 64) ? n_tokens - 64 : 0;
 
             // Convert recent tokens to text for wrinkle update

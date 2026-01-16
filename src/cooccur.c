@@ -476,19 +476,26 @@ int load_cooccur_field(CooccurField* cf, const char* path) {
 
     init_cooccur_field(cf);
 
-    // Read config
-    fread(&cf->trigram_weight, sizeof(float), 1, f);
-    fread(&cf->bigram_weight, sizeof(float), 1, f);
-    fread(&cf->cooccur_weight, sizeof(float), 1, f);
-    fread(&cf->tokens_observed, sizeof(uint64_t), 1, f);
+    // Read config with error checking
+    int err = 0;
+    err |= (fread(&cf->trigram_weight, sizeof(float), 1, f) != 1);
+    err |= (fread(&cf->bigram_weight, sizeof(float), 1, f) != 1);
+    err |= (fread(&cf->cooccur_weight, sizeof(float), 1, f) != 1);
+    err |= (fread(&cf->tokens_observed, sizeof(uint64_t), 1, f) != 1);
+    err |= (fread(&cf->bigrams, sizeof(BigramMatrix), 1, f) != 1);
+    err |= (fread(&cf->trigrams.n_contexts, sizeof(int), 1, f) != 1);
 
-    // Read bigrams
-    fread(&cf->bigrams, sizeof(BigramMatrix), 1, f);
+    if (err) {
+        fclose(f);
+        return 0;
+    }
 
     // Read trigrams
-    fread(&cf->trigrams.n_contexts, sizeof(int), 1, f);
     for (int i = 0; i < cf->trigrams.n_contexts; i++) {
-        fread(&cf->trigrams.contexts[i], sizeof(TrigramContext), 1, f);
+        if (fread(&cf->trigrams.contexts[i], sizeof(TrigramContext), 1, f) != 1) {
+            fclose(f);
+            return 0;
+        }
 
         // Rebuild hash table
         int w1 = cf->trigrams.contexts[i].w1;
@@ -501,7 +508,10 @@ int load_cooccur_field(CooccurField* cf, const char* path) {
     }
 
     // Read co-occurrence
-    fread(&cf->cooccur, sizeof(CooccurMatrix), 1, f);
+    if (fread(&cf->cooccur, sizeof(CooccurMatrix), 1, f) != 1) {
+        fclose(f);
+        return 0;
+    }
 
     fclose(f);
 
@@ -532,26 +542,27 @@ void print_top_bigrams(CooccurField* cf, int token, int k) {
 
     printf("Top %d bigrams after '%c' (0x%02x):\n", k, token > 31 ? token : '?', token);
 
+    // Track visited entries without modifying counts
+    int visited[COOCCUR_VOCAB_SIZE] = {0};
+
     // Find top-k
     for (int i = 0; i < k; i++) {
-        int best_next = 0;
+        int best_next = -1;
         uint32_t best_count = 0;
 
         for (int n = 0; n < COOCCUR_VOCAB_SIZE; n++) {
+            if (visited[n]) continue;
             if (cf->bigrams.counts[token][n] > best_count) {
                 best_count = cf->bigrams.counts[token][n];
                 best_next = n;
             }
         }
 
-        if (best_count == 0) break;
+        if (best_next == -1 || best_count == 0) break;
 
         printf("  [%d] '%c' (0x%02x): %u\n",
                i + 1, best_next > 31 ? best_next : '?', best_next, best_count);
 
-        // Mark as visited (temporarily set to 0)
-        cf->bigrams.counts[token][best_next] = 0;
+        visited[best_next] = 1;
     }
-
-    // Note: This modifies the counts! In production, use a separate array.
 }
