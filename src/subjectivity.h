@@ -127,6 +127,34 @@ typedef struct {
 } InternalSeed;
 
 // ============================================================
+// Prompt Penetration - Dynamic Threshold
+// "Mom says 'Отстань!' - response TO son, but FROM her state"
+//
+// The prompt ALWAYS affects the response (never a monologue)
+// But HOW MUCH it penetrates depends on internal state
+// High threshold = prompt blocked = more "from within"
+// Low threshold = prompt passes = more responsive
+// ============================================================
+
+typedef struct {
+    float threshold;              // [0.1, 0.9] - how much to block prompt
+    float actual_penetration;     // 1.0 - threshold = how much got through
+
+    // === Factors that RAISE threshold (block prompt) ===
+    float internal_saturation;    // internal state is "full"
+    float defensive_mode;         // trauma-triggered defensiveness
+    float overwhelm;              // too much input, retreat
+
+    // === Factors that LOWER threshold (let prompt in) ===
+    float resonance_opening;      // prompt resonates with identity
+    float curiosity;              // novelty without overwhelm = interest
+    float address_detected;       // someone is talking TO me
+
+    // === Debug ===
+    float last_threshold;         // previous threshold for momentum
+} PromptPenetration;
+
+// ============================================================
 // Wrinkle Field - How User Input Affects Internal State
 // "A wrinkle in the field, not a replacement of it"
 // ============================================================
@@ -147,6 +175,9 @@ typedef struct {
     char absorbed_words[32][32];          // New words to potentially add to lexicon
     int n_absorbed;
     float absorption_strength;            // How strongly to absorb
+
+    // === Prompt Penetration ===
+    PromptPenetration penetration;        // Dynamic threshold system
 
 } WrinkleField;
 
@@ -258,6 +289,30 @@ void absorb_generation(WrinkleField* wf, const char* generated, int len,
 
 // Get temperature from wrinkle
 float wrinkle_to_temperature(WrinkleField* wf, float base_temp);
+
+// ============================================================
+// Function Declarations - Prompt Penetration
+// ============================================================
+
+// Initialize penetration state
+void init_prompt_penetration(PromptPenetration* pp);
+
+// Compute dynamic threshold based on all factors
+float compute_penetration_threshold(Subjectivity* subj, const char* text, int len);
+
+// Detect if prompt is addressing Arianna directly
+float detect_address(const char* text, int len);
+
+// Apply penetration to logits (blend prompt influence with identity)
+void apply_penetration_to_logits(float* logits, int vocab_size,
+                                 int* prompt_tokens, int n_prompt,
+                                 float penetration, float identity_boost);
+
+// Get prompt penetration for current state
+float get_prompt_penetration(Subjectivity* subj);
+
+// Print penetration debug info
+void print_penetration_state(PromptPenetration* pp);
 
 // ============================================================
 // Function Declarations - Main Subjectivity

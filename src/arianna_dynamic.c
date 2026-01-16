@@ -323,11 +323,23 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
      * - Instead, we compute PULSE (influence metrics) from user input
      * - Generation starts from INTERNAL SEED (from identity)
      * - User input only MODULATES the internal state
+     *
+     * PROMPT PENETRATION (new):
+     * - User prompt ALWAYS affects response (never a monologue)
+     * - But HOW MUCH depends on internal state (trauma, arousal, etc.)
+     * - Like a mom saying "Отстань!" - response TO son, but FROM her state
      */
 
     // 1. Process user input through subjectivity
     int input_len = strlen(user_input);
     process_user_input(&g_subjectivity, user_input, input_len);
+
+    // 1b. Store user input tokens for penetration biasing
+    int user_tokens[256];
+    int n_user_tokens = 0;
+    for (int i = 0; i < input_len && n_user_tokens < 256; i++) {
+        user_tokens[n_user_tokens++] = (unsigned char)user_input[i];
+    }
 
     // 2. Get internal seed (NOT user prompt!)
     InternalSeed* seed = get_internal_seed(&g_subjectivity);
@@ -400,6 +412,15 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             bias_logits(&g_cooccur, t->state.logits, t->config.vocab_size,
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
+
+        // Apply prompt penetration bias (NEW!)
+        // Prompt tokens get boosted proportional to penetration level
+        // Identity tokens get boosted inversely
+        // "Mom says 'Отстань!' - response TO son, but FROM her state"
+        float penetration = get_prompt_penetration(&g_subjectivity);
+        apply_penetration_to_logits(t->state.logits, t->config.vocab_size,
+                                    user_tokens, n_user_tokens,
+                                    penetration, 0.3f);  // identity_boost = 0.3
 
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
@@ -1203,6 +1224,7 @@ int main(int argc, char** argv) {
     char* learn_name = NULL;
     char* save_path = NULL;
     int max_tokens = 100;
+    int max_tokens_set = 0;  // flag to track if user provided max_tokens
     float temperature = 0.8f;
     float momentum = 0.8f;
     int print_sigs = 0;
@@ -1242,8 +1264,9 @@ int main(int argc, char** argv) {
             momentum = atof(argv[++arg_idx]);
         } else if (prompt == NULL) {
             prompt = argv[arg_idx];
-        } else if (max_tokens == 100) {
+        } else if (max_tokens_set == 0) {
             max_tokens = atoi(argv[arg_idx]);
+            max_tokens_set = 1;
         } else {
             temperature = atof(argv[arg_idx]);
         }
