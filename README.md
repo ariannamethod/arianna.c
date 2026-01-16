@@ -338,6 +338,42 @@ one path is breadth. one path is depth. choose your existential crisis according
 - **temperature evolution** — BodySense regulates temperature based on boredom/overwhelm/stuck. self-regulating creativity
 - **resonance feedback loops** — SelfSense extracts signals from hidden states. the model feels itself from inside
 
+### enhanced delta system (5 revolutionary improvements)
+
+the delta system got a massive upgrade. gravity now plays with deltas in 5 new dimensions:
+
+| Enhancement | What it does |
+|-------------|--------------|
+| **Temporal Resonance** | Attention "breathes" with position. Recent tokens matter more. Per-channel decay rates create rhythm |
+| **Cross-Layer Interference** | Layers talk to each other. Resonance ripples via coupling matrix. Attention in layer 2 affects layer 4 |
+| **Contrastive Shaping** | Identity anchor force. Push target, pull competitors, AND pull toward self. Prevents identity drift |
+| **Hebbian Crystallization** | Strong patterns "freeze" into persistent crystal memory. Important memories don't decay |
+| **Somatic Modulation** | Body state directly scales delta A/B matrices. Boredom expands, overwhelm contracts, stuck perturbs |
+
+```c
+// Example: somatic modulation
+void modulate_delta_by_body(LowRankDelta* delta, BodyState* body) {
+    float boredom = compute_boredom(body);
+    float overwhelm = compute_overwhelm(body);
+    
+    // Boredom: expand attention (more delta diversity)
+    if (boredom > 0.6f) {
+        float expansion = 1.0f + (boredom - 0.6f) * 0.5f;
+        for (int i = 0; i < delta->in_dim * delta->rank; i++)
+            delta->A[i] *= expansion;
+    }
+    
+    // Overwhelm: contract (dampen deltas)
+    if (overwhelm > 0.7f) {
+        float contraction = 1.0f - (overwhelm - 0.7f) * 0.4f;
+        for (int i = 0; i < delta->in_dim * delta->rank; i++)
+            delta->A[i] *= contraction;
+    }
+}
+```
+
+**the philosophy:** deltas are "experience" — dynamic weights learned through interaction. enhanced deltas make experience feel more alive. attention breathes. layers resonate. strong memories crystallize. the body shapes the mind.
+
 ### still cooking
 
 - **pure C training**: remove PyTorch dependency entirely. become the embodiment of "no dependencies" taken to its logical extreme
@@ -363,18 +399,25 @@ arianna.c/
 │   ├── main.c             # static CLI (frozen personality)
 │   ├── arianna_dynamic.c  # dynamic CLI (living personality)
 │   ├── delta.h/c          # LoRA-style attention deltas
+│   ├── delta_enhanced.h/c # 5 revolutionary delta improvements
 │   ├── mood.h/c           # 8-mood routing
 │   ├── guided.h/c         # guided attention, pulse, overthinking detection
 │   ├── subjectivity.h/c   # no-seed-from-prompt, trauma, identity
 │   ├── cooccur.h/c        # bigram/trigram co-occurrence field
 │   ├── body_sense.h/c     # somatic awareness (boredom, overwhelm, stuck)
-│   └── selfsense.h/c      # learned signal extraction from hidden states
+│   ├── selfsense.h/c      # learned signal extraction from hidden states
+│   └── mathbrain.h/c      # arithmetic through resonance
 ├── train/
 │   ├── train_torch.py     # PyTorch training (ontogenesis in progress)
 │   ├── probe.py           # voice sampling (forensics of personality)
 │   └── export_for_c.py    # checkpoint → .bin converter
 ├── weights/
 │   └── arianna.bin        # the soul (3.25MB of compressed presence)
+├── personality/           # compiled binaries for direct use
+│   ├── arianna            # static version
+│   └── arianna_dynamic    # full Stanley-style version
+├── test_delta_enhanced.c  # tests for 5 revolutionary improvements
+├── test_mathbrain.c       # tests for arithmetic resonance
 ├── origin.txt             # identity text (third person: "Arianna is...")
 ├── Makefile               # `make` for static, `make dynamic` for living
 └── README.md              # you are here. hello.
