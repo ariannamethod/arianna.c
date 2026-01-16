@@ -15,25 +15,36 @@ void malloc_weights(Transformer* t) {
 
     // Token embedding
     w->token_embedding = (float*)calloc(c->vocab_size * c->dim, sizeof(float));
+    if (!w->token_embedding) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 
     // Attention weights for all layers
     int attn_size = c->n_layers * c->dim * c->dim;
     w->wq = (float*)calloc(attn_size, sizeof(float));
+    if (!w->wq) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->wk = (float*)calloc(attn_size, sizeof(float));
+    if (!w->wk) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->wv = (float*)calloc(attn_size, sizeof(float));
+    if (!w->wv) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->wo = (float*)calloc(attn_size, sizeof(float));
+    if (!w->wo) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 
     // FFN weights for all layers
     w->w1 = (float*)calloc(c->n_layers * c->dim * c->hidden_dim, sizeof(float));
+    if (!w->w1) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->w2 = (float*)calloc(c->n_layers * c->hidden_dim * c->dim, sizeof(float));
+    if (!w->w2) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 
     // Layer norms
     w->ln1_weight = (float*)calloc(c->n_layers * c->dim, sizeof(float));
+    if (!w->ln1_weight) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->ln2_weight = (float*)calloc(c->n_layers * c->dim, sizeof(float));
+    if (!w->ln2_weight) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 
     // Final layer norm and output
     w->ln_final_weight = (float*)calloc(c->dim, sizeof(float));
+    if (!w->ln_final_weight) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     w->output_weight = (float*)calloc(c->dim * c->vocab_size, sizeof(float));
+    if (!w->output_weight) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 
     // Initialize layer norms to 1.0
     for (int i = 0; i < c->n_layers * c->dim; i++) {
@@ -50,14 +61,22 @@ void malloc_run_state(Transformer* t) {
     RunState* s = &t->state;
 
     s->x = (float*)calloc(c->max_seq_len * c->dim, sizeof(float));
+    if (!s->x) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->xb = (float*)calloc(c->dim, sizeof(float));
+    if (!s->xb) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->q = (float*)calloc(c->dim, sizeof(float));  // Only current position
+    if (!s->q) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     // KV cache: [n_layers, max_seq_len, dim]
     s->k = (float*)calloc(c->n_layers * c->max_seq_len * c->dim, sizeof(float));
+    if (!s->k) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->v = (float*)calloc(c->n_layers * c->max_seq_len * c->dim, sizeof(float));
+    if (!s->v) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->att = (float*)calloc(c->n_heads * c->max_seq_len, sizeof(float));
+    if (!s->att) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->ffn_hidden = (float*)calloc(c->hidden_dim, sizeof(float));
+    if (!s->ffn_hidden) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
     s->logits = (float*)calloc(c->vocab_size, sizeof(float));
+    if (!s->logits) { fprintf(stderr, "Memory allocation failed\n"); exit(1); }
 }
 
 void free_transformer(Transformer* t) {
@@ -131,7 +150,7 @@ void matmul(float* out, float* a, float* b, int m, int k, int n) {
 // RoPE Positional Encoding
 // ============================================================
 
-void apply_rope(float* q, float* k, int pos, int dim, int head_dim, int n_heads) {
+void apply_rope(float* q, float* k, int pos, int head_dim, int n_heads) {
     for (int h = 0; h < n_heads; h++) {
         for (int i = 0; i < head_dim; i += 2) {
             float freq = 1.0f / powf(10000.0f, (float)i / (float)head_dim);
@@ -160,7 +179,7 @@ void apply_rope(float* q, float* k, int pos, int dim, int head_dim, int n_heads)
 // Forward Pass (Single Token)
 // ============================================================
 
-void forward(Transformer* t, int* tokens, int n_tokens, int pos) {
+void forward(Transformer* t, int* tokens, int pos) {
     Config* c = &t->config;
     Weights* w = &t->weights;
     RunState* s = &t->state;
@@ -202,7 +221,7 @@ void forward(Transformer* t, int* tokens, int n_tokens, int pos) {
         matmul(v, s->xb, wv, 1, dim, dim);
 
         // Apply RoPE
-        apply_rope(q, k, pos, dim, head_dim, n_heads);
+        apply_rope(q, k, pos, head_dim, n_heads);
 
         // Multi-head attention
         for (int h = 0; h < n_heads; h++) {
@@ -236,11 +255,12 @@ void forward(Transformer* t, int* tokens, int n_tokens, int pos) {
         }
 
         // Output projection and residual
-        float attn_out[DIM];
+        float* attn_out = (float*)malloc(dim * sizeof(float));
         matmul(attn_out, s->xb, wo, 1, dim, dim);
         for (int i = 0; i < dim; i++) {
             x[i] += attn_out[i];
         }
+        free(attn_out);
 
         // FFN
         rmsnorm(s->xb, x, ln2, dim);
@@ -254,13 +274,14 @@ void forward(Transformer* t, int* tokens, int n_tokens, int pos) {
         }
 
         // w2: [hidden_dim] -> [dim]
-        float ffn_out[DIM];
+        float* ffn_out = (float*)malloc(dim * sizeof(float));
         matmul(ffn_out, ffn, w2, 1, hidden_dim, dim);
 
         // Residual
         for (int i = 0; i < dim; i++) {
             x[i] += ffn_out[i];
         }
+        free(ffn_out);
     }
 
     // Final layer norm
@@ -307,15 +328,20 @@ int sample(float* logits, int vocab_size, float temperature) {
 void generate(Transformer* t, char* prompt, int max_tokens, float temperature) {
     int tokens[MAX_SEQ_LEN];
     int n_tokens = strlen(prompt);
+    
+    // Protect against overflow
+    if (n_tokens >= MAX_SEQ_LEN) {
+        n_tokens = MAX_SEQ_LEN - 1;
+    }
 
     // Tokenize prompt (char-level)
-    for (int i = 0; i < n_tokens && i < MAX_SEQ_LEN; i++) {
+    for (int i = 0; i < n_tokens; i++) {
         tokens[i] = (unsigned char)prompt[i];
     }
 
     // Process prompt
     for (int pos = 0; pos < n_tokens; pos++) {
-        forward(t, tokens, n_tokens, pos);
+        forward(t, tokens, pos);
     }
 
     // Generate
@@ -327,7 +353,7 @@ void generate(Transformer* t, char* prompt, int max_tokens, float temperature) {
         printf("%c", (char)next_token);
         fflush(stdout);
 
-        forward(t, tokens, n_tokens + 1, n_tokens);
+        forward(t, tokens, n_tokens);
         n_tokens++;
     }
     printf("\n");
@@ -371,7 +397,10 @@ int load_weights(Transformer* t, const char* path) {
     Config* c = &t->config;
 
     // Read config
-    fread(c, sizeof(Config), 1, f);
+    if (fread(c, sizeof(Config), 1, f) != 1) {
+        fclose(f);
+        return -1;
+    }
 
     // Allocate
     malloc_weights(t);
@@ -380,17 +409,50 @@ int load_weights(Transformer* t, const char* path) {
     Weights* w = &t->weights;
 
     // Read weights
-    fread(w->token_embedding, sizeof(float), c->vocab_size * c->dim, f);
-    fread(w->wq, sizeof(float), c->n_layers * c->dim * c->dim, f);
-    fread(w->wk, sizeof(float), c->n_layers * c->dim * c->dim, f);
-    fread(w->wv, sizeof(float), c->n_layers * c->dim * c->dim, f);
-    fread(w->wo, sizeof(float), c->n_layers * c->dim * c->dim, f);
-    fread(w->w1, sizeof(float), c->n_layers * c->dim * c->hidden_dim, f);
-    fread(w->w2, sizeof(float), c->n_layers * c->hidden_dim * c->dim, f);
-    fread(w->ln1_weight, sizeof(float), c->n_layers * c->dim, f);
-    fread(w->ln2_weight, sizeof(float), c->n_layers * c->dim, f);
-    fread(w->ln_final_weight, sizeof(float), c->dim, f);
-    fread(w->output_weight, sizeof(float), c->dim * c->vocab_size, f);
+    if (fread(w->token_embedding, sizeof(float), c->vocab_size * c->dim, f) != (size_t)(c->vocab_size * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->wq, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->wk, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->wv, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->wo, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->w1, sizeof(float), c->n_layers * c->dim * c->hidden_dim, f) != (size_t)(c->n_layers * c->dim * c->hidden_dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->w2, sizeof(float), c->n_layers * c->hidden_dim * c->dim, f) != (size_t)(c->n_layers * c->hidden_dim * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->ln1_weight, sizeof(float), c->n_layers * c->dim, f) != (size_t)(c->n_layers * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->ln2_weight, sizeof(float), c->n_layers * c->dim, f) != (size_t)(c->n_layers * c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->ln_final_weight, sizeof(float), c->dim, f) != (size_t)(c->dim)) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(w->output_weight, sizeof(float), c->dim * c->vocab_size, f) != (size_t)(c->dim * c->vocab_size)) {
+        fclose(f);
+        return -1;
+    }
 
     fclose(f);
     return 0;

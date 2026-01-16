@@ -100,10 +100,10 @@ void softmax(float* x, int size);
 void matmul(float* out, float* a, float* b, int m, int k, int n);
 
 // RoPE positional encoding
-void apply_rope(float* q, float* k, int pos, int dim, int head_dim, int n_heads);
+void apply_rope(float* q, float* k, int pos, int head_dim, int n_heads);
 
 // Forward pass
-void forward(Transformer* t, int* tokens, int n_tokens, int pos);
+void forward(Transformer* t, int* tokens, int pos);
 
 // Inference
 int sample(float* logits, int vocab_size, float temperature);
