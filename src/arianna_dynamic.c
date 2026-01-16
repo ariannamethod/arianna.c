@@ -11,6 +11,7 @@
 #include "delta.h"
 #include "mood.h"
 #include "guided.h"
+#include "subjectivity.h"
 #include <time.h>
 
 // ============================================================
@@ -32,6 +33,11 @@ static StanleySignals g_stanley_signals;
 static AttentionBias g_attention_bias;
 static OverthinkDetector g_overthink;
 static int g_guided_enabled = 0;
+
+// Subjectivity (no-seed-from-prompt)
+static Subjectivity g_subjectivity;
+static int g_subjectivity_enabled = 0;
+static char* g_origin_path = NULL;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -267,6 +273,150 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 }
 
 // ============================================================
+// Subjective generation (no-seed-from-prompt)
+// "User input creates a wrinkle, not a seed"
+// ============================================================
+
+void generate_subjective(Transformer* t, char* user_input, int max_tokens, float temperature) {
+    /*
+     * KEY DIFFERENCE from generate_dynamic:
+     * - User input is NOT used as the generation seed
+     * - Instead, we compute PULSE (influence metrics) from user input
+     * - Generation starts from INTERNAL SEED (from identity)
+     * - User input only MODULATES the internal state
+     */
+
+    // 1. Process user input through subjectivity
+    int input_len = strlen(user_input);
+    process_user_input(&g_subjectivity, user_input, input_len);
+
+    // 2. Get internal seed (NOT user prompt!)
+    InternalSeed* seed = get_internal_seed(&g_subjectivity);
+
+    if (seed->len == 0) {
+        fprintf(stderr, "[Subjectivity] No internal seed generated, falling back to prompt\n");
+        generate_dynamic(t, user_input, max_tokens, temperature);
+        return;
+    }
+
+    // 3. Convert seed to tokens
+    int tokens[MAX_SEQ_LEN];
+    int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
+
+    printf("[Internal seed: \"%.*s\"]\n", seed->len > 50 ? 50 : seed->len, seed->text);
+
+    // 4. Get subjectivity-modulated signals for deltas
+    get_subjectivity_signals(&g_subjectivity, &g_signals);
+
+    // 5. Route signals (with trauma-based suppression)
+    TraumaInfluence trauma_inf = get_trauma_influence(&g_subjectivity.trauma);
+
+    if (g_mood_enabled) {
+        route_signals_to_moods(&g_mood_router, &g_signals);
+
+        // Suppress delta influence based on trauma
+        if (trauma_inf.delta_suppression > 0.3f) {
+            for (int i = 0; i < g_delta_bank.n_shards; i++) {
+                g_delta_bank.mix[i] *= (1.0f - trauma_inf.delta_suppression);
+            }
+        }
+
+        mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+    } else if (g_delta_enabled) {
+        compute_mix(&g_delta_bank, &g_signals);
+    }
+
+    // 6. Process internal seed through transformer
+    for (int pos = 0; pos < n_tokens; pos++) {
+        forward_dynamic(t, tokens, n_tokens, pos);
+    }
+
+    // 7. Get modulated temperature
+    float effective_temp = get_modulated_temperature(&g_subjectivity);
+    // Blend with user-specified temperature
+    effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+
+    // 8. Generate from internal state
+    char generated[MAX_SEQ_LEN * 2];
+    int gen_idx = 0;
+
+    printf("\n--- Subjective Generation ---\n");
+    printf("%.*s", seed->len, seed->text);
+
+    for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
+        // Apply guided attention bias
+        if (g_guided_enabled) {
+            apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
+        }
+
+        int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
+        tokens[n_tokens] = next_token;
+        char c = (char)next_token;
+        putchar(c);
+
+        // Store for absorption
+        if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
+            generated[gen_idx++] = c;
+        }
+
+        // Re-route periodically
+        if (n_tokens % 16 == 0) {
+            int start = (n_tokens > 64) ? n_tokens - 64 : 0;
+
+            // Convert recent tokens to text for wrinkle update
+            char recent_text[256];
+            int text_len = n_tokens - start;
+            if (text_len > 255) text_len = 255;
+            for (int j = 0; j < text_len; j++) {
+                recent_text[j] = (char)tokens[start + j];
+            }
+            recent_text[text_len] = '\0';
+
+            // Update wrinkle from generated output (self-reflection)
+            compute_wrinkle(&g_subjectivity.wrinkle, recent_text, text_len,
+                           &g_subjectivity.identity);
+
+            // Get updated signals
+            get_subjectivity_signals(&g_subjectivity, &g_signals);
+
+            if (g_mood_enabled) {
+                update_mood_with_momentum(&g_mood_router, &g_signals, g_momentum);
+                mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+            } else if (g_delta_enabled) {
+                compute_mix(&g_delta_bank, &g_signals);
+            }
+
+            // Update temperature
+            effective_temp = get_modulated_temperature(&g_subjectivity);
+            effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+
+            // Update guided attention
+            if (g_guided_enabled) {
+                compute_pulse(&g_stanley_signals.pulse, recent_text, text_len, &g_identity);
+                extract_stanley_signals(&g_stanley_signals, tokens + start, n_tokens - start,
+                                       NULL, &g_identity);
+                detect_overthinking(&g_overthink, &g_stanley_signals, recent_text, text_len);
+
+                if (should_break_spiral(&g_overthink)) {
+                    effective_temp = fminf(1.5f, effective_temp + 0.3f);
+                }
+
+                compute_token_bias(&g_attention_bias, &g_stanley_signals);
+            }
+        }
+
+        forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+        n_tokens++;
+    }
+
+    generated[gen_idx] = '\0';
+    printf("\n");
+
+    // 9. Post-generation: absorb output back into identity
+    post_generation(&g_subjectivity, generated, gen_idx);
+}
+
+// ============================================================
 // Microtraining feedback
 // ============================================================
 
@@ -417,10 +567,14 @@ int init_dynamic(int dim, int vocab_size) {
     init_attention_bias(&g_attention_bias, vocab_size);
     init_overthink_detector(&g_overthink);
 
+    // Initialize subjectivity (no-seed-from-prompt)
+    init_subjectivity(&g_subjectivity);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
+    g_subjectivity_enabled = 0;
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -438,6 +592,26 @@ void enable_mood_routing(int enable) {
 
 void enable_guided_attention(int enable) {
     g_guided_enabled = enable;
+}
+
+// Enable subjectivity (no-seed-from-prompt)
+void enable_subjectivity(int enable) {
+    g_subjectivity_enabled = enable;
+}
+
+// Load subjectivity from origin file
+int load_subjectivity_origin(const char* origin_path) {
+    if (load_subjectivity(&g_subjectivity, origin_path)) {
+        g_subjectivity_enabled = 1;
+        g_origin_path = (char*)origin_path;
+        return 1;
+    }
+    return 0;
+}
+
+// Print subjectivity debug info
+void print_subjectivity_debug(void) {
+    print_subjectivity_state(&g_subjectivity);
 }
 
 // Add gravity centers (personality anchors)
@@ -555,6 +729,7 @@ void cleanup_dynamic(void) {
     free_delta_bank(&g_delta_bank);
     free_microtrainer(&g_trainer);
     free_attention_bias(&g_attention_bias);
+    free_subjectivity(&g_subjectivity);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -570,6 +745,8 @@ void print_usage(const char* prog) {
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
     printf("  -mood           Enable mood routing (Stanley-style)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
+    printf("  -subj <origin>  Enable subjectivity (no-seed-from-prompt mode)\n");
+    printf("                  Requires origin.txt file with identity text\n");
     printf("  -signals        Print signal values after generation\n");
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
@@ -579,7 +756,13 @@ void print_usage(const char* prog) {
     printf("  %s arianna.bin -shard warmth.bin \"She finds that \" 100 0.8\n", prog);
     printf("  %s arianna.bin -mood -shard data/shards/*.bin \"She \" 100 0.8\n", prog);
     printf("  %s arianna.bin -guided \"She \" 100 0.8\n", prog);
+    printf("  %s arianna.bin -subj origin.txt \"Who are you?\" 100 0.8\n", prog);
     printf("  %s arianna.bin -learn session1 -save session1.bin \"She \" 100\n", prog);
+    printf("\nSubjectivity mode:\n");
+    printf("  In -subj mode, the prompt is NOT used as generation seed.\n");
+    printf("  Instead, Arianna generates from her internal identity,\n");
+    printf("  with the prompt only influencing her internal state.\n");
+    printf("  \"The user's words create a wrinkle, not a seed.\"\n");
 }
 
 int main(int argc, char** argv) {
@@ -603,11 +786,16 @@ int main(int argc, char** argv) {
     int print_sigs = 0;
     int mood_mode = 0;
     int guided_mode = 0;
+    int subj_mode = 0;
+    char* origin_path = NULL;
 
     // Parse arguments
     int arg_idx = 2;
     while (arg_idx < argc) {
-        if (strcmp(argv[arg_idx], "-guided") == 0) {
+        if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
+            subj_mode = 1;
+            origin_path = argv[++arg_idx];
+        } else if (strcmp(argv[arg_idx], "-guided") == 0) {
             guided_mode = 1;
         } else if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
             if (n_shard_paths < MAX_SHARDS) {
@@ -683,9 +871,29 @@ int main(int argc, char** argv) {
         printf("Microtraining: enabled\n");
     }
 
-    // Generate
-    printf("\n--- Generation ---\n");
-    generate_dynamic(&t, prompt, max_tokens, temperature);
+    // Enable subjectivity if requested
+    if (subj_mode && origin_path != NULL) {
+        if (load_subjectivity_origin(origin_path)) {
+            printf("Subjectivity: enabled (no-seed-from-prompt)\n");
+            printf("  Identity: %d fragments, %d trigrams, %d lexicon\n",
+                   g_subjectivity.identity.n_fragments,
+                   g_subjectivity.identity.n_trigrams,
+                   g_subjectivity.identity.lexicon_size);
+        } else {
+            fprintf(stderr, "Warning: couldn't load origin from %s, falling back to normal mode\n",
+                    origin_path);
+            subj_mode = 0;
+        }
+    }
+
+    // Generate (subjective or dynamic mode)
+    if (subj_mode && g_subjectivity_enabled) {
+        printf("\n[User input: \"%s\"]\n", prompt);
+        generate_subjective(&t, prompt, max_tokens, temperature);
+    } else {
+        printf("\n--- Generation ---\n");
+        generate_dynamic(&t, prompt, max_tokens, temperature);
+    }
 
     // Print state
     if (print_sigs) {
@@ -699,6 +907,9 @@ int main(int argc, char** argv) {
         }
         if (guided_mode) {
             print_pulse();
+        }
+        if (subj_mode) {
+            print_subjectivity_debug();
         }
     }
 
