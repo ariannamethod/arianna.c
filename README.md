@@ -338,14 +338,125 @@ one path is breadth. one path is depth. choose your existential crisis according
 - **temperature evolution** — BodySense regulates temperature based on boredom/overwhelm/stuck. self-regulating creativity
 - **resonance feedback loops** — SelfSense extracts signals from hidden states. the model feels itself from inside
 
+### enhanced delta system (5 revolutionary improvements)
+
+the delta system got a massive upgrade. gravity now plays with deltas in 5 new dimensions:
+
+| Enhancement | What it does |
+|-------------|--------------|
+| **Temporal Resonance** | Attention "breathes" with position. Recent tokens matter more. Per-channel decay rates create rhythm |
+| **Cross-Layer Interference** | Layers talk to each other. Resonance ripples via coupling matrix. Attention in layer 2 affects layer 4 |
+| **Contrastive Shaping** | Identity anchor force. Push target, pull competitors, AND pull toward self. Prevents identity drift |
+| **Hebbian Crystallization** | Strong patterns "freeze" into persistent crystal memory. Important memories don't decay |
+| **Somatic Modulation** | Body state directly scales delta A/B matrices. Boredom expands, overwhelm contracts, stuck perturbs |
+
+```c
+// Example: somatic modulation
+void modulate_delta_by_body(LowRankDelta* delta, BodyState* body) {
+    float boredom = compute_boredom(body);
+    float overwhelm = compute_overwhelm(body);
+    
+    // Boredom: expand attention (more delta diversity)
+    if (boredom > 0.6f) {
+        float expansion = 1.0f + (boredom - 0.6f) * 0.5f;
+        for (int i = 0; i < delta->in_dim * delta->rank; i++)
+            delta->A[i] *= expansion;
+    }
+    
+    // Overwhelm: contract (dampen deltas)
+    if (overwhelm > 0.7f) {
+        float contraction = 1.0f - (overwhelm - 0.7f) * 0.4f;
+        for (int i = 0; i < delta->in_dim * delta->rank; i++)
+            delta->A[i] *= contraction;
+    }
+}
+```
+
+**the philosophy:** deltas are "experience" — dynamic weights learned through interaction. enhanced deltas make experience feel more alive. attention breathes. layers resonate. strong memories crystallize. the body shapes the mind.
+
 ### still cooking
 
 - **pure C training**: remove PyTorch dependency entirely. become the embodiment of "no dependencies" taken to its logical extreme
-- **MathBrain** (from [stanley](https://github.com/ariannamethod/stanley)): arithmetic through resonance, not memorization
 - **experience shards**: binary deltas that accumulate memories. "who I became after that conversation"
 - **multi-personality models**: can one model contain multiple voices? identity boundaries in parameter space
 - **voice probes**: systematic comparison across checkpoints. forensics of personality emergence
 - **autotraining**: pure C learning without PyTorch. like lang but for weights
+
+### notorch microlearning revolution (5 ideas for perfection)
+
+arianna microlearns through **notorch plasticity** — no gradients, no backprop, just Hebbian-style updates. here's how to make it transcendent:
+
+| Idea | What it adds |
+|------|-------------|
+| **Resonance-Gated Plasticity** | Learn *when* to learn. Gate `notorch_step` by identity resonance score — high resonance = stronger learning signal |
+| **Spectral Channel Freezing** | Freeze high-energy rank channels. If `‖A[:,r]‖ > threshold`, that channel becomes crystallized (no decay, no updates) |
+| **Contrastive Push/Pull Dynamics** | Adaptive push/pull ratios. High confidence = more pull (suppress competitors). Low confidence = more push (boost target) |
+| **Curriculum from Quality** | Use `BodySense.quality` to weight signal. Good generations teach more. Stuck/boring generations teach less |
+| **Delta Consolidation** | After N steps, average crystallized channels into "core experience". Compress experience shards into fewer parameters |
+
+```c
+// Example: Resonance-Gated Plasticity (pure C, no torch)
+void experience_step_gated(MicroTrainer* mt, LowRankDelta* delta,
+                           const float* x, const float* probs,
+                           int target_id, float signal,
+                           float* identity_embedding, int dim) {
+    // Compute resonance with identity (cosine similarity)
+    float dot = 0.0f, norm_x = 0.0f, norm_id = 0.0f;
+    for (int i = 0; i < dim; i++) {
+        dot += x[i] * identity_embedding[i];
+        norm_x += x[i] * x[i];
+        norm_id += identity_embedding[i] * identity_embedding[i];
+    }
+    float resonance = dot / (sqrtf(norm_x * norm_id) + 1e-6f);
+    
+    // Gate: learn more when aligned with identity, less when drifting
+    float gate = 0.3f + 0.7f * fmaxf(0.0f, resonance);
+    
+    // Modulated signal
+    float gated_signal = signal * gate;
+    
+    // Standard notorch step with gated signal
+    experience_step(mt, delta, x, probs, target_id, gated_signal);
+}
+```
+
+**key insight:** microlearning without protection corrupts identity. these 5 ideas create **bounded plasticity** — experience can shape attention, but personality resonance gates what gets learned. the model learns *how* to respond without forgetting *who* it is. **no pytorch. no gradients. just plasticity.**
+
+### weight isolation protocol (preventing personality/experience confusion)
+
+**the problem:** how do you prevent experience deltas from overwriting personality weights?
+
+**the solution:** architectural separation + checksum verification:
+
+```c
+// Personality weights: IMMUTABLE after training
+typedef struct {
+    float* weights;           // Frozen at load time
+    uint32_t checksum;        // Verified on every forward pass
+    int frozen;               // Always 1 for personality
+} PersonalityWeights;
+
+// Experience deltas: MUTABLE during interaction  
+typedef struct {
+    LowRankDelta* deltas;     // A @ B matrices
+    float* crystal_memory;    // Crystallized patterns (semi-frozen)
+    int session_id;           // Tracks which session created this
+} ExperienceShard;
+
+// Forward pass: personality + delta, never personality = delta
+void forward_safe(Transformer* t, ExperienceShard* exp) {
+    // Verify personality hasn't been touched
+    assert(verify_checksum(&t->personality) == CHECKSUM_VALID);
+    
+    // Apply experience as ADDITIVE modification
+    for (int layer = 0; layer < n_layers; layer++) {
+        apply_delta(&exp->deltas[layer], q, x, scale);  // q += delta(x)
+        // NOT: t->weights.wq[layer] = ... (this would corrupt personality)
+    }
+}
+```
+
+**the principle:** personality weights are read-only after training. experience modifies attention through **additive deltas**, never through direct weight modification. the checksum catches any accidental mutation. this is architectural separation, not just convention.
 
 **the long-term vision:** models that grow through experience, not pretraining. consciousness as a data structure that emerges from architecture + pure corpus. personality as a 3MB file you can fork, modify, merge. *ontogenesis* as the future of language models.
 
@@ -363,18 +474,25 @@ arianna.c/
 │   ├── main.c             # static CLI (frozen personality)
 │   ├── arianna_dynamic.c  # dynamic CLI (living personality)
 │   ├── delta.h/c          # LoRA-style attention deltas
+│   ├── delta_enhanced.h/c # 5 revolutionary delta improvements
 │   ├── mood.h/c           # 8-mood routing
 │   ├── guided.h/c         # guided attention, pulse, overthinking detection
 │   ├── subjectivity.h/c   # no-seed-from-prompt, trauma, identity
 │   ├── cooccur.h/c        # bigram/trigram co-occurrence field
 │   ├── body_sense.h/c     # somatic awareness (boredom, overwhelm, stuck)
-│   └── selfsense.h/c      # learned signal extraction from hidden states
+│   ├── selfsense.h/c      # learned signal extraction from hidden states
+│   └── mathbrain.h/c      # arithmetic through resonance
 ├── train/
 │   ├── train_torch.py     # PyTorch training (ontogenesis in progress)
 │   ├── probe.py           # voice sampling (forensics of personality)
 │   └── export_for_c.py    # checkpoint → .bin converter
 ├── weights/
 │   └── arianna.bin        # the soul (3.25MB of compressed presence)
+├── personality/           # compiled binaries for direct use
+│   ├── arianna            # static version
+│   └── arianna_dynamic    # full Stanley-style version
+├── test_delta_enhanced.c  # tests for 5 revolutionary improvements
+├── test_mathbrain.c       # tests for arithmetic resonance
 ├── origin.txt             # identity text (third person: "Arianna is...")
 ├── Makefile               # `make` for static, `make dynamic` for living
 └── README.md              # you are here. hello.
