@@ -18,10 +18,13 @@ import random
 
 def run_arianna_batch(commands, weights="weights/arianna.bin", max_tokens=50, temp=0.8):
     """Run arianna with a batch of commands, return output."""
-    binary = "./bin/arianna_dynamic"
+    # Try personality/ first (tracked in git), fallback to bin/ (build output)
+    binary = "./personality/arianna"
+    if not os.path.exists(binary):
+        binary = "./bin/arianna_dynamic"
 
     if not os.path.exists(binary):
-        raise FileNotFoundError(f"{binary} not found. Run 'make dynamic' first.")
+        raise FileNotFoundError(f"No arianna binary found. Run 'make dynamic' or check personality/arianna")
 
     cmd = [binary, weights, "--repl", str(max_tokens), str(temp)]
 
