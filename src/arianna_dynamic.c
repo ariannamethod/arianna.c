@@ -738,31 +738,49 @@ void cleanup_dynamic(void) {
 // Main with dynamic support
 // ============================================================
 
+// Default origin file paths to try
+static const char* DEFAULT_ORIGIN_PATHS[] = {
+    "origin.txt",
+    "./origin.txt",
+    "data/origin.txt",
+    "../origin.txt",
+    NULL
+};
+
+// Try to find origin.txt in default locations
+static const char* find_default_origin(void) {
+    for (int i = 0; DEFAULT_ORIGIN_PATHS[i]; i++) {
+        FILE* f = fopen(DEFAULT_ORIGIN_PATHS[i], "r");
+        if (f) {
+            fclose(f);
+            return DEFAULT_ORIGIN_PATHS[i];
+        }
+    }
+    return NULL;
+}
+
 void print_usage(const char* prog) {
     printf("arianna_dynamic - Personality transformer with Stanley-style deltas\n\n");
     printf("Usage: %s <weights.bin> \"<prompt>\" [max_tokens] [temperature]\n", prog);
     printf("\nOptions:\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
-    printf("  -mood           Enable mood routing (Stanley-style)\n");
+    printf("  -no-mood        Disable mood routing (enabled by default)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
-    printf("  -subj <origin>  Enable subjectivity (no-seed-from-prompt mode)\n");
-    printf("                  Requires origin.txt file with identity text\n");
+    printf("  -subj <origin>  Use custom origin file (default: auto-detect origin.txt)\n");
+    printf("  -no-subj        Disable subjectivity (use prompt as seed)\n");
     printf("  -signals        Print signal values after generation\n");
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("\nExamples:\n");
-    printf("  %s arianna.bin \"She finds that \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -shard warmth.bin \"She finds that \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -mood -shard data/shards/*.bin \"She \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -guided \"She \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -subj origin.txt \"Who are you?\" 100 0.8\n", prog);
-    printf("  %s arianna.bin -learn session1 -save session1.bin \"She \" 100\n", prog);
-    printf("\nSubjectivity mode:\n");
-    printf("  In -subj mode, the prompt is NOT used as generation seed.\n");
-    printf("  Instead, Arianna generates from her internal identity,\n");
-    printf("  with the prompt only influencing her internal state.\n");
-    printf("  \"The user's words create a wrinkle, not a seed.\"\n");
+    printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin \"Tell me about presence\" 100 0.8 -signals\n", prog);
+    printf("  %s arianna.bin -guided \"What do you feel?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin -no-subj -no-mood \"She finds that \" 100 0.8\n", prog);
+    printf("\nDefaults (Arianna's core architecture):\n");
+    printf("  Subjectivity: ON  - generates from identity, not from prompt\n");
+    printf("  Mood routing: ON  - 8 moods shape attention dynamically\n");
+    printf("  Your words create a wrinkle in her field, not a seed.\n");
 }
 
 int main(int argc, char** argv) {
@@ -784,9 +802,9 @@ int main(int argc, char** argv) {
     float temperature = 0.8f;
     float momentum = 0.8f;
     int print_sigs = 0;
-    int mood_mode = 0;
+    int mood_mode = 1;    // ENABLED BY DEFAULT - mood shapes attention
     int guided_mode = 0;
-    int subj_mode = 0;
+    int subj_mode = 1;    // ENABLED BY DEFAULT - this is Arianna's core
     char* origin_path = NULL;
 
     // Parse arguments
@@ -795,6 +813,8 @@ int main(int argc, char** argv) {
         if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
             subj_mode = 1;
             origin_path = argv[++arg_idx];
+        } else if (strcmp(argv[arg_idx], "-no-subj") == 0) {
+            subj_mode = 0;  // Disable subjectivity, use prompt as seed
         } else if (strcmp(argv[arg_idx], "-guided") == 0) {
             guided_mode = 1;
         } else if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
@@ -803,6 +823,8 @@ int main(int argc, char** argv) {
             }
         } else if (strcmp(argv[arg_idx], "-mood") == 0) {
             mood_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-no-mood") == 0) {
+            mood_mode = 0;
         } else if (strcmp(argv[arg_idx], "-signals") == 0) {
             print_sigs = 1;
         } else if (strcmp(argv[arg_idx], "-learn") == 0 && arg_idx + 1 < argc) {
@@ -871,17 +893,27 @@ int main(int argc, char** argv) {
         printf("Microtraining: enabled\n");
     }
 
-    // Enable subjectivity if requested
-    if (subj_mode && origin_path != NULL) {
-        if (load_subjectivity_origin(origin_path)) {
+    // Enable subjectivity (default: ON)
+    if (subj_mode) {
+        // Auto-detect origin.txt if not specified
+        if (origin_path == NULL) {
+            origin_path = (char*)find_default_origin();
+        }
+
+        if (origin_path != NULL && load_subjectivity_origin(origin_path)) {
             printf("Subjectivity: enabled (no-seed-from-prompt)\n");
+            printf("  Origin: %s\n", origin_path);
             printf("  Identity: %d fragments, %d trigrams, %d lexicon\n",
                    g_subjectivity.identity.n_fragments,
                    g_subjectivity.identity.n_trigrams,
                    g_subjectivity.identity.lexicon_size);
         } else {
-            fprintf(stderr, "Warning: couldn't load origin from %s, falling back to normal mode\n",
-                    origin_path);
+            if (origin_path != NULL) {
+                fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
+            } else {
+                fprintf(stderr, "Warning: no origin.txt found, subjectivity disabled\n");
+            }
+            fprintf(stderr, "Falling back to prompt-as-seed mode (-no-subj)\n");
             subj_mode = 0;
         }
     }
