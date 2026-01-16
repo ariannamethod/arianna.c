@@ -128,7 +128,7 @@ void free_delta_bank(DeltaBank* bank);
 int add_shard(DeltaBank* bank, const char* path, int n_layers, int dim);
 
 // ============================================================
-// Microtraining - online learning
+// Microtraining - online learning (notorch style from lang/lora.c)
 // ============================================================
 
 typedef struct {
@@ -139,6 +139,20 @@ typedef struct {
     // Hebbian traces
     float* pre_trace;    // [dim]
     float* post_trace;   // [dim]
+
+    // Contrastive learning params (from lora.c)
+    float push;          // Strength of target boost
+    float pull;          // Strength of competitor suppression
+    int topk;            // How many competitors to suppress
+
+    // Deterministic noise channel (from lora.c)
+    unsigned int seed;
+    float* u;            // [rank] inner experience channel
+    float* dy;           // [out_dim] desired output delta
+
+    // Dimensions
+    int dim;
+    int vocab_size;
 } MicroTrainer;
 
 void init_microtrainer(MicroTrainer* mt, int dim);
@@ -147,5 +161,33 @@ void free_microtrainer(MicroTrainer* mt);
 // Update delta based on attention patterns (Hebbian)
 void micro_update(MicroTrainer* mt, LowRankDelta* delta,
                   float* pre, float* post, float reward);
+
+// ============================================================
+// Notorch Plasticity (from lang/lora.c)
+// "This is NOT gradient descent. It's plasticity."
+// ============================================================
+
+// Build dy from probs: push target, pull competitors
+void build_dy_from_probs(MicroTrainer* mt, float* dy_out,
+                         const float* probs, int vocab_size,
+                         int target_id);
+
+// Notorch step: plasticity without backprop
+void notorch_step(MicroTrainer* mt, LowRankDelta* delta,
+                  const float* x, const float* dy, float signal);
+
+// Experience step: wrapper that builds dy and applies notorch
+void experience_step(MicroTrainer* mt, LowRankDelta* delta,
+                     const float* x, const float* probs,
+                     int target_id, float signal);
+
+// Soft reset: gradual forgetting (scale down instead of zeroing)
+void soft_reset_delta(LowRankDelta* delta, float keep_ratio);
+
+// Clamp delta to prevent weight explosion
+void clamp_delta(LowRankDelta* delta, float max_norm);
+
+// Get delta norm (for monitoring)
+float get_delta_norm(LowRankDelta* delta);
 
 #endif // DELTA_H

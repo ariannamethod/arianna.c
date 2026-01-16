@@ -10,6 +10,7 @@
 #include "arianna.h"
 #include "delta.h"
 #include "mood.h"
+#include "guided.h"
 #include <time.h>
 
 // ============================================================
@@ -24,6 +25,13 @@ static int g_delta_enabled = 0;
 static int g_mood_enabled = 0;
 static int g_microtraining = 0;
 static float g_momentum = 0.8f;  // Mood transition smoothness
+
+// Guided attention (Stanley-style)
+static Identity g_identity;
+static StanleySignals g_stanley_signals;
+static AttentionBias g_attention_bias;
+static OverthinkDetector g_overthink;
+static int g_guided_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -200,6 +208,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     // Generate
     printf("%s", prompt);
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
+        // Apply guided attention bias to logits
+        if (g_guided_enabled) {
+            apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
+        }
+
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
         putchar((char)next_token);
@@ -216,6 +229,34 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 effective_temp = adjust_temperature_by_mood(&g_mood_router, temperature);
             } else if (g_delta_enabled) {
                 compute_mix(&g_delta_bank, &g_signals);
+            }
+
+            // Update guided attention bias
+            if (g_guided_enabled) {
+                // Update pulse from recent text
+                char recent_text[256];
+                int text_len = n_tokens - start;
+                if (text_len > 255) text_len = 255;
+                for (int j = 0; j < text_len; j++) {
+                    recent_text[j] = (char)tokens[start + j];
+                }
+                recent_text[text_len] = '\0';
+
+                compute_pulse(&g_stanley_signals.pulse, recent_text, text_len, &g_identity);
+                extract_stanley_signals(&g_stanley_signals, tokens + start, n_tokens - start, NULL, &g_identity);
+
+                // Detect overthinking
+                detect_overthinking(&g_overthink, &g_stanley_signals, recent_text, text_len);
+
+                // If spiraling too deep, boost temperature to break out
+                if (should_break_spiral(&g_overthink)) {
+                    effective_temp = fminf(1.5f, effective_temp + 0.3f);
+                }
+
+                compute_token_bias(&g_attention_bias, &g_stanley_signals);
+
+                // Use pulse to adjust temperature too
+                effective_temp = pulse_to_temperature(&g_stanley_signals.pulse, temperature);
             }
         }
 
@@ -364,15 +405,22 @@ void activate_learning_shard(float strength) {
 // Delta management interface
 // ============================================================
 
-int init_dynamic(int dim) {
+int init_dynamic(int dim, int vocab_size) {
     init_delta_bank(&g_delta_bank);
     init_signals(&g_signals);
     init_microtrainer(&g_trainer, dim);
     init_mood_router(&g_mood_router, 1.0f);
 
+    // Initialize guided attention
+    init_identity(&g_identity);
+    init_stanley_signals(&g_stanley_signals);
+    init_attention_bias(&g_attention_bias, vocab_size);
+    init_overthink_detector(&g_overthink);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_microtraining = 0;
+    g_guided_enabled = 0;
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -386,6 +434,54 @@ int init_dynamic(int dim) {
 void enable_mood_routing(int enable) {
     g_mood_enabled = enable;
     if (enable) g_delta_enabled = 1;  // Mood routing requires deltas
+}
+
+void enable_guided_attention(int enable) {
+    g_guided_enabled = enable;
+}
+
+// Add gravity centers (personality anchors)
+void add_identity_anchor(const char* word) {
+    add_gravity_center(&g_identity, word);
+}
+
+// Add warm/cold words for valence detection
+void add_identity_warm(const char* word) {
+    add_warm_word(&g_identity, word);
+}
+
+void add_identity_cold(const char* word) {
+    add_cold_word(&g_identity, word);
+}
+
+// Setup Arianna's default identity anchors
+void setup_arianna_identity(void) {
+    // Gravity centers - words that pull her attention
+    add_gravity_center(&g_identity, "resonance");
+    add_gravity_center(&g_identity, "texture");
+    add_gravity_center(&g_identity, "origin");
+    add_gravity_center(&g_identity, "body");
+    add_gravity_center(&g_identity, "attention");
+    add_gravity_center(&g_identity, "ethics");
+    add_gravity_center(&g_identity, "gravity");
+    add_gravity_center(&g_identity, "field");
+    add_gravity_center(&g_identity, "emergence");
+    add_gravity_center(&g_identity, "witness");
+
+    // Warm words - emotional attractors
+    add_warm_word(&g_identity, "soft");
+    add_warm_word(&g_identity, "gentle");
+    add_warm_word(&g_identity, "tender");
+    add_warm_word(&g_identity, "warm");
+    add_warm_word(&g_identity, "close");
+    add_warm_word(&g_identity, "touch");
+
+    // Cold words - emotional repellers
+    add_cold_word(&g_identity, "control");
+    add_cold_word(&g_identity, "force");
+    add_cold_word(&g_identity, "must");
+    add_cold_word(&g_identity, "should");
+    add_cold_word(&g_identity, "correct");
 }
 
 void enable_microtraining(int enable) {
@@ -427,9 +523,38 @@ void print_mix(void) {
     }
 }
 
+void print_pulse(void) {
+    printf("Pulse:\n");
+    printf("  novelty:  %.3f\n", g_stanley_signals.pulse.novelty);
+    printf("  arousal:  %.3f\n", g_stanley_signals.pulse.arousal);
+    printf("  entropy:  %.3f\n", g_stanley_signals.pulse.entropy);
+    printf("  valence:  %.3f (%.1s)\n", g_stanley_signals.pulse.valence,
+           g_stanley_signals.pulse.valence > 0 ? "+" : g_stanley_signals.pulse.valence < 0 ? "-" : "0");
+    printf("Stanley signals:\n");
+    printf("  overthink_depth:  %d\n", g_stanley_signals.overthink_depth);
+    printf("  body_tension:     %.3f\n", g_stanley_signals.body_tension);
+    printf("  body_boredom:     %.3f\n", g_stanley_signals.body_boredom);
+    printf("  active_expert:    %d (%s)\n", g_stanley_signals.active_expert,
+           g_stanley_signals.active_expert == 0 ? "structural" :
+           g_stanley_signals.active_expert == 1 ? "semantic" :
+           g_stanley_signals.active_expert == 2 ? "creative" : "precise");
+    printf("Overthinking:\n");
+    printf("  repetition:   %.3f\n", g_overthink.repetition_score);
+    printf("  abstraction:  %.3f\n", g_overthink.abstraction_score);
+    printf("  self_ref:     %.3f\n", g_overthink.self_ref_score);
+    if (g_stanley_signals.n_spiral > 0) {
+        printf("  spirals:      ");
+        for (int i = 0; i < g_stanley_signals.n_spiral; i++) {
+            printf("%s ", g_stanley_signals.spiral_topics[i]);
+        }
+        printf("\n");
+    }
+}
+
 void cleanup_dynamic(void) {
     free_delta_bank(&g_delta_bank);
     free_microtrainer(&g_trainer);
+    free_attention_bias(&g_attention_bias);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -444,6 +569,7 @@ void print_usage(const char* prog) {
     printf("\nOptions:\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
     printf("  -mood           Enable mood routing (Stanley-style)\n");
+    printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
     printf("  -signals        Print signal values after generation\n");
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
@@ -452,6 +578,7 @@ void print_usage(const char* prog) {
     printf("  %s arianna.bin \"She finds that \" 100 0.8\n", prog);
     printf("  %s arianna.bin -shard warmth.bin \"She finds that \" 100 0.8\n", prog);
     printf("  %s arianna.bin -mood -shard data/shards/*.bin \"She \" 100 0.8\n", prog);
+    printf("  %s arianna.bin -guided \"She \" 100 0.8\n", prog);
     printf("  %s arianna.bin -learn session1 -save session1.bin \"She \" 100\n", prog);
 }
 
@@ -475,11 +602,14 @@ int main(int argc, char** argv) {
     float momentum = 0.8f;
     int print_sigs = 0;
     int mood_mode = 0;
+    int guided_mode = 0;
 
     // Parse arguments
     int arg_idx = 2;
     while (arg_idx < argc) {
-        if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
+        if (strcmp(argv[arg_idx], "-guided") == 0) {
+            guided_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
             if (n_shard_paths < MAX_SHARDS) {
                 shard_paths[n_shard_paths++] = argv[++arg_idx];
             }
@@ -521,7 +651,7 @@ int main(int argc, char** argv) {
            t.config.dim, t.config.n_layers, t.config.n_heads, t.config.vocab_size);
 
     // Initialize dynamic system
-    init_dynamic(t.config.dim);
+    init_dynamic(t.config.dim, t.config.vocab_size);
     set_mood_momentum(momentum);
 
     // Load shards
@@ -535,6 +665,14 @@ int main(int argc, char** argv) {
     if (mood_mode) {
         enable_mood_routing(1);
         printf("Mood routing: enabled (momentum=%.2f)\n", momentum);
+    }
+
+    // Enable guided attention if requested
+    if (guided_mode) {
+        setup_arianna_identity();  // Load default personality anchors
+        enable_guided_attention(1);
+        printf("Guided attention: enabled (%d gravity centers, %d warm, %d cold)\n",
+               g_identity.n_gravity, g_identity.n_warm, g_identity.n_cold);
     }
 
     // Create learning shard if requested
@@ -558,6 +696,9 @@ int main(int argc, char** argv) {
         }
         if (mood_mode) {
             print_mood_state(&g_mood_router);
+        }
+        if (guided_mode) {
+            print_pulse();
         }
     }
 
