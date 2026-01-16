@@ -41,6 +41,17 @@ class AriannaREPL {
         const maxTokens = parseInt(this.maxTokensInput.value);
         const temperature = parseFloat(this.temperatureInput.value);
         
+        // Validate parameters
+        if (isNaN(maxTokens) || maxTokens < 10 || maxTokens > 1000) {
+            this.addMessage('error', 'error', 'max_tokens must be between 10 and 1000');
+            return;
+        }
+        
+        if (isNaN(temperature) || temperature < 0.1 || temperature > 2.0) {
+            this.addMessage('error', 'error', 'temperature must be between 0.1 and 2.0');
+            return;
+        }
+        
         // Disable input during generation
         this.isGenerating = true;
         this.updateUI(true);
