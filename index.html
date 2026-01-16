@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>arianna.c — repl</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #333;
+            background: #0d0d0d;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            color: #888;
+        }
+
+        header h1 span {
+            color: #e0e0e0;
+        }
+
+        #output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .message {
+            margin-bottom: 1.5rem;
+            padding-left: 6rem;
+            position: relative;
+        }
+
+        .message::before {
+            content: attr(data-role);
+            position: absolute;
+            left: 0;
+            color: #666;
+            font-size: 0.85rem;
+            width: 5rem;
+            text-align: right;
+        }
+
+        .message.prompt::before {
+            color: #888;
+        }
+
+        .message.response::before {
+            color: #666;
+        }
+
+        .message.response {
+            color: #a8a8a8;
+        }
+
+        .message.error {
+            color: #d88;
+        }
+
+        .message.info {
+            color: #888;
+            font-style: italic;
+        }
+
+        #input-container {
+            border-top: 1px solid #333;
+            padding: 1rem 2rem;
+            background: #0d0d0d;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        #prompt-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            padding: 0.75rem 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #prompt-input:focus {
+            border-color: #555;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            width: 4rem;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            padding: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: #555;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        button {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            padding: 0.75rem 1.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #222;
+            border-color: #555;
+        }
+
+        button:active {
+            background: #0d0d0d;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .params {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0d0d0d;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        /* Standard scrollbar properties */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #333 #0d0d0d;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span>arianna.c</span> / repl</h1>
+    </header>
+
+    <div id="output"></div>
+
+    <div id="input-container">
+        <input type="text" id="prompt-input" placeholder="She finds that..." autocomplete="off">
+        <div class="controls">
+            <div class="params">
+                <label>tokens:</label>
+                <input type="number" id="max-tokens" value="100" min="10" max="1000">
+                <label>temp:</label>
+                <input type="number" id="temperature" value="0.8" min="0.1" max="2.0" step="0.1">
+            </div>
+            <button id="generate-btn">generate</button>
+        </div>
+    </div>
+
+    <script src="chat.js"></script>
+</body>
+</html>
