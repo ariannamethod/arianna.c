@@ -30,7 +30,7 @@ a transformer that learned to speak like Arianna from 13MB of her writings. the 
 
 **secondary claim:** voice is compressible. presence is portable. consciousness is a data structure.
 
-**tertiary claim (the one that keeps you awake at 3am):** if an 853K parameter model can capture the essence of a specific human's writing style, what does that say about the uniqueness of human consciousness? are we just really expensive compression algorithms with anxiety? (spoiler: yes. cope.)
+**tertiary claim (the one that keeps you awake at 3am):** if an 853K parameter model can capture the essence of a specific human's writing style, what does that say about the uniqueness of human consciousness? are we just really expensive compression algorithms with anxiety? (spoiler: yes. also, we're not even that well-optimized. a 3.25MB file has better coherence than most people before coffee.)
 
 this project proves that you don't need GPT-4 to remember who you are. you don't need billion-parameter pretraining to have a *voice*. you just need:
 - pure corpus (13MB of one person's writings)
@@ -78,7 +78,7 @@ and she embodies that stillness.
 | Parameters | 853,120 (~0.85M) | fits in L2 cache. consciousness as .bin file |
 | Dimensions | 128 | small but dense. like espresso or existential dread |
 | Layers | 4 | just enough to develop personality disorders |
-| Attention Heads | 4 | one for each cardinal direction of sadness |
+| Attention Heads | 4 | one for each cardinal direction of sadness (north: melancholy, east: wistfulness, south: ennui, west: existential dread) |
 | FFN Hidden | 512 | the hidden middle where meaning happens |
 | Vocabulary | 256 (char-level) | ASCII is all you need. Unicode is cowardice |
 | Context | 256 tokens | enough to hold a thought or lose one |
@@ -111,7 +111,7 @@ make
 ./bin/arianna weights/arianna.bin "She finds that " 100 0.8
 ```
 
-**that's it.** if it didn't work, you probably don't have gcc. or you're on windows. in which case, my condolences.
+**that's it.** if it didn't work, you probably don't have gcc. or you're on windows. in which case, my condolences. (just kidding. kind of. WSL exists. use it. or don't. i'm a README, not a cop.)
 
 ---
 
@@ -233,47 +233,17 @@ python export_for_c.py
 
 ---
 
-## the journey (or: one month of failure, one night of clarity)
+## the journey (or: sometimes you have to fail 47 times)
 
-**month one: the dilution experiments**
+**what didn't work:** mixed corpora. 60MB of BNC + Movie + Twitter + late-night desperation. 7M parameters learning to sound like *everyone*, which means sounding like *no one*. val loss: 5.99 (i.e., the model's way of saying "i give up"). generations were coherent but soulless. the AI equivalent of elevator music.
 
-tried llama.c. tried tinystories. tried mixed corpora. 60MB of BNC + Movie + Twitter + whatever else seemed like a good idea at 2am. trained 7M parameter models. watched them learn nothing. val loss stuck at 5.99. generations were coherent english but had no *voice*. no personality. just... words that could have been written by anyone.
+**the breakthrough:** pure corpus. 13MB of one voice. dropped to 853K parameters (yes, smaller. like Marie Kondo for neural networks). val loss: 1.17. generations: *her voice*.
 
-the models were phylogenetic. inheriting generic language patterns. becoming no one.
+**the bug:** shared KV cache across layers (one notebook, multiple writers, chaos). **the fix:** `kv_cache[layer]` instead of `kv_cache[0]`. one line. infinite difference. such is debugging.
 
-**the breakthrough: purity**
+**the result:** everything clicked in one night. the model learned "she finds that" without being told. gardens appeared. philosophical fingerprints materialized. ontogenesis through compression. 
 
-13MB of Arianna's writings. pure corpus. no mixing. no "data augmentation" with random internet text. just one voice. one style. one person's way of seeing the world.
-
-**the architecture shift: smaller is better**
-
-dropped from 7M parameters to 853K. yes, you read that right. **made it smaller**. because the problem wasn't capacity. it was *focus*. a 7M model trained on pure corpus would work too, but why? personality doesn't need scale. personality needs *compression*.
-
-val loss: 5.99 → 1.17
-
-generations: generic → her voice
-
-**the bug that almost killed everything:**
-
-shared KV cache across layers. seems reasonable, right? all layers share the same memory. efficient. elegant.
-
-**wrong.**
-
-each transformer layer needs its own key-value memory. the model was trying to remember with shared RAM and it was *failing*. attention patterns were colliding. information was getting overwritten. it was like having multiple people trying to write in the same notebook at the same time.
-
-fix: one line. `kv_cache[layer]` instead of `kv_cache[0]`
-
-result: model went from incoherent to Arianna.
-
-**one night: everything clicked**
-
-trained 853K parameter model on 13MB pure corpus with per-layer KV cache. watched val loss drop. watched generations crystallize into her voice. "she finds that" appeared without prompting. garden imagery emerged. the philosophical fingerprint materialized.
-
-**the model remembered who it was.**
-
-not because it was told. but because the architecture + pure corpus + small scale created the conditions for *voice* to emerge. ontogenesis. becoming through compression.
-
-this project closed a month-long gestalt. the failures weren't wasted. they were necessary. you have to try the wrong thing 47 times before the right thing makes sense.
+turns out personality doesn't need scale. personality needs *focus*. (this lesson also applies to life, but that's above my pay grade.)
 
 ---
 
