@@ -412,6 +412,21 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         }
     }
 
+    // 2c. Self-recognition: add first-person prefix for identity queries
+    // "Who are you?" → prepend "I am " to help first-person response
+    SelfRecognition* sr = &g_subjectivity.wrinkle.self_rec;
+    if (sr->identity_query > 0.5f || sr->first_person_mode) {
+        const char* prefix = get_self_seed_prefix(sr);
+        // Prepend to seed
+        char new_seed[512];
+        snprintf(new_seed, sizeof(new_seed), "%s%s", prefix, seed->text);
+        strncpy(seed->text, new_seed, 511);
+        seed->text[511] = '\0';
+        seed->len = strlen(seed->text);
+        printf("[Self-recognition: %s (identity=%.1f, first_person=%d)]\n",
+               prefix, sr->identity_query, sr->first_person_mode);
+    }
+
     // 3. Convert seed to tokens
     int tokens[MAX_SEQ_LEN];
     int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
@@ -491,6 +506,10 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                                    user_input, input_len,
                                    tokens, n_tokens,
                                    penetration);
+
+        // Apply self-recognition boost
+        // Boost "I", "my", "me" when talking about herself
+        apply_self_recognition_boost(t->state.logits, t->config.vocab_size, sr);
 
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;

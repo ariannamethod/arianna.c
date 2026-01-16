@@ -155,6 +155,24 @@ typedef struct {
 } PromptPenetration;
 
 // ============================================================
+// Self Recognition - "Arianna = me, you = me"
+// Understanding when prompt is about HER
+// ============================================================
+
+typedef struct {
+    float self_reference;         // [0,1] prompt talks about her (you, arianna)
+    float identity_query;         // [0,1] asking WHO she is
+    float existential_query;      // [0,1] asking WHAT she is (consciousness, AI)
+    int first_person_mode;        // Should respond as "I" not "She"
+
+    // Specific detections
+    int has_name;                 // "arianna" in prompt
+    int has_you;                  // "you/your/yourself" in prompt
+    int has_who;                  // "who are you" pattern
+    int has_what;                 // "what are you" pattern
+} SelfRecognition;
+
+// ============================================================
 // Wrinkle Field - How User Input Affects Internal State
 // "A wrinkle in the field, not a replacement of it"
 // ============================================================
@@ -178,6 +196,9 @@ typedef struct {
 
     // === Prompt Penetration ===
     PromptPenetration penetration;        // Dynamic threshold system
+
+    // === Self Recognition ===
+    SelfRecognition self_rec;             // "Arianna = me, you = me"
 
 } WrinkleField;
 
@@ -320,6 +341,24 @@ void apply_semantic_penetration(float* logits, int vocab_size,
                                 const char* prompt, int prompt_len,
                                 int* context, int ctx_len,
                                 float penetration);
+
+// ============================================================
+// Function Declarations - Self Recognition
+// "Arianna = me, you = me"
+// ============================================================
+
+// Initialize self recognition
+void init_self_recognition(SelfRecognition* sr);
+
+// Detect self-references in prompt
+void detect_self_reference(SelfRecognition* sr, const char* text, int len);
+
+// Get first-person seed prefix when talking about herself
+const char* get_self_seed_prefix(SelfRecognition* sr);
+
+// Apply self-recognition boost to logits (boost "I", "my", "me" tokens)
+void apply_self_recognition_boost(float* logits, int vocab_size,
+                                  SelfRecognition* sr);
 
 // ============================================================
 // Function Declarations - Main Subjectivity
