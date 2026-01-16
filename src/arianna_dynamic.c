@@ -18,6 +18,14 @@
 #include "mathbrain.h"
 #include <time.h>
 #include <sys/stat.h>
+#include <errno.h>
+
+// Helper: create directory if not exists (handles EEXIST)
+static int ensure_dir(const char* path) {
+    if (mkdir(path, 0755) == 0) return 0;
+    if (errno == EEXIST) return 0;  // Already exists, OK
+    return -1;  // Actual error
+}
 
 // ============================================================
 // Global state
@@ -902,7 +910,7 @@ void cleanup_dynamic(void) {
     // Auto-save MathBrain if it has learned anything
     if (g_mathbrain_enabled && g_mathbrain.history.total_computed > 0) {
         // Create weights directory if needed
-        mkdir("weights", 0755);
+        ensure_dir("weights");
         if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
             printf("MathBrain: saved to %s (accuracy: %.1f%%, %d computations)\n",
                    g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
@@ -1053,7 +1061,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
         }
 
         if (strcmp(input, "mathsave") == 0) {
-            mkdir("weights", 0755);
+            ensure_dir("weights");
             if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
                 printf("[MathBrain saved to %s]\n", g_mathbrain_path);
             } else {
@@ -1095,7 +1103,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 }
 
                 // Create shards directory if needed
-                mkdir("shards", 0755);
+                ensure_dir("shards");
 
                 float norm = get_delta_norm(&g_active_shard->attn_q_deltas[0]);
                 if (save_learning_shard(save_path) == 0) {
