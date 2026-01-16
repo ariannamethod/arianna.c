@@ -16,6 +16,7 @@ data/
 # TRACKED (continuous learning like Stanley):
 # weights/        - MathBrain, model weights
 # shards/         - experience shards (microtraining accumulates here)
+# personality/    - compiled binary (no need to recompile)
 
 # Dev files
 *.log
