@@ -14,6 +14,7 @@
 #include "subjectivity.h"
 #include "cooccur.h"
 #include "body_sense.h"
+#include "selfsense.h"
 #include <time.h>
 
 // ============================================================
@@ -50,6 +51,10 @@ static float g_cooccur_alpha = 0.15f;  // Blend strength
 static BodySense g_body_sense;
 static BodyState g_body_state;
 static int g_body_sense_enabled = 0;
+
+// SelfSense (learned signal extraction from hidden states)
+static SelfSense g_selfsense;
+static int g_selfsense_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -459,6 +464,12 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         }
 
         forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+
+        // SelfSense: extract signals from hidden states (not surface heuristics)
+        if (g_selfsense_enabled) {
+            selfsense_extract(&g_selfsense, t->state.xb, &g_signals);
+        }
+
         n_tokens++;
     }
 
@@ -471,6 +482,13 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // 10. Online learning: observe generated tokens for co-occurrence
     if (g_cooccur_enabled) {
         observe_tokens(&g_cooccur, tokens, n_tokens);
+    }
+
+    // 11. SelfSense learning from generation quality
+    if (g_selfsense_enabled) {
+        // Use body sense quality as feedback for SelfSense
+        float quality = g_body_state.quality;
+        selfsense_learn(&g_selfsense, quality);
     }
 }
 
@@ -635,13 +653,17 @@ int init_dynamic(int dim, int vocab_size) {
     init_body_sense(&g_body_sense);
     init_body_state(&g_body_state);
 
+    // Initialize SelfSense (learned signal extraction)
+    init_selfsense(&g_selfsense, dim);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_cooccur_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
     g_subjectivity_enabled = 0;
-    g_body_sense_enabled = 1;  // ON by default - body knows
+    g_body_sense_enabled = 1;   // ON by default - body knows
+    g_selfsense_enabled = 1;    // ON by default - self-sensing from hidden states
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -833,6 +855,7 @@ void cleanup_dynamic(void) {
     free_subjectivity(&g_subjectivity);
     free_cooccur_field(&g_cooccur);
     free_body_sense(&g_body_sense);
+    free_selfsense(&g_selfsense);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -1017,6 +1040,26 @@ int main(int argc, char** argv) {
                 printf("  Tokens observed: %llu, alpha: %.2f\n",
                        (unsigned long long)g_cooccur.tokens_observed, g_cooccur_alpha);
             }
+
+            // Setup SelfSense identity from origin tokens
+            if (g_selfsense_enabled) {
+                // Tokenize origin text for identity embedding
+                FILE* f = fopen(origin_path, "r");
+                if (f) {
+                    char buf[4096];
+                    int len = fread(buf, 1, 4095, f);
+                    buf[len] = '\0';
+                    fclose(f);
+
+                    int tokens[1024];
+                    int n_tok = 0;
+                    for (int i = 0; i < len && n_tok < 1024; i++) {
+                        tokens[n_tok++] = (unsigned char)buf[i];
+                    }
+                    selfsense_compute_identity_from_tokens(&g_selfsense, &t, tokens, n_tok);
+                    printf("SelfSense: enabled (learned signals from hidden states)\n");
+                }
+            }
         } else {
             if (origin_path != NULL) {
                 fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
@@ -1055,6 +1098,10 @@ int main(int argc, char** argv) {
         }
         if (g_body_sense_enabled) {
             print_body_sense_debug();
+        }
+        if (g_selfsense_enabled) {
+            print_selfsense_signals(&g_selfsense);
+            print_selfsense_stats(&g_selfsense);
         }
     }
 
