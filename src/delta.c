@@ -338,6 +338,19 @@ void init_microtrainer(MicroTrainer* mt, int dim) {
     mt->momentum = 0.9f;
     mt->decay = 0.999f;
 
+    // Contrastive learning params (from lora.c)
+    mt->push = 1.0f;    // Boost target
+    mt->pull = 0.5f;    // Suppress competitors
+    mt->topk = 3;       // Top 3 competitors
+
+    // Deterministic noise channel
+    mt->seed = 0xA17A11u;  // "ARIANNA" in hex-ish
+    mt->u = NULL;          // Lazy allocated
+    mt->dy = NULL;         // Lazy allocated
+
+    mt->dim = dim;
+    mt->vocab_size = 0;    // Set later
+
     mt->pre_trace = (float*)calloc(dim, sizeof(float));
     mt->post_trace = (float*)calloc(dim, sizeof(float));
 }
@@ -345,6 +358,8 @@ void init_microtrainer(MicroTrainer* mt, int dim) {
 void free_microtrainer(MicroTrainer* mt) {
     if (mt->pre_trace) free(mt->pre_trace);
     if (mt->post_trace) free(mt->post_trace);
+    if (mt->u) free(mt->u);
+    if (mt->dy) free(mt->dy);
 }
 
 /*
@@ -405,5 +420,215 @@ void micro_update(MicroTrainer* mt, LowRankDelta* delta,
             // Apply decay
             delta->B[r * delta->in_dim + j] *= mt->decay;
         }
+    }
+}
+
+// ============================================================
+// Notorch Plasticity (ported from lang/lora.c)
+// "This is NOT gradient descent. It's plasticity."
+// ============================================================
+
+// Tiny deterministic RNG (xorshift32)
+static unsigned int xorshift32(unsigned int* s) {
+    unsigned int x = *s;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *s = x;
+    return x;
+}
+
+static float frand01(unsigned int* s) {
+    return (xorshift32(s) & 0xFFFFFF) / 16777216.0f;
+}
+
+static float frandn(unsigned int* s) {
+    // Box-Muller
+    float u1 = fmaxf(1e-6f, fminf(frand01(s), 1.0f));
+    float u2 = frand01(s);
+    return sqrtf(-2.0f * logf(u1)) * cosf(6.2831853f * u2);
+}
+
+// Find index of max prob excluding target
+static int argmax_excluding(const float* probs, int n, int exclude) {
+    int imax = (exclude == 0 ? 1 : 0);
+    if (imax >= n) return -1;
+    float pmax = probs[imax];
+    for (int i = 0; i < n; i++) {
+        if (i == exclude) continue;
+        if (probs[i] > pmax) { pmax = probs[i]; imax = i; }
+    }
+    return imax;
+}
+
+/*
+ * Build dy from probs: push target, pull competitors
+ *
+ * Strategy:
+ *  - dy[target] += push
+ *  - find top competitors and push them down: dy[comp] -= pull / K
+ */
+void build_dy_from_probs(MicroTrainer* mt, float* dy_out,
+                         const float* probs, int vocab_size,
+                         int target_id) {
+    if (!dy_out || !probs || vocab_size <= 0) return;
+    if (target_id < 0 || target_id >= vocab_size) return;
+
+    // Zero output
+    memset(dy_out, 0, vocab_size * sizeof(float));
+
+    // Main push: boost target
+    dy_out[target_id] += mt->push;
+
+    // Pull: suppress competitors
+    if (mt->topk <= 0) {
+        // Just suppress strongest competitor
+        int comp = argmax_excluding(probs, vocab_size, target_id);
+        if (comp >= 0) dy_out[comp] -= mt->pull;
+    } else {
+        // Top-K suppression
+        float each_pull = mt->pull / (float)mt->topk;
+        for (int k = 0; k < mt->topk; k++) {
+            int comp = argmax_excluding(probs, vocab_size, target_id);
+            if (comp >= 0) {
+                dy_out[comp] -= each_pull;
+            }
+        }
+    }
+}
+
+/*
+ * Notorch step: plasticity without backprop
+ *
+ * The idea:
+ * 1) We have input x and desired delta direction dy
+ * 2) We pick a rank-channel vector u (deterministic noise)
+ * 3) Update factors:
+ *      A += lr * (x ⊗ u)
+ *      B += lr * (u ⊗ dy)
+ * 4) Gentle decay to prevent runaway
+ */
+void notorch_step(MicroTrainer* mt, LowRankDelta* delta,
+                  const float* x, const float* dy, float signal) {
+    if (!mt || !delta || !x || !dy) return;
+    if (delta->A == NULL || delta->B == NULL) return;
+
+    // Clamp signal
+    float g = fmaxf(-2.0f, fminf(signal, 2.0f));
+
+    // Allocate u if not already
+    if (mt->u == NULL) {
+        mt->u = (float*)calloc(DELTA_RANK, sizeof(float));
+    }
+
+    // Build u: deterministic noise modulated by signal strength
+    // Stronger signal -> cleaner channel (less noise)
+    for (int r = 0; r < delta->rank; r++) {
+        float n = frandn(&mt->seed);
+        float k = 0.35f + 0.65f * (1.0f - fabsf(g));
+        mt->u[r] = n * k;
+    }
+
+    float lr = mt->learning_rate;
+
+    // A[i,r] += lr * x[i] * u[r] * g
+    for (int i = 0; i < delta->in_dim; i++) {
+        float xi = x[i] * lr * g;
+        for (int r = 0; r < delta->rank; r++) {
+            delta->A[i * delta->rank + r] += xi * mt->u[r];
+        }
+    }
+
+    // B[r,j] += lr * u[r] * dy[j] * g
+    for (int r = 0; r < delta->rank; r++) {
+        float ur = mt->u[r] * lr * g;
+        for (int j = 0; j < delta->out_dim; j++) {
+            delta->B[r * delta->out_dim + j] += ur * dy[j];
+        }
+    }
+
+    // Gentle decay
+    if (mt->decay > 0.0f && mt->decay < 1.0f) {
+        float d = mt->decay;
+        for (int i = 0; i < delta->in_dim * delta->rank; i++) {
+            delta->A[i] *= d;
+        }
+        for (int i = 0; i < delta->rank * delta->out_dim; i++) {
+            delta->B[i] *= d;
+        }
+    }
+}
+
+/*
+ * Experience step: one-call wrapper for notorch learning
+ * Builds dy from probs internally, then applies notorch_step
+ *
+ * This is the "breathing" interface:
+ *   model.forward() → probs
+ *   experience_step(probs, target, signal) → personality update
+ */
+void experience_step(MicroTrainer* mt, LowRankDelta* delta,
+                     const float* x, const float* probs,
+                     int target_id, float signal) {
+    if (!mt || !delta || !x || !probs) return;
+    if (target_id < 0 || target_id >= delta->out_dim) return;
+
+    // Allocate dy if not already
+    if (mt->dy == NULL) {
+        mt->dy = (float*)calloc(delta->out_dim, sizeof(float));
+        mt->vocab_size = delta->out_dim;
+    }
+
+    // Build dy from probs
+    build_dy_from_probs(mt, mt->dy, probs, delta->out_dim, target_id);
+
+    // Apply notorch step
+    notorch_step(mt, delta, x, mt->dy, signal);
+}
+
+/*
+ * Soft reset: gradual forgetting (scale down instead of zeroing)
+ * keep_ratio: 0.0 = full reset, 1.0 = no change
+ */
+void soft_reset_delta(LowRankDelta* delta, float keep_ratio) {
+    if (!delta || delta->A == NULL || delta->B == NULL) return;
+
+    float k = fmaxf(0.0f, fminf(keep_ratio, 1.0f));
+
+    for (int i = 0; i < delta->in_dim * delta->rank; i++) {
+        delta->A[i] *= k;
+    }
+    for (int i = 0; i < delta->rank * delta->out_dim; i++) {
+        delta->B[i] *= k;
+    }
+}
+
+/*
+ * Get delta norm (for monitoring)
+ */
+float get_delta_norm(LowRankDelta* delta) {
+    if (!delta || delta->A == NULL || delta->B == NULL) return 0.0f;
+
+    float sum = 0.0f;
+    for (int i = 0; i < delta->in_dim * delta->rank; i++) {
+        sum += delta->A[i] * delta->A[i];
+    }
+    for (int i = 0; i < delta->rank * delta->out_dim; i++) {
+        sum += delta->B[i] * delta->B[i];
+    }
+
+    return sqrtf(sum);
+}
+
+/*
+ * Clamp delta to prevent weight explosion
+ */
+void clamp_delta(LowRankDelta* delta, float max_norm) {
+    if (!delta || max_norm <= 0.0f) return;
+
+    float norm = get_delta_norm(delta);
+    if (norm > max_norm) {
+        float scale = max_norm / norm;
+        soft_reset_delta(delta, scale);
     }
 }
