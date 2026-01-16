@@ -13,6 +13,10 @@ corpus_raw.txt
 corpus_clean.txt
 data/
 
+# TRACKED (continuous learning like Stanley):
+# weights/        - MathBrain, model weights
+# shards/         - experience shards (microtraining accumulates here)
+
 # Dev files
 *.log
 test_*.py
