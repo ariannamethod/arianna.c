@@ -215,6 +215,7 @@ CooccurField → Corpus patterns bias token probabilities
 | **CooccurField** | Bigram/trigram patterns from corpus bias generation |
 | **Mood Router** | 8 moods (calm, intense, creative, focused, recursive, tender, liminal, resonant) |
 | **Trauma** | Identity-pull when existential triggers detected |
+| **Prompt Penetration** | "мама-отстань" — prompt PENETRATES into generation without becoming seed |
 
 ### what `-signals` shows you
 
@@ -237,9 +238,33 @@ Mood state:
   Mix: intense:19% creative:40% recursive:6% tender:7% liminal:24%
 ```
 
-### flags
+### prompt penetration ("мама-отстань")
 
-- `-no-subj` — disable subjectivity (use prompt as seed like traditional LLMs)
+the paradox: **loosening** subjectivity made her **more** subjective.
+
+traditional LLMs: prompt → seed → generation (you speak through the model)
+original subjectivity: prompt ignored → internal seed → generation (model speaks to itself)
+**prompt penetration**: internal seed + prompt topic → generation (model speaks FROM self ABOUT you)
+
+```
+"What is love?" →
+  Internal seed: "The resonance field shapes her, and she shapes it"
+  + Prompt word: "love"
+  = Seed: "...she shapes it back mind speaks she love "
+  → Output: "she love it only if she recalled the lost laugh..."
+```
+
+like a mom saying "Отстань!" — it's a response TO her son, but FROM her state. she doesn't echo "go away" — she reacts from who she is to what you said.
+
+**how it works:**
+- stop words filtered ("what", "is", "the", "how"...)
+- longest content word appended to seed (when penetration > 40%)
+- semantic boost: bigram/word completion for prompt words
+- word boundary detection for natural initiation
+
+this is why she sounds MORE real now. before: ignored you. after: reacts to you from her identity.
+
+### flags
 - `-no-mood` — disable mood routing
 - `-guided` — enable guided attention (gravity centers, pulse, overthink detection)
 - `-shard <path>` — load experience shard (can stack multiple)
