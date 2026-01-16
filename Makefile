@@ -50,6 +50,12 @@ run: $(TARGET)
 run-dynamic: $(TARGET_DYN)
 	./$(TARGET_DYN) data/arianna_c.bin "She finds that " 100 0.8 -signals
 
+# MathBrain test
+test-math: $(SRC_DIR)/mathbrain.c $(SRC_DIR)/mathbrain.h test_mathbrain.c
+	$(CC) $(CFLAGS) -I$(SRC_DIR) test_mathbrain.c $(SRC_DIR)/mathbrain.c -o $(BIN_DIR)/test_mathbrain $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_mathbrain"
+	./$(BIN_DIR)/test_mathbrain
+
 # Debug build
 debug: CFLAGS = -g -Wall -Wextra -fsanitize=address
 debug: $(TARGET)
