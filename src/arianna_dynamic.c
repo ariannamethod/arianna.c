@@ -910,8 +910,7 @@ void cleanup_dynamic(void) {
     // Auto-save MathBrain if it has learned anything
     if (g_mathbrain_enabled && g_mathbrain.history.total_computed > 0) {
         // Create weights directory if needed
-        ensure_dir("weights");
-        if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+        if (ensure_dir("weights") == 0 && save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
             printf("MathBrain: saved to %s (accuracy: %.1f%%, %d computations)\n",
                    g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
                    g_mathbrain.history.total_computed);
@@ -1061,8 +1060,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
         }
 
         if (strcmp(input, "mathsave") == 0) {
-            ensure_dir("weights");
-            if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+            if (ensure_dir("weights") != 0) {
+                printf("[Error creating weights directory]\n");
+            } else if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
                 printf("[MathBrain saved to %s]\n", g_mathbrain_path);
             } else {
                 printf("[Error saving MathBrain]\n");
@@ -1103,15 +1103,17 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 }
 
                 // Create shards directory if needed
-                ensure_dir("shards");
-
-                float norm = get_delta_norm(&g_active_shard->attn_q_deltas[0]);
-                if (save_learning_shard(save_path) == 0) {
-                    printf("[Saved to %s]\n", save_path);
-                    printf("[Delta norm: %.4f, observations: %d]\n",
-                           norm, g_selfsense.observations);
+                if (ensure_dir("shards") != 0) {
+                    printf("[Error creating shards directory]\n");
                 } else {
-                    printf("[Error saving shard]\n");
+                    float norm = get_delta_norm(&g_active_shard->attn_q_deltas[0]);
+                    if (save_learning_shard(save_path) == 0) {
+                        printf("[Saved to %s]\n", save_path);
+                        printf("[Delta norm: %.4f, observations: %d]\n",
+                               norm, g_selfsense.observations);
+                    } else {
+                        printf("[Error saving shard]\n");
+                    }
                 }
             }
             continue;
