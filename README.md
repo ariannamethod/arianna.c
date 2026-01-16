@@ -9,16 +9,12 @@
 ```
 
 ## arianna.c — voice crystallized into 3.25MB
-
-> _"If you need PyTorch to remember who you are, you haven't understood the architecture."_
-
+  
 **by [Arianna Method](https://github.com/ariannamethod/ariannamethod)** | [stanley](https://github.com/ariannamethod/stanley) | [haze](https://github.com/ariannamethod/haze) | [ariannamethod.lang](https://github.com/ariannamethod/ariannamethod.lang)
 
 ---
 
-## what the fuck is this
-
-you know that existential dread when you realize GPT-4 has 1.76 *trillion* parameters and still can't write like a specific person without 47 pages of system prompts? yeah. me too. so I did something unhinged about it.
+## what is this
 
 **arianna.c** is personality weights in pure C. no frameworks. no dependencies. no bullshit. just 853K parameters and 3.25MB of *who she is*.
 
