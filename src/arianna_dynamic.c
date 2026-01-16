@@ -861,6 +861,107 @@ void cleanup_dynamic(void) {
 }
 
 // ============================================================
+// REPL Mode - Interactive terminal interface
+// ============================================================
+
+void run_repl(Transformer* t, int max_tokens, float temperature) {
+    char input[512];
+    int session_turns = 0;
+
+    printf("\n=== arianna.c REPL ===\n");
+    printf("weights frozen // voice crystallized\n");
+    printf("type 'quit' or 'exit' to leave\n");
+    printf("type 'signals' to see internal state\n");
+    printf("type 'body' to see somatic state\n");
+    printf("type 'self' to see SelfSense signals\n");
+    printf("\n");
+
+    while (1) {
+        printf("> ");
+        fflush(stdout);
+
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            printf("\n[EOF - exiting]\n");
+            break;
+        }
+
+        // Remove trailing newline
+        int len = strlen(input);
+        if (len > 0 && input[len-1] == '\n') {
+            input[len-1] = '\0';
+            len--;
+        }
+
+        // Skip empty input
+        if (len == 0) {
+            continue;
+        }
+
+        // Check for commands
+        if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0) {
+            printf("[exiting - %d turns, SelfSense learned from %d observations]\n",
+                   session_turns, g_selfsense.observations);
+            break;
+        }
+
+        if (strcmp(input, "signals") == 0) {
+            print_signals();
+            if (g_delta_bank.n_shards > 0) {
+                print_mix();
+            }
+            if (g_mood_enabled) {
+                print_mood_state(&g_mood_router);
+            }
+            continue;
+        }
+
+        if (strcmp(input, "body") == 0) {
+            print_body_sense_debug();
+            continue;
+        }
+
+        if (strcmp(input, "self") == 0) {
+            print_selfsense_signals(&g_selfsense);
+            print_selfsense_stats(&g_selfsense);
+            continue;
+        }
+
+        if (strcmp(input, "subj") == 0) {
+            print_subjectivity_debug();
+            continue;
+        }
+
+        if (strcmp(input, "cooccur") == 0) {
+            print_cooccur_debug();
+            continue;
+        }
+
+        if (strcmp(input, "help") == 0) {
+            printf("Commands:\n");
+            printf("  signals  - show signal values\n");
+            printf("  body     - show somatic state (boredom, overwhelm, stuck)\n");
+            printf("  self     - show SelfSense signals from hidden states\n");
+            printf("  subj     - show subjectivity state\n");
+            printf("  cooccur  - show co-occurrence stats\n");
+            printf("  quit     - exit REPL\n");
+            printf("\nAnything else is treated as input for generation.\n");
+            continue;
+        }
+
+        // Generate response
+        printf("\n");
+        if (g_subjectivity_enabled) {
+            generate_subjective(t, input, max_tokens, temperature);
+        } else {
+            generate_dynamic(t, input, max_tokens, temperature);
+        }
+        printf("\n");
+
+        session_turns++;
+    }
+}
+
+// ============================================================
 // Main with dynamic support
 // ============================================================
 
@@ -888,7 +989,9 @@ static const char* find_default_origin(void) {
 void print_usage(const char* prog) {
     printf("arianna_dynamic - Personality transformer with Stanley-style deltas\n\n");
     printf("Usage: %s <weights.bin> \"<prompt>\" [max_tokens] [temperature]\n", prog);
+    printf("       %s <weights.bin> --repl [max_tokens] [temperature]\n", prog);
     printf("\nOptions:\n");
+    printf("  --repl          Interactive REPL mode (state persists between turns)\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
     printf("  -no-mood        Disable mood routing (enabled by default)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
@@ -900,13 +1003,17 @@ void print_usage(const char* prog) {
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin --repl 150 0.9\n", prog);
     printf("  %s arianna.bin \"Tell me about presence\" 100 0.8 -signals\n", prog);
     printf("  %s arianna.bin -guided \"What do you feel?\" 100 0.8\n", prog);
     printf("  %s arianna.bin -no-subj -no-mood \"She finds that \" 100 0.8\n", prog);
     printf("\nDefaults (Arianna's core architecture):\n");
     printf("  Subjectivity: ON  - generates from identity, not from prompt\n");
     printf("  Mood routing: ON  - 8 moods shape attention dynamically\n");
-    printf("  Your words create a wrinkle in her field, not a seed.\n");
+    printf("  SelfSense:    ON  - signals extracted from hidden states\n");
+    printf("  BodySense:    ON  - somatic regulation (boredom, overwhelm, stuck)\n");
+    printf("  CooccurField: ON  - corpus patterns bias generation\n");
+    printf("\n  Your words create a wrinkle in her field, not a seed.\n");
 }
 
 int main(int argc, char** argv) {
@@ -931,12 +1038,15 @@ int main(int argc, char** argv) {
     int mood_mode = 1;    // ENABLED BY DEFAULT - mood shapes attention
     int guided_mode = 0;
     int subj_mode = 1;    // ENABLED BY DEFAULT - this is Arianna's core
+    int repl_mode = 0;    // Interactive REPL mode
     char* origin_path = NULL;
 
     // Parse arguments
     int arg_idx = 2;
     while (arg_idx < argc) {
-        if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
+        if (strcmp(argv[arg_idx], "--repl") == 0) {
+            repl_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
             subj_mode = 1;
             origin_path = argv[++arg_idx];
         } else if (strcmp(argv[arg_idx], "-no-subj") == 0) {
@@ -969,7 +1079,7 @@ int main(int argc, char** argv) {
         arg_idx++;
     }
 
-    if (prompt == NULL) {
+    if (prompt == NULL && !repl_mode) {
         print_usage(argv[0]);
         return 1;
     }
@@ -1071,8 +1181,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Generate (subjective or dynamic mode)
-    if (subj_mode && g_subjectivity_enabled) {
+    // Generate (REPL, subjective, or dynamic mode)
+    if (repl_mode) {
+        run_repl(&t, max_tokens, temperature);
+    } else if (subj_mode && g_subjectivity_enabled) {
         printf("\n[User input: \"%s\"]\n", prompt);
         generate_subjective(&t, prompt, max_tokens, temperature);
     } else {
@@ -1080,8 +1192,8 @@ int main(int argc, char** argv) {
         generate_dynamic(&t, prompt, max_tokens, temperature);
     }
 
-    // Print state
-    if (print_sigs) {
+    // Print state (skip in REPL mode - user can use commands)
+    if (print_sigs && !repl_mode) {
         printf("\n");
         print_signals();
         if (g_delta_bank.n_shards > 0) {
