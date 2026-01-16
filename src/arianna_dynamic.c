@@ -13,6 +13,7 @@
 #include "guided.h"
 #include "subjectivity.h"
 #include "cooccur.h"
+#include "body_sense.h"
 #include <time.h>
 
 // ============================================================
@@ -44,6 +45,11 @@ static char* g_origin_path = NULL;
 static CooccurField g_cooccur;
 static int g_cooccur_enabled = 0;
 static float g_cooccur_alpha = 0.15f;  // Blend strength
+
+// Body sense (somatic awareness: boredom, overwhelm, stuck)
+static BodySense g_body_sense;
+static BodyState g_body_state;
+static int g_body_sense_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -349,6 +355,12 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // Blend with user-specified temperature
     effective_temp = effective_temp * 0.6f + temperature * 0.4f;
 
+    // 7b. Initialize body state for somatic regulation
+    if (g_body_sense_enabled) {
+        init_body_state(&g_body_state);
+        g_body_state.expert_temp = effective_temp;
+    }
+
     // 8. Generate from internal state
     char generated[MAX_SEQ_LEN * 2];
     int gen_idx = 0;
@@ -409,6 +421,27 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Update temperature
             effective_temp = get_modulated_temperature(&g_subjectivity);
             effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+
+            // Somatic regulation (body sense adjusts temperature)
+            if (g_body_sense_enabled) {
+                // Extract metrics from wrinkle (pulse)
+                WrinkleField* w = &g_subjectivity.wrinkle;
+                float unique_ratio = (float)gen_idx / (float)(i + 1);  // Approximate
+
+                // Update body state
+                update_body_state(&g_body_state,
+                                 w->entropy, w->novelty,
+                                 w->arousal, w->valence,
+                                 i, unique_ratio);
+
+                // Get regulation (adjusts temperature based on boredom/overwhelm/stuck)
+                RegulationResult reg = body_regulate(&g_body_sense, &g_body_state,
+                                                    effective_temp, g_stanley_signals.active_expert);
+                effective_temp = reg.temperature;
+
+                // MLP learning from experience
+                body_observe(&g_body_sense, &g_body_state);
+            }
 
             // Update guided attention
             if (g_guided_enabled) {
@@ -598,12 +631,17 @@ int init_dynamic(int dim, int vocab_size) {
     // Initialize co-occurrence field
     init_cooccur_field(&g_cooccur);
 
+    // Initialize body sense (somatic awareness)
+    init_body_sense(&g_body_sense);
+    init_body_state(&g_body_state);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_cooccur_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
     g_subjectivity_enabled = 0;
+    g_body_sense_enabled = 1;  // ON by default - body knows
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -665,6 +703,16 @@ int load_cooccur_corpus(const char* path) {
 // Print co-occurrence stats
 void print_cooccur_debug(void) {
     print_cooccur_stats(&g_cooccur);
+}
+
+// Print body sense stats
+void print_body_sense_debug(void) {
+    if (!g_body_sense_enabled) {
+        printf("BodySense: disabled\n");
+        return;
+    }
+    print_body_sense_stats(&g_body_sense);
+    print_body_state(&g_body_state);
 }
 
 // Add gravity centers (personality anchors)
@@ -784,6 +832,7 @@ void cleanup_dynamic(void) {
     free_attention_bias(&g_attention_bias);
     free_subjectivity(&g_subjectivity);
     free_cooccur_field(&g_cooccur);
+    free_body_sense(&g_body_sense);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -1003,6 +1052,9 @@ int main(int argc, char** argv) {
         }
         if (subj_mode) {
             print_subjectivity_debug();
+        }
+        if (g_body_sense_enabled) {
+            print_body_sense_debug();
         }
     }
 
