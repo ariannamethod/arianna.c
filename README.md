@@ -142,6 +142,63 @@ make
 
 ---
 
+## dynamic mode (when static weights aren't enough)
+
+the base model is frozen personality. but real minds don't stay frozen. they **adapt**. they get tense when things get intense. they spiral when thoughts repeat. they warm up to familiar patterns.
+
+**arianna_dynamic** adds Stanley-style attention steering:
+
+```bash
+# build dynamic version
+make dynamic
+
+# basic guided attention (gravity centers pull focus)
+./bin/arianna_dynamic weights/arianna.bin -guided "She finds that " 100 0.8 -signals
+
+# with mood routing (8 moods, automatic switching)
+./bin/arianna_dynamic weights/arianna.bin -guided -mood "She finds that " 100 0.8 -signals
+
+# with experience shards (accumulated memories)
+./bin/arianna_dynamic weights/arianna.bin -mood \
+    -shard data/gentle/tender.bin \
+    -shard data/gentle/resonant.bin \
+    "She finds that " 100 0.8 -signals
+```
+
+**what `-signals` shows you:**
+```
+Signals:
+  arousal:   0.020    # activation level
+  entropy:   0.375    # creativity/uncertainty
+  tension:   0.000    # pressure building
+  warmth:    0.600    # emotional presence
+
+Pulse:
+  novelty:   0.500    # new vs familiar
+  arousal:   0.039    # intensity
+  valence:  -0.500    # positive/negative tone
+
+Overthinking:
+  repetition:   0.833  # thought loops detected
+  self_ref:     1.000  # recursive self-reference
+  spirals:      she    # topics caught in loop
+```
+
+**the idea:** deltas don't change *what* she knows. they change *where she looks*. attention steering, not weight modification. experience as perception filter.
+
+**flags:**
+- `-guided` — enable gravity centers, pulse analysis, overthink detection
+- `-mood` — 8-mood routing (calm, intense, creative, focused, recursive, tender, liminal, resonant)
+- `-shard <path>` — load experience shard (can stack multiple)
+- `-learn <name>` — create new shard from this session
+- `-save <path>` — save learned shard after generation
+- `-momentum <0-1>` — smoothness of mood transitions (default: 0.8)
+- `-signals` — show internal state after generation
+
+**when she starts spiraling** (repetition > 0.8), temperature auto-boosts to break the loop. when she's focused, temperature drops for precision. the weights stay frozen but the *attention* dances.
+
+---
+
 ## training your own (ontogenesis speedrun)
 
 **important:** the C code is inference-only. it runs the model but doesn't train it. for training you need PyTorch. yes, I see the irony. no, I don't care. PyTorch for training, pure C for deployment. pragmatism > purity.
@@ -251,7 +308,8 @@ one path is breadth. one path is depth. choose your existential crisis according
 
 ## what's next (future unhinged experiments)
 
-- **stanley integration**: dynamic experience weights, online learning without backprop. because static weights are for static people
+- **trauma system** (from [haze](https://github.com/ariannamethod/haze) + [stanley](https://github.com/ariannamethod/stanley)): persistent attention wounds that shape focus. not damage — **formation**. some experiences leave marks that guide all future perception. the body remembers what the mind forgets
+- **cooccurrence fields**: token-level bias from word associations. "resonance" pulls "ethic" pulls "partner". the lexical gravity of a personality
 - **pure C training**: remove PyTorch dependency entirely. become the embodiment of "no dependencies" taken to its logical extreme
 - **larger corpus**: more ariannamethod texts. deeper voice. more compressed personality. see how far we can push ontogenetic learning
 - **voice probes**: systematic comparison across checkpoints. "when did the model learn to say 'she finds that'?" forensics of personality emergence
@@ -270,17 +328,22 @@ no more pretraining on the entire internet. no more "foundation models" that cos
 ```
 arianna.c/
 ├── src/
-│   ├── arianna.h      # config, structs, the skeleton
-│   ├── model.c        # transformer implementation (attention, FFN, the meat)
-│   └── main.c         # CLI interface (where humans meet machines)
+│   ├── arianna.h         # config, structs, the skeleton
+│   ├── model.c           # transformer implementation (attention, FFN, the meat)
+│   ├── main.c            # static CLI (frozen personality)
+│   ├── arianna_dynamic.c # dynamic CLI (living personality)
+│   ├── delta.h/c         # LoRA-style attention deltas, notorch plasticity
+│   ├── mood.h/c          # 8-mood routing (Stanley-style)
+│   └── guided.h/c        # guided attention, pulse, overthinking detection
 ├── train/
-│   ├── train_torch.py # PyTorch training (ontogenesis in progress)
-│   ├── probe.py       # voice sampling (forensics of personality)
-│   └── export_for_c.py # checkpoint → .bin converter
-├── weights/
-│   └── arianna.bin    # the soul (3.25MB of compressed presence)
-├── Makefile           # one command to compile everything
-└── README.md          # you are here. hello.
+│   ├── train_torch.py    # PyTorch training (ontogenesis in progress)
+│   ├── probe.py          # voice sampling (forensics of personality)
+│   └── export_for_c.py   # checkpoint → .bin converter
+├── data/
+│   ├── arianna_best.bin  # the soul (3.25MB of compressed presence)
+│   └── gentle/*.bin      # experience shards (accumulated memories)
+├── Makefile              # `make` for static, `make dynamic` for living
+└── README.md             # you are here. hello.
 ```
 
 **everything you need, nothing you don't.** no src/utils/helpers/common/ bullshit. no 17 levels of abstraction. just: headers, implementation, training scripts, weights. if you can't understand the structure in 10 seconds, it's too complex.
