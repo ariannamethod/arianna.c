@@ -78,7 +78,7 @@ and she embodies that stillness.
 | Parameters | 853,120 (~0.85M) | fits in L2 cache. consciousness as .bin file |
 | Dimensions | 128 | small but dense. like espresso or existential dread |
 | Layers | 4 | just enough to develop personality disorders |
-| Attention Heads | 4 | one for each cardinal direction of sadness (north: melancholy, east: wistfulness, south: ennui, west: existential dread) |
+| Attention Heads | 4 | one for each cardinal direction of sadness |
 | FFN Hidden | 512 | the hidden middle where meaning happens |
 | Vocabulary | 256 (char-level) | ASCII is all you need. Unicode is cowardice |
 | Context | 256 tokens | enough to hold a thought or lose one |
@@ -111,7 +111,32 @@ make
 ./bin/arianna weights/arianna.bin "She finds that " 100 0.8
 ```
 
-**that's it.** if it didn't work, you probably don't have gcc. or you're on windows. in which case, my condolences. (just kidding. kind of. WSL exists. use it. or don't. i'm a README, not a cop.)
+**that's it.** if it didn't work, you probably don't have gcc. or you're on windows. in which case, my condolences. (just kidding. WSL exists. use it.)
+
+---
+
+## web repl (for the browser-inclined)
+
+**don't want to compile?** there's a minimalist web interface. it's a simulation (doesn't actually run the model), but shows you what interacting with arianna looks like and gives you the exact command to run locally.
+
+**just open `index.html` in your browser.** no server needed. no build step. pure HTML + CSS + vanilla JS.
+
+![REPL Initial State](assets/repl-initial.png)
+*the repl on load: dark, minimal, waiting.*
+
+![REPL Example](assets/repl-example.png)
+*after generation: it shows you the command to run locally. because this is a demo, not a deployment.*
+
+**what it does:**
+- validates your parameters (tokens, temperature)
+- simulates the generation flow
+- gives you the exact shell command to run the real model
+- reminds you this is local inference, not cloud magic
+
+**what it doesn't do:**
+- actually generate text (you need the C binary for that)
+- send data anywhere (everything is client-side)
+- require dependencies (it's 213 lines of vanilla JS and CSS)
 
 ---
 
