@@ -86,7 +86,11 @@ class AriannaREPL {
         // 2. Stream or receive the generated text
         // 3. Return the result
         
-        // Escape prompt for safe shell usage (basic escaping)
+        // Escape single quotes in the prompt so it can be *displayed* in the
+        // example shell command below. This is intentionally a minimal escape
+        // for demonstration purposes only and is NOT safe for executing
+        // arbitrary user input in a real shell. If you actually run arianna
+        // from a shell, make sure to perform proper shell escaping yourself.
         const escapedPrompt = prompt.replace(/'/g, "'\\''");
         
         // For now, return a placeholder that explains how to use the real thing
