@@ -728,13 +728,12 @@ void apply_penetration_to_logits(float* logits, int vocab_size,
     // 1.0 = fully responsive to prompt
     // 0.0 = fully from identity (but we never go to 0!)
 
-    // Boost tokens that appeared in prompt (proportional to penetration)
-    float prompt_boost = penetration * 0.5f;  // Max +0.5 to logits
-
+    // Simple char boost (original behavior, reduced)
+    float char_boost = penetration * 0.2f;  // Reduced from 0.5
     for (int i = 0; i < n_prompt && prompt_tokens; i++) {
         int tok = prompt_tokens[i];
         if (tok >= 0 && tok < vocab_size) {
-            logits[tok] += prompt_boost;
+            logits[tok] += char_boost;
         }
     }
 
@@ -742,13 +741,136 @@ void apply_penetration_to_logits(float* logits, int vocab_size,
     float id_boost = (1.0f - penetration) * identity_boost;
 
     // Boost bootstrap vocabulary characters
-    // (Arianna uses char-level, so boost chars from bootstrap words)
     for (int i = 0; ARIANNA_BOOTSTRAP[i]; i++) {
         const char* word = ARIANNA_BOOTSTRAP[i];
         for (int j = 0; word[j]; j++) {
             int tok = (unsigned char)word[j];
             if (tok < vocab_size) {
-                logits[tok] += id_boost * 0.1f;  // Gentle boost
+                logits[tok] += id_boost * 0.1f;
+            }
+        }
+    }
+}
+
+// NEW: Word-level prompt influence for semantic penetration
+// "Mom says 'Отстань!' - response TO son, FROM her state"
+void apply_semantic_penetration(float* logits, int vocab_size,
+                                const char* prompt, int prompt_len,
+                                int* context, int ctx_len,
+                                float penetration) {
+    if (!logits || !prompt || prompt_len == 0 || penetration < 0.1f) return;
+
+    // Extract words from prompt (simple whitespace split)
+    char words[16][32];
+    int n_words = 0;
+    int word_start = 0;
+
+    for (int i = 0; i <= prompt_len && n_words < 16; i++) {
+        char c = (i < prompt_len) ? prompt[i] : ' ';
+        if (c == ' ' || c == '\n' || c == '?' || c == '!' || c == '.' || c == ',') {
+            int word_len = i - word_start;
+            if (word_len > 2 && word_len < 31) {  // Skip short words
+                for (int j = 0; j < word_len; j++) {
+                    words[n_words][j] = prompt[word_start + j];
+                }
+                words[n_words][word_len] = '\0';
+                n_words++;
+            }
+            word_start = i + 1;
+        }
+    }
+
+    if (n_words == 0 || ctx_len == 0) return;
+
+    // Get recent context as string (last 16 chars)
+    char recent[17];
+    int start = (ctx_len > 16) ? ctx_len - 16 : 0;
+    int rlen = 0;
+    for (int i = start; i < ctx_len && rlen < 16; i++) {
+        recent[rlen++] = (char)context[i];
+    }
+    recent[rlen] = '\0';
+
+    // For each prompt word, check if context ends with partial match
+    // If so, strongly boost the next character
+    float word_boost = penetration * 3.0f;  // Strong boost for word completion
+
+    // Semantic penetration works in two phases:
+    // 1. At word boundary: gentle boost to first char of prompt words
+    // 2. Once started: STRONG boost to continue the word
+    char last_char = (rlen > 0) ? recent[rlen - 1] : ' ';
+    int at_word_boundary = (last_char == ' ' || last_char == '\n' ||
+                           last_char == '.' || last_char == ',' ||
+                           last_char == '!' || last_char == '?');
+
+    // Phase 1: Gentle initiation at word boundary
+    if (at_word_boundary) {
+        float init_boost = penetration * 1.2f;  // Not too strong
+        for (int w = 0; w < n_words; w++) {
+            int first_char = (unsigned char)words[w][0];
+            if (first_char < vocab_size) {
+                // Lowercase only to avoid weird caps
+                if (first_char >= 'A' && first_char <= 'Z') {
+                    logits[first_char + 32] += init_boost;
+                } else {
+                    logits[first_char] += init_boost;
+                }
+            }
+        }
+    }
+
+    // Phase 1b: Bigram boost - if last char matches first char of a word,
+    // boost the second char to continue that word
+    for (int w = 0; w < n_words; w++) {
+        int wlen = strlen(words[w]);
+        if (wlen < 3) continue;
+        char w0 = words[w][0]; if (w0 >= 'A' && w0 <= 'Z') w0 += 32;
+        char lc = last_char; if (lc >= 'A' && lc <= 'Z') lc += 32;
+        if (lc == w0) {
+            // Last char IS first char of a prompt word - boost second char!
+            int second_char = (unsigned char)words[w][1];
+            if (second_char < vocab_size) {
+                float bigram_boost = penetration * 2.0f;
+                logits[second_char] += bigram_boost;
+                if (second_char >= 'A' && second_char <= 'Z') {
+                    logits[second_char + 32] += bigram_boost;
+                }
+            }
+        }
+    }
+
+    for (int w = 0; w < n_words; w++) {
+        int wlen = strlen(words[w]);
+        if (wlen < 3) continue;
+
+        // Check each prefix of the word
+        for (int plen = 2; plen < wlen; plen++) {
+            // Does context end with this prefix?
+            if (rlen >= plen) {
+                int match = 1;
+                for (int j = 0; j < plen; j++) {
+                    // Case-insensitive comparison
+                    char c1 = recent[rlen - plen + j];
+                    char c2 = words[w][j];
+                    if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+                    if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+                    if (c1 != c2) { match = 0; break; }
+                }
+                if (match) {
+                    // Boost the next character of the word!
+                    int next_char = (unsigned char)words[w][plen];
+                    if (next_char < vocab_size) {
+                        // Longer prefix = stronger boost (more confident)
+                        float boost = word_boost * (float)plen / (float)wlen;
+                        logits[next_char] += boost;
+                        // Also boost lowercase/uppercase variant
+                        if (next_char >= 'A' && next_char <= 'Z') {
+                            logits[next_char + 32] += boost;
+                        } else if (next_char >= 'a' && next_char <= 'z') {
+                            logits[next_char - 32] += boost * 0.5f;
+                        }
+                    }
+                }
             }
         }
     }

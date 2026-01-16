@@ -314,6 +314,13 @@ float get_prompt_penetration(Subjectivity* subj);
 // Print penetration debug info
 void print_penetration_state(PromptPenetration* pp);
 
+// Apply semantic penetration - prompt words influence generation
+// "Mom says 'Отстань!' - response TO son, but FROM her state"
+void apply_semantic_penetration(float* logits, int vocab_size,
+                                const char* prompt, int prompt_len,
+                                int* context, int ctx_len,
+                                float penetration);
+
 // ============================================================
 // Function Declarations - Main Subjectivity
 // ============================================================

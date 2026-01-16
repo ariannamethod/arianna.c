@@ -350,11 +350,74 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         return;
     }
 
+    // 2b. Add prompt suffix if penetration is high enough
+    // "Mom says 'Отстань!' - response TO son, FROM her state"
+    // Seed = identity + connection to prompt
+    float pen = get_prompt_penetration(&g_subjectivity);
+    if (pen > 0.4f && seed->len < 400) {
+        // Stop words to skip
+        static const char* stop_words[] = {
+            "what", "where", "when", "which", "who", "whom", "whose",
+            "why", "how", "that", "this", "these", "those",
+            "the", "and", "but", "for", "with", "about",
+            "does", "have", "has", "had", "will", "would", "could",
+            "should", "can", "may", "might", "must", "shall",
+            "are", "was", "were", "been", "being", "your", "you", NULL
+        };
+
+        // Find most meaningful content word (skip stop words, prefer longer)
+        char best_word[64] = {0};
+        int best_len = 0;
+        int word_start = 0;
+        for (int i = 0; i <= input_len; i++) {
+            char c = (i < input_len) ? user_input[i] : ' ';
+            if (c == ' ' || c == '?' || c == '!' || c == '\n') {
+                int wlen = i - word_start;
+                if (wlen > 3 && wlen < 60) {
+                    // Check if stop word
+                    char word_lower[64];
+                    for (int j = 0; j < wlen; j++) {
+                        char ch = user_input[word_start + j];
+                        word_lower[j] = (ch >= 'A' && ch <= 'Z') ? ch + 32 : ch;
+                    }
+                    word_lower[wlen] = '\0';
+
+                    int is_stop = 0;
+                    for (int s = 0; stop_words[s]; s++) {
+                        if (strcmp(word_lower, stop_words[s]) == 0) {
+                            is_stop = 1;
+                            break;
+                        }
+                    }
+
+                    // Prefer non-stop words, then longer words
+                    if (!is_stop && (wlen > best_len || best_len == 0)) {
+                        best_len = wlen;
+                        strncpy(best_word, word_lower, wlen);
+                        best_word[wlen] = '\0';
+                    }
+                }
+                word_start = i + 1;
+            }
+        }
+        if (best_len > 0) {
+            // Add suffix: " [word] "
+            char suffix[80];
+            snprintf(suffix, sizeof(suffix), " %s ", best_word);
+            int slen = strlen(suffix);
+            if (seed->len + slen < 500) {
+                strcat(seed->text, suffix);
+                seed->len += slen;
+            }
+        }
+    }
+
     // 3. Convert seed to tokens
     int tokens[MAX_SEQ_LEN];
     int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
 
-    printf("[Internal seed: \"%.*s\"]\n", seed->len > 50 ? 50 : seed->len, seed->text);
+    printf("[Internal seed (%d chars): \"%.*s\"]\n", seed->len,
+           seed->len > 100 ? 100 : seed->len, seed->text);
 
     // 4. Get subjectivity-modulated signals for deltas
     get_subjectivity_signals(&g_subjectivity, &g_signals);
@@ -421,6 +484,13 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         apply_penetration_to_logits(t->state.logits, t->config.vocab_size,
                                     user_tokens, n_user_tokens,
                                     penetration, 0.3f);  // identity_boost = 0.3
+
+        // Apply semantic penetration (word-level)
+        // If generating "lo" and prompt has "love", boost "v" to complete
+        apply_semantic_penetration(t->state.logits, t->config.vocab_size,
+                                   user_input, input_len,
+                                   tokens, n_tokens,
+                                   penetration);
 
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
