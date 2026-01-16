@@ -181,6 +181,31 @@ void experience_step(MicroTrainer* mt, LowRankDelta* delta,
                      const float* x, const float* probs,
                      int target_id, float signal);
 
+// ============================================================
+// Notorch Microlearning Revolution (5 improvements)
+// "Pure C plasticity without PyTorch compromise"
+// ============================================================
+
+// 1. Resonance-Gated Plasticity: learn more when aligned with identity
+void experience_step_gated(MicroTrainer* mt, LowRankDelta* delta,
+                           const float* x, const float* probs,
+                           int target_id, float signal,
+                           const float* identity_embedding, int dim);
+
+// 2. Adaptive push/pull based on confidence
+void set_adaptive_push_pull(MicroTrainer* mt, const float* probs,
+                            int vocab_size, int target_id);
+
+// 3. Quality-weighted signal from BodySense
+float compute_quality_weight(float quality, float stuck, float boredom);
+
+// 4. Check if channel should be frozen (spectral freezing)
+int should_freeze_channel(LowRankDelta* delta, int channel, float threshold);
+
+// 5. Consolidate crystallized channels into core experience
+void consolidate_experience(LowRankDelta* delta, LowRankDelta* core,
+                            int* frozen_mask, int n_frozen);
+
 // Soft reset: gradual forgetting (scale down instead of zeroing)
 void soft_reset_delta(LowRankDelta* delta, float keep_ratio);
 
