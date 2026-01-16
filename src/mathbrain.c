@@ -70,13 +70,13 @@ void init_mathbrain(MathBrain* mb) {
             }
             mb->ops.b[op][i] = 0.0f;
         }
-
-        // Different temperatures for different ops
-        mb->ops.temperature[OP_ADD] = 0.3f;  // Addition is precise
-        mb->ops.temperature[OP_SUB] = 0.3f;  // Subtraction is precise
-        mb->ops.temperature[OP_MUL] = 0.5f;  // Multiplication needs more exploration
-        mb->ops.temperature[OP_DIV] = 0.7f;  // Division is tricky (remainders, etc)
     }
+
+    // Different temperatures for different ops (outside loop)
+    mb->ops.temperature[OP_ADD] = 0.3f;  // Addition is precise
+    mb->ops.temperature[OP_SUB] = 0.3f;  // Subtraction is precise
+    mb->ops.temperature[OP_MUL] = 0.5f;  // Multiplication needs more exploration
+    mb->ops.temperature[OP_DIV] = 0.7f;  // Division is tricky (remainders, etc)
 
     // Initialize MLP weights
     for (int i = 0; i < MATH_DIM * 2; i++) {
