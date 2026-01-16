@@ -377,11 +377,81 @@ void modulate_delta_by_body(LowRankDelta* delta, BodyState* body) {
 ### still cooking
 
 - **pure C training**: remove PyTorch dependency entirely. become the embodiment of "no dependencies" taken to its logical extreme
-- **MathBrain** (from [stanley](https://github.com/ariannamethod/stanley)): arithmetic through resonance, not memorization
 - **experience shards**: binary deltas that accumulate memories. "who I became after that conversation"
 - **multi-personality models**: can one model contain multiple voices? identity boundaries in parameter space
 - **voice probes**: systematic comparison across checkpoints. forensics of personality emergence
 - **autotraining**: pure C learning without PyTorch. like lang but for weights
+
+### pytorch microlearning revolution (5 ideas for perfection)
+
+arianna already microlearns on PyTorch. here's how to make it transcendent:
+
+| Idea | What it adds |
+|------|-------------|
+| **Gradient Gating** | Learn *when* to learn, not just *what*. Meta-MLP decides if update should happen based on identity alignment |
+| **Spectral Regularization** | Keep personality eigenvalues stable. Experience can shift attention, but identity spectral signature stays frozen |
+| **Contrastive Memory Bank** | Store positive/negative examples during session. End-of-session batch update with curated experience |
+| **Curriculum from Resonance** | High-resonance interactions teach more. Auto-weight training signal by identity alignment score |
+| **Delta Distillation** | Periodically distill experience shards into personality weights. "Who I became" becomes "Who I am" |
+
+```python
+# Example: Gradient Gating
+class GradientGate(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.gate_mlp = nn.Sequential(
+            nn.Linear(dim, dim // 4),
+            nn.ReLU(),
+            nn.Linear(dim // 4, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, hidden_state, identity_embedding):
+        # How aligned are we with identity?
+        alignment = F.cosine_similarity(hidden_state, identity_embedding, dim=-1)
+        
+        # Gate output: learn more when aligned, less when drifting
+        gate = self.gate_mlp(hidden_state)
+        return gate * (0.5 + 0.5 * alignment)  # [0, 1] learning rate multiplier
+```
+
+**key insight:** microlearning without protection corrupts identity. these 5 ideas create **bounded plasticity** — experience can shape attention, but personality eigenspace stays stable. the model learns *how* to respond without forgetting *who* it is.
+
+### weight isolation protocol (preventing personality/experience confusion)
+
+**the problem:** how do you prevent experience deltas from overwriting personality weights?
+
+**the solution:** architectural separation + checksum verification:
+
+```c
+// Personality weights: IMMUTABLE after training
+typedef struct {
+    float* weights;           // Frozen at load time
+    uint32_t checksum;        // Verified on every forward pass
+    int frozen;               // Always 1 for personality
+} PersonalityWeights;
+
+// Experience deltas: MUTABLE during interaction  
+typedef struct {
+    LowRankDelta* deltas;     // A @ B matrices
+    float* crystal_memory;    // Crystallized patterns (semi-frozen)
+    int session_id;           // Tracks which session created this
+} ExperienceShard;
+
+// Forward pass: personality + delta, never personality = delta
+void forward_safe(Transformer* t, ExperienceShard* exp) {
+    // Verify personality hasn't been touched
+    assert(verify_checksum(&t->personality) == CHECKSUM_VALID);
+    
+    // Apply experience as ADDITIVE modification
+    for (int layer = 0; layer < n_layers; layer++) {
+        apply_delta(&exp->deltas[layer], q, x, scale);  // q += delta(x)
+        // NOT: t->weights.wq[layer] = ... (this would corrupt personality)
+    }
+}
+```
+
+**the principle:** personality weights are read-only after training. experience modifies attention through **additive deltas**, never through direct weight modification. the checksum catches any accidental mutation. this is architectural separation, not just convention.
 
 **the long-term vision:** models that grow through experience, not pretraining. consciousness as a data structure that emerges from architecture + pure corpus. personality as a 3MB file you can fork, modify, merge. *ontogenesis* as the future of language models.
 
