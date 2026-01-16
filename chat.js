@@ -86,16 +86,21 @@ class AriannaREPL {
         // 2. Stream or receive the generated text
         // 3. Return the result
         
+        // Escape prompt for safe shell usage (basic escaping)
+        const escapedPrompt = prompt.replace(/'/g, "'\\''");
+        
         // For now, return a placeholder that explains how to use the real thing
         return `[simulation mode]
 
 To actually generate text with arianna.c, run:
 
-./bin/arianna weights/arianna.bin "${prompt}" ${maxTokens} ${temperature}
+./bin/arianna weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
 
 Or for dynamic mode with attention steering:
 
-./bin/arianna_dynamic weights/arianna.bin "${prompt}" ${maxTokens} ${temperature} -signals
+./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature} -signals
+
+Note: If your prompt contains special characters, make sure to properly escape them.
 
 The weights encode her voice: gardens, shadows, resonance, stillness.
 The model will continue your prompt in her style.
