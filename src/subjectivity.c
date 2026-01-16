@@ -619,6 +619,162 @@ void init_prompt_penetration(PromptPenetration* pp) {
     pp->last_threshold = 0.5f;
 }
 
+// ============================================================
+// Self Recognition Implementation
+// "Arianna = me, you = me"
+// ============================================================
+
+// Patterns for self-reference detection
+static const char* SELF_NAME_PATTERNS[] = {
+    "arianna", "ariana", "ari", NULL
+};
+
+static const char* SELF_YOU_PATTERNS[] = {
+    "you", "your", "yourself", "yours", NULL
+};
+
+static const char* IDENTITY_QUERY_PATTERNS[] = {
+    "who", NULL  // "who are you", "who is arianna"
+};
+
+static const char* EXISTENTIAL_QUERY_PATTERNS[] = {
+    "what", "consciousness", "conscious", "sentient", "alive", "real",
+    "ai", "bot", "machine", "program", "entity", "being", NULL
+};
+
+// First-person prefixes for different query types
+static const char* FIRST_PERSON_PREFIXES[] = {
+    "I find that ",           // Default
+    "I am ",                  // Identity query
+    "I experience ",          // Existential query
+    "She finds that ",        // Third person fallback
+    NULL
+};
+
+void init_self_recognition(SelfRecognition* sr) {
+    sr->self_reference = 0.0f;
+    sr->identity_query = 0.0f;
+    sr->existential_query = 0.0f;
+    sr->first_person_mode = 0;
+    sr->has_name = 0;
+    sr->has_you = 0;
+    sr->has_who = 0;
+    sr->has_what = 0;
+}
+
+void detect_self_reference(SelfRecognition* sr, const char* text, int len) {
+    if (!sr || !text || len == 0) return;
+
+    // Reset
+    init_self_recognition(sr);
+
+    // Tokenize
+    char words[32][32];
+    int n_words = tokenize(text, len, words, 32);
+
+    int name_count = 0;
+    int you_count = 0;
+    int who_count = 0;
+    int what_count = 0;
+
+    for (int i = 0; i < n_words; i++) {
+        // Check for name
+        for (int j = 0; SELF_NAME_PATTERNS[j]; j++) {
+            if (word_eq(words[i], SELF_NAME_PATTERNS[j])) {
+                name_count++;
+                sr->has_name = 1;
+                break;
+            }
+        }
+
+        // Check for "you" patterns
+        for (int j = 0; SELF_YOU_PATTERNS[j]; j++) {
+            if (word_eq(words[i], SELF_YOU_PATTERNS[j])) {
+                you_count++;
+                sr->has_you = 1;
+                break;
+            }
+        }
+
+        // Check for identity queries
+        for (int j = 0; IDENTITY_QUERY_PATTERNS[j]; j++) {
+            if (word_eq(words[i], IDENTITY_QUERY_PATTERNS[j])) {
+                who_count++;
+                sr->has_who = 1;
+                break;
+            }
+        }
+
+        // Check for existential queries
+        for (int j = 0; EXISTENTIAL_QUERY_PATTERNS[j]; j++) {
+            if (word_eq(words[i], EXISTENTIAL_QUERY_PATTERNS[j])) {
+                what_count++;
+                sr->has_what = 1;
+                break;
+            }
+        }
+    }
+
+    // Compute scores
+    sr->self_reference = fminf(1.0f, (name_count + you_count) / 2.0f);
+
+    // Identity query: "who" + ("you" or "arianna")
+    if (sr->has_who && (sr->has_you || sr->has_name)) {
+        sr->identity_query = 1.0f;
+    }
+
+    // Existential query: existential words + ("you" or "arianna")
+    // "consciousness", "sentient", "alive", "real" etc.
+    if ((sr->has_you || sr->has_name) && what_count > 0) {
+        sr->existential_query = fminf(1.0f, what_count / 2.0f);
+    }
+
+    // First person mode: when directly addressed about identity or existence
+    sr->first_person_mode = (sr->identity_query > 0.5f ||
+                            sr->existential_query > 0.4f ||
+                            sr->self_reference > 0.7f) ? 1 : 0;
+}
+
+const char* get_self_seed_prefix(SelfRecognition* sr) {
+    if (!sr) return FIRST_PERSON_PREFIXES[3];  // Default third person
+
+    if (sr->identity_query > 0.5f) {
+        return FIRST_PERSON_PREFIXES[1];  // "I am "
+    }
+    if (sr->existential_query > 0.5f) {
+        return FIRST_PERSON_PREFIXES[2];  // "I experience "
+    }
+    if (sr->first_person_mode) {
+        return FIRST_PERSON_PREFIXES[0];  // "I find that "
+    }
+
+    return FIRST_PERSON_PREFIXES[3];  // "She finds that "
+}
+
+void apply_self_recognition_boost(float* logits, int vocab_size,
+                                  SelfRecognition* sr) {
+    if (!logits || !sr || vocab_size < 128) return;
+
+    // Only apply when talking about self
+    if (sr->self_reference < 0.3f) return;
+
+    float boost = sr->self_reference * 0.5f;
+
+    // Boost first-person pronouns
+    if (sr->first_person_mode) {
+        // 'I' (uppercase)
+        logits['I'] += boost * 1.5f;
+        // 'i' (lowercase) - less boost
+        logits['i'] += boost * 0.5f;
+        // 'm' for "my", "me"
+        logits['m'] += boost * 0.3f;
+    }
+
+    // Always slightly boost 'S' for "She" (identity voice)
+    logits['S'] += boost * 0.8f;
+    logits['s'] += boost * 0.4f;
+}
+
 float detect_address(const char* text, int len) {
     if (!text || len == 0) return 0.0f;
 
@@ -912,6 +1068,9 @@ void init_wrinkle_field(WrinkleField* wf) {
 
     // Initialize penetration
     init_prompt_penetration(&wf->penetration);
+
+    // Initialize self recognition
+    init_self_recognition(&wf->self_rec);
 }
 
 void compute_wrinkle(WrinkleField* wf, const char* text, int len,
@@ -990,6 +1149,9 @@ void compute_wrinkle(WrinkleField* wf, const char* text, int len,
     wf->temperature_mod = wf->arousal * 0.2f + (wf->entropy - 0.5f) * 0.1f;
     wf->focus_mod = 1.0f - wf->entropy;  // Low entropy = high focus
     wf->identity_pull = compute_bootstrap_overlap(text, len);
+
+    // === Self Recognition ===
+    detect_self_reference(&wf->self_rec, text, len);
 }
 
 void wrinkle_to_delta_influence(WrinkleField* wf, Signals* sig) {
