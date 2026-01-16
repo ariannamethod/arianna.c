@@ -596,6 +596,181 @@ int seed_to_tokens(InternalSeed* seed, int* tokens, int max_tokens) {
 }
 
 // ============================================================
+// Prompt Penetration Implementation
+// "Mom says 'Отстань!' - response TO son, but FROM her state"
+// ============================================================
+
+// Words that indicate direct address to Arianna
+static const char* ADDRESS_PATTERNS[] = {
+    "arianna", "you", "your", "tell", "what", "how", "why",
+    "do", "are", "can", "would", "could", "please", "hey",
+    NULL
+};
+
+void init_prompt_penetration(PromptPenetration* pp) {
+    pp->threshold = 0.5f;
+    pp->actual_penetration = 0.5f;
+    pp->internal_saturation = 0.0f;
+    pp->defensive_mode = 0.0f;
+    pp->overwhelm = 0.0f;
+    pp->resonance_opening = 0.0f;
+    pp->curiosity = 0.0f;
+    pp->address_detected = 0.0f;
+    pp->last_threshold = 0.5f;
+}
+
+float detect_address(const char* text, int len) {
+    if (!text || len == 0) return 0.0f;
+
+    char words[32][32];
+    int n_words = tokenize(text, len, words, 32);
+    if (n_words == 0) return 0.0f;
+
+    int address_count = 0;
+
+    // Check for address patterns
+    for (int i = 0; i < n_words; i++) {
+        for (int j = 0; ADDRESS_PATTERNS[j]; j++) {
+            if (word_eq(words[i], ADDRESS_PATTERNS[j])) {
+                address_count++;
+                break;
+            }
+        }
+    }
+
+    // Question mark is strong address indicator
+    for (int i = 0; i < len; i++) {
+        if (text[i] == '?') address_count += 2;
+    }
+
+    // Normalize: 3+ address signals = full address
+    return fminf(1.0f, (float)address_count / 3.0f);
+}
+
+float compute_penetration_threshold(Subjectivity* subj, const char* text, int len) {
+    if (!subj) return 0.5f;
+
+    PromptPenetration* pp = &subj->wrinkle.penetration;
+    WrinkleField* wf = &subj->wrinkle;
+    TraumaState* ts = &subj->trauma;
+
+    // Start with base threshold
+    float threshold = 0.5f;
+
+    // ========================================
+    // Factors that RAISE threshold (block prompt)
+    // ========================================
+
+    // 1. Trauma raises threshold (defensive)
+    pp->defensive_mode = ts->level * 0.4f;
+    threshold += pp->defensive_mode;
+
+    // 2. High arousal = overwhelmed = retreat
+    if (wf->arousal > 0.7f) {
+        pp->overwhelm = (wf->arousal - 0.7f) * 1.5f;  // 0.7->1.0 maps to 0->0.45
+        threshold += pp->overwhelm;
+    } else {
+        pp->overwhelm = 0.0f;
+    }
+
+    // 3. Internal saturation (many recent interactions)
+    pp->internal_saturation = fminf(0.2f, (float)subj->total_interactions * 0.01f);
+    threshold += pp->internal_saturation;
+
+    // ========================================
+    // Factors that LOWER threshold (let prompt in)
+    // ========================================
+
+    // 4. Identity pull = resonance = LOWER threshold
+    pp->resonance_opening = wf->identity_pull * 0.3f;
+    threshold -= pp->resonance_opening;
+
+    // 5. Curiosity: high novelty WITHOUT high arousal
+    if (wf->novelty > 0.5f && wf->arousal < 0.5f) {
+        pp->curiosity = (wf->novelty - 0.5f) * 0.4f;  // Interested, let it in
+        threshold -= pp->curiosity;
+    } else {
+        pp->curiosity = 0.0f;
+    }
+
+    // 6. Direct address = someone talking TO me = LOWER threshold
+    pp->address_detected = detect_address(text, len);
+    threshold -= pp->address_detected * 0.25f;
+
+    // ========================================
+    // Momentum: smooth transitions
+    // ========================================
+    float momentum = 0.7f;  // 70% previous, 30% new
+    threshold = pp->last_threshold * momentum + threshold * (1.0f - momentum);
+    pp->last_threshold = threshold;
+
+    // Clamp: never fully block (0.1) or fully open (0.9)
+    threshold = fmaxf(0.1f, fminf(0.9f, threshold));
+
+    // Store results
+    pp->threshold = threshold;
+    pp->actual_penetration = 1.0f - threshold;
+
+    return threshold;
+}
+
+float get_prompt_penetration(Subjectivity* subj) {
+    if (!subj) return 0.5f;
+    return subj->wrinkle.penetration.actual_penetration;
+}
+
+void apply_penetration_to_logits(float* logits, int vocab_size,
+                                 int* prompt_tokens, int n_prompt,
+                                 float penetration, float identity_boost) {
+    if (!logits || vocab_size == 0) return;
+
+    // penetration [0,1]: how much prompt affects output
+    // 1.0 = fully responsive to prompt
+    // 0.0 = fully from identity (but we never go to 0!)
+
+    // Boost tokens that appeared in prompt (proportional to penetration)
+    float prompt_boost = penetration * 0.5f;  // Max +0.5 to logits
+
+    for (int i = 0; i < n_prompt && prompt_tokens; i++) {
+        int tok = prompt_tokens[i];
+        if (tok >= 0 && tok < vocab_size) {
+            logits[tok] += prompt_boost;
+        }
+    }
+
+    // Boost identity tokens (proportional to 1-penetration)
+    float id_boost = (1.0f - penetration) * identity_boost;
+
+    // Boost bootstrap vocabulary characters
+    // (Arianna uses char-level, so boost chars from bootstrap words)
+    for (int i = 0; ARIANNA_BOOTSTRAP[i]; i++) {
+        const char* word = ARIANNA_BOOTSTRAP[i];
+        for (int j = 0; word[j]; j++) {
+            int tok = (unsigned char)word[j];
+            if (tok < vocab_size) {
+                logits[tok] += id_boost * 0.1f;  // Gentle boost
+            }
+        }
+    }
+}
+
+void print_penetration_state(PromptPenetration* pp) {
+    printf("\n--- Prompt Penetration ---\n");
+    printf("Threshold: %.2f (%.0f%% blocked)\n", pp->threshold, pp->threshold * 100);
+    printf("Actual penetration: %.2f (%.0f%% passes)\n",
+           pp->actual_penetration, pp->actual_penetration * 100);
+    printf("Factors RAISING threshold:\n");
+    printf("  Defensive mode: %.2f\n", pp->defensive_mode);
+    printf("  Overwhelm: %.2f\n", pp->overwhelm);
+    printf("  Internal saturation: %.2f\n", pp->internal_saturation);
+    printf("Factors LOWERING threshold:\n");
+    printf("  Resonance opening: %.2f\n", pp->resonance_opening);
+    printf("  Curiosity: %.2f\n", pp->curiosity);
+    printf("  Address detected: %.2f\n", pp->address_detected);
+    printf("--------------------------\n\n");
+}
+
+// ============================================================
 // Wrinkle Field Implementation
 // "User input creates a wrinkle, not a replacement"
 // ============================================================
@@ -612,6 +787,9 @@ void init_wrinkle_field(WrinkleField* wf) {
 
     wf->n_absorbed = 0;
     wf->absorption_strength = 0.0f;
+
+    // Initialize penetration
+    init_prompt_penetration(&wf->penetration);
 }
 
 void compute_wrinkle(WrinkleField* wf, const char* text, int len,
@@ -806,14 +984,18 @@ void process_user_input(Subjectivity* subj, const char* text, int len) {
         record_trauma_event(&subj->trauma, trigger, trauma_score);
     }
 
-    // 4. Generate internal seed (NOT from user prompt!)
+    // 4. Compute prompt penetration threshold (NEW!)
+    // This determines how much the prompt affects the response
+    compute_penetration_threshold(subj, text, len);
+
+    // 5. Generate internal seed (NOT from user prompt!)
     generate_internal_seed(&subj->current_seed, &subj->identity,
                           &subj->wrinkle, &subj->trauma);
 
-    // 5. Modulate seed by pulse
+    // 6. Modulate seed by pulse
     modulate_seed_by_pulse(&subj->current_seed, &subj->wrinkle);
 
-    // 6. Update stats
+    // 7. Update stats
     subj->total_interactions++;
     subj->avg_trauma_level = (subj->avg_trauma_level * (subj->total_interactions - 1)
                              + subj->trauma.level) / subj->total_interactions;
@@ -880,6 +1062,10 @@ void print_subjectivity_state(Subjectivity* subj) {
     printf("Entropy: %.2f\n", subj->wrinkle.entropy);
     printf("Valence: %.2f\n", subj->wrinkle.valence);
     printf("Identity pull: %.2f\n", subj->wrinkle.identity_pull);
+
+    // Print penetration state
+    print_penetration_state(&subj->wrinkle.penetration);
+
     printf("\n--- Current Seed ---\n");
     printf("Length: %d\n", subj->current_seed.len);
     printf("Fragment contrib: %.2f\n", subj->current_seed.fragment_contribution);
