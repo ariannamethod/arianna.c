@@ -331,6 +331,7 @@ void generate(Transformer* t, char* prompt, int max_tokens, float temperature) {
     
     // Protect against overflow
     if (n_tokens >= MAX_SEQ_LEN) {
+        fprintf(stderr, "Warning: Prompt truncated from %d to %d characters\n", n_tokens, MAX_SEQ_LEN - 1);
         n_tokens = MAX_SEQ_LEN - 1;
     }
 
@@ -392,12 +393,16 @@ int save_weights(Transformer* t, const char* path) {
 
 int load_weights(Transformer* t, const char* path) {
     FILE* f = fopen(path, "rb");
-    if (!f) return -1;
+    if (!f) {
+        fprintf(stderr, "Error: Could not open weights file: %s\n", path);
+        return -1;
+    }
 
     Config* c = &t->config;
 
     // Read config
     if (fread(c, sizeof(Config), 1, f) != 1) {
+        fprintf(stderr, "Error: Failed to read config from weights file\n");
         fclose(f);
         return -1;
     }
@@ -410,46 +415,57 @@ int load_weights(Transformer* t, const char* path) {
 
     // Read weights
     if (fread(w->token_embedding, sizeof(float), c->vocab_size * c->dim, f) != (size_t)(c->vocab_size * c->dim)) {
+        fprintf(stderr, "Error: Failed to read token embeddings from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->wq, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fprintf(stderr, "Error: Failed to read wq weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->wk, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fprintf(stderr, "Error: Failed to read wk weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->wv, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fprintf(stderr, "Error: Failed to read wv weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->wo, sizeof(float), c->n_layers * c->dim * c->dim, f) != (size_t)(c->n_layers * c->dim * c->dim)) {
+        fprintf(stderr, "Error: Failed to read wo weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->w1, sizeof(float), c->n_layers * c->dim * c->hidden_dim, f) != (size_t)(c->n_layers * c->dim * c->hidden_dim)) {
+        fprintf(stderr, "Error: Failed to read w1 weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->w2, sizeof(float), c->n_layers * c->hidden_dim * c->dim, f) != (size_t)(c->n_layers * c->hidden_dim * c->dim)) {
+        fprintf(stderr, "Error: Failed to read w2 weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->ln1_weight, sizeof(float), c->n_layers * c->dim, f) != (size_t)(c->n_layers * c->dim)) {
+        fprintf(stderr, "Error: Failed to read ln1 weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->ln2_weight, sizeof(float), c->n_layers * c->dim, f) != (size_t)(c->n_layers * c->dim)) {
+        fprintf(stderr, "Error: Failed to read ln2 weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->ln_final_weight, sizeof(float), c->dim, f) != (size_t)(c->dim)) {
+        fprintf(stderr, "Error: Failed to read final layer norm weights from weights file\n");
         fclose(f);
         return -1;
     }
     if (fread(w->output_weight, sizeof(float), c->dim * c->vocab_size, f) != (size_t)(c->dim * c->vocab_size)) {
+        fprintf(stderr, "Error: Failed to read output weights from weights file\n");
         fclose(f);
         return -1;
     }
