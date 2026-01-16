@@ -468,12 +468,142 @@ static void test_enhanced_system(void) {
 }
 
 // ============================================================
+// Test 7: Notorch Microlearning Revolution
+// ============================================================
+
+static void test_notorch_revolution(void) {
+    TEST("Notorch Revolution - Resonance-Gated Plasticity");
+
+    MicroTrainer mt;
+    init_microtrainer(&mt, DIM);
+
+    LowRankDelta delta;
+    delta.rank = DELTA_RANK;
+    delta.in_dim = DIM;
+    delta.out_dim = DIM;
+    delta.A = (float*)calloc(DIM * DELTA_RANK, sizeof(float));
+    delta.B = (float*)calloc(DELTA_RANK * DIM, sizeof(float));
+
+    float x[DIM], probs[DIM], identity[DIM];
+    for (int i = 0; i < DIM; i++) {
+        x[i] = 0.1f;
+        probs[i] = 1.0f / DIM;
+        identity[i] = (i < DIM/2) ? 0.5f : -0.5f;
+    }
+
+    // Test with aligned input (high gate)
+    for (int i = 0; i < DIM/2; i++) x[i] = 0.5f;
+    for (int i = DIM/2; i < DIM; i++) x[i] = -0.5f;
+
+    float norm_before = get_delta_norm(&delta);
+    experience_step_gated(&mt, &delta, x, probs, 42, 1.0f, identity, DIM);
+    float norm_after = get_delta_norm(&delta);
+
+    ASSERT(norm_after > norm_before, "gated step should update delta when aligned");
+
+    PASS();
+
+    TEST("Notorch Revolution - Adaptive Push/Pull");
+
+    // Low confidence scenario (target weak)
+    float probs_weak[256];
+    for (int i = 0; i < 256; i++) probs_weak[i] = 0.01f;
+    probs_weak[42] = 0.05f;  // Target barely winning
+    probs_weak[100] = 0.04f; // Strong competitor
+
+    set_adaptive_push_pull(&mt, probs_weak, 256, 42);
+    ASSERT(mt.push > mt.pull, "low confidence should boost push over pull");
+
+    // High confidence scenario (target strong)
+    float probs_strong[256];
+    for (int i = 0; i < 256; i++) probs_strong[i] = 0.001f;
+    probs_strong[42] = 0.9f;  // Target dominating
+
+    set_adaptive_push_pull(&mt, probs_strong, 256, 42);
+    ASSERT(mt.pull >= mt.push, "high confidence should boost pull over push");
+
+    PASS();
+
+    TEST("Notorch Revolution - Quality-Weighted Signal");
+
+    // Good quality, not stuck, not bored
+    float weight_good = compute_quality_weight(0.9f, 0.1f, 0.1f);
+    ASSERT(weight_good > 1.0f, "good quality should have high weight");
+
+    // Poor quality
+    float weight_poor = compute_quality_weight(0.1f, 0.1f, 0.1f);
+    ASSERT(weight_poor < weight_good, "poor quality should have lower weight");
+
+    // Stuck (repetitive)
+    float weight_stuck = compute_quality_weight(0.9f, 0.9f, 0.1f);
+    ASSERT(weight_stuck < weight_good, "stuck should reduce weight");
+
+    // Bored (low novelty)
+    float weight_bored = compute_quality_weight(0.9f, 0.1f, 0.9f);
+    ASSERT(weight_bored < weight_good, "boredom should reduce weight");
+
+    PASS();
+
+    TEST("Notorch Revolution - Spectral Channel Freezing");
+
+    // Make channel 0 strong
+    for (int i = 0; i < DIM; i++) {
+        delta.A[i * DELTA_RANK + 0] = 1.0f;  // Strong
+        delta.A[i * DELTA_RANK + 1] = 0.01f; // Weak
+    }
+
+    int freeze_0 = should_freeze_channel(&delta, 0, 5.0f);
+    int freeze_1 = should_freeze_channel(&delta, 1, 5.0f);
+
+    ASSERT(freeze_0 == 1, "strong channel should be frozen");
+    ASSERT(freeze_1 == 0, "weak channel should not be frozen");
+
+    PASS();
+
+    TEST("Notorch Revolution - Experience Consolidation");
+
+    // Create core delta
+    LowRankDelta core;
+    core.rank = DELTA_RANK;
+    core.in_dim = DIM;
+    core.out_dim = DIM;
+    core.A = (float*)calloc(DIM * DELTA_RANK, sizeof(float));
+    core.B = (float*)calloc(DELTA_RANK * DIM, sizeof(float));
+
+    // Set delta channel 0 to known values
+    for (int i = 0; i < DIM; i++) {
+        delta.A[i * DELTA_RANK + 0] = 1.0f;
+    }
+    for (int j = 0; j < DIM; j++) {
+        delta.B[0 * DIM + j] = 2.0f;
+    }
+
+    int frozen_mask[DELTA_RANK] = {0};
+    frozen_mask[0] = 1;  // Only channel 0 is frozen
+
+    float core_before = core.A[0];
+    consolidate_experience(&delta, &core, frozen_mask, 1);
+    float core_after = core.A[0];
+
+    ASSERT(core_after > core_before, "consolidation should transfer frozen pattern to core");
+
+    PASS();
+
+    free(delta.A);
+    free(delta.B);
+    free(core.A);
+    free(core.B);
+    free_microtrainer(&mt);
+}
+
+// ============================================================
 // Main
 // ============================================================
 
 int main(void) {
     printf("=== Enhanced Delta System Tests ===\n");
     printf("Testing 5 revolutionary improvements to delta modulation\n");
+    printf("+ Testing 5 notorch microlearning improvements\n");
 
     // Run all tests
     test_temporal_resonance();
@@ -482,6 +612,7 @@ int main(void) {
     test_crystallization();
     test_somatic_modulation();
     test_enhanced_system();
+    test_notorch_revolution();
 
     // Summary
     printf("\n=== Test Summary ===\n");
@@ -496,6 +627,12 @@ int main(void) {
         printf("  3. Contrastive Delta Shaping - identity anchor force\n");
         printf("  4. Hebbian Crystallization - strong patterns freeze\n");
         printf("  5. Somatic Delta Modulation - body state affects deltas\n");
+        printf("\nNotorch microlearning verified:\n");
+        printf("  1. Resonance-Gated Plasticity - identity gates learning\n");
+        printf("  2. Adaptive Push/Pull - confidence modulates contrastive\n");
+        printf("  3. Quality-Weighted Signal - good generations teach more\n");
+        printf("  4. Spectral Channel Freezing - strong channels crystallize\n");
+        printf("  5. Experience Consolidation - frozen patterns merge to core\n");
         return 0;
     } else {
         printf("\n✗ Some tests failed.\n");

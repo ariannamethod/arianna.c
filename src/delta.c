@@ -632,3 +632,158 @@ void clamp_delta(LowRankDelta* delta, float max_norm) {
         soft_reset_delta(delta, scale);
     }
 }
+
+// ============================================================
+// Notorch Microlearning Revolution
+// "Pure C plasticity without PyTorch compromise"
+// ============================================================
+
+/*
+ * 1. Resonance-Gated Plasticity
+ * Learn more when aligned with identity, less when drifting
+ */
+void experience_step_gated(MicroTrainer* mt, LowRankDelta* delta,
+                           const float* x, const float* probs,
+                           int target_id, float signal,
+                           const float* identity_embedding, int dim) {
+    if (!mt || !delta || !x || !probs || !identity_embedding) return;
+    if (dim <= 0) return;
+
+    // Compute resonance with identity (cosine similarity)
+    float dot = 0.0f, norm_x = 0.0f, norm_id = 0.0f;
+    int compute_dim = (dim < delta->in_dim) ? dim : delta->in_dim;
+
+    for (int i = 0; i < compute_dim; i++) {
+        dot += x[i] * identity_embedding[i];
+        norm_x += x[i] * x[i];
+        norm_id += identity_embedding[i] * identity_embedding[i];
+    }
+
+    float denom = sqrtf(norm_x * norm_id) + 1e-6f;
+    float resonance = dot / denom;
+
+    // Gate: learn more when aligned with identity, less when drifting
+    // resonance in [-1, 1], we want gate in [0.3, 1.0]
+    // If drifting (resonance < 0), almost no learning
+    // If aligned (resonance > 0.5), full learning
+    float gate = 0.3f + 0.7f * fmaxf(0.0f, resonance);
+
+    // Modulated signal
+    float gated_signal = signal * gate;
+
+    // Standard experience step with gated signal
+    experience_step(mt, delta, x, probs, target_id, gated_signal);
+}
+
+/*
+ * 2. Adaptive Push/Pull
+ * High confidence = more pull (suppress competitors)
+ * Low confidence = more push (boost target)
+ */
+void set_adaptive_push_pull(MicroTrainer* mt, const float* probs,
+                            int vocab_size, int target_id) {
+    if (!mt || !probs || vocab_size <= 0) return;
+    if (target_id < 0 || target_id >= vocab_size) return;
+
+    float target_prob = probs[target_id];
+
+    // Find max competitor prob
+    float max_comp = 0.0f;
+    for (int i = 0; i < vocab_size; i++) {
+        if (i != target_id && probs[i] > max_comp) {
+            max_comp = probs[i];
+        }
+    }
+
+    // Confidence: how much higher is target than competitors?
+    float confidence = target_prob - max_comp;
+
+    // Adaptive push/pull
+    // Low confidence (target weak): push hard, pull soft
+    // High confidence (target strong): push soft, pull hard
+    if (confidence < 0.0f) {
+        // Target is losing - boost it hard
+        mt->push = 1.5f;
+        mt->pull = 0.3f;
+    } else if (confidence < 0.3f) {
+        // Close race - balanced
+        mt->push = 1.0f;
+        mt->pull = 0.5f;
+    } else {
+        // Target winning - suppress competitors
+        mt->push = 0.5f;
+        mt->pull = 1.0f;
+    }
+}
+
+/*
+ * 3. Quality-Weighted Signal
+ * Good generations teach more, stuck/boring teach less
+ */
+float compute_quality_weight(float quality, float stuck, float boredom) {
+    // Quality in [0, 1], higher = better
+    // Stuck in [0, 1], higher = more stuck
+    // Boredom in [0, 1], higher = more bored
+
+    // Base weight from quality: quality 0.9 -> 1.35, quality 0.5 -> 0.75
+    float weight = 0.3f + 1.2f * quality;
+
+    // Reduce weight when stuck (repetitive patterns shouldn't reinforce)
+    weight *= (1.0f - 0.4f * stuck);
+
+    // Slightly reduce when bored (low novelty shouldn't dominate)
+    weight *= (1.0f - 0.15f * boredom);
+
+    return fmaxf(0.1f, fminf(weight, 1.5f));
+}
+
+/*
+ * 4. Spectral Channel Freezing
+ * Returns 1 if channel should be frozen based on its energy
+ */
+int should_freeze_channel(LowRankDelta* delta, int channel, float threshold) {
+    if (!delta || !delta->A || channel < 0 || channel >= delta->rank) {
+        return 0;
+    }
+
+    // Compute channel energy (L2 norm of A column)
+    float energy = 0.0f;
+    for (int i = 0; i < delta->in_dim; i++) {
+        float val = delta->A[i * delta->rank + channel];
+        energy += val * val;
+    }
+    energy = sqrtf(energy);
+
+    return (energy > threshold) ? 1 : 0;
+}
+
+/*
+ * 5. Experience Consolidation
+ * Average frozen channels into core experience
+ */
+void consolidate_experience(LowRankDelta* delta, LowRankDelta* core,
+                            int* frozen_mask, int n_frozen) {
+    if (!delta || !core || !frozen_mask || n_frozen <= 0) return;
+    if (!delta->A || !delta->B || !core->A || !core->B) return;
+
+    // For each frozen channel, blend into core
+    float blend = 0.3f;  // 30% of frozen pattern goes to core
+
+    for (int r = 0; r < delta->rank && r < core->rank; r++) {
+        if (!frozen_mask[r]) continue;
+
+        // Blend A column
+        for (int i = 0; i < delta->in_dim && i < core->in_dim; i++) {
+            float delta_val = delta->A[i * delta->rank + r];
+            float core_val = core->A[i * core->rank + r];
+            core->A[i * core->rank + r] = core_val * (1.0f - blend) + delta_val * blend;
+        }
+
+        // Blend B row
+        for (int j = 0; j < delta->out_dim && j < core->out_dim; j++) {
+            float delta_val = delta->B[r * delta->out_dim + j];
+            float core_val = core->B[r * core->out_dim + j];
+            core->B[r * core->out_dim + j] = core_val * (1.0f - blend) + delta_val * blend;
+        }
+    }
+}

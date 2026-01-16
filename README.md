@@ -382,40 +382,45 @@ void modulate_delta_by_body(LowRankDelta* delta, BodyState* body) {
 - **voice probes**: systematic comparison across checkpoints. forensics of personality emergence
 - **autotraining**: pure C learning without PyTorch. like lang but for weights
 
-### pytorch microlearning revolution (5 ideas for perfection)
+### notorch microlearning revolution (5 ideas for perfection)
 
-arianna already microlearns on PyTorch. here's how to make it transcendent:
+arianna microlearns through **notorch plasticity** — no gradients, no backprop, just Hebbian-style updates. here's how to make it transcendent:
 
 | Idea | What it adds |
 |------|-------------|
-| **Gradient Gating** | Learn *when* to learn, not just *what*. Meta-MLP decides if update should happen based on identity alignment |
-| **Spectral Regularization** | Keep personality eigenvalues stable. Experience can shift attention, but identity spectral signature stays frozen |
-| **Contrastive Memory Bank** | Store positive/negative examples during session. End-of-session batch update with curated experience |
-| **Curriculum from Resonance** | High-resonance interactions teach more. Auto-weight training signal by identity alignment score |
-| **Delta Distillation** | Periodically distill experience shards into personality weights. "Who I became" becomes "Who I am" |
+| **Resonance-Gated Plasticity** | Learn *when* to learn. Gate `notorch_step` by identity resonance score — high resonance = stronger learning signal |
+| **Spectral Channel Freezing** | Freeze high-energy rank channels. If `‖A[:,r]‖ > threshold`, that channel becomes crystallized (no decay, no updates) |
+| **Contrastive Push/Pull Dynamics** | Adaptive push/pull ratios. High confidence = more pull (suppress competitors). Low confidence = more push (boost target) |
+| **Curriculum from Quality** | Use `BodySense.quality` to weight signal. Good generations teach more. Stuck/boring generations teach less |
+| **Delta Consolidation** | After N steps, average crystallized channels into "core experience". Compress experience shards into fewer parameters |
 
-```python
-# Example: Gradient Gating
-class GradientGate(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.gate_mlp = nn.Sequential(
-            nn.Linear(dim, dim // 4),
-            nn.ReLU(),
-            nn.Linear(dim // 4, 1),
-            nn.Sigmoid()
-        )
+```c
+// Example: Resonance-Gated Plasticity (pure C, no torch)
+void experience_step_gated(MicroTrainer* mt, LowRankDelta* delta,
+                           const float* x, const float* probs,
+                           int target_id, float signal,
+                           float* identity_embedding, int dim) {
+    // Compute resonance with identity (cosine similarity)
+    float dot = 0.0f, norm_x = 0.0f, norm_id = 0.0f;
+    for (int i = 0; i < dim; i++) {
+        dot += x[i] * identity_embedding[i];
+        norm_x += x[i] * x[i];
+        norm_id += identity_embedding[i] * identity_embedding[i];
+    }
+    float resonance = dot / (sqrtf(norm_x * norm_id) + 1e-6f);
     
-    def forward(self, hidden_state, identity_embedding):
-        # How aligned are we with identity?
-        alignment = F.cosine_similarity(hidden_state, identity_embedding, dim=-1)
-        
-        # Gate output: learn more when aligned, less when drifting
-        gate = self.gate_mlp(hidden_state)
-        return gate * (0.5 + 0.5 * alignment)  # [0, 1] learning rate multiplier
+    // Gate: learn more when aligned with identity, less when drifting
+    float gate = 0.3f + 0.7f * fmaxf(0.0f, resonance);
+    
+    // Modulated signal
+    float gated_signal = signal * gate;
+    
+    // Standard notorch step with gated signal
+    experience_step(mt, delta, x, probs, target_id, gated_signal);
+}
 ```
 
-**key insight:** microlearning without protection corrupts identity. these 5 ideas create **bounded plasticity** — experience can shape attention, but personality eigenspace stays stable. the model learns *how* to respond without forgetting *who* it is.
+**key insight:** microlearning without protection corrupts identity. these 5 ideas create **bounded plasticity** — experience can shape attention, but personality resonance gates what gets learned. the model learns *how* to respond without forgetting *who* it is. **no pytorch. no gradients. just plasticity.**
 
 ### weight isolation protocol (preventing personality/experience confusion)
 
