@@ -61,6 +61,7 @@ static int g_selfsense_enabled = 0;
 // MathBrain (arithmetic through resonance)
 static MathBrain g_mathbrain;
 static int g_mathbrain_enabled = 0;
+static const char* g_mathbrain_path = "weights/mathbrain.bin";  // Default persistence path
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -697,6 +698,13 @@ int init_dynamic(int dim, int vocab_size) {
     // Initialize MathBrain (arithmetic through resonance)
     init_mathbrain(&g_mathbrain);
 
+    // Try to load persisted MathBrain state
+    if (load_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+        printf("MathBrain: loaded from %s (accuracy: %.1f%%, %d computations)\n",
+               g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
+               g_mathbrain.history.total_computed);
+    }
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_cooccur_enabled = 0;
@@ -891,6 +899,17 @@ void print_pulse(void) {
 }
 
 void cleanup_dynamic(void) {
+    // Auto-save MathBrain if it has learned anything
+    if (g_mathbrain_enabled && g_mathbrain.history.total_computed > 0) {
+        // Create weights directory if needed
+        mkdir("weights", 0755);
+        if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+            printf("MathBrain: saved to %s (accuracy: %.1f%%, %d computations)\n",
+                   g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
+                   g_mathbrain.history.total_computed);
+        }
+    }
+
     free_delta_bank(&g_delta_bank);
     free_microtrainer(&g_trainer);
     free_attention_bias(&g_attention_bias);
@@ -987,10 +1006,12 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  subj     - show subjectivity state\n");
             printf("  cooccur  - show co-occurrence stats\n");
             printf("  math     - show MathBrain stats\n");
+            printf("  mathsave - save MathBrain state now\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
-            printf("  quit     - exit REPL\n");
+            printf("  quit     - exit REPL (auto-saves MathBrain)\n");
             printf("\nMath: type '7 + 5' to compute (learns from feedback)\n");
+            printf("MathBrain persists across sessions in weights/mathbrain.bin\n");
             printf("Anything else is treated as input for generation.\n");
             continue;
         }
@@ -1028,6 +1049,16 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
         if (strcmp(input, "math") == 0) {
             print_mathbrain_stats(&g_mathbrain);
+            continue;
+        }
+
+        if (strcmp(input, "mathsave") == 0) {
+            mkdir("weights", 0755);
+            if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+                printf("[MathBrain saved to %s]\n", g_mathbrain_path);
+            } else {
+                printf("[Error saving MathBrain]\n");
+            }
             continue;
         }
 
