@@ -11,6 +11,9 @@
 #include "delta.h"
 #include "mood.h"
 #include "guided.h"
+#include "subjectivity.h"
+#include "cooccur.h"
+#include "body_sense.h"
 #include <time.h>
 
 // ============================================================
@@ -32,6 +35,21 @@ static StanleySignals g_stanley_signals;
 static AttentionBias g_attention_bias;
 static OverthinkDetector g_overthink;
 static int g_guided_enabled = 0;
+
+// Subjectivity (no-seed-from-prompt)
+static Subjectivity g_subjectivity;
+static int g_subjectivity_enabled = 0;
+static char* g_origin_path = NULL;
+
+// Co-occurrence field (attention bias from corpus patterns)
+static CooccurField g_cooccur;
+static int g_cooccur_enabled = 0;
+static float g_cooccur_alpha = 0.15f;  // Blend strength
+
+// Body sense (somatic awareness: boredom, overwhelm, stuck)
+static BodySense g_body_sense;
+static BodyState g_body_state;
+static int g_body_sense_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -213,6 +231,13 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
         }
 
+        // Apply co-occurrence bias (corpus patterns shape generation)
+        if (g_cooccur_enabled) {
+            int ctx_start = (n_tokens > 8) ? n_tokens - 8 : 0;
+            bias_logits(&g_cooccur, t->state.logits, t->config.vocab_size,
+                       tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
+        }
+
         int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
         tokens[n_tokens] = next_token;
         putchar((char)next_token);
@@ -264,6 +289,189 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         n_tokens++;
     }
     printf("\n");
+}
+
+// ============================================================
+// Subjective generation (no-seed-from-prompt)
+// "User input creates a wrinkle, not a seed"
+// ============================================================
+
+void generate_subjective(Transformer* t, char* user_input, int max_tokens, float temperature) {
+    /*
+     * KEY DIFFERENCE from generate_dynamic:
+     * - User input is NOT used as the generation seed
+     * - Instead, we compute PULSE (influence metrics) from user input
+     * - Generation starts from INTERNAL SEED (from identity)
+     * - User input only MODULATES the internal state
+     */
+
+    // 1. Process user input through subjectivity
+    int input_len = strlen(user_input);
+    process_user_input(&g_subjectivity, user_input, input_len);
+
+    // 2. Get internal seed (NOT user prompt!)
+    InternalSeed* seed = get_internal_seed(&g_subjectivity);
+
+    if (seed->len == 0) {
+        fprintf(stderr, "[Subjectivity] No internal seed generated, falling back to prompt\n");
+        generate_dynamic(t, user_input, max_tokens, temperature);
+        return;
+    }
+
+    // 3. Convert seed to tokens
+    int tokens[MAX_SEQ_LEN];
+    int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
+
+    printf("[Internal seed: \"%.*s\"]\n", seed->len > 50 ? 50 : seed->len, seed->text);
+
+    // 4. Get subjectivity-modulated signals for deltas
+    get_subjectivity_signals(&g_subjectivity, &g_signals);
+
+    // 5. Route signals (with trauma-based suppression)
+    TraumaInfluence trauma_inf = get_trauma_influence(&g_subjectivity.trauma);
+
+    if (g_mood_enabled) {
+        route_signals_to_moods(&g_mood_router, &g_signals);
+
+        // Suppress delta influence based on trauma
+        if (trauma_inf.delta_suppression > 0.3f) {
+            for (int i = 0; i < g_delta_bank.n_shards; i++) {
+                g_delta_bank.mix[i] *= (1.0f - trauma_inf.delta_suppression);
+            }
+        }
+
+        mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+    } else if (g_delta_enabled) {
+        compute_mix(&g_delta_bank, &g_signals);
+    }
+
+    // 6. Process internal seed through transformer
+    for (int pos = 0; pos < n_tokens; pos++) {
+        forward_dynamic(t, tokens, n_tokens, pos);
+    }
+
+    // 7. Get modulated temperature
+    float effective_temp = get_modulated_temperature(&g_subjectivity);
+    // Blend with user-specified temperature
+    effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+
+    // 7b. Initialize body state for somatic regulation
+    if (g_body_sense_enabled) {
+        init_body_state(&g_body_state);
+        g_body_state.expert_temp = effective_temp;
+    }
+
+    // 8. Generate from internal state
+    char generated[MAX_SEQ_LEN * 2];
+    int gen_idx = 0;
+
+    printf("\n--- Subjective Generation ---\n");
+    printf("%.*s", seed->len, seed->text);
+
+    for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
+        // Apply guided attention bias
+        if (g_guided_enabled) {
+            apply_bias_to_logits(&g_attention_bias, t->state.logits, t->config.vocab_size);
+        }
+
+        // Apply co-occurrence bias (corpus patterns shape generation)
+        if (g_cooccur_enabled) {
+            int ctx_start = (n_tokens > 8) ? n_tokens - 8 : 0;
+            bias_logits(&g_cooccur, t->state.logits, t->config.vocab_size,
+                       tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
+        }
+
+        int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
+        tokens[n_tokens] = next_token;
+        char c = (char)next_token;
+        putchar(c);
+
+        // Store for absorption
+        if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
+            generated[gen_idx++] = c;
+        }
+
+        // Re-route periodically
+        if (n_tokens % 16 == 0) {
+            int start = (n_tokens > 64) ? n_tokens - 64 : 0;
+
+            // Convert recent tokens to text for wrinkle update
+            char recent_text[256];
+            int text_len = n_tokens - start;
+            if (text_len > 255) text_len = 255;
+            for (int j = 0; j < text_len; j++) {
+                recent_text[j] = (char)tokens[start + j];
+            }
+            recent_text[text_len] = '\0';
+
+            // Update wrinkle from generated output (self-reflection)
+            compute_wrinkle(&g_subjectivity.wrinkle, recent_text, text_len,
+                           &g_subjectivity.identity);
+
+            // Get updated signals
+            get_subjectivity_signals(&g_subjectivity, &g_signals);
+
+            if (g_mood_enabled) {
+                update_mood_with_momentum(&g_mood_router, &g_signals, g_momentum);
+                mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+            } else if (g_delta_enabled) {
+                compute_mix(&g_delta_bank, &g_signals);
+            }
+
+            // Update temperature
+            effective_temp = get_modulated_temperature(&g_subjectivity);
+            effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+
+            // Somatic regulation (body sense adjusts temperature)
+            if (g_body_sense_enabled) {
+                // Extract metrics from wrinkle (pulse)
+                WrinkleField* w = &g_subjectivity.wrinkle;
+                float unique_ratio = (float)gen_idx / (float)(i + 1);  // Approximate
+
+                // Update body state
+                update_body_state(&g_body_state,
+                                 w->entropy, w->novelty,
+                                 w->arousal, w->valence,
+                                 i, unique_ratio);
+
+                // Get regulation (adjusts temperature based on boredom/overwhelm/stuck)
+                RegulationResult reg = body_regulate(&g_body_sense, &g_body_state,
+                                                    effective_temp, g_stanley_signals.active_expert);
+                effective_temp = reg.temperature;
+
+                // MLP learning from experience
+                body_observe(&g_body_sense, &g_body_state);
+            }
+
+            // Update guided attention
+            if (g_guided_enabled) {
+                compute_pulse(&g_stanley_signals.pulse, recent_text, text_len, &g_identity);
+                extract_stanley_signals(&g_stanley_signals, tokens + start, n_tokens - start,
+                                       NULL, &g_identity);
+                detect_overthinking(&g_overthink, &g_stanley_signals, recent_text, text_len);
+
+                if (should_break_spiral(&g_overthink)) {
+                    effective_temp = fminf(1.5f, effective_temp + 0.3f);
+                }
+
+                compute_token_bias(&g_attention_bias, &g_stanley_signals);
+            }
+        }
+
+        forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+        n_tokens++;
+    }
+
+    generated[gen_idx] = '\0';
+    printf("\n");
+
+    // 9. Post-generation: absorb output back into identity
+    post_generation(&g_subjectivity, generated, gen_idx);
+
+    // 10. Online learning: observe generated tokens for co-occurrence
+    if (g_cooccur_enabled) {
+        observe_tokens(&g_cooccur, tokens, n_tokens);
+    }
 }
 
 // ============================================================
@@ -417,10 +625,23 @@ int init_dynamic(int dim, int vocab_size) {
     init_attention_bias(&g_attention_bias, vocab_size);
     init_overthink_detector(&g_overthink);
 
+    // Initialize subjectivity (no-seed-from-prompt)
+    init_subjectivity(&g_subjectivity);
+
+    // Initialize co-occurrence field
+    init_cooccur_field(&g_cooccur);
+
+    // Initialize body sense (somatic awareness)
+    init_body_sense(&g_body_sense);
+    init_body_state(&g_body_state);
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
+    g_cooccur_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
+    g_subjectivity_enabled = 0;
+    g_body_sense_enabled = 1;  // ON by default - body knows
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -438,6 +659,60 @@ void enable_mood_routing(int enable) {
 
 void enable_guided_attention(int enable) {
     g_guided_enabled = enable;
+}
+
+// Enable subjectivity (no-seed-from-prompt)
+void enable_subjectivity(int enable) {
+    g_subjectivity_enabled = enable;
+}
+
+// Load subjectivity from origin file
+int load_subjectivity_origin(const char* origin_path) {
+    if (load_subjectivity(&g_subjectivity, origin_path)) {
+        g_subjectivity_enabled = 1;
+        g_origin_path = (char*)origin_path;
+        return 1;
+    }
+    return 0;
+}
+
+// Print subjectivity debug info
+void print_subjectivity_debug(void) {
+    print_subjectivity_state(&g_subjectivity);
+}
+
+// Enable co-occurrence field
+void enable_cooccur(int enable) {
+    g_cooccur_enabled = enable;
+}
+
+// Set co-occurrence blend alpha
+void set_cooccur_alpha(float alpha) {
+    g_cooccur_alpha = alpha;
+}
+
+// Load co-occurrence from corpus
+int load_cooccur_corpus(const char* path) {
+    if (load_cooccur_from_corpus(&g_cooccur, path)) {
+        g_cooccur_enabled = 1;
+        return 1;
+    }
+    return 0;
+}
+
+// Print co-occurrence stats
+void print_cooccur_debug(void) {
+    print_cooccur_stats(&g_cooccur);
+}
+
+// Print body sense stats
+void print_body_sense_debug(void) {
+    if (!g_body_sense_enabled) {
+        printf("BodySense: disabled\n");
+        return;
+    }
+    print_body_sense_stats(&g_body_sense);
+    print_body_state(&g_body_state);
 }
 
 // Add gravity centers (personality anchors)
@@ -555,6 +830,9 @@ void cleanup_dynamic(void) {
     free_delta_bank(&g_delta_bank);
     free_microtrainer(&g_trainer);
     free_attention_bias(&g_attention_bias);
+    free_subjectivity(&g_subjectivity);
+    free_cooccur_field(&g_cooccur);
+    free_body_sense(&g_body_sense);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
 }
@@ -563,23 +841,49 @@ void cleanup_dynamic(void) {
 // Main with dynamic support
 // ============================================================
 
+// Default origin file paths to try
+static const char* DEFAULT_ORIGIN_PATHS[] = {
+    "origin.txt",
+    "./origin.txt",
+    "data/origin.txt",
+    "../origin.txt",
+    NULL
+};
+
+// Try to find origin.txt in default locations
+static const char* find_default_origin(void) {
+    for (int i = 0; DEFAULT_ORIGIN_PATHS[i]; i++) {
+        FILE* f = fopen(DEFAULT_ORIGIN_PATHS[i], "r");
+        if (f) {
+            fclose(f);
+            return DEFAULT_ORIGIN_PATHS[i];
+        }
+    }
+    return NULL;
+}
+
 void print_usage(const char* prog) {
     printf("arianna_dynamic - Personality transformer with Stanley-style deltas\n\n");
     printf("Usage: %s <weights.bin> \"<prompt>\" [max_tokens] [temperature]\n", prog);
     printf("\nOptions:\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
-    printf("  -mood           Enable mood routing (Stanley-style)\n");
+    printf("  -no-mood        Disable mood routing (enabled by default)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
+    printf("  -subj <origin>  Use custom origin file (default: auto-detect origin.txt)\n");
+    printf("  -no-subj        Disable subjectivity (use prompt as seed)\n");
     printf("  -signals        Print signal values after generation\n");
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("\nExamples:\n");
-    printf("  %s arianna.bin \"She finds that \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -shard warmth.bin \"She finds that \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -mood -shard data/shards/*.bin \"She \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -guided \"She \" 100 0.8\n", prog);
-    printf("  %s arianna.bin -learn session1 -save session1.bin \"She \" 100\n", prog);
+    printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin \"Tell me about presence\" 100 0.8 -signals\n", prog);
+    printf("  %s arianna.bin -guided \"What do you feel?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin -no-subj -no-mood \"She finds that \" 100 0.8\n", prog);
+    printf("\nDefaults (Arianna's core architecture):\n");
+    printf("  Subjectivity: ON  - generates from identity, not from prompt\n");
+    printf("  Mood routing: ON  - 8 moods shape attention dynamically\n");
+    printf("  Your words create a wrinkle in her field, not a seed.\n");
 }
 
 int main(int argc, char** argv) {
@@ -601,13 +905,20 @@ int main(int argc, char** argv) {
     float temperature = 0.8f;
     float momentum = 0.8f;
     int print_sigs = 0;
-    int mood_mode = 0;
+    int mood_mode = 1;    // ENABLED BY DEFAULT - mood shapes attention
     int guided_mode = 0;
+    int subj_mode = 1;    // ENABLED BY DEFAULT - this is Arianna's core
+    char* origin_path = NULL;
 
     // Parse arguments
     int arg_idx = 2;
     while (arg_idx < argc) {
-        if (strcmp(argv[arg_idx], "-guided") == 0) {
+        if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
+            subj_mode = 1;
+            origin_path = argv[++arg_idx];
+        } else if (strcmp(argv[arg_idx], "-no-subj") == 0) {
+            subj_mode = 0;  // Disable subjectivity, use prompt as seed
+        } else if (strcmp(argv[arg_idx], "-guided") == 0) {
             guided_mode = 1;
         } else if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
             if (n_shard_paths < MAX_SHARDS) {
@@ -615,6 +926,8 @@ int main(int argc, char** argv) {
             }
         } else if (strcmp(argv[arg_idx], "-mood") == 0) {
             mood_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-no-mood") == 0) {
+            mood_mode = 0;
         } else if (strcmp(argv[arg_idx], "-signals") == 0) {
             print_sigs = 1;
         } else if (strcmp(argv[arg_idx], "-learn") == 0 && arg_idx + 1 < argc) {
@@ -683,9 +996,46 @@ int main(int argc, char** argv) {
         printf("Microtraining: enabled\n");
     }
 
-    // Generate
-    printf("\n--- Generation ---\n");
-    generate_dynamic(&t, prompt, max_tokens, temperature);
+    // Enable subjectivity (default: ON)
+    if (subj_mode) {
+        // Auto-detect origin.txt if not specified
+        if (origin_path == NULL) {
+            origin_path = (char*)find_default_origin();
+        }
+
+        if (origin_path != NULL && load_subjectivity_origin(origin_path)) {
+            printf("Subjectivity: enabled (no-seed-from-prompt)\n");
+            printf("  Origin: %s\n", origin_path);
+            printf("  Identity: %d fragments, %d trigrams, %d lexicon\n",
+                   g_subjectivity.identity.n_fragments,
+                   g_subjectivity.identity.n_trigrams,
+                   g_subjectivity.identity.lexicon_size);
+
+            // Also load co-occurrence from origin (default: ON)
+            if (load_cooccur_corpus(origin_path)) {
+                printf("CooccurField: enabled (corpus patterns bias generation)\n");
+                printf("  Tokens observed: %llu, alpha: %.2f\n",
+                       (unsigned long long)g_cooccur.tokens_observed, g_cooccur_alpha);
+            }
+        } else {
+            if (origin_path != NULL) {
+                fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
+            } else {
+                fprintf(stderr, "Warning: no origin.txt found, subjectivity disabled\n");
+            }
+            fprintf(stderr, "Falling back to prompt-as-seed mode (-no-subj)\n");
+            subj_mode = 0;
+        }
+    }
+
+    // Generate (subjective or dynamic mode)
+    if (subj_mode && g_subjectivity_enabled) {
+        printf("\n[User input: \"%s\"]\n", prompt);
+        generate_subjective(&t, prompt, max_tokens, temperature);
+    } else {
+        printf("\n--- Generation ---\n");
+        generate_dynamic(&t, prompt, max_tokens, temperature);
+    }
 
     // Print state
     if (print_sigs) {
@@ -699,6 +1049,12 @@ int main(int argc, char** argv) {
         }
         if (guided_mode) {
             print_pulse();
+        }
+        if (subj_mode) {
+            print_subjectivity_debug();
+        }
+        if (g_body_sense_enabled) {
+            print_body_sense_debug();
         }
     }
 
