@@ -96,21 +96,28 @@ class AriannaREPL {
         // For now, return a placeholder that explains how to use the real thing
         return `[simulation mode]
 
-To actually generate text with arianna.c, run:
+To generate with arianna.c:
 
-./bin/arianna weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
+# Dynamic mode (default: all Stanley modules enabled)
+./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
 
-Or for dynamic mode with attention steering:
-
+# With full signal output
 ./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature} -signals
 
-Note: If your prompt contains special characters, make sure to properly escape them.
+# Static mode (frozen weights, no modulation)
+./bin/arianna weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
+
+=== Dynamic Mode Features (all ON by default) ===
+• Subjectivity: no-seed-from-prompt, generation from internal identity
+• SelfSense: signals extracted from hidden states, not heuristics
+• BodySense: somatic regulation (boredom, overwhelm, stuck)
+• CooccurField: corpus patterns bias generation
+• Mood Router: 8 moods shape attention dynamically
 
 The weights encode her voice: gardens, shadows, resonance, stillness.
-The model will continue your prompt in her style.
+Your input creates a wrinkle in her field, not a seed.
 
-"she finds that" works well. so does "she remembers a garden where".
-philosophical fragments emerge. third-person introspection. compressed presence.`;
+"she finds that" works well. philosophical fragments emerge.`;
     }
     
     addMessage(type, role, content) {
