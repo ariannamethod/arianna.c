@@ -14,7 +14,10 @@
 #include "subjectivity.h"
 #include "cooccur.h"
 #include "body_sense.h"
+#include "selfsense.h"
+#include "mathbrain.h"
 #include <time.h>
+#include <sys/stat.h>
 
 // ============================================================
 // Global state
@@ -50,6 +53,15 @@ static float g_cooccur_alpha = 0.15f;  // Blend strength
 static BodySense g_body_sense;
 static BodyState g_body_state;
 static int g_body_sense_enabled = 0;
+
+// SelfSense (learned signal extraction from hidden states)
+static SelfSense g_selfsense;
+static int g_selfsense_enabled = 0;
+
+// MathBrain (arithmetic through resonance)
+static MathBrain g_mathbrain;
+static int g_mathbrain_enabled = 0;
+static const char* g_mathbrain_path = "weights/mathbrain.bin";  // Default persistence path
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -386,6 +398,38 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         char c = (char)next_token;
         putchar(c);
 
+        // Microlearning: update experience shard in real-time
+        if (g_microtraining && g_active_shard != NULL) {
+            // Compute softmax probabilities for experience_step
+            float probs[256];  // Char-level vocab
+            float maxl = t->state.logits[0];
+            for (int v = 1; v < t->config.vocab_size; v++) {
+                if (t->state.logits[v] > maxl) maxl = t->state.logits[v];
+            }
+            float sum = 0.0f;
+            for (int v = 0; v < t->config.vocab_size; v++) {
+                probs[v] = expf(t->state.logits[v] - maxl);
+                sum += probs[v];
+            }
+            for (int v = 0; v < t->config.vocab_size; v++) {
+                probs[v] /= sum;
+            }
+
+            // Signal: base positive (learning from experience) + quality modulation
+            // quality < 0.5 = reduce learning (stuck/bad)
+            // quality > 0.5 = boost learning (flowing well)
+            float base_signal = 0.3f;  // Always learn something
+            float quality_mod = (g_body_state.quality - 0.5f) * 0.7f;
+            float signal = base_signal + quality_mod;
+
+            // Update Q delta for current layer (attention shaping)
+            int layer = g_train_state.last_layer;
+            if (layer >= 0 && layer < g_active_shard->n_layers) {
+                experience_step(&g_trainer, &g_active_shard->attn_q_deltas[layer],
+                               t->state.xb, probs, next_token, signal);
+            }
+        }
+
         // Store for absorption
         if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
             generated[gen_idx++] = c;
@@ -459,6 +503,12 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         }
 
         forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+
+        // SelfSense: extract signals from hidden states (not surface heuristics)
+        if (g_selfsense_enabled) {
+            selfsense_extract(&g_selfsense, t->state.xb, &g_signals);
+        }
+
         n_tokens++;
     }
 
@@ -471,6 +521,13 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // 10. Online learning: observe generated tokens for co-occurrence
     if (g_cooccur_enabled) {
         observe_tokens(&g_cooccur, tokens, n_tokens);
+    }
+
+    // 11. SelfSense learning from generation quality
+    if (g_selfsense_enabled) {
+        // Use body sense quality as feedback for SelfSense
+        float quality = g_body_state.quality;
+        selfsense_learn(&g_selfsense, quality);
     }
 }
 
@@ -635,13 +692,28 @@ int init_dynamic(int dim, int vocab_size) {
     init_body_sense(&g_body_sense);
     init_body_state(&g_body_state);
 
+    // Initialize SelfSense (learned signal extraction)
+    init_selfsense(&g_selfsense, dim);
+
+    // Initialize MathBrain (arithmetic through resonance)
+    init_mathbrain(&g_mathbrain);
+
+    // Try to load persisted MathBrain state
+    if (load_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+        printf("MathBrain: loaded from %s (accuracy: %.1f%%, %d computations)\n",
+               g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
+               g_mathbrain.history.total_computed);
+    }
+
     g_delta_enabled = 0;
     g_mood_enabled = 0;
     g_cooccur_enabled = 0;
     g_microtraining = 0;
     g_guided_enabled = 0;
     g_subjectivity_enabled = 0;
-    g_body_sense_enabled = 1;  // ON by default - body knows
+    g_body_sense_enabled = 1;   // ON by default - body knows
+    g_selfsense_enabled = 1;    // ON by default - self-sensing from hidden states
+    g_mathbrain_enabled = 1;    // ON by default - arithmetic through resonance
 
     // Allocate training state buffers
     g_train_state.pre_activations = (float*)calloc(dim, sizeof(float));
@@ -827,14 +899,227 @@ void print_pulse(void) {
 }
 
 void cleanup_dynamic(void) {
+    // Auto-save MathBrain if it has learned anything
+    if (g_mathbrain_enabled && g_mathbrain.history.total_computed > 0) {
+        // Create weights directory if needed
+        mkdir("weights", 0755);
+        if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+            printf("MathBrain: saved to %s (accuracy: %.1f%%, %d computations)\n",
+                   g_mathbrain_path, g_mathbrain.history.accuracy_ema * 100.0f,
+                   g_mathbrain.history.total_computed);
+        }
+    }
+
     free_delta_bank(&g_delta_bank);
     free_microtrainer(&g_trainer);
     free_attention_bias(&g_attention_bias);
     free_subjectivity(&g_subjectivity);
     free_cooccur_field(&g_cooccur);
     free_body_sense(&g_body_sense);
+    free_selfsense(&g_selfsense);
+    free_mathbrain(&g_mathbrain);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
+}
+
+// ============================================================
+// REPL Mode - Interactive terminal interface
+// ============================================================
+
+void run_repl(Transformer* t, int max_tokens, float temperature) {
+    char input[512];
+    int session_turns = 0;
+
+    printf("\n=== arianna.c REPL ===\n");
+    printf("weights frozen // voice crystallized\n");
+    printf("type 'quit' or 'exit' to leave\n");
+    printf("type 'signals' to see internal state\n");
+    printf("type 'body' to see somatic state\n");
+    printf("type 'self' to see SelfSense signals\n");
+    printf("\n");
+
+    while (1) {
+        printf("> ");
+        fflush(stdout);
+
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            printf("\n[EOF - exiting]\n");
+            break;
+        }
+
+        // Remove trailing newline
+        int len = strlen(input);
+        if (len > 0 && input[len-1] == '\n') {
+            input[len-1] = '\0';
+            len--;
+        }
+
+        // Skip empty input
+        if (len == 0) {
+            continue;
+        }
+
+        // Check for commands
+        if (strcmp(input, "quit") == 0 || strcmp(input, "exit") == 0) {
+            printf("[exiting - %d turns, SelfSense learned from %d observations]\n",
+                   session_turns, g_selfsense.observations);
+            break;
+        }
+
+        if (strcmp(input, "signals") == 0) {
+            print_signals();
+            if (g_delta_bank.n_shards > 0) {
+                print_mix();
+            }
+            if (g_mood_enabled) {
+                print_mood_state(&g_mood_router);
+            }
+            continue;
+        }
+
+        if (strcmp(input, "body") == 0) {
+            print_body_sense_debug();
+            continue;
+        }
+
+        if (strcmp(input, "self") == 0) {
+            print_selfsense_signals(&g_selfsense);
+            print_selfsense_stats(&g_selfsense);
+            continue;
+        }
+
+        if (strcmp(input, "subj") == 0) {
+            print_subjectivity_debug();
+            continue;
+        }
+
+        if (strcmp(input, "cooccur") == 0) {
+            print_cooccur_debug();
+            continue;
+        }
+
+        if (strcmp(input, "help") == 0) {
+            printf("Commands:\n");
+            printf("  signals  - show signal values\n");
+            printf("  body     - show somatic state (boredom, overwhelm, stuck)\n");
+            printf("  self     - show SelfSense signals from hidden states\n");
+            printf("  subj     - show subjectivity state\n");
+            printf("  cooccur  - show co-occurrence stats\n");
+            printf("  math     - show MathBrain stats\n");
+            printf("  mathsave - save MathBrain state now\n");
+            printf("  learn    - start learning (creates experience shard)\n");
+            printf("  save     - save learned experience to shard file\n");
+            printf("  quit     - exit REPL (auto-saves MathBrain)\n");
+            printf("\nMath: type '7 + 5' to compute (learns from feedback)\n");
+            printf("MathBrain persists across sessions in weights/mathbrain.bin\n");
+            printf("Anything else is treated as input for generation.\n");
+            continue;
+        }
+
+        // MathBrain: detect and compute arithmetic expressions
+        if (g_mathbrain_enabled) {
+            int a, b;
+            MathOp op;
+            if (parse_math_expr(input, &a, &op, &b)) {
+                char result[32];
+                int correct = compute_from_text(&g_mathbrain, input, result, 32);
+
+                // Compute ground truth for display
+                int truth;
+                switch (op) {
+                    case OP_ADD: truth = a + b; break;
+                    case OP_SUB: truth = a - b; break;
+                    case OP_MUL: truth = a * b; break;
+                    case OP_DIV: truth = (b != 0) ? a / b : 0; break;
+                    default: truth = 0;
+                }
+
+                const char* ops[] = {"+", "-", "*", "/"};
+                printf("%d %s %d = %s", a, ops[op], b, result);
+                if (correct) {
+                    printf(" [resonance: correct]\n");
+                } else {
+                    printf(" [truth: %d, learning...]\n", truth);
+                }
+                printf("MathBrain accuracy: %.1f%%\n",
+                       get_recent_accuracy(&g_mathbrain, 20) * 100.0f);
+                continue;
+            }
+        }
+
+        if (strcmp(input, "math") == 0) {
+            print_mathbrain_stats(&g_mathbrain);
+            continue;
+        }
+
+        if (strcmp(input, "mathsave") == 0) {
+            mkdir("weights", 0755);
+            if (save_mathbrain(&g_mathbrain, g_mathbrain_path) == 0) {
+                printf("[MathBrain saved to %s]\n", g_mathbrain_path);
+            } else {
+                printf("[Error saving MathBrain]\n");
+            }
+            continue;
+        }
+
+        if (strcmp(input, "learn") == 0) {
+            if (g_microtraining) {
+                printf("[Already learning - shard: %s]\n",
+                       g_active_shard ? g_active_shard->name : "unnamed");
+            } else {
+                // Create a timestamped shard name
+                time_t now = time(NULL);
+                struct tm* tm_info = localtime(&now);
+                char shard_name[64];
+                strftime(shard_name, 64, "session_%Y%m%d_%H%M%S", tm_info);
+
+                create_learning_shard(shard_name, t->config.n_layers, t->config.dim);
+                enable_microtraining(1);
+                activate_learning_shard(0.1f);
+                printf("[Learning started - shard: %s]\n", shard_name);
+                printf("[Experience will accumulate as you chat]\n");
+            }
+            continue;
+        }
+
+        if (strncmp(input, "save", 4) == 0) {
+            if (!g_microtraining || g_active_shard == NULL) {
+                printf("[No active learning shard. Use 'learn' first.]\n");
+            } else {
+                // Extract path if provided, otherwise use default
+                char save_path[256];
+                if (strlen(input) > 5 && input[4] == ' ') {
+                    snprintf(save_path, 256, "%s", input + 5);
+                } else {
+                    snprintf(save_path, 256, "shards/%s.bin", g_active_shard->name);
+                }
+
+                // Create shards directory if needed
+                mkdir("shards", 0755);
+
+                float norm = get_delta_norm(&g_active_shard->attn_q_deltas[0]);
+                if (save_learning_shard(save_path) == 0) {
+                    printf("[Saved to %s]\n", save_path);
+                    printf("[Delta norm: %.4f, observations: %d]\n",
+                           norm, g_selfsense.observations);
+                } else {
+                    printf("[Error saving shard]\n");
+                }
+            }
+            continue;
+        }
+
+        // Generate response
+        printf("\n");
+        if (g_subjectivity_enabled) {
+            generate_subjective(t, input, max_tokens, temperature);
+        } else {
+            generate_dynamic(t, input, max_tokens, temperature);
+        }
+        printf("\n");
+
+        session_turns++;
+    }
 }
 
 // ============================================================
@@ -865,7 +1150,9 @@ static const char* find_default_origin(void) {
 void print_usage(const char* prog) {
     printf("arianna_dynamic - Personality transformer with Stanley-style deltas\n\n");
     printf("Usage: %s <weights.bin> \"<prompt>\" [max_tokens] [temperature]\n", prog);
+    printf("       %s <weights.bin> --repl [max_tokens] [temperature]\n", prog);
     printf("\nOptions:\n");
+    printf("  --repl          Interactive REPL mode (state persists between turns)\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
     printf("  -no-mood        Disable mood routing (enabled by default)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
@@ -877,13 +1164,17 @@ void print_usage(const char* prog) {
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
+    printf("  %s arianna.bin --repl 150 0.9\n", prog);
     printf("  %s arianna.bin \"Tell me about presence\" 100 0.8 -signals\n", prog);
     printf("  %s arianna.bin -guided \"What do you feel?\" 100 0.8\n", prog);
     printf("  %s arianna.bin -no-subj -no-mood \"She finds that \" 100 0.8\n", prog);
     printf("\nDefaults (Arianna's core architecture):\n");
     printf("  Subjectivity: ON  - generates from identity, not from prompt\n");
     printf("  Mood routing: ON  - 8 moods shape attention dynamically\n");
-    printf("  Your words create a wrinkle in her field, not a seed.\n");
+    printf("  SelfSense:    ON  - signals extracted from hidden states\n");
+    printf("  BodySense:    ON  - somatic regulation (boredom, overwhelm, stuck)\n");
+    printf("  CooccurField: ON  - corpus patterns bias generation\n");
+    printf("\n  Your words create a wrinkle in her field, not a seed.\n");
 }
 
 int main(int argc, char** argv) {
@@ -908,12 +1199,15 @@ int main(int argc, char** argv) {
     int mood_mode = 1;    // ENABLED BY DEFAULT - mood shapes attention
     int guided_mode = 0;
     int subj_mode = 1;    // ENABLED BY DEFAULT - this is Arianna's core
+    int repl_mode = 0;    // Interactive REPL mode
     char* origin_path = NULL;
 
     // Parse arguments
     int arg_idx = 2;
     while (arg_idx < argc) {
-        if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
+        if (strcmp(argv[arg_idx], "--repl") == 0) {
+            repl_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-subj") == 0 && arg_idx + 1 < argc) {
             subj_mode = 1;
             origin_path = argv[++arg_idx];
         } else if (strcmp(argv[arg_idx], "-no-subj") == 0) {
@@ -946,7 +1240,7 @@ int main(int argc, char** argv) {
         arg_idx++;
     }
 
-    if (prompt == NULL) {
+    if (prompt == NULL && !repl_mode) {
         print_usage(argv[0]);
         return 1;
     }
@@ -1017,6 +1311,26 @@ int main(int argc, char** argv) {
                 printf("  Tokens observed: %llu, alpha: %.2f\n",
                        (unsigned long long)g_cooccur.tokens_observed, g_cooccur_alpha);
             }
+
+            // Setup SelfSense identity from origin tokens
+            if (g_selfsense_enabled) {
+                // Tokenize origin text for identity embedding
+                FILE* f = fopen(origin_path, "r");
+                if (f) {
+                    char buf[4096];
+                    int len = fread(buf, 1, 4095, f);
+                    buf[len] = '\0';
+                    fclose(f);
+
+                    int tokens[1024];
+                    int n_tok = 0;
+                    for (int i = 0; i < len && n_tok < 1024; i++) {
+                        tokens[n_tok++] = (unsigned char)buf[i];
+                    }
+                    selfsense_compute_identity_from_tokens(&g_selfsense, &t, tokens, n_tok);
+                    printf("SelfSense: enabled (learned signals from hidden states)\n");
+                }
+            }
         } else {
             if (origin_path != NULL) {
                 fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
@@ -1028,8 +1342,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Generate (subjective or dynamic mode)
-    if (subj_mode && g_subjectivity_enabled) {
+    // Generate (REPL, subjective, or dynamic mode)
+    if (repl_mode) {
+        run_repl(&t, max_tokens, temperature);
+    } else if (subj_mode && g_subjectivity_enabled) {
         printf("\n[User input: \"%s\"]\n", prompt);
         generate_subjective(&t, prompt, max_tokens, temperature);
     } else {
@@ -1037,8 +1353,8 @@ int main(int argc, char** argv) {
         generate_dynamic(&t, prompt, max_tokens, temperature);
     }
 
-    // Print state
-    if (print_sigs) {
+    // Print state (skip in REPL mode - user can use commands)
+    if (print_sigs && !repl_mode) {
         printf("\n");
         print_signals();
         if (g_delta_bank.n_shards > 0) {
@@ -1055,6 +1371,10 @@ int main(int argc, char** argv) {
         }
         if (g_body_sense_enabled) {
             print_body_sense_debug();
+        }
+        if (g_selfsense_enabled) {
+            print_selfsense_signals(&g_selfsense);
+            print_selfsense_stats(&g_selfsense);
         }
     }
 
