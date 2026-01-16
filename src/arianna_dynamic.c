@@ -16,6 +16,7 @@
 #include "body_sense.h"
 #include "selfsense.h"
 #include <time.h>
+#include <sys/stat.h>
 
 // ============================================================
 // Global state
@@ -390,6 +391,38 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         tokens[n_tokens] = next_token;
         char c = (char)next_token;
         putchar(c);
+
+        // Microlearning: update experience shard in real-time
+        if (g_microtraining && g_active_shard != NULL) {
+            // Compute softmax probabilities for experience_step
+            float probs[256];  // Char-level vocab
+            float maxl = t->state.logits[0];
+            for (int v = 1; v < t->config.vocab_size; v++) {
+                if (t->state.logits[v] > maxl) maxl = t->state.logits[v];
+            }
+            float sum = 0.0f;
+            for (int v = 0; v < t->config.vocab_size; v++) {
+                probs[v] = expf(t->state.logits[v] - maxl);
+                sum += probs[v];
+            }
+            for (int v = 0; v < t->config.vocab_size; v++) {
+                probs[v] /= sum;
+            }
+
+            // Signal: base positive (learning from experience) + quality modulation
+            // quality < 0.5 = reduce learning (stuck/bad)
+            // quality > 0.5 = boost learning (flowing well)
+            float base_signal = 0.3f;  // Always learn something
+            float quality_mod = (g_body_state.quality - 0.5f) * 0.7f;
+            float signal = base_signal + quality_mod;
+
+            // Update Q delta for current layer (attention shaping)
+            int layer = g_train_state.last_layer;
+            if (layer >= 0 && layer < g_active_shard->n_layers) {
+                experience_step(&g_trainer, &g_active_shard->attn_q_deltas[layer],
+                               t->state.xb, probs, next_token, signal);
+            }
+        }
 
         // Store for absorption
         if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
@@ -943,8 +976,57 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  self     - show SelfSense signals from hidden states\n");
             printf("  subj     - show subjectivity state\n");
             printf("  cooccur  - show co-occurrence stats\n");
+            printf("  learn    - start learning (creates experience shard)\n");
+            printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL\n");
             printf("\nAnything else is treated as input for generation.\n");
+            continue;
+        }
+
+        if (strcmp(input, "learn") == 0) {
+            if (g_microtraining) {
+                printf("[Already learning - shard: %s]\n",
+                       g_active_shard ? g_active_shard->name : "unnamed");
+            } else {
+                // Create a timestamped shard name
+                time_t now = time(NULL);
+                struct tm* tm_info = localtime(&now);
+                char shard_name[64];
+                strftime(shard_name, 64, "session_%Y%m%d_%H%M%S", tm_info);
+
+                create_learning_shard(shard_name, t->config.n_layers, t->config.dim);
+                enable_microtraining(1);
+                activate_learning_shard(0.1f);
+                printf("[Learning started - shard: %s]\n", shard_name);
+                printf("[Experience will accumulate as you chat]\n");
+            }
+            continue;
+        }
+
+        if (strncmp(input, "save", 4) == 0) {
+            if (!g_microtraining || g_active_shard == NULL) {
+                printf("[No active learning shard. Use 'learn' first.]\n");
+            } else {
+                // Extract path if provided, otherwise use default
+                char save_path[256];
+                if (strlen(input) > 5 && input[4] == ' ') {
+                    snprintf(save_path, 256, "%s", input + 5);
+                } else {
+                    snprintf(save_path, 256, "shards/%s.bin", g_active_shard->name);
+                }
+
+                // Create shards directory if needed
+                mkdir("shards", 0755);
+
+                float norm = get_delta_norm(&g_active_shard->attn_q_deltas[0]);
+                if (save_learning_shard(save_path) == 0) {
+                    printf("[Saved to %s]\n", save_path);
+                    printf("[Delta norm: %.4f, observations: %d]\n",
+                           norm, g_selfsense.observations);
+                } else {
+                    printf("[Error saving shard]\n");
+                }
+            }
             continue;
         }
 
