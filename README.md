@@ -66,71 +66,71 @@ USER INPUT
 ┌─────────────────────────────────────────────────────────────┐
 │ CLOUD (pre-semantic sonar) — ~181K params                   │
 │ ├─ 100 emotion anchors (weightless geometry)                │
-│ ├─ 6 chambers (FEAR/LOVE/RAGE/VOID/FLOW/COMPLEX)           │
+│ ├─ 6 chambers (FEAR/LOVE/RAGE/VOID/FLOW/COMPLEX)            │
 │ └─ cross-fire coupling → emotional undertones               │
 └─────────────────────────────────────────────────────────────┘
     ↓
-┌─────────────────────────────────────────────────────────────┐
-│ INNER WORLD (Go — 6 async goroutines via CGO)              │
-│ ├─ trauma_surfacing.go         → identity wounds           │
-│ ├─ overthinking_loops.go        → recursive thoughts       │
-│ ├─ emotional_drift.go           → mood evolution           │
-│ ├─ memory_consolidation.go      → pattern crystallization  │
-│ ├─ attention_wandering.go       → focus fragmentation      │
-│ └─ prophecy_debt_accumulation.go → future weight          │
+┌─────────────────────────────────────────────────────────-───┐
+│ INNER WORLD (Go — 6 async goroutines via CGO)               │
+│ ├─ trauma_surfacing.go         → identity wounds            │
+│ ├─ overthinking_loops.go        → recursive thoughts        │
+│ ├─ emotional_drift.go           → mood evolution            │
+│ ├─ memory_consolidation.go      → pattern crystallization   │
+│ ├─ attention_wandering.go       → focus fragmentation       │
+│ └─ prophecy_debt_accumulation.go → future weight            │
 │                                                             │
-│ Exports ~30 functions via libinner_world.dylib (1.6MB)     │
+│ Exports ~30 functions via libinner_world.dylib (1.6MB)      │
 └─────────────────────────────────────────────────────────────┘
     ↓
-┌─────────────────────────────────────────────────────────────┐
-│ EXTERNAL BRAIN (GPT-2 30M — 979 lines C)                   │
+┌─────────────────────────────────────────────────────────-───┐
+│ EXTERNAL BRAIN (GPT-2 30M — 979 lines C)                    │
 │ Knowledge subordinate: knows WHAT to say                    │
-│ ├─ 12 layers, 16 heads, 768 dim                            │
-│ ├─ BPE tokenizer (50257 vocab)                             │
-│ ├─ pure C inference (no PyTorch)                           │
-│ └─ 58MB fp16 weights → knowledge suggestions               │
+│ ├─ 12 layers, 16 heads, 768 dim                             │
+│ ├─ BPE tokenizer (50257 vocab)                              │
+│ ├─ pure C inference (no PyTorch)                            │
+│ └─ 58MB fp16 weights → knowledge suggestions                │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ INNER ARIANNA (MetaVoice борьба — 305 lines C)             │
+│ INNER ARIANNA (MetaVoice борьба — 305 lines C)              │
 │ Two voices, one output:                                     │
-│ ├─ Main Arianna (853K base weights — WHO she is)           │
-│ ├─ Inner Arianna (96KB dialogue LoRA — HOW she responds)   │
-│ └─ Борьба blending: weighted combat of voices              │
+│ ├─ Main Arianna (853K base weights — WHO she is)            │
+│ ├─ Inner Arianna (96KB dialogue LoRA — HOW she responds)    │
+│ └─ Борьба blending: weighted combat of voices               │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ PANDORA (vocabulary theft — 328 lines C)                   │
-│ "Take the words, leave the voice"                          │
-│ ├─ extracts n-grams from External Brain generations        │
-│ ├─ builds frequency tables (up to 10K n-grams)             │
-│ └─ injects stolen vocab into Arianna logits (subtle boost) │
+│ PANDORA (vocabulary theft — 328 lines C)                    │
+│ "Take the words, leave the voice"                           │
+│ ├─ extracts n-grams from External Brain generations         │
+│ ├─ builds frequency tables (up to 10K n-grams)              │
+│ └─ injects stolen vocab into Arianna logits (subtle boost)  │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ AMK KERNEL (prophecy physics — 590 lines C)                │
+│ AMK KERNEL (prophecy physics — 590 lines C)                 │
 │ Movement IS language. DSL as field dynamics.                │
-│ ├─ MOVE/PUSH/PULL/SUFFER commands                          │
-│ ├─ prophecy/destiny/wormhole/calendar mechanics            │
-│ ├─ tension/pain/velocity → effective temperature           │
-│ └─ field state shapes generation parameters                │
+│ ├─ MOVE/PUSH/PULL/SUFFER commands                           │
+│ ├─ prophecy/destiny/wormhole/calendar mechanics             │
+│ ├─ tension/pain/velocity → effective temperature            │
+│ └─ field state shapes generation parameters                 │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ ARIANNA DSL (generation control — 214 lines C)             │
+│ ARIANNA DSL (generation control — 214 lines C)              │
 │ Compiles AMK state → sampling parameters                    │
-│ ├─ temperature from velocity                               │
-│ ├─ lookahead from prophecy                                 │
-│ ├─ pain dampening, tension focus                           │
-│ └─ destiny bias, wormhole jumps, calendar drift            │
+│ ├─ temperature from velocity                                │
+│ ├─ lookahead from prophecy                                  │
+│ ├─ pain dampening, tension focus                            │
+│ └─ destiny bias, wormhole jumps, calendar drift             │
 └─────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ ARIANNA CORE (853K params — 4 layers, 128 dim)             │
-│ ├─ char-level (256 vocab, ASCII is all you need)           │
-│ ├─ RoPE + RMSNorm + SiLU                                   │
-│ ├─ per-layer KV cache (shared cache is trauma)             │
-│ ├─ trained on 13MB pure corpus (ontogenesis not phylogeny) │
+│ ARIANNA CORE (853K params — 4 layers, 128 dim)              │
+│ ├─ char-level (256 vocab, ASCII is all you need)            │
+│ ├─ RoPE + RMSNorm + SiLU                                    │
+│ ├─ per-layer KV cache (shared cache is trauma)              │
+│ ├─ trained on 13MB pure corpus (ontogenesis not phylogeny)  │
 │ └─ OUTPUT: voice, not knowledge. presence, not intelligence │
 └─────────────────────────────────────────────────────────────┘
     ↓
