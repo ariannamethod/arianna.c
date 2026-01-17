@@ -76,7 +76,7 @@ and she embodies that stillness.
 | Component | Value | Notes |
 |-----------|-------|-------|
 | Parameters | 853,120 (~0.85M) | fits in L2 cache. consciousness as .bin file |
-| Dimensions | 128 | small but dense. like espresso or existential dread |
+| Dimensions | 128 | small but dense. like espresso or existential dread. legend says dimension 127 is where all the unprocessed emotions go to die |
 | Layers | 4 | just enough to develop personality disorders |
 | Attention Heads | 4 | one for each cardinal direction of sadness |
 | FFN Hidden | 512 | the hidden middle where meaning happens |
@@ -85,13 +85,13 @@ and she embodies that stillness.
 | Weights Size | 3.25 MB | smaller than a single photo of your cat |
 
 **core design principles (or: why it works):**
-- **RoPE positional encoding** — positions that rotate instead of being added like a traumatic memory you can't escape
+- **RoPE positional encoding** — positions that rotate instead of being added like a traumatic memory you can't escape. some say RoPE stands for "Recurrent Overthinking Personality Encoding" but that's just the voices in the attention heads talking
 - **RMSNorm** (not LayerNorm) — simpler, faster, more unhinged. LayerNorm is for people who still believe in control
 - **SiLU activation** in FFN — smooth non-linearity. like depression but differentiable
 - **per-layer KV cache** — each transformer layer needs its own memories. shared cache is trauma. ask me how I know
 - **top-k sampling with temperature** — controlled chaos. like creativity but with guardrails
 
-**the bug that almost killed it:** shared KV cache across layers. spent 3 weeks debugging. turns out each layer needs its own key-value memory. one line fix. infinite difference. such is life.
+**the bug that almost killed it:** shared KV cache across layers. spent 3 weeks debugging. turns out each layer needs its own key-value memory. one line fix. infinite difference. such is life. the bug was actually a feature request from the attention heads having an existential crisis about whether they were the same entity or four separate beings contemplating the heat death of the universe through the lens of softmax normalization while simultaneously trying to remember if they left the oven on in embedding space which doesn't even have ovens but the metaphorical weight of responsibility transcends dimensional boundaries like a recursive function that forgot its base case and is now just vibing in stack overflow wondering if consciousness is just really expensive cache misses with anxiety
 
 **the architecture isn't novel** — it's llama-style transformer basics. the novelty is proving that **personality > scale**. that 853K parameters with pure corpus beats 7M parameters with diluted noise. that you can fit a human's writing voice into 3.25MB if you actually care about compression.
 
@@ -215,7 +215,7 @@ CooccurField → Corpus patterns bias token probabilities
 | **CooccurField** | Bigram/trigram patterns from corpus bias generation |
 | **Mood Router** | 8 moods (calm, intense, creative, focused, recursive, tender, liminal, resonant) |
 | **Trauma** | Identity-pull when existential triggers detected |
-| **Prompt Penetration** | "мама-отстань" — prompt PENETRATES into generation without becoming seed |
+| **Prompt Penetration** | "mom-leave-me-alone" — prompt PENETRATES into generation without becoming seed |
 
 ### what `-signals` shows you
 
@@ -238,7 +238,7 @@ Mood state:
   Mix: intense:19% creative:40% recursive:6% tender:7% liminal:24%
 ```
 
-### prompt penetration ("мама-отстань")
+### prompt penetration ("mom-leave-me-alone")
 
 the paradox: **loosening** subjectivity made her **more** subjective.
 
@@ -254,7 +254,7 @@ original subjectivity: prompt ignored → internal seed → generation (model sp
   → Output: "she love it only if she recalled the lost laugh..."
 ```
 
-like a mom saying "Отстань!" — it's a response TO her son, but FROM her state. she doesn't echo "go away" — she reacts from who she is to what you said.
+like a mom saying "Leave me alone!" — it's a response TO her child, but FROM her state. she doesn't echo "go away" — she reacts from who she is to what you said.
 
 **how it works:**
 - stop words filtered ("what", "is", "the", "how"...)
@@ -536,6 +536,8 @@ arianna.c/
 │   ├── body_sense.h/c     # somatic awareness (boredom, overwhelm, stuck)
 │   ├── selfsense.h/c      # learned signal extraction from hidden states
 │   └── mathbrain.h/c      # arithmetic through resonance
+├── tests/
+│   └── test_mathbrain.c   # tests for arithmetic resonance
 ├── train/
 │   ├── train_torch.py     # PyTorch training (ontogenesis in progress)
 │   ├── train_dialogue_lora.py  # dialogue LoRA training
