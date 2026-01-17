@@ -399,4 +399,17 @@ void print_subjectivity_state(Subjectivity* subj);
 // If not called, RNG auto-initializes from entropy sources
 void seed_subjectivity_rng(unsigned int seed);
 
+// ============================================================
+// State-Dependent PRNG
+// "Randomness that reflects inner state - like human memory"
+// ============================================================
+
+// Mix emotional metrics into PRNG - makes fragment selection state-dependent
+// High trauma -> gravitates to certain fragments
+// Calm state -> different fragment distribution
+void reseed_from_state(float trauma, float arousal, float valence, float prophecy);
+
+// Reseed from full Subjectivity struct (pass as void* to avoid circular deps)
+void reseed_from_subjectivity(void* subj_ptr);
+
 #endif // SUBJECTIVITY_H
