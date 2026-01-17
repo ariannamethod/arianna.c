@@ -949,6 +949,8 @@ arianna.c/
 │   ├── test_delta_enhanced.c      # enhanced delta tests
 │   ├── test_lua_layer.py          # Lua scripting layer tests
 │   └── external_brain_demo.py     # demo of GPT-2 30M as knowledge subordinate
+│   
+│   📘 See [ARIANNALOG.md](ARIANNALOG.md) for full test suite docs, patches, benchmarks
 │
 ├── arianna.conf                   # JSON config for adaptive parameters
 ├── arianna.packages               # TOML manifest of all modules
