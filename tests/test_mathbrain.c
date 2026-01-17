@@ -2,7 +2,7 @@
  * test_mathbrain.c - Test arithmetic through resonance
  */
 
-#include "src/mathbrain.h"
+#include "mathbrain.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
