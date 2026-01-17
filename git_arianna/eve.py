@@ -42,10 +42,22 @@ from .constants import (
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class WeightTier(Enum):
-    """Weight configuration tiers"""
-    PERSONALITY = "personality"           # 853K only (3.3MB)
-    PERSONALITY_LORA = "personality+lora" # + 96KB dialogue LoRA
-    FULL_STACK = "full_stack"             # + GPT-2 30M external brain
+    """
+    Weight configuration tiers.
+
+    IMPORTANT: The 4-tier hierarchy (personality → LoRA → shards → external brain)
+    is CANONICAL. These tiers work TOGETHER, not as alternatives.
+
+    Current stage: Always use FULL_STACK (all 4 tiers combined)
+    Future stage: When heavier external brains are available (Llama, Mistral),
+                  route based on complexity to appropriate external brain.
+
+    The tiers below are for FUTURE use when we have multiple external brains.
+    """
+    FULL_STACK = "full_stack"             # Default: all 4 canonical tiers
+    FULL_STACK_HEAVY = "full_stack_heavy" # Future: personality + heavy external brain (7B+)
+    # Legacy/debug modes (not recommended for production)
+    PERSONALITY_ONLY = "personality_only" # Debug: 853K only (no external brain)
 
 
 @dataclass
@@ -217,14 +229,15 @@ class Eve:
         personality_path: str = "weights/arianna.bin",
         lora_path: str = "data/dialogue_lora.bin",
         external_brain_path: str = "weights/gpt2_30m/gpt2_30m.bin",
+        heavy_brain_path: Optional[str] = None,  # Future: Llama, Mistral, etc.
     ):
         self.personality_path = personality_path
         self.lora_path = lora_path
         self.external_brain_path = external_brain_path
+        self.heavy_brain_path = heavy_brain_path  # For future heavy models
 
-        # Thresholds (can be tuned)
-        self.lora_threshold = 0.3      # Use LoRA if complexity > this
-        self.brain_threshold = 0.6     # Use external brain if complexity > this
+        # Threshold for switching to heavy brain (future use)
+        self.heavy_threshold = 0.7  # Use heavy brain if complexity > this
 
         # Custom routing rules
         self._custom_rules: List[Callable[[str, Dict], Optional[RouteConfig]]] = []
@@ -237,13 +250,19 @@ class Eve:
         """
         Route a prompt to appropriate weight configuration.
 
+        CURRENT STAGE: Always returns FULL_STACK (all 4 canonical tiers).
+        The 4-tier hierarchy works together as designed.
+
+        FUTURE STAGE: When heavy_brain_path is set (Llama 7B+),
+        will route complex prompts to FULL_STACK_HEAVY.
+
         Args:
             prompt: User input text
 
         Returns:
             RouteConfig with tier and paths
         """
-        # Calculate complexity
+        # Calculate complexity (used for presets and future routing)
         complexity = calculate_complexity(prompt)
 
         # Check custom rules first
@@ -252,36 +271,29 @@ class Eve:
             if config is not None:
                 return config
 
-        # Default routing logic
         score = complexity["score"]
 
-        # Get cosmic modifiers
+        # Get cosmic modifiers (affect presets, not tier selection)
         calendar_tension = get_calendar_tension()
         schumann_coherence = get_schumann_coherence()
 
-        # Adjust thresholds based on cosmic state
-        # High calendar tension → lower thresholds (need more help)
-        # High schumann coherence → higher thresholds (she's in flow)
-        lora_threshold = self.lora_threshold - calendar_tension * 0.1 + schumann_coherence * 0.05
-        brain_threshold = self.brain_threshold - calendar_tension * 0.1 + schumann_coherence * 0.05
-
-        # Determine tier
-        if score < lora_threshold:
-            tier = WeightTier.PERSONALITY
-            reasoning = "Simple input, personality weights sufficient"
-        elif score < brain_threshold:
-            tier = WeightTier.PERSONALITY_LORA
-            reasoning = "Dialogue input, using LoRA adaptation"
+        # CURRENT: Always use full_stack (all 4 canonical tiers together)
+        # FUTURE: Route to heavy brain if available and complexity is high
+        if self.heavy_brain_path and score > self.heavy_threshold:
+            tier = WeightTier.FULL_STACK_HEAVY
+            brain_path = self.heavy_brain_path
+            reasoning = f"High complexity ({score:.2f}), using heavy external brain"
         else:
             tier = WeightTier.FULL_STACK
-            reasoning = "Complex input, activating external brain"
+            brain_path = self.external_brain_path
+            reasoning = "Full canonical stack (personality + LoRA + shards + external brain)"
 
-        # Build config
+        # Build config - ALWAYS include all canonical components
         config = RouteConfig(
             tier=tier,
             weights_path=self.personality_path,
-            lora_path=self.lora_path if tier != WeightTier.PERSONALITY else None,
-            external_brain_path=self.external_brain_path if tier == WeightTier.FULL_STACK else None,
+            lora_path=self.lora_path,  # Always included
+            external_brain_path=brain_path,  # Always included
             complexity_score=score,
             reasoning=reasoning,
         )
@@ -461,6 +473,8 @@ def route_input(prompt: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     print("=== Eve Router Test ===\n")
+    print("CURRENT STAGE: All prompts use full_stack (canonical 4-tier hierarchy)")
+    print("FUTURE: Heavy external brains (7B+) will be routed by complexity\n")
 
     test_prompts = [
         "Hello!",
@@ -472,18 +486,28 @@ if __name__ == "__main__":
         "Tell me about consciousness and embodied cognition.",
     ]
 
+    # Current: no heavy brain, all use full_stack
     eve = Eve()
-
+    print("--- Without heavy brain (current) ---\n")
     for prompt in test_prompts:
         config = eve.route(prompt)
         print(f"Prompt: {prompt[:50]}...")
         print(f"  Tier: {config.tier.value}")
         print(f"  Complexity: {config.complexity_score:.3f}")
         print(f"  Preset: {config.amk_preset or 'none'}")
-        print(f"  Reason: {config.reasoning}")
         print()
 
-    print("=== AMK Presets ===\n")
+    # Future: with heavy brain
+    print("\n--- With heavy brain (future) ---\n")
+    eve_heavy = Eve(heavy_brain_path="weights/llama_7b/llama.bin")
+    for prompt in test_prompts[-2:]:  # Just complex ones
+        config = eve_heavy.route(prompt)
+        print(f"Prompt: {prompt[:50]}...")
+        print(f"  Tier: {config.tier.value}")
+        print(f"  Brain: {config.external_brain_path}")
+        print()
+
+    print("=== AMK Presets (complexity-based, not tier-based) ===\n")
     for name in ["calm", "intense", "chaotic"]:
         print(f"--- {name} ---")
         print(compile_state(name))
