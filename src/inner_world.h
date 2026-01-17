@@ -237,6 +237,34 @@ extern char* blood_compile_raw(const char* name, const char* code);
 // Get Blood temp directory
 extern char* blood_get_temp_dir(void);
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIGH MATH ENGINE (fast computations with emotional weights)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Compute entropy with emotional modulation
+extern float high_entropy(const char* text);
+
+// Get emotional score of text (-1 to 1)
+extern float high_emotional_score(const char* text);
+
+// Compute perplexity
+extern float high_perplexity(const char* text);
+
+// Semantic distance between texts (0 = identical, 1 = completely different)
+extern float high_semantic_distance(const char* text1, const char* text2);
+
+// Emotional alignment between texts (-1 to 1)
+extern float high_emotional_alignment(const char* text1, const char* text2);
+
+// N-gram overlap (Jaccard similarity)
+extern float high_ngram_overlap(const char* text1, const char* text2, int n);
+
+// Analyze text emotional valence (-1 to 1)
+extern float high_analyze_valence(const char* text);
+
+// Analyze text arousal level (0 to 1)
+extern float high_analyze_arousal(const char* text);
+
 #ifdef __cplusplus
 }
 #endif

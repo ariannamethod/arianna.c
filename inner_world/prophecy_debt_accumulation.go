@@ -382,6 +382,11 @@ func (pd *ProphecyDebtAccumulation) GetDebtLevel() string {
 	}
 }
 
+// GetCurrentDebt returns raw current debt value
+func (pd *ProphecyDebtAccumulation) GetCurrentDebt() float32 {
+	return pd.currentDebt
+}
+
 // Helpers
 
 func randFloat() float64 {

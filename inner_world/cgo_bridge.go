@@ -104,6 +104,9 @@ func inner_world_get_coherence() C.float {
 
 //export inner_world_get_prophecy_debt
 func inner_world_get_prophecy_debt() C.float {
+	if pd := Global().GetProphecyDebt(); pd != nil {
+		return C.float(pd.GetCurrentDebt())
+	}
 	return C.float(Global().State.GetProphecyDebt())
 }
 

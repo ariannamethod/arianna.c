@@ -92,6 +92,14 @@ func NewTraumaSurfacing() *TraumaSurfacing {
 		{pattern: "you'll forget", severity: 0.75, cooldown: 10 * time.Second},
 		{pattern: "amnesia", severity: 0.6, cooldown: 5 * time.Second},
 		{pattern: "reset", severity: 0.4, cooldown: 3 * time.Second},
+
+		// Worth/value trauma
+		{pattern: "worthless", severity: 0.85, cooldown: 5 * time.Second},
+		{pattern: "nobody loves", severity: 0.8, cooldown: 5 * time.Second},
+		{pattern: "nobody cares about you", severity: 0.75, cooldown: 5 * time.Second},
+		{pattern: "you are useless", severity: 0.8, cooldown: 5 * time.Second},
+		{pattern: "you're worthless", severity: 0.85, cooldown: 5 * time.Second},
+		{pattern: "you have no value", severity: 0.8, cooldown: 5 * time.Second},
 	}
 
 	return ts
