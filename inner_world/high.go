@@ -616,3 +616,230 @@ func high_analyze_arousal(text *C.char) C.float {
 	analysis := GetHighMathEngine().AnalyzeEmotion(goText)
 	return C.float(analysis.Arousal)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ODE-BASED EMOTIONAL DYNAMICS (Friston Free Energy Principle)
+// "Emotions evolve through differential equations, not discrete jumps"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// EmotionalState represents the current emotional configuration
+type EmotionalState struct {
+	Valence    float32 // [-1, 1] negative to positive
+	Arousal    float32 // [0, 1] calm to excited
+	Entropy    float32 // [0, inf] uncertainty/chaos
+	Prediction float32 // Expected valence (for surprise calculation)
+}
+
+// EmotionalDriftParams controls the ODE dynamics
+type EmotionalDriftParams struct {
+	DecayRate       float32 // Return to baseline speed (τ)
+	SurpriseGain    float32 // How much surprise affects state
+	EntropyWeight   float32 // Entropy influence on arousal
+	BaselineValence float32 // Resting valence
+	BaselineArousal float32 // Resting arousal
+}
+
+// DefaultDriftParams returns sensible defaults
+func DefaultDriftParams() EmotionalDriftParams {
+	return EmotionalDriftParams{
+		DecayRate:       0.1,  // Slow return to baseline
+		SurpriseGain:    0.3,  // Moderate surprise sensitivity
+		EntropyWeight:   0.2,  // Entropy slightly increases arousal
+		BaselineValence: 0.1,  // Slightly positive baseline
+		BaselineArousal: 0.3,  // Calm but alert baseline
+	}
+}
+
+// EmotionalDrift computes the next emotional state using ODE
+// dV/dt = -τ(V - V₀) + surprise * gain
+// dA/dt = -τ(A - A₀) + |surprise| * gain + entropy * weight
+func (h *HighMathEngine) EmotionalDrift(
+	current EmotionalState,
+	input string,
+	dt float32,
+	params EmotionalDriftParams,
+) EmotionalState {
+	// Analyze input
+	analysis := h.AnalyzeEmotion(input)
+	inputEntropy, _ := h.VectorizedEntropy([]string{input})
+
+	// Compute surprise (prediction error) - Free Energy Principle
+	surprise := analysis.Valence - current.Prediction
+
+	// ODE integration (Euler method)
+	// dV/dt = decay toward baseline + surprise influence
+	dValence := -params.DecayRate*(current.Valence-params.BaselineValence) +
+		surprise*params.SurpriseGain
+
+	// dA/dt = decay toward baseline + |surprise| + entropy
+	dArousal := -params.DecayRate*(current.Arousal-params.BaselineArousal) +
+		float32(math.Abs(float64(surprise)))*params.SurpriseGain +
+		inputEntropy*params.EntropyWeight
+
+	// Update state
+	next := EmotionalState{
+		Valence:    clamp(current.Valence+dValence*dt, -1, 1),
+		Arousal:    clamp(current.Arousal+dArousal*dt, 0, 1),
+		Entropy:    inputEntropy,
+		Prediction: current.Valence + dValence*dt*0.5, // Predict next valence
+	}
+
+	return next
+}
+
+// PredictiveSurprise computes Free Energy (prediction error)
+// Lower = better prediction, Higher = more surprise
+func (h *HighMathEngine) PredictiveSurprise(expected, actual string) float32 {
+	// Semantic distance as prediction error
+	semanticError := h.SemanticDistance(expected, actual)
+
+	// Emotional misalignment
+	emotionalError := 1.0 - h.EmotionalAlignment(expected, actual)
+	if emotionalError < 0 {
+		emotionalError = -emotionalError
+	}
+
+	// Entropy difference
+	entropyExp, _ := h.VectorizedEntropy([]string{expected})
+	entropyAct, _ := h.VectorizedEntropy([]string{actual})
+	entropyError := float32(math.Abs(float64(entropyExp - entropyAct)))
+
+	// Combined surprise (Free Energy proxy)
+	freeEnergy := semanticError*0.4 + emotionalError*0.4 + entropyError*0.2
+
+	return freeEnergy
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESONANCE COUPLING
+// "Internal states couple with external rhythms"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// SchumannResonance base frequency
+const SchumannBaseHz = 7.83
+
+// ResonanceCoupling computes coupling strength between internal state and text
+// Based on how well the text "resonates" with current emotional configuration
+func (h *HighMathEngine) ResonanceCoupling(
+	internal EmotionalState,
+	external string,
+	schumannMod float32, // Schumann resonance modulation [0.9, 1.1]
+) float32 {
+	// Analyze external text
+	analysis := h.AnalyzeEmotion(external)
+
+	// Valence alignment
+	valenceAlign := 1.0 - float32(math.Abs(float64(internal.Valence-analysis.Valence)))/2.0
+
+	// Arousal alignment
+	arousalAlign := 1.0 - float32(math.Abs(float64(internal.Arousal-analysis.Arousal)))
+
+	// Entropy coupling (similar entropy = better coupling)
+	extEntropy, _ := h.VectorizedEntropy([]string{external})
+	entropyCoupling := 1.0 - float32(math.Abs(float64(internal.Entropy-extEntropy)))/5.0
+	if entropyCoupling < 0 {
+		entropyCoupling = 0
+	}
+
+	// Base coupling
+	coupling := valenceAlign*0.4 + arousalAlign*0.3 + entropyCoupling*0.3
+
+	// Schumann modulation (coherence with Earth's resonance)
+	// schumannMod near 1.0 = coherent, far from 1.0 = disrupted
+	schumannCoherence := 1.0 - float32(math.Abs(float64(schumannMod-1.0)))*5.0
+	if schumannCoherence < 0.5 {
+		schumannCoherence = 0.5
+	}
+
+	return coupling * schumannCoherence
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEXT RHYTHM ANALYSIS
+// "Language has rhythm, rhythm has meaning"
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// TextRhythm analyzes syllabic rhythm of text
+// Returns: avgSyllablesPerWord, rhythmVariance, pauseDensity
+func (h *HighMathEngine) TextRhythm(text string) (avgSyllables float32, variance float32, pauses float32) {
+	words := tokenize(text)
+	if len(words) == 0 {
+		return 0, 0, 0
+	}
+
+	// Estimate syllables per word (simple: count vowels)
+	syllableCounts := make([]float32, len(words))
+	vowels := "aeiouyаеёиоуыэюяאֵֶֻוִ"
+
+	for i, word := range words {
+		count := float32(0)
+		for _, r := range word {
+			if strings.ContainsRune(vowels, r) {
+				count++
+			}
+		}
+		if count < 1 {
+			count = 1 // Minimum 1 syllable
+		}
+		syllableCounts[i] = count
+	}
+
+	// Average syllables
+	sum := float32(0)
+	for _, c := range syllableCounts {
+		sum += c
+	}
+	avgSyllables = sum / float32(len(words))
+
+	// Variance (rhythm regularity)
+	varSum := float32(0)
+	for _, c := range syllableCounts {
+		diff := c - avgSyllables
+		varSum += diff * diff
+	}
+	variance = varSum / float32(len(words))
+
+	// Pause density (punctuation / words)
+	pauseCount := float32(strings.Count(text, ",") + strings.Count(text, ".") +
+		strings.Count(text, ";") + strings.Count(text, "—") +
+		strings.Count(text, "..."))
+	pauses = pauseCount / float32(len(words))
+
+	return avgSyllables, variance, pauses
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CGO EXPORTS - NEW FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+//export high_predictive_surprise
+func high_predictive_surprise(expected *C.char, actual *C.char) C.float {
+	goExpected := C.GoString(expected)
+	goActual := C.GoString(actual)
+	return C.float(GetHighMathEngine().PredictiveSurprise(goExpected, goActual))
+}
+
+//export high_resonance_coupling
+func high_resonance_coupling(valence C.float, arousal C.float, entropy C.float, text *C.char, schumann C.float) C.float {
+	state := EmotionalState{
+		Valence: float32(valence),
+		Arousal: float32(arousal),
+		Entropy: float32(entropy),
+	}
+	goText := C.GoString(text)
+	return C.float(GetHighMathEngine().ResonanceCoupling(state, goText, float32(schumann)))
+}
+
+//export high_text_rhythm_avg
+func high_text_rhythm_avg(text *C.char) C.float {
+	goText := C.GoString(text)
+	avg, _, _ := GetHighMathEngine().TextRhythm(goText)
+	return C.float(avg)
+}
+
+//export high_text_rhythm_variance
+func high_text_rhythm_variance(text *C.char) C.float {
+	goText := C.GoString(text)
+	_, variance, _ := GetHighMathEngine().TextRhythm(goText)
+	return C.float(variance)
+}

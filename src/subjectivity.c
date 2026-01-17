@@ -16,6 +16,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdint.h>
+#include <time.h>
 
 // ============================================================
 // Utility Functions
@@ -77,10 +79,84 @@ static int count_words(const char* text, int len) {
 }
 
 // Simple PRNG for seed selection
-static unsigned int subj_seed = 42;
+static unsigned int subj_seed = 0;
+static int subj_seed_initialized = 0;
+
+static void init_subj_seed(void) {
+    if (subj_seed_initialized) return;
+
+    // Mix multiple entropy sources for better randomness
+    unsigned int t = (unsigned int)time(NULL);
+    unsigned int c = (unsigned int)clock();
+
+    // XOR with memory address (ASLR provides entropy)
+    unsigned int m = (unsigned int)(uintptr_t)&subj_seed;
+
+    // Mix them together
+    subj_seed = t ^ (c << 11) ^ (m >> 3);
+
+    // Warm up the generator (skip first few values)
+    for (int i = 0; i < 7; i++) {
+        subj_seed = subj_seed * 1103515245 + 12345;
+    }
+
+    subj_seed_initialized = 1;
+}
+
 static float randf(void) {
+    if (!subj_seed_initialized) init_subj_seed();
     subj_seed = subj_seed * 1103515245 + 12345;
     return (float)(subj_seed % 10000) / 10000.0f;
+}
+
+// Allow external seeding for reproducibility in tests
+void seed_subjectivity_rng(unsigned int seed) {
+    subj_seed = seed;
+    subj_seed_initialized = 1;
+}
+
+// ============================================================
+// State-Dependent PRNG
+// "Randomness that reflects inner state"
+// ============================================================
+
+// Mix emotional state into PRNG - makes recall state-dependent like humans
+void reseed_from_state(float trauma, float arousal, float valence, float prophecy) {
+    // FIRST: ensure base entropy is initialized
+    if (!subj_seed_initialized) {
+        init_subj_seed();
+    }
+
+    // Quantize emotional dimensions to integers
+    unsigned int t_bits = (unsigned int)(trauma * 255.0f) & 0xFF;
+    unsigned int a_bits = (unsigned int)(arousal * 255.0f) & 0xFF;
+    unsigned int v_bits = (unsigned int)((valence + 1.0f) * 127.5f) & 0xFF;  // [-1,1] -> [0,255]
+    unsigned int p_bits = (unsigned int)(prophecy * 255.0f) & 0xFF;
+
+    // Combine into state hash
+    unsigned int state_hash = (t_bits << 24) | (a_bits << 16) | (v_bits << 8) | p_bits;
+
+    // Mix state with entropy (BOTH matter, not just state)
+    // This gives: base_randomness + state_influence
+    subj_seed ^= state_hash;
+    subj_seed = subj_seed * 1103515245 + 12345;  // One step
+}
+
+// Full state reseed from Subjectivity struct (forward declaration in header)
+void reseed_from_subjectivity(void* subj_ptr) {
+    if (!subj_ptr) return;
+
+    // Cast to Subjectivity* (avoid circular include)
+    Subjectivity* subj = (Subjectivity*)subj_ptr;
+
+    float trauma = subj->trauma.level;
+    float arousal = subj->wrinkle.arousal;
+    float valence = subj->wrinkle.valence;
+
+    // Use coherence as proxy for prophecy if not available
+    float prophecy = 1.0f - subj->trauma.coherence;
+
+    reseed_from_state(trauma, arousal, valence, prophecy);
 }
 
 // ============================================================
@@ -489,6 +565,14 @@ void generate_internal_seed(InternalSeed* seed, ExtendedIdentity* identity,
 
     // Get trauma influence
     TraumaInfluence tinf = get_trauma_influence(trauma);
+
+    // === STATE-DEPENDENT PRNG ===
+    // Reseed based on emotional state BEFORE fragment selection
+    // This makes recall patterns state-dependent like human memory
+    float arousal = wrinkle ? wrinkle->arousal : 0.5f;
+    float valence = wrinkle ? wrinkle->valence : 0.0f;
+    float prophecy = trauma ? (1.0f - trauma->coherence) : 0.5f;
+    reseed_from_state(trauma ? trauma->level : 0.0f, arousal, valence, prophecy);
 
     // High trauma = strong identity prefix
     if (tinf.use_prefix && identity->n_fragments > 0) {
