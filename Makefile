@@ -21,7 +21,7 @@ SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(S
 TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 
 # Enhanced delta test
-SRCS_TEST_DELTA = $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/body_sense.c test_delta_enhanced.c
+SRCS_TEST_DELTA = $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/body_sense.c tests/test_delta_enhanced.c
 TARGET_TEST_DELTA = $(BIN_DIR)/test_delta_enhanced
 
 # Full version with Go inner_world
@@ -87,8 +87,8 @@ run-dynamic: $(TARGET_DYN)
 	./$(TARGET_DYN) data/arianna_c.bin "She finds that " 100 0.8 -signals
 
 # MathBrain test
-test-math: $(SRC_DIR)/mathbrain.c $(SRC_DIR)/mathbrain.h test_mathbrain.c
-	$(CC) $(CFLAGS) -I$(SRC_DIR) test_mathbrain.c $(SRC_DIR)/mathbrain.c -o $(BIN_DIR)/test_mathbrain $(LDFLAGS)
+test-math: $(SRC_DIR)/mathbrain.c $(SRC_DIR)/mathbrain.h tests/test_mathbrain.c
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_mathbrain.c $(SRC_DIR)/mathbrain.c -o $(BIN_DIR)/test_mathbrain $(LDFLAGS)
 	@echo "Built $(BIN_DIR)/test_mathbrain"
 	./$(BIN_DIR)/test_mathbrain
 
@@ -99,8 +99,36 @@ test-delta: $(SRCS_TEST_DELTA) $(SRC_DIR)/delta.h $(SRC_DIR)/delta_enhanced.h $(
 	@echo "Built $(TARGET_TEST_DELTA)"
 	./$(TARGET_TEST_DELTA)
 
+# AMK Kernel test
+test-amk: tests/test_amk.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/schumann.c
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_amk.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/schumann.c -o $(BIN_DIR)/test_amk $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_amk"
+	./$(BIN_DIR)/test_amk
+
+# External Brain test
+test-brain: tests/test_brain.c $(SRC_DIR)/external_brain.c $(SRC_DIR)/external_brain.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_brain.c $(SRC_DIR)/external_brain.c -o $(BIN_DIR)/test_brain $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_brain"
+	@echo "Note: test_brain requires weights/gpt2_30m/ to run"
+
+# Cloud test
+test-cloud: tests/test_cloud.c $(SRC_DIR)/cloud.c $(SRC_DIR)/cloud.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_cloud.c $(SRC_DIR)/cloud.c -o $(BIN_DIR)/test_cloud $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_cloud"
+	./$(BIN_DIR)/test_cloud
+
+# Inner Arianna test
+test-inner: tests/test_inner.c $(SRC_DIR)/inner_arianna.c $(SRC_DIR)/inner_arianna.h $(SRC_DIR)/delta.c $(SRC_DIR)/delta.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_inner.c $(SRC_DIR)/inner_arianna.c $(SRC_DIR)/delta.c -o $(BIN_DIR)/test_inner $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_inner"
+	./$(BIN_DIR)/test_inner
+
 # Run all tests
-test: test-math test-delta
+test: test-math test-delta test-amk test-cloud test-inner
 	@echo ""
 	@echo "All tests completed!"
 
