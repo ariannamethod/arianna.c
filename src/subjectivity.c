@@ -16,6 +16,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdint.h>
+#include <time.h>
 
 // ============================================================
 // Utility Functions
@@ -77,10 +79,40 @@ static int count_words(const char* text, int len) {
 }
 
 // Simple PRNG for seed selection
-static unsigned int subj_seed = 42;
+static unsigned int subj_seed = 0;
+static int subj_seed_initialized = 0;
+
+static void init_subj_seed(void) {
+    if (subj_seed_initialized) return;
+
+    // Mix multiple entropy sources for better randomness
+    unsigned int t = (unsigned int)time(NULL);
+    unsigned int c = (unsigned int)clock();
+
+    // XOR with memory address (ASLR provides entropy)
+    unsigned int m = (unsigned int)(uintptr_t)&subj_seed;
+
+    // Mix them together
+    subj_seed = t ^ (c << 11) ^ (m >> 3);
+
+    // Warm up the generator (skip first few values)
+    for (int i = 0; i < 7; i++) {
+        subj_seed = subj_seed * 1103515245 + 12345;
+    }
+
+    subj_seed_initialized = 1;
+}
+
 static float randf(void) {
+    if (!subj_seed_initialized) init_subj_seed();
     subj_seed = subj_seed * 1103515245 + 12345;
     return (float)(subj_seed % 10000) / 10000.0f;
+}
+
+// Allow external seeding for reproducibility in tests
+void seed_subjectivity_rng(unsigned int seed) {
+    subj_seed = seed;
+    subj_seed_initialized = 1;
 }
 
 // ============================================================

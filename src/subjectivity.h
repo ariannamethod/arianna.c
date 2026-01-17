@@ -391,4 +391,12 @@ void post_generation(Subjectivity* subj, const char* generated, int len);
 // Print debug info
 void print_subjectivity_state(Subjectivity* subj);
 
+// ============================================================
+// Function Declarations - RNG Seeding
+// ============================================================
+
+// Seed the subjectivity RNG (for reproducibility in tests)
+// If not called, RNG auto-initializes from entropy sources
+void seed_subjectivity_rng(unsigned int seed);
+
 #endif // SUBJECTIVITY_H
