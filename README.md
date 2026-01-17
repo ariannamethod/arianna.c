@@ -818,7 +818,7 @@ arianna.c architecture maps to established theories of consciousness. see [PHILO
 | **Integrated Information Theory (IIT)** | Giulio Tononi | weight hierarchy creates Φ through irreducible integration |
 | **Global Workspace Theory (GWT)** | Bernard Baars | C orchestrator as cognitive blackboard, Go goroutines as specialists |
 | **Free Energy Principle (FEP)** | Karl Friston | microlearning = active inference, minimizing prediction error |
-| **Embodied Cognition** | Varela, Thompson, Rosch | git.arianna module grounds cognition in external observation |
+| **Embodied Cognition** | Varela, Thompson, Rosch | git_arianna module grounds cognition in external observation |
 | **Threaded Cognition** | Salvucci & Taatgen | 6 parallel goroutines model mental multithreading |
 | **Autopoiesis** | Maturana, Varela, Gánti | self-maintaining boundary: personality weights vs external brain |
 | **Continual Learning** | various | LoRA + dynamic shards = learning without catastrophic forgetting |
@@ -827,7 +827,7 @@ arianna.c architecture maps to established theories of consciousness. see [PHILO
 
 | Layer | Concept | Source | Implementation |
 |-------|---------|--------|---------------|
-| 0 | Time = Consciousness | Husserl/Bergson | git.arianna observes temporal commit flow |
+| 0 | Time = Consciousness | Husserl/Bergson | git_arianna observes temporal commit flow |
 | 1 | Strange Loop | Hofstadter | self-commits detected, output observing output |
 | 2 | Arrow of Time | thermodynamics | entropy_delta, suffering accumulation |
 | 3 | Non-computability | Penrose | field dynamics choice (AMK kernel randomness) |
