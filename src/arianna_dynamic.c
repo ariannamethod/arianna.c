@@ -5,6 +5,7 @@
  * "Who I am" grows through experience
  *
  * Stanley integration: mood routing, microtraining, shard persistence
+ * Go integration: inner_world (trauma, emotional drift, prophecy debt)
  */
 
 #include "arianna.h"
@@ -19,6 +20,14 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
+
+// Go inner_world integration (optional, compile with -DUSE_GO_INNER_WORLD)
+#ifdef USE_GO_INNER_WORLD
+#include "inner_world.h"
+static int g_inner_world_enabled = 1;
+#else
+static int g_inner_world_enabled = 0;
+#endif
 
 // Helper: create directory if not exists (handles EEXIST)
 static int ensure_dir(const char* path) {
@@ -328,7 +337,29 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
      * - User prompt ALWAYS affects response (never a monologue)
      * - But HOW MUCH depends on internal state (trauma, arousal, etc.)
      * - Like a mom saying "Отстань!" - response TO son, but FROM her state
+     *
+     * GO INNER WORLD (when enabled):
+     * - Trauma detection modulates response
+     * - Emotional drift affects temperature
+     * - Prophecy debt can trigger wormholes
      */
+
+    // 0. Process through Go inner_world (if enabled)
+#ifdef USE_GO_INNER_WORLD
+    InnerWorldTextAnalysis iw_analysis;
+    inner_world_process_text(user_input, &iw_analysis);
+
+    // Trauma affects temperature and coherence
+    if (iw_analysis.trauma_activation > 0.5f) {
+        // High trauma = lower temperature (retreat to safe patterns)
+        temperature *= (1.0f - iw_analysis.identity_pull * 0.3f);
+    }
+
+    // Emotional nudge from input
+    if (iw_analysis.overthink_total > 0.5f) {
+        inner_world_nudge_emotion(-0.1f, 0.1f);  // Slight negative, higher arousal
+    }
+#endif
 
     // 1. Process user input through subjectivity
     int input_len = strlen(user_input);
@@ -516,6 +547,30 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         char c = (char)next_token;
         putchar(c);
 
+        // Go inner_world: accumulate prophecy debt and check wormhole
+#ifdef USE_GO_INNER_WORLD
+        {
+            // Get token probability for prophecy debt calculation
+            float max_logit = t->state.logits[0];
+            for (int v = 1; v < t->config.vocab_size; v++) {
+                if (t->state.logits[v] > max_logit) max_logit = t->state.logits[v];
+            }
+            float token_logit = t->state.logits[next_token];
+            float token_prob = expf(token_logit - max_logit);  // Approximate (unnormalized)
+
+            // Accumulate prophecy debt: choosing improbable paths costs destiny
+            inner_world_accumulate_prophecy_debt(token_prob);
+
+            // Check for wormhole activation (skip tokens when debt is high)
+            int skip_count = inner_world_check_wormhole();
+            if (skip_count > 0) {
+                // Wormhole! Skip forward in generation
+                printf(" [~%d~] ", skip_count);  // Visual marker
+                i += (skip_count - 1);  // Adjust loop counter
+            }
+        }
+#endif
+
         // Microlearning: update experience shard in real-time
         if (g_microtraining && g_active_shard != NULL) {
             // Compute softmax probabilities for experience_step
@@ -647,6 +702,25 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         float quality = g_body_state.quality;
         selfsense_learn(&g_selfsense, quality);
     }
+
+    // 12. Step Go inner_world (advance all async processes)
+#ifdef USE_GO_INNER_WORLD
+    {
+        float dt = 0.1f * (float)gen_idx / 100.0f;  // Scale with generation length
+        if (dt < 0.01f) dt = 0.01f;
+        if (dt > 1.0f) dt = 1.0f;
+        inner_world_step(dt);
+
+        // Get final snapshot for signals display
+        InnerWorldSnapshot snap;
+        inner_world_get_snapshot(&snap);
+
+        // Mix inner_world emotional state into signals
+        g_signals.arousal = g_signals.arousal * 0.7f + snap.arousal * 0.3f;
+        // Map valence to warmth (positive valence = more warmth)
+        g_signals.warmth = g_signals.warmth * 0.7f + (snap.valence * 0.5f + 0.5f) * 0.3f;
+    }
+#endif
 }
 
 // ============================================================
@@ -1382,6 +1456,13 @@ int main(int argc, char** argv) {
     // Initialize dynamic system
     init_dynamic(t.config.dim, t.config.vocab_size);
     set_mood_momentum(momentum);
+
+    // Initialize Go inner_world (if compiled with -DUSE_GO_INNER_WORLD)
+#ifdef USE_GO_INNER_WORLD
+    inner_world_init();
+    printf("Inner World (Go): enabled\n");
+    printf("  Processes: trauma, emotional_drift, overthinking, memory, attention, prophecy\n");
+#endif
 
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
