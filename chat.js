@@ -106,7 +106,7 @@ class AriannaREPL {
     }
     
     async simulateGeneration(prompt, maxTokens, temperature) {
-        // Try to connect to the API server first
+        // API configuration - change for different deployment environments
         const API_URL = 'http://localhost:8000';
         
         try {
