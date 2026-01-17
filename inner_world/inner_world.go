@@ -96,9 +96,13 @@ func (iw *InnerWorld) Step(dt float32) {
 	iw.mu.Lock()
 	defer iw.mu.Unlock()
 
+	// Step all processes
 	for _, proc := range iw.processes {
 		proc.Step(dt)
 	}
+
+	// Adapt parameters based on current state (Linux-like dynamic config)
+	AdaptGlobal()
 }
 
 // routeSignals distributes signals to appropriate processes

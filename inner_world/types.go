@@ -240,6 +240,30 @@ func (s *InnerState) SetCoherence(v float32) {
 	s.Coherence = clamp(v, 0, 1)
 }
 
+func (s *InnerState) GetValence() float32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.Valence
+}
+
+func (s *InnerState) SetValence(v float32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Valence = clamp(v, -1, 1)
+}
+
+func (s *InnerState) GetEntropy() float32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.Entropy
+}
+
+func (s *InnerState) SetEntropy(v float32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Entropy = clamp(v, 0, 1)
+}
+
 func (s *InnerState) GetProphecyDebt() float32 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
