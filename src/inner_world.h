@@ -220,6 +220,23 @@ extern int inner_world_load_config(const char* path);
 // Save config to JSON file (returns 1 on success)
 extern int inner_world_save_config(const char* path);
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// BLOOD COMPILER (dynamic C compilation)
+// Compile LoRA adapters and emotional kernels at runtime
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Compile a LoRA adapter, returns path to .dylib/.so (caller must free)
+extern char* blood_compile_lora(const char* name, int in_dim, int out_dim, int rank);
+
+// Compile an emotional kernel, returns path to .dylib/.so (caller must free)
+extern char* blood_compile_emotion(const char* name, float valence, float arousal);
+
+// Compile raw C code, returns path to .dylib/.so (caller must free)
+extern char* blood_compile_raw(const char* name, const char* code);
+
+// Get Blood temp directory
+extern char* blood_get_temp_dir(void);
+
 #ifdef __cplusplus
 }
 #endif
