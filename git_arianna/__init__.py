@@ -23,17 +23,18 @@ DSL Usage:
         CALENDAR_DRIFT,
         SCHUMANN_BASE_HZ,
 
-        # High Math
-        high_entropy,
-        EmotionalState,
-        emotional_drift,
-        predictive_surprise,
-        resonance_coupling,
-
         # Observer
         GitObserver,
         create_observer,
+
+        # Eve Router
+        Eve,
+        WeightTier,
     )
+
+Note: High Math functions (high_entropy, emotional_drift, etc.)
+      are implemented in Go: inner_world/high.go
+      Use CGO bindings or the compiled library.
 """
 
 from .observer import GitObserver, ObservationResult, CommitInfo
@@ -46,30 +47,6 @@ from .constants import (
     SCHUMANN_BASE_HZ,
     get_calendar_tension,
     get_schumann_coherence,
-)
-
-# High Mathematical Brain (ported from Julia/Go)
-from .high import (
-    # Core functions
-    high_entropy,
-    high_emotional_score,
-    analyze_emotion,
-    semantic_distance,
-    emotional_alignment,
-    perplexity,
-    text_rhythm,
-    # ODE Dynamics (Friston FEP)
-    emotional_drift,
-    predictive_surprise,
-    # Resonance
-    resonance_coupling,
-    SCHUMANN_BASE_HZ as HIGH_SCHUMANN_HZ,
-    # Types
-    EmotionalState,
-    EmotionalDriftParams,
-    EmotionalAnalysis,
-    # Lexicon
-    EMOTIONAL_WEIGHTS,
 )
 
 # Eve Router
@@ -101,28 +78,6 @@ __all__ = [
     "SCHUMANN_BASE_HZ",
     "get_calendar_tension",
     "get_schumann_coherence",
-
-    # ═══════════════════════════════════════════════════════════════════
-    # High Mathematical Brain
-    # ═══════════════════════════════════════════════════════════════════
-    "high_entropy",
-    "high_emotional_score",
-    "analyze_emotion",
-    "semantic_distance",
-    "emotional_alignment",
-    "perplexity",
-    "text_rhythm",
-    # ODE Dynamics
-    "emotional_drift",
-    "predictive_surprise",
-    # Resonance
-    "resonance_coupling",
-    # Types
-    "EmotionalState",
-    "EmotionalDriftParams",
-    "EmotionalAnalysis",
-    # Data
-    "EMOTIONAL_WEIGHTS",
 
     # ═══════════════════════════════════════════════════════════════════
     # Eve Router
