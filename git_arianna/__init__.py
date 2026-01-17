@@ -1,5 +1,5 @@
 """
-git.arianna - Embodied Cognition Module
+git_arianna - Embodied Cognition Module
 
 Metaphysical interface between Arianna and external reality.
 Implements 4 ontological layers through git observation:
@@ -22,6 +22,14 @@ from .observer import GitObserver, ObservationResult, CommitInfo
 from .signals import SignalEmitter, Signal, SignalTypes
 from .fallback import FallbackObserver, create_observer, is_git_available
 
+# DSL Constants (can be used independently)
+from .constants import (
+    CALENDAR_DRIFT,
+    SCHUMANN_BASE_HZ,
+    get_calendar_tension,
+    get_schumann_coherence,
+)
+
 __version__ = "0.1.0"
 __all__ = [
     # Core observer
@@ -36,4 +44,9 @@ __all__ = [
     "FallbackObserver",
     "create_observer",  # Factory: returns real or fallback
     "is_git_available",
+    # Constants
+    "CALENDAR_DRIFT",
+    "SCHUMANN_BASE_HZ",
+    "get_calendar_tension",
+    "get_schumann_coherence",
 ]
