@@ -74,13 +74,15 @@ def arianna_rewrite(draft, prompt, max_tokens=100, temperature=1.0):
     # Combine draft as context hint with original prompt
     # Arianna will use semantic penetration to blend them
 
-    arianna_bin = "bin/arianna_dynamic"
-    weights = "weights/arianna_dialogue.bin"
-
-    if not os.path.exists(arianna_bin):
-        arianna_bin = "./bin/arianna_dynamic"
+    # Determine paths (work from project root)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    
+    arianna_bin = os.path.join(project_root, "bin/arianna_dynamic")
+    weights = os.path.join(project_root, "weights/arianna_dialogue.bin")
+    
     if not os.path.exists(weights):
-        weights = "weights/arianna.bin"
+        weights = os.path.join(project_root, "weights/arianna.bin")
 
     # Create hybrid prompt: draft provides context, original prompt provides topic
     # Arianna's subjectivity will start from internal seed but penetrate with prompt words
