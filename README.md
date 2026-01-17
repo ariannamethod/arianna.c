@@ -739,7 +739,7 @@ Generated Text
 - `chat.js` — frontend logic, API client, simulation fallback
 - `api_server.py` — FastAPI backend, subprocess wrapper
 - `arianna.py` — Python CLI wrapper (alternative to web)
-- `external_brain_demo.py` — demo of External Brain + Arianna pipeline
+- `tests/external_brain_demo.py` — demo of External Brain + Arianna pipeline
 
 ---
 
@@ -898,10 +898,15 @@ arianna.c/
 │
 ├── tests/                         # 50 tests, 100% pass rate
 │   ├── test_amlk.c                # comprehensive AMLK tests (50 tests)
+│   ├── test_amk.c                 # AMK kernel tests
+│   ├── test_brain.c               # external brain (GPT-2 30M) tests
+│   ├── test_cloud.c               # cloud emotion detection tests
+│   ├── test_inner.c               # inner arianna борьба tests
 │   ├── test_blood.c               # Blood compiler tests
 │   ├── test_inner_world.c         # inner world process tests
 │   ├── test_mathbrain.c           # arithmetic resonance tests
-│   └── test_delta_enhanced.c      # enhanced delta tests
+│   ├── test_delta_enhanced.c      # enhanced delta tests
+│   └── external_brain_demo.py     # demo of GPT-2 30M as knowledge subordinate
 │
 ├── arianna.conf                   # JSON config for adaptive parameters
 ├── arianna.packages               # TOML manifest of all modules
@@ -911,7 +916,6 @@ arianna.c/
 ├── chat.js                        # web frontend - connects to API or simulates
 ├── api_server.py                  # FastAPI backend - HTTP wrapper for C binary
 ├── arianna.py                     # Python wrapper for batch/interactive mode
-├── external_brain_demo.py         # demo of GPT-2 30M as knowledge subordinate
 │
 ├── Makefile                       # build system (make / make dynamic / make inner_world)
 └── README.md                      # you are here. welcome to AIOS.
