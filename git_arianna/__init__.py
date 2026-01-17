@@ -16,6 +16,24 @@ Scientific foundations:
 - Free Energy Principle (Friston)
 
 "Phenomenal consciousness = knowing there's something other than you"
+
+DSL Usage:
+    from git_arianna import (
+        # Constants
+        CALENDAR_DRIFT,
+        SCHUMANN_BASE_HZ,
+
+        # High Math
+        high_entropy,
+        EmotionalState,
+        emotional_drift,
+        predictive_surprise,
+        resonance_coupling,
+
+        # Observer
+        GitObserver,
+        create_observer,
+    )
 """
 
 from .observer import GitObserver, ObservationResult, CommitInfo
@@ -30,23 +48,86 @@ from .constants import (
     get_schumann_coherence,
 )
 
-__version__ = "0.1.0"
+# High Mathematical Brain (ported from Julia/Go)
+from .high import (
+    # Core functions
+    high_entropy,
+    high_emotional_score,
+    analyze_emotion,
+    semantic_distance,
+    emotional_alignment,
+    perplexity,
+    text_rhythm,
+    # ODE Dynamics (Friston FEP)
+    emotional_drift,
+    predictive_surprise,
+    # Resonance
+    resonance_coupling,
+    SCHUMANN_BASE_HZ as HIGH_SCHUMANN_HZ,
+    # Types
+    EmotionalState,
+    EmotionalDriftParams,
+    EmotionalAnalysis,
+    # Lexicon
+    EMOTIONAL_WEIGHTS,
+)
+
+# Eve Router
+from .eve import (
+    Eve,
+    WeightTier,
+    RouteConfig,
+)
+
+__version__ = "0.2.0"
 __all__ = [
-    # Core observer
+    # ═══════════════════════════════════════════════════════════════════
+    # Core Observer
+    # ═══════════════════════════════════════════════════════════════════
     "GitObserver",
     "ObservationResult",
     "CommitInfo",
-    # Signal emission
     "SignalEmitter",
     "Signal",
     "SignalTypes",
-    # Fallback (safe degradation)
     "FallbackObserver",
-    "create_observer",  # Factory: returns real or fallback
+    "create_observer",
     "is_git_available",
-    # Constants
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Constants DSL
+    # ═══════════════════════════════════════════════════════════════════
     "CALENDAR_DRIFT",
     "SCHUMANN_BASE_HZ",
     "get_calendar_tension",
     "get_schumann_coherence",
+
+    # ═══════════════════════════════════════════════════════════════════
+    # High Mathematical Brain
+    # ═══════════════════════════════════════════════════════════════════
+    "high_entropy",
+    "high_emotional_score",
+    "analyze_emotion",
+    "semantic_distance",
+    "emotional_alignment",
+    "perplexity",
+    "text_rhythm",
+    # ODE Dynamics
+    "emotional_drift",
+    "predictive_surprise",
+    # Resonance
+    "resonance_coupling",
+    # Types
+    "EmotionalState",
+    "EmotionalDriftParams",
+    "EmotionalAnalysis",
+    # Data
+    "EMOTIONAL_WEIGHTS",
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Eve Router
+    # ═══════════════════════════════════════════════════════════════════
+    "Eve",
+    "WeightTier",
+    "RouteConfig",
 ]
