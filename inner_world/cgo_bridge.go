@@ -395,5 +395,49 @@ func inner_world_dsl_dissonance(level C.float) {
 	Global().State.SetCoherence(Global().State.GetCoherence() - float32(level)*0.2)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADAPTIVE PARAMETERS (Linux-like sysctl interface)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+//export inner_world_set_param
+func inner_world_set_param(name *C.char, value C.float) C.int {
+	goName := C.GoString(name)
+	err := GetAdaptiveEngine().SetParam(goName, float32(value))
+	if err != nil {
+		return 0
+	}
+	return 1
+}
+
+//export inner_world_get_param
+func inner_world_get_param(name *C.char) C.float {
+	goName := C.GoString(name)
+	value, err := GetAdaptiveEngine().GetParam(goName)
+	if err != nil {
+		return -1
+	}
+	return C.float(value)
+}
+
+//export inner_world_load_config
+func inner_world_load_config(path *C.char) C.int {
+	goPath := C.GoString(path)
+	err := GetAdaptiveEngine().LoadConfig(goPath)
+	if err != nil {
+		return 0
+	}
+	return 1
+}
+
+//export inner_world_save_config
+func inner_world_save_config(path *C.char) C.int {
+	goPath := C.GoString(path)
+	err := GetAdaptiveEngine().SaveConfig(goPath)
+	if err != nil {
+		return 0
+	}
+	return 1
+}
+
 // main is required for buildmode=c-shared
 func main() {}

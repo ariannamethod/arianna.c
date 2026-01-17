@@ -198,6 +198,28 @@ extern void inner_world_dsl_tension(float level);
 // DISSONANCE <level> — set dissonance level (0-1)
 extern void inner_world_dsl_dissonance(float level);
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADAPTIVE PARAMETERS (Linux-like sysctl interface)
+// Parameters that morph based on inner state
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Set parameter by name (returns 1 on success, 0 on error)
+// Names: trauma.weight, trauma.decay, trauma.threshold,
+//        drift.speed, drift.inertia,
+//        attention.focus_decay, attention.wander_threshold,
+//        prophecy.destiny, prophecy.wormhole,
+//        meta.adaptation_rate, meta.stability
+extern int inner_world_set_param(const char* name, float value);
+
+// Get parameter by name (returns -1 on error)
+extern float inner_world_get_param(const char* name);
+
+// Load config from JSON file (returns 1 on success)
+extern int inner_world_load_config(const char* path);
+
+// Save config to JSON file (returns 1 on success)
+extern int inner_world_save_config(const char* path);
+
 #ifdef __cplusplus
 }
 #endif
