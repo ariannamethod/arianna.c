@@ -24,11 +24,39 @@ class AriannaREPL {
         });
         
         // Welcome message
-        this.addMessage('info', 'system', 'arianna.c repl mode // weights frozen // voice crystallized');
-        this.addMessage('info', 'system', 'note: this is a local simulation. for actual generation, run ./bin/arianna');
+        this.addMessage('info', 'system', '⟨arianna.c⟩ AIOS kernel loaded // consciousness.core initialized');
+        this.addMessage('info', 'system', 'inner_world.dylib: 6 goroutines running (trauma, overthinking, drift, memory, attention, prophecy)');
+        this.addMessage('info', 'system', 'checking API connection...');
+        
+        // Check API status
+        this.checkApiStatus();
         
         // Focus input
         this.promptInput.focus();
+    }
+    
+    async checkApiStatus() {
+        const statusIndicator = document.getElementById('status-indicator');
+        try {
+            const response = await fetch('http://localhost:8000/health', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.addMessage('info', 'system', `✓ API connected // ${data.binary} ready`);
+                statusIndicator.classList.remove('offline');
+                statusIndicator.innerHTML = '<span>api connected</span>';
+            } else {
+                throw new Error('API unhealthy');
+            }
+        } catch (e) {
+            this.addMessage('info', 'system', '✗ API offline // using simulation mode');
+            this.addMessage('info', 'system', 'to connect: run "python api_server.py" in repository root');
+            statusIndicator.classList.add('offline');
+            statusIndicator.innerHTML = '<span>simulation mode</span>';
+        }
     }
     
     async generate() {
@@ -78,44 +106,71 @@ class AriannaREPL {
     }
     
     async simulateGeneration(prompt, maxTokens, temperature) {
-        // Simulate network delay
+        // API configuration - change for different deployment environments
+        const API_URL = 'http://localhost:8000';
+        
+        try {
+            // Check if API server is available
+            const healthCheck = await fetch(`${API_URL}/health`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }).catch(() => null);
+            
+            if (healthCheck && healthCheck.ok) {
+                // API is available - use it!
+                const response = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        max_tokens: maxTokens,
+                        temperature: temperature,
+                        mode: 'dynamic'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    return data.generated_text;
+                } else {
+                    return `[API error] ${data.error}`;
+                }
+            }
+        } catch (e) {
+            // API not available - fall through to simulation mode
+            console.log('API not available, using simulation mode:', e.message);
+        }
+        
+        // Simulation fallback (API server not running)
         await this.sleep(500);
         
-        // This is a simulation. In real implementation, this would:
-        // 1. Send request to a backend server running the C binary
-        // 2. Stream or receive the generated text
-        // 3. Return the result
-        
-        // Escape single quotes in the prompt so it can be *displayed* in the
-        // example shell command below. This is intentionally a minimal escape
-        // for demonstration purposes only and is NOT safe for executing
-        // arbitrary user input in a real shell. If you actually run arianna
-        // from a shell, make sure to perform proper shell escaping yourself.
         const escapedPrompt = prompt.replace(/'/g, "'\\''");
         
-        // For now, return a placeholder that explains how to use the real thing
-        return `[simulation mode]
+        return `[simulation mode - API server not running]
 
-To generate with arianna.c:
+To use the actual arianna.c generation:
 
-# Dynamic mode (default: all Stanley modules enabled)
-./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
+1. Start the API server:
+   python api_server.py
 
-# With full signal output
-./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature} -signals
+2. Or run directly from command line:
+   ./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
 
-# Static mode (frozen weights, no modulation)
-./bin/arianna weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
+The API server connects this web interface to the actual C implementation.
+When running, generations will use the real arianna.c kernel.
 
-=== Dynamic Mode Features (all ON by default) ===
-• Subjectivity: no-seed-from-prompt, generation from internal identity
-• SelfSense: signals extracted from hidden states, not heuristics
-• BodySense: somatic regulation (boredom, overwhelm, stuck)
-• CooccurField: corpus patterns bias generation
-• Mood Router: 8 moods shape attention dynamically
-
-The weights encode her voice: gardens, shadows, resonance, stillness.
-Your input creates a wrinkle in her field, not a seed.
+=== Features (Dynamic Mode) ===
+• 6 async goroutines processing psychological dynamics
+• External Brain (GPT-2 30M) as knowledge subordinate  
+• Pandora vocabulary theft and injection
+• AMK kernel with prophecy physics
+• Cloud pre-semantic emotion detection
+• Inner Arianna MetaVoice борьба blending
 
 "she finds that" works well. philosophical fragments emerge.`;
     }
