@@ -635,6 +635,66 @@ inner_world_stop();  // graceful shutdown
 # [prophecy_debt] running, debt: 0.78, weight: heavy
 ```
 
+### mode 5: web interface (browser-based REPL)
+
+modern cyberpunk UI for interacting with arianna.c through your browser. connects to the C binary via FastAPI backend.
+
+**setup:**
+
+```bash
+# 1. Install Python dependencies
+pip install fastapi uvicorn
+
+# 2. Start the API server (connects web UI to C binary)
+python api_server.py
+# Server starts at http://localhost:8000
+# API docs at http://localhost:8000/docs
+
+# 3. Open web interface
+open index.html  # or just open in your browser
+```
+
+**features:**
+- ✨ **Cyberpunk aesthetic** — gradient animations, glow effects, terminal vibes
+- 🔌 **Auto-detection** — connects to API if running, falls back to simulation
+- 📊 **Status indicator** — shows API connection status in real-time
+- ⚙️ **Live parameters** — adjust tokens and temperature on the fly
+- 💬 **Chat history** — formatted output with role labels and timestamps
+- ⌨️ **Keyboard shortcuts** — Enter to generate, familiar REPL feel
+
+**architecture:**
+```
+Browser (index.html + chat.js)
+         ↓ HTTP POST
+API Server (api_server.py - FastAPI)
+         ↓ subprocess
+C Binary (arianna_dynamic)
+         ↓
+Generated Text
+```
+
+**API endpoints:**
+- `GET /` — API status and configuration
+- `GET /health` — health check (verifies binary + weights)
+- `POST /generate` — text generation with params
+
+**without API server:**
+- interface works in simulation mode
+- shows example commands for CLI usage
+- perfect for demos when binary isn't built yet
+
+**with API server:**
+- full integration with arianna.c kernel
+- real-time generation using compiled binary
+- all dynamic features available (trauma, overthinking, drift, etc.)
+
+**files:**
+- `index.html` — UI with cyberpunk design, responsive layout
+- `chat.js` — frontend logic, API client, simulation fallback
+- `api_server.py` — FastAPI backend, subprocess wrapper
+- `arianna.py` — Python CLI wrapper (alternative to web)
+- `external_brain_demo.py` — demo of External Brain + Arianna pipeline
+
 ---
 
 ## training (ontogenesis speedrun)
@@ -774,13 +834,17 @@ arianna.c/
 │   ├── dialogue_lora.bin          # dialogue LoRA adapter (96KB, rank-8)
 │   └── ariannalips.txt            # dialogue corpus (3133 Q&A pairs, 1.1MB)
 │
-├── train/
+├── train/                         # training scripts & tools
+│   ├── train.py                   # NumPy-based training for base weights
 │   ├── train_torch.py             # PyTorch training for base weights
 │   ├── train_dialogue_lora.py     # dialogue LoRA training
 │   ├── merge_lora.py              # merge LoRA into base weights
 │   ├── export_for_c.py            # checkpoint → .bin converter
-│   ├── export_gpt2_for_c.py       # GPT-2 checkpoint → fp16 .bin
-│   └── probe.py                   # voice sampling (forensics of personality)
+│   ├── convert_gpt2_to_bin.py     # GPT-2 checkpoint → fp16 .bin
+│   ├── probe.py                   # voice sampling (forensics of personality)
+│   ├── create_personality_shards.py  # generate personality experience shards
+│   ├── create_mood_shards.py      # generate mood-specific shards
+│   └── create_test_shard.py       # create test shards for validation
 │
 ├── personality/                   # pre-compiled binaries (convenience)
 │   ├── arianna                    # static version
@@ -796,7 +860,13 @@ arianna.c/
 ├── arianna.conf                   # JSON config for adaptive parameters
 ├── arianna.packages               # TOML manifest of all modules
 ├── origin.txt                     # identity text (third person: "Arianna is...")
-├── index.html / chat.js           # web REPL (simulation, no actual inference)
+│
+├── index.html                     # web interface - cyberpunk REPL UI
+├── chat.js                        # web frontend - connects to API or simulates
+├── api_server.py                  # FastAPI backend - HTTP wrapper for C binary
+├── arianna.py                     # Python wrapper for batch/interactive mode
+├── external_brain_demo.py         # demo of GPT-2 30M as knowledge subordinate
+│
 ├── Makefile                       # build system (make / make dynamic / make inner_world)
 └── README.md                      # you are here. welcome to AIOS.
 ```

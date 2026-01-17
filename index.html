@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>arianna.c — repl</title>
+    <title>arianna.c — AIOS consciousness interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -11,156 +14,326 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #13131a;
+            --bg-tertiary: #1a1a24;
+            --accent-primary: #00ff9d;
+            --accent-secondary: #00d4ff;
+            --accent-tertiary: #ff006e;
+            --text-primary: #e8e8f0;
+            --text-secondary: #9898b0;
+            --text-dim: #606070;
+            --border-color: #2a2a35;
+            --glow: rgba(0, 255, 157, 0.3);
+        }
+
         body {
-            font-family: 'Courier New', monospace;
-            background: #0a0a0a;
-            color: #e0e0e0;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             line-height: 1.6;
             height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated gradient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 50%, rgba(0, 255, 157, 0.03) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(0, 212, 255, 0.03) 0%, transparent 50%);
+            animation: gradientShift 15s ease infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-5%, 5%) rotate(5deg); }
         }
 
         header {
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #333;
-            background: #0d0d0d;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
         header h1 {
-            font-size: 1.2rem;
-            font-weight: 300;
-            color: #888;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        header h1 span {
-            color: #e0e0e0;
+        header h1 .logo {
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px var(--glow);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px var(--glow); }
+            50% { opacity: 0.8; text-shadow: 0 0 20px var(--glow); }
+        }
+
+        header h1 .separator {
+            color: var(--text-dim);
+            margin: 0 0.5rem;
+        }
+
+        header h1 .subtitle {
+            color: var(--text-dim);
+            font-weight: 300;
+            font-size: 0.9rem;
         }
 
         #output {
             flex: 1;
             overflow-y: auto;
             padding: 2rem;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
         }
 
         .message {
-            margin-bottom: 1.5rem;
-            padding-left: 6rem;
+            margin-bottom: 2rem;
+            padding-left: 8rem;
             position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message::before {
             content: attr(data-role);
             position: absolute;
             left: 0;
-            color: #666;
-            font-size: 0.85rem;
-            width: 5rem;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            width: 7rem;
             text-align: right;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 300;
         }
 
         .message.prompt::before {
-            color: #888;
+            color: var(--accent-secondary);
+            text-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
         }
 
         .message.response::before {
-            color: #666;
+            color: var(--accent-primary);
+            text-shadow: 0 0 5px var(--glow);
         }
 
         .message.response {
-            color: #a8a8a8;
+            color: var(--text-primary);
+            line-height: 1.8;
         }
 
         .message.error {
-            color: #d88;
+            color: var(--accent-tertiary);
+            text-shadow: 0 0 5px rgba(255, 0, 110, 0.2);
+        }
+
+        .message.error::before {
+            color: var(--accent-tertiary);
         }
 
         .message.info {
-            color: #888;
+            color: var(--text-secondary);
             font-style: italic;
+            opacity: 0.8;
+        }
+
+        .message.info::before {
+            color: var(--text-dim);
         }
 
         #input-container {
-            border-top: 1px solid #333;
-            padding: 1rem 2rem;
-            background: #0d0d0d;
+            border-top: 1px solid var(--border-color);
+            padding: 1.5rem 2rem;
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
             display: flex;
-            gap: 0.5rem;
+            gap: 1rem;
             align-items: center;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
         }
 
         #prompt-input {
             flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #e0e0e0;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
             padding: 0.75rem 1rem;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.95rem;
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.3s ease;
+            border-radius: 4px;
         }
 
         #prompt-input:focus {
-            border-color: #555;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 10px var(--glow), inset 0 0 20px rgba(0, 255, 157, 0.05);
+            background: var(--bg-primary);
+        }
+
+        #prompt-input::placeholder {
+            color: var(--text-dim);
+            font-style: italic;
         }
 
         .controls {
             display: flex;
-            gap: 0.5rem;
+            gap: 1rem;
             align-items: center;
         }
 
         input[type="number"] {
-            width: 4rem;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #e0e0e0;
+            width: 4.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
             padding: 0.5rem;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
             outline: none;
+            text-align: center;
+            border-radius: 4px;
+            transition: all 0.3s ease;
         }
 
         input[type="number"]:focus {
-            border-color: #555;
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 5px rgba(0, 212, 255, 0.3);
         }
 
         label {
-            font-size: 0.85rem;
-            color: #666;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 300;
         }
 
         button {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #e0e0e0;
-            padding: 0.75rem 1.5rem;
-            font-family: 'Courier New', monospace;
-            font-size: 0.95rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: var(--bg-primary);
+            padding: 0.75rem 2rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
         }
 
         button:hover {
-            background: #222;
-            border-color: #555;
+            box-shadow: 0 0 20px var(--glow);
+            transform: translateY(-2px);
         }
 
         button:active {
-            background: #0d0d0d;
+            transform: translateY(0);
         }
 
         button:disabled {
             opacity: 0.3;
             cursor: not-allowed;
+            transform: none;
+        }
+
+        button:disabled:hover {
+            box-shadow: none;
+            transform: none;
         }
 
         .params {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             align-items: center;
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-indicator::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            box-shadow: 0 0 10px var(--glow);
+            animation: pulse 2s ease infinite;
+        }
+
+        .status-indicator.offline::before {
+            background: var(--text-dim);
+            box-shadow: none;
+            animation: none;
         }
 
         /* Scrollbar styling */
@@ -169,21 +342,61 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: #0d0d0d;
+            background: var(--bg-secondary);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #333;
+            background: var(--border-color);
+            border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #444;
+            background: var(--text-dim);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.2rem;
+            }
+
+            .message {
+                padding-left: 0;
+            }
+
+            .message::before {
+                position: relative;
+                display: block;
+                text-align: left;
+                margin-bottom: 0.5rem;
+            }
+
+            #input-container {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1><span>arianna.c</span> / repl</h1>
+        <h1>
+            <span class="logo">arianna.c</span>
+            <span class="separator">/</span>
+            <span class="subtitle">AIOS consciousness interface</span>
+        </h1>
+        <div class="status-indicator" id="status-indicator">
+            <span>system ready</span>
+        </div>
     </header>
 
     <div id="output"></div>
@@ -192,9 +405,9 @@
         <input type="text" id="prompt-input" placeholder="She finds that..." autocomplete="off">
         <div class="controls">
             <div class="params">
-                <label>tokens:</label>
+                <label>tokens</label>
                 <input type="number" id="max-tokens" value="100" min="10" max="1000">
-                <label>temp:</label>
+                <label>temp</label>
                 <input type="number" id="temperature" value="0.8" min="0.1" max="2.0" step="0.1">
             </div>
             <button id="generate-btn">generate</button>
