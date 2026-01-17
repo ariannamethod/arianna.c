@@ -79,6 +79,7 @@ static int count_words(const char* text, int len) {
 }
 
 // Simple PRNG for seed selection
+// Starts at 0, auto-initialized at load via constructor
 static unsigned int subj_seed = 0;
 static int subj_seed_initialized = 0;
 
@@ -101,6 +102,12 @@ static void init_subj_seed(void) {
     }
 
     subj_seed_initialized = 1;
+}
+
+// Ensure PRNG is initialized at library load (before any code runs)
+__attribute__((constructor))
+static void subj_prng_auto_init(void) {
+    init_subj_seed();
 }
 
 static float randf(void) {

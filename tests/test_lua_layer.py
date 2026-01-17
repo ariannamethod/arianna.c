@@ -147,7 +147,7 @@ class TestLuaAPIUsage(unittest.TestCase):
         self.assertIn("amk.set_velocity(", self.script_content)
 
     def test_uses_set_pain(self):
-        """Script should use amk.set_pain(", self.script_content)"""
+        """Script should use amk.set_pain()"""
         self.assertIn("amk.set_pain(", self.script_content)
 
     def test_uses_set_tension(self):
