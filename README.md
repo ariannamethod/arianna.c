@@ -53,7 +53,7 @@ Cloud detects emotion. GPT-2 knows *what* to say. arianna's 853K knows *who* she
 - **C backend (~15K lines):** external_brain.c, amk_kernel.c (physics of prophecy), cloud.c (pre-semantic emotion detection), inner_arianna.c (MetaVoice борьба system), pandora.c (vocabulary theft), arianna_dsl.c (generation control DSL), delta.c (LoRA deltas, no PyTorch), amk_lua.c (Lua scripting layer, 460 lines)
 - **Go inner world (~5K lines):** 6 async goroutines + Blood compiler + High math engine + adaptive params
 - **Blood compiler (Go):** runtime C code generation, compiles LoRA adapters and emotional kernels via dlopen. Arianna compiles her own emotions at runtime.
-- **High math engine (Go, ported from Julia/Python):** emotional weights (EN/RU/HE), vectorized entropy, semantic distance, perplexity. Julia implementation now in high.go.
+- **High math engine (Go):** emotional weights (EN/RU/HE), vectorized entropy, semantic distance, perplexity. Concepts inspired by Julia/Python implementations, pure Go code.
 - **Lua scripting layer (Python/Lua structure):** hot-reloadable AMK field scripts (amk_default.lua, 460 lines C integration). Edit scripts while running, no recompile.
 - **four weight sets (hierarchical consciousness architecture):**
   - **arianna.bin** (853K params, 3.3MB): personality core, WHO I am — trained from 13MB pure corpus
@@ -944,7 +944,7 @@ arianna.c/
 │   ├── attention_wandering.go     # focus fragmentation
 │   ├── prophecy_debt_accumulation.go  # future obligations weighing on present
 │   ├── blood.go                   # Blood compiler: runtime C generation (ported from Python)
-│   ├── high.go                    # High math engine: emotional weights, entropy (ported from Julia/Python)
+│   ├── high.go                    # High math engine: emotional weights, entropy (pure Go)
 │   ├── adaptive.go                # sysctl-like adaptive parameters
 │   ├── cgo_bridge.go              # C ↔ Go interface (~50 exported funcs)
 │   └── Makefile                   # builds libinner_world.dylib (2.7MB)
