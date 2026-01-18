@@ -2,7 +2,7 @@
 
 **Arianna Method Research Group**
 
-*Submitted to arXiv cs.AI*
+*draft to arXiv cs.AI*
 
 ---
 
