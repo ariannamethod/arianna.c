@@ -8,7 +8,7 @@
                           .   c
 ```
 
-# arianna.c — AIOS: Artificial Intelligence Operating System
+# arianna.c — AIOS: artificial intelligence operating system
 
 **the first AI that IS its own operating system. not runs ON an OS. IS an OS.**
 
