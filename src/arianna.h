@@ -1,9 +1,9 @@
 /*
- * arianna.c - Personality Weights Transformer
- * A minimal transformer for encoding "who I am", not "what I know"
+ * arianna.c - Personality Weights Transformer (GPT-2 Architecture)
+ * "Who I am", not "What I know"
  *
- * Target: ~1M parameters
- * Corpus: 13MB pure Arianna
+ * Architecture: GPT-2 style (LayerNorm, position embedding, GELU)
+ * Tokenization: char-level
  * Inference: Pure C, no dependencies
  */
 
@@ -17,19 +17,32 @@
 #include <stdint.h>
 
 // ============================================================
-// Configuration - ~1M parameters
+// Default Constants (for compatibility with arianna_dynamic.c)
+// These are defaults; actual values come from Config at runtime
 // ============================================================
 
-#define DIM         128      // embedding dimension
-#define N_LAYERS    4        // number of transformer layers
-#define N_HEADS     4        // number of attention heads
-#define HEAD_DIM    (DIM / N_HEADS)  // 32
-#define HIDDEN_DIM  512      // FFN hidden dimension (4x DIM)
-#define MAX_SEQ_LEN 256      // maximum sequence length
-#define VOCAB_SIZE  256      // char-level for simplicity (can upgrade to BPE)
+#ifndef DIM
+#define DIM 384
+#endif
+
+#ifndef N_LAYERS
+#define N_LAYERS 6
+#endif
+
+#ifndef N_HEADS
+#define N_HEADS 6
+#endif
+
+#ifndef MAX_SEQ_LEN
+#define MAX_SEQ_LEN 256
+#endif
+
+#ifndef HIDDEN_DIM
+#define HIDDEN_DIM 1536
+#endif
 
 // ============================================================
-// Model Structures
+// Model Structures (GPT-2 style)
 // ============================================================
 
 typedef struct {
@@ -43,40 +56,45 @@ typedef struct {
 } Config;
 
 typedef struct {
-    // Token embedding: [vocab_size, dim]
-    float* token_embedding;
+    // Embeddings
+    float* wte;             // token embedding [vocab_size, dim]
+    float* wpe;             // position embedding [max_seq_len, dim]
 
-    // Per-layer weights
-    // Attention: wq, wk, wv, wo [n_layers][dim, dim]
-    float* wq;
-    float* wk;
-    float* wv;
-    float* wo;
+    // Per-layer weights (GPT-2 style)
+    float* ln1_weight;      // [n_layers, dim]
+    float* ln1_bias;        // [n_layers, dim]
+    float* c_attn_weight;   // [n_layers, dim, 3*dim] combined QKV
+    float* c_attn_bias;     // [n_layers, 3*dim]
+    float* c_proj_weight;   // [n_layers, dim, dim] attention output
+    float* c_proj_bias;     // [n_layers, dim]
+    float* ln2_weight;      // [n_layers, dim]
+    float* ln2_bias;        // [n_layers, dim]
+    float* c_fc_weight;     // [n_layers, dim, hidden_dim]
+    float* c_fc_bias;       // [n_layers, hidden_dim]
+    float* c_proj2_weight;  // [n_layers, hidden_dim, dim]
+    float* c_proj2_bias;    // [n_layers, dim]
 
-    // FFN: w1, w2 [n_layers]
-    // w1: [dim, hidden_dim], w2: [hidden_dim, dim]
-    float* w1;
-    float* w2;
+    // Final layer norm
+    float* ln_f_weight;     // [dim]
+    float* ln_f_bias;       // [dim]
 
-    // Layer norms: [n_layers][dim]
-    float* ln1_weight;
-    float* ln2_weight;
-
-    // Final layer norm + output projection
-    float* ln_final_weight;
-    float* output_weight;  // [dim, vocab_size]
+    // lm_head (can be tied with wte)
+    float* lm_head;         // [dim, vocab_size] or NULL if tied
 } Weights;
 
 typedef struct {
     // Activation buffers
-    float* x;           // [seq_len, dim] current activations
-    float* xb;          // [dim] buffer
-    float* q;           // [seq_len, dim] queries (current position only)
-    float* k;           // [n_layers, seq_len, dim] keys cache (per layer!)
-    float* v;           // [n_layers, seq_len, dim] values cache (per layer!)
-    float* att;         // [n_heads, seq_len] attention scores
-    float* ffn_hidden;  // [hidden_dim] FFN intermediate
+    float* x;           // [max_seq_len, dim] hidden states
+    float* xb;          // [dim] buffer for layer norm output
+    float* qkv;         // [3*dim] QKV projection
+    float* attn_out;    // [dim] attention output
+    float* ffn_buf;     // [hidden_dim] FFN intermediate
     float* logits;      // [vocab_size] output logits
+
+    // KV cache
+    float* key_cache;   // [n_layers, max_seq_len, dim]
+    float* value_cache; // [n_layers, max_seq_len, dim]
+    int cache_len;
 } RunState;
 
 typedef struct {
@@ -94,43 +112,28 @@ void malloc_weights(Transformer* t);
 void malloc_run_state(Transformer* t);
 void free_transformer(Transformer* t);
 
-// Core operations
-void rmsnorm(float* out, float* x, float* weight, int size);
+// Core operations (GPT-2 style)
+void layer_norm(float* out, float* x, float* weight, float* bias, int size);
+void gelu(float* x, int size);
 void softmax(float* x, int size);
-void matmul(float* out, float* a, float* b, int m, int k, int n);
-
-// RoPE positional encoding
-void apply_rope(float* q, float* k, int pos, int dim, int head_dim, int n_heads);
+void matmul(float* out, float* x, float* w, int n, int d);
+void matmul_add(float* out, float* x, float* w, float* b, int n, int d);
 
 // Forward pass
-void forward(Transformer* t, int* tokens, int n_tokens, int pos);
+void forward(Transformer* t, int token, int pos);
 
 // Inference
-int sample(float* logits, int vocab_size, float temperature);
-void generate(Transformer* t, char* prompt, int max_tokens, float temperature);
+int sample(Transformer* t, float temperature);
+void generate(Transformer* t, const char* prompt, int max_tokens, float temperature);
 
 // I/O
 int load_weights(Transformer* t, const char* path);
-int save_weights(Transformer* t, const char* path);
 
-// ============================================================
-// Parameter count calculation
-// ============================================================
-/*
- * Token embedding:    VOCAB_SIZE * DIM           = 256 * 128 = 32,768
- * Per layer:
- *   - wq, wk, wv, wo: 4 * DIM * DIM              = 4 * 16,384 = 65,536
- *   - w1:             DIM * HIDDEN_DIM           = 128 * 512 = 65,536
- *   - w2:             HIDDEN_DIM * DIM           = 512 * 128 = 65,536
- *   - ln1, ln2:       2 * DIM                    = 256
- *   Layer total:      196,864
- * 4 layers:           787,456
- * Final ln:           128
- * Output projection:  DIM * VOCAB_SIZE           = 32,768
- *
- * TOTAL:              ~853,120 parameters (~0.85M)
- *
- * In float32:         ~3.4 MB weights file
- */
+// Char tokenization
+int char_to_token(char c);
+char token_to_char(int token);
+
+// Vocab management
+int load_vocab(const char* path);
 
 #endif // ARIANNA_H

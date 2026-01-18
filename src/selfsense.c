@@ -353,7 +353,7 @@ void selfsense_compute_identity_from_tokens(SelfSense* ss, Transformer* t,
 
     for (int i = 0; i < n_tokens; i++) {
         int tok = tokens[i] & 0xFF;
-        float* emb = t->weights.token_embedding + tok * ss->dim;
+        float* emb = t->weights.wte + tok * ss->dim;
         for (int d = 0; d < ss->dim; d++) {
             ss->identity.identity_embedding[d] += emb[d];
         }

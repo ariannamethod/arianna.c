@@ -12,12 +12,12 @@ GO_LDFLAGS = -L$(GO_LIB_DIR) -linner_world -Wl,-rpath,@loader_path
 SRC_DIR = src
 BIN_DIR = bin
 
-# Basic version
-SRCS = $(SRC_DIR)/model.c $(SRC_DIR)/main.c
+# Basic version (with Cloud pre-processing)
+SRCS = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
-# Dynamic version with full Stanley-style architecture
-SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/arianna_dynamic.c
+# Dynamic version with full Stanley-style architecture (includes Cloud)
+SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/arianna_dynamic.c
 TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 
 # Enhanced delta test

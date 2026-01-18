@@ -55,14 +55,16 @@ typedef struct {
 typedef struct {
     char name[64];
 
-    // Attention deltas per layer: modify Q,K,V projections
+    // Attention deltas per layer: modify Q,K,V,O projections
     LowRankDelta* attn_q_deltas;  // [n_layers]
     LowRankDelta* attn_k_deltas;  // [n_layers]
     LowRankDelta* attn_v_deltas;  // [n_layers]
+    LowRankDelta* attn_o_deltas;  // [n_layers] - output projection
 
     // Metadata
     float strength;              // How much this shard influences
     int n_layers;
+    int n_delta_types;           // 3 for old format (Q,K,V), 4 for new (Q,K,V,O)
 } ExperienceShard;
 
 // Delta bank - all loaded shards
@@ -77,6 +79,7 @@ typedef struct {
     float* combined_q_delta;     // [n_layers, dim, dim]
     float* combined_k_delta;
     float* combined_v_delta;
+    float* combined_o_delta;
     int cache_valid;
 } DeltaBank;
 

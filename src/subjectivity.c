@@ -11,6 +11,7 @@
  */
 
 #include "subjectivity.h"
+#include "arianna.h"  // For char_to_token()
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -678,10 +679,10 @@ void modulate_seed_by_pulse(InternalSeed* seed, WrinkleField* wrinkle) {
 }
 
 int seed_to_tokens(InternalSeed* seed, int* tokens, int max_tokens) {
-    // Simple char-level tokenization (matches Arianna's vocab)
+    // Char-level tokenization using vocab mapping
     int n = 0;
     for (int i = 0; i < seed->len && n < max_tokens; i++) {
-        tokens[n++] = (unsigned char)seed->text[i];
+        tokens[n++] = char_to_token(seed->text[i]);
     }
     return n;
 }

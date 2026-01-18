@@ -17,6 +17,7 @@
 #include "body_sense.h"
 #include "selfsense.h"
 #include "mathbrain.h"
+#include "cloud.h"  // Pre-semantic emotion detection
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -94,38 +95,47 @@ typedef struct {
 static TrainingState g_train_state;
 
 // ============================================================
-// Extended forward pass with delta support
+// Extended forward pass with delta support (GPT-2 style)
 // ============================================================
 
 void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
+    (void)n_tokens;  // Unused in single-token forward
+
     Config* c = &t->config;
     Weights* w = &t->weights;
     RunState* s = &t->state;
 
     int dim = c->dim;
-    int head_dim = c->head_dim;
     int n_heads = c->n_heads;
+    int head_dim = c->head_dim;
     int hidden_dim = c->hidden_dim;
+    int max_seq = c->max_seq_len;
 
-    // Get token embedding
+    // Get embedding: x = wte[token] + wpe[pos] (GPT-2 style)
     int token = tokens[pos];
     float* x = s->x + pos * dim;
-    memcpy(x, w->token_embedding + token * dim, dim * sizeof(float));
+    for (int i = 0; i < dim; i++) {
+        x[i] = w->wte[token * dim + i] + w->wpe[pos * dim + i];
+    }
 
     // Process through layers
     for (int layer = 0; layer < c->n_layers; layer++) {
-        // Layer offsets
-        float* wq = w->wq + layer * dim * dim;
-        float* wk = w->wk + layer * dim * dim;
-        float* wv = w->wv + layer * dim * dim;
-        float* wo = w->wo + layer * dim * dim;
-        float* w1 = w->w1 + layer * dim * hidden_dim;
-        float* w2 = w->w2 + layer * hidden_dim * dim;
-        float* ln1 = w->ln1_weight + layer * dim;
-        float* ln2 = w->ln2_weight + layer * dim;
+        // Layer weight offsets (GPT-2 naming)
+        float* ln1_w = w->ln1_weight + layer * dim;
+        float* ln1_b = w->ln1_bias + layer * dim;
+        float* c_attn_w = w->c_attn_weight + layer * dim * 3 * dim;
+        float* c_attn_b = w->c_attn_bias + layer * 3 * dim;
+        float* c_proj_w = w->c_proj_weight + layer * dim * dim;
+        float* c_proj_b = w->c_proj_bias + layer * dim;
+        float* ln2_w = w->ln2_weight + layer * dim;
+        float* ln2_b = w->ln2_bias + layer * dim;
+        float* c_fc_w = w->c_fc_weight + layer * dim * hidden_dim;
+        float* c_fc_b = w->c_fc_bias + layer * hidden_dim;
+        float* c_proj2_w = w->c_proj2_weight + layer * hidden_dim * dim;
+        float* c_proj2_b = w->c_proj2_bias + layer * dim;
 
-        // Pre-norm
-        rmsnorm(s->xb, x, ln1, dim);
+        // LayerNorm 1
+        layer_norm(s->xb, x, ln1_w, ln1_b, dim);
 
         // === MICROTRAINING HOOK: capture pre-attention state ===
         if (g_microtraining && g_train_state.pre_activations != NULL) {
@@ -134,15 +144,12 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
             g_train_state.sequence_pos = pos;
         }
 
-        // QKV projections
-        float* q = s->q;
-        int kv_offset = layer * c->max_seq_len * dim + pos * dim;
-        float* k = s->k + kv_offset;
-        float* v = s->v + kv_offset;
+        // QKV projection (combined, GPT-2 style)
+        matmul_add(s->qkv, s->xb, c_attn_w, c_attn_b, dim, 3 * dim);
 
-        matmul(q, s->xb, wq, 1, dim, dim);
-        matmul(k, s->xb, wk, 1, dim, dim);
-        matmul(v, s->xb, wv, 1, dim, dim);
+        float* q = s->qkv;
+        float* k = s->qkv + dim;
+        float* v = s->qkv + 2 * dim;
 
         // === DELTA APPLICATION ===
         // Deltas modify ATTENTION, not weights directly
@@ -153,69 +160,84 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
             apply_v_delta(&g_delta_bank, v, s->xb, layer, dim);
         }
 
-        // Apply RoPE
-        apply_rope(q, k, pos, dim, head_dim, n_heads);
+        // Store K, V in cache
+        int cache_offset = layer * max_seq * dim + pos * dim;
+        memcpy(s->key_cache + cache_offset, k, dim * sizeof(float));
+        memcpy(s->value_cache + cache_offset, v, dim * sizeof(float));
 
         // Multi-head attention
-        for (int h = 0; h < n_heads; h++) {
-            float* att = s->att + h * c->max_seq_len;
+        memset(s->attn_out, 0, dim * sizeof(float));
+        float scale = 1.0f / sqrtf((float)head_dim);
 
-            for (int t = 0; t <= pos; t++) {
-                float score = 0.0f;
-                float* kt = s->k + layer * c->max_seq_len * dim + t * dim + h * head_dim;
-                float* qt = q + h * head_dim;
+        for (int h = 0; h < n_heads; h++) {
+            float* q_h = q + h * head_dim;
+            float* out_h = s->attn_out + h * head_dim;
+
+            // Attention scores for all cached positions
+            float scores[MAX_SEQ_LEN];
+            int n_ctx = pos + 1;
+
+            for (int t = 0; t < n_ctx; t++) {
+                float* k_t = s->key_cache + layer * max_seq * dim + t * dim + h * head_dim;
+                float dot = 0.0f;
                 for (int i = 0; i < head_dim; i++) {
-                    score += qt[i] * kt[i];
+                    dot += q_h[i] * k_t[i];
                 }
-                att[t] = score / sqrtf((float)head_dim);
+                scores[t] = dot * scale;
             }
 
-            softmax(att, pos + 1);
+            // Softmax
+            softmax(scores, n_ctx);
 
-            float* out = s->xb + h * head_dim;
-            memset(out, 0, head_dim * sizeof(float));
-            for (int t = 0; t <= pos; t++) {
-                float* vt = s->v + layer * c->max_seq_len * dim + t * dim + h * head_dim;
+            // Weighted sum of values
+            for (int t = 0; t < n_ctx; t++) {
+                float* v_t = s->value_cache + layer * max_seq * dim + t * dim + h * head_dim;
                 for (int i = 0; i < head_dim; i++) {
-                    out[i] += att[t] * vt[i];
+                    out_h[i] += scores[t] * v_t[i];
                 }
             }
         }
 
         // === MICROTRAINING HOOK: capture post-attention state ===
         if (g_microtraining && g_train_state.post_activations != NULL) {
-            memcpy(g_train_state.post_activations, s->xb, dim * sizeof(float));
+            memcpy(g_train_state.post_activations, s->attn_out, dim * sizeof(float));
         }
 
-        // Output projection and residual
-        float attn_out[DIM];
-        matmul(attn_out, s->xb, wo, 1, dim, dim);
+        // Output projection + residual
+        float proj_out[DIM];
+        matmul_add(proj_out, s->attn_out, c_proj_w, c_proj_b, dim, dim);
         for (int i = 0; i < dim; i++) {
-            x[i] += attn_out[i];
+            x[i] += proj_out[i];
         }
 
-        // FFN
-        rmsnorm(s->xb, x, ln2, dim);
+        // LayerNorm 2
+        layer_norm(s->xb, x, ln2_w, ln2_b, dim);
 
-        float* ffn = s->ffn_hidden;
-        matmul(ffn, s->xb, w1, 1, dim, hidden_dim);
-        for (int i = 0; i < hidden_dim; i++) {
-            ffn[i] = ffn[i] * (1.0f / (1.0f + expf(-ffn[i])));
-        }
+        // FFN: fc -> gelu -> proj
+        matmul_add(s->ffn_buf, s->xb, c_fc_w, c_fc_b, dim, hidden_dim);
+        gelu(s->ffn_buf, hidden_dim);
 
         float ffn_out[DIM];
-        matmul(ffn_out, ffn, w2, 1, hidden_dim, dim);
+        matmul_add(ffn_out, s->ffn_buf, c_proj2_w, c_proj2_b, hidden_dim, dim);
 
+        // Residual
         for (int i = 0; i < dim; i++) {
             x[i] += ffn_out[i];
         }
     }
 
-    // Final layer norm
-    rmsnorm(s->xb, x, w->ln_final_weight, dim);
+    // Final LayerNorm
+    layer_norm(s->xb, x, w->ln_f_weight, w->ln_f_bias, dim);
 
-    // Output projection to logits
-    matmul(s->logits, s->xb, w->output_weight, 1, dim, c->vocab_size);
+    // Logits: x @ wte.T (weight tying) or x @ lm_head
+    float* lm = w->lm_head ? w->lm_head : w->wte;
+    for (int v = 0; v < c->vocab_size; v++) {
+        float dot = 0.0f;
+        for (int i = 0; i < dim; i++) {
+            dot += s->xb[i] * lm[v * dim + i];
+        }
+        s->logits[v] = dot;
+    }
 }
 
 // ============================================================
@@ -223,12 +245,15 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
 // ============================================================
 
 void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temperature) {
+    // Reset KV cache
+    t->state.cache_len = 0;
+
     int tokens[MAX_SEQ_LEN];
     int n_tokens = strlen(prompt);
 
-    // Tokenize prompt
+    // Tokenize prompt (using vocab mapping, not raw ASCII)
     for (int i = 0; i < n_tokens && i < MAX_SEQ_LEN; i++) {
-        tokens[i] = (unsigned char)prompt[i];
+        tokens[i] = char_to_token(prompt[i]);
     }
 
     // Extract signals and route to moods
@@ -267,9 +292,9 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
-        int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
+        int next_token = sample(t, effective_temp);
         tokens[n_tokens] = next_token;
-        putchar((char)next_token);
+        putchar(token_to_char(next_token));
 
         // Re-route periodically (every 16 tokens for responsive mood shifts)
         if (n_tokens > 0 && n_tokens % 16 == 0) {
@@ -344,7 +369,21 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
      * - Prophecy debt can trigger wormholes
      */
 
-    // 0. Process through Go inner_world (if enabled)
+    // ═══════════════════════════════════════════════════════════════════
+    // 0. CLOUD: Pre-semantic emotion detection on user input
+    // "Something fires BEFORE meaning arrives"
+    // ═══════════════════════════════════════════════════════════════════
+    CloudResponse input_cloud = cloud_ping(user_input);
+    float cloud_temp_mod = cloud_temperature_bias(&input_cloud);
+    int needs_care_flag = cloud_needs_care(&input_cloud);
+    int needs_warmth_flag = cloud_needs_warmth(&input_cloud);
+
+    // Cloud modulates base temperature
+    temperature += cloud_temp_mod;
+    if (temperature < 0.1f) temperature = 0.1f;
+    if (temperature > 2.0f) temperature = 2.0f;
+
+    // 0b. Process through Go inner_world (if enabled)
 #ifdef USE_GO_INNER_WORLD
     InnerWorldTextAnalysis iw_analysis;
     inner_world_process_text(user_input, &iw_analysis);
@@ -360,6 +399,15 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         inner_world_nudge_emotion(-0.1f, 0.1f);  // Slight negative, higher arousal
     }
 #endif
+
+    // Log Cloud detection
+    if (needs_care_flag || needs_warmth_flag) {
+        printf("[Cloud] %s (%.2f) -> %s%s%s\n",
+               input_cloud.primary_word, input_cloud.primary_strength,
+               input_cloud.primary_chamber,
+               needs_care_flag ? " [care]" : "",
+               needs_warmth_flag ? " [warmth]" : "");
+    }
 
     // 1. Process user input through subjectivity
     int input_len = strlen(user_input);
@@ -542,9 +590,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         // Boost "I", "my", "me" when talking about herself
         apply_self_recognition_boost(t->state.logits, t->config.vocab_size, sr);
 
-        int next_token = sample(t->state.logits, t->config.vocab_size, effective_temp);
+        int next_token = sample(t, effective_temp);
         tokens[n_tokens] = next_token;
-        char c = (char)next_token;
+        char c = token_to_char(next_token);
         putchar(c);
 
         // Go inner_world: accumulate prophecy debt and check wormhole
@@ -617,9 +665,17 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             int text_len = n_tokens - start;
             if (text_len > 255) text_len = 255;
             for (int j = 0; j < text_len; j++) {
-                recent_text[j] = (char)tokens[start + j];
+                recent_text[j] = token_to_char(tokens[start + j]);
             }
             recent_text[text_len] = '\0';
+
+            // ═══════════════════════════════════════════════════════════════
+            // CLOUD FEEDBACK LOOP
+            // "Something fires BEFORE meaning arrives"
+            // Cloud analyzes OUTPUT and modulates next generation
+            // ═══════════════════════════════════════════════════════════════
+            CloudResponse cloud = cloud_ping(recent_text);
+            float cloud_temp_bias = cloud_temperature_bias(&cloud);
 
             // Update wrinkle from generated output (self-reflection)
             compute_wrinkle(&g_subjectivity.wrinkle, recent_text, text_len,
@@ -635,9 +691,12 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                 compute_mix(&g_delta_bank, &g_signals);
             }
 
-            // Update temperature
+            // Update temperature (subjectivity + cloud modulation)
             effective_temp = get_modulated_temperature(&g_subjectivity);
             effective_temp = effective_temp * 0.6f + temperature * 0.4f;
+            effective_temp += cloud_temp_bias;  // Cloud emotion modulates temp
+            if (effective_temp < 0.1f) effective_temp = 0.1f;
+            if (effective_temp > 2.0f) effective_temp = 2.0f;
 
             // Somatic regulation (body sense adjusts temperature)
             if (g_body_sense_enabled) {
