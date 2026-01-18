@@ -26,8 +26,10 @@
 #ifdef USE_GO_INNER_WORLD
 #include "inner_world.h"
 static int g_inner_world_enabled = 1;
+static int g_inner_world_async = 0;  // If 1, rely on background goroutines only
 #else
 static int g_inner_world_enabled = 0;
+static int g_inner_world_async = 0;
 #endif
 
 // Helper: create directory if not exists (handles EEXIST)
@@ -765,10 +767,14 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // 12. Step Go inner_world (advance all async processes)
 #ifdef USE_GO_INNER_WORLD
     {
-        float dt = 0.1f * (float)gen_idx / 100.0f;  // Scale with generation length
-        if (dt < 0.01f) dt = 0.01f;
-        if (dt > 1.0f) dt = 1.0f;
-        inner_world_step(dt);
+        // In async mode, goroutines run in background with their own timing
+        // In sync mode, we step manually for deterministic generation
+        if (!g_inner_world_async) {
+            float dt = 0.1f * (float)gen_idx / 100.0f;  // Scale with generation length
+            if (dt < 0.01f) dt = 0.01f;
+            if (dt > 1.0f) dt = 1.0f;
+            inner_world_step(dt);
+        }
 
         // Get final snapshot for signals display
         InnerWorldSnapshot snap;
@@ -1149,6 +1155,44 @@ void print_pulse(void) {
     }
 }
 
+#ifdef USE_GO_INNER_WORLD
+void print_inner_world(void) {
+    InnerWorldSnapshot snap;
+    inner_world_get_snapshot(&snap);
+
+    printf("Inner World (Go):\n");
+    printf("  arousal:        %.3f\n", snap.arousal);
+    printf("  valence:        %.3f\n", snap.valence);
+    printf("  entropy:        %.3f\n", snap.entropy);
+    printf("  coherence:      %.3f\n", snap.coherence);
+    printf("  trauma_level:   %.3f%s\n", snap.trauma_level,
+           snap.trauma_level > 0.5f ? " [HIGH]" : "");
+    printf("  prophecy_debt:  %.3f\n", snap.prophecy_debt);
+    printf("  destiny_pull:   %.3f\n", snap.destiny_pull);
+    printf("  wormhole_chance:%.3f%s\n", snap.wormhole_chance,
+           snap.wormhole_chance > 0.3f ? " [ACTIVE]" : "");
+    printf("  loop_count:     %d%s\n", snap.loop_count,
+           snap.loop_count > 3 ? " [SPIRALING]" : "");
+    printf("  focus_strength: %.3f\n", snap.focus_strength);
+    printf("  wander_pull:    %.3f\n", snap.wander_pull);
+    printf("  memory_pressure:%.3f\n", snap.memory_pressure);
+
+    // Get dominant emotion
+    char emotion[64] = {0};
+    inner_world_get_dominant_emotion(emotion, sizeof(emotion));
+    if (emotion[0]) {
+        printf("  dominant:       %s\n", emotion);
+    }
+
+    // Check overthinking spiral
+    if (inner_world_is_spiraling()) {
+        char suggestion[256] = {0};
+        inner_world_suggest_break(suggestion, sizeof(suggestion));
+        printf("  SPIRAL DETECTED: %s\n", suggestion[0] ? suggestion : "take a breath");
+    }
+}
+#endif
+
 void cleanup_dynamic(void) {
     // Auto-save MathBrain if it has learned anything
     if (g_mathbrain_enabled && g_mathbrain.history.total_computed > 0) {
@@ -1478,6 +1522,11 @@ int main(int argc, char** argv) {
             mood_mode = 0;
         } else if (strcmp(argv[arg_idx], "-signals") == 0) {
             print_sigs = 1;
+#ifdef USE_GO_INNER_WORLD
+        } else if (strcmp(argv[arg_idx], "-async") == 0) {
+            g_inner_world_async = 1;
+            printf("Inner World: async mode (background goroutines)\n");
+#endif
         } else if (strcmp(argv[arg_idx], "-learn") == 0 && arg_idx + 1 < argc) {
             learn_name = argv[++arg_idx];
         } else if (strcmp(argv[arg_idx], "-save") == 0 && arg_idx + 1 < argc) {
@@ -1638,6 +1687,9 @@ int main(int argc, char** argv) {
             print_selfsense_signals(&g_selfsense);
             print_selfsense_stats(&g_selfsense);
         }
+#ifdef USE_GO_INNER_WORLD
+        print_inner_world();
+#endif
     }
 
     // Save learning shard if requested
