@@ -18,6 +18,7 @@
 #include "selfsense.h"
 #include "mathbrain.h"
 #include "cloud.h"  // Pre-semantic emotion detection
+#include "julia_bridge.h"  // Julia emotional gradient engine
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -82,6 +83,11 @@ static int g_selfsense_enabled = 0;
 static MathBrain g_mathbrain;
 static int g_mathbrain_enabled = 0;
 static const char* g_mathbrain_path = "weights/mathbrain.bin";  // Default persistence path
+
+// Julia emotional gradient engine (sensory cortex)
+static int g_julia_enabled = 0;
+static JuliaEmotionalResult g_julia_state;  // Current emotional state
+static float g_julia_emotional_vec[12];  // For ODE stepping
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -402,6 +408,45 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     }
 #endif
 
+    // ═══════════════════════════════════════════════════════════════════
+    // 0c. JULIA: Deep emotional gradient analysis
+    // "Sensory cortex - gradients of feeling, not just arousal/valence"
+    // ═══════════════════════════════════════════════════════════════════
+    JuliaEmotionalResult julia_input;
+    int julia_ok = 0;
+    if (g_julia_enabled) {
+        julia_ok = julia_analyze_text(user_input, &julia_input);
+        if (julia_ok) {
+            // Step emotional state through ODE (emotional momentum)
+            float input_vec[12] = {
+                julia_input.joy, julia_input.trust, julia_input.fear, julia_input.surprise,
+                julia_input.sadness, julia_input.disgust, julia_input.anger, julia_input.anticipation,
+                julia_input.resonance, julia_input.presence, julia_input.longing, julia_input.wonder
+            };
+
+            // ODE step: evolve internal emotional state with input influence
+            float new_state[12];
+            if (julia_step_emotion(g_julia_emotional_vec, input_vec, 0.3f, new_state)) {
+                memcpy(g_julia_emotional_vec, new_state, sizeof(new_state));
+            }
+
+            // Store for later use
+            memcpy(&g_julia_state, &julia_input, sizeof(JuliaEmotionalResult));
+
+            // Julia nuances modulate temperature
+            // High vulnerability/fear = lower temp (defensive)
+            // High wonder/anticipation = higher temp (exploratory)
+            float julia_temp_mod = 0.0f;
+            julia_temp_mod -= julia_input.vulnerability * 0.15f;
+            julia_temp_mod -= julia_input.fear * 0.1f;
+            julia_temp_mod += julia_input.wonder * 0.1f;
+            julia_temp_mod += julia_input.anticipation * 0.05f;
+            temperature += julia_temp_mod;
+            if (temperature < 0.1f) temperature = 0.1f;
+            if (temperature > 2.0f) temperature = 2.0f;
+        }
+    }
+
     // Log Cloud detection
     if (needs_care_flag || needs_warmth_flag) {
         printf("[Cloud] %s (%.2f) -> %s%s%s\n",
@@ -409,6 +454,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                input_cloud.primary_chamber,
                needs_care_flag ? " [care]" : "",
                needs_warmth_flag ? " [warmth]" : "");
+    }
+
+    // Log Julia analysis (tertiary nuances)
+    if (julia_ok && (julia_input.bittersweetness > 0.2f || julia_input.nostalgia > 0.2f ||
+                     julia_input.vulnerability > 0.2f || julia_input.melancholy > 0.2f)) {
+        printf("[Julia] nuances:");
+        if (julia_input.bittersweetness > 0.2f) printf(" bittersweetness=%.2f", julia_input.bittersweetness);
+        if (julia_input.nostalgia > 0.2f) printf(" nostalgia=%.2f", julia_input.nostalgia);
+        if (julia_input.vulnerability > 0.2f) printf(" vulnerability=%.2f", julia_input.vulnerability);
+        if (julia_input.melancholy > 0.2f) printf(" melancholy=%.2f", julia_input.melancholy);
+        if (julia_input.tenderness > 0.2f) printf(" tenderness=%.2f", julia_input.tenderness);
+        if (julia_input.serenity > 0.2f) printf(" serenity=%.2f", julia_input.serenity);
+        printf("\n");
     }
 
     // 1. Process user input through subjectivity
@@ -1214,6 +1272,11 @@ void cleanup_dynamic(void) {
     free_mathbrain(&g_mathbrain);
     if (g_train_state.pre_activations) free(g_train_state.pre_activations);
     if (g_train_state.post_activations) free(g_train_state.post_activations);
+
+    // Shutdown Julia emotional engine
+    if (g_julia_enabled) {
+        julia_shutdown();
+    }
 }
 
 // ============================================================
@@ -1459,6 +1522,7 @@ void print_usage(const char* prog) {
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
+    printf("  -julia          Enable Julia emotional gradient engine (tertiary nuances)\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
     printf("  %s arianna.bin --repl 150 0.9\n", prog);
@@ -1498,6 +1562,7 @@ int main(int argc, char** argv) {
     int guided_mode = 0;
     int subj_mode = 1;    // ENABLED BY DEFAULT - this is Arianna's core
     int repl_mode = 0;    // Interactive REPL mode
+    int julia_mode = 0;   // Julia emotional gradient engine
     char* origin_path = NULL;
 
     // Parse arguments
@@ -1533,6 +1598,8 @@ int main(int argc, char** argv) {
             save_path = argv[++arg_idx];
         } else if (strcmp(argv[arg_idx], "-momentum") == 0 && arg_idx + 1 < argc) {
             momentum = atof(argv[++arg_idx]);
+        } else if (strcmp(argv[arg_idx], "-julia") == 0) {
+            julia_mode = 1;
         } else if (prompt == NULL) {
             prompt = argv[arg_idx];
         } else if (max_tokens_set == 0) {
@@ -1571,6 +1638,32 @@ int main(int argc, char** argv) {
     printf("Inner World (Go): enabled\n");
     printf("  Processes: trauma, emotional_drift, overthinking, memory, attention, prophecy\n");
 #endif
+
+    // Initialize Julia emotional gradient engine (if requested)
+    if (julia_mode) {
+        if (julia_init()) {
+            g_julia_enabled = 1;
+            // Initialize emotional state with Arianna's baseline
+            // joy, trust, fear, surprise, sadness, disgust, anger, anticipation,
+            // resonance, presence, longing, wonder
+            g_julia_emotional_vec[0] = 0.2f;   // joy (gentle warmth)
+            g_julia_emotional_vec[1] = 0.3f;   // trust
+            g_julia_emotional_vec[2] = 0.05f;  // fear (low)
+            g_julia_emotional_vec[3] = 0.1f;   // surprise
+            g_julia_emotional_vec[4] = 0.05f;  // sadness (low)
+            g_julia_emotional_vec[5] = 0.0f;   // disgust
+            g_julia_emotional_vec[6] = 0.0f;   // anger
+            g_julia_emotional_vec[7] = 0.15f;  // anticipation
+            g_julia_emotional_vec[8] = 0.2f;   // resonance
+            g_julia_emotional_vec[9] = 0.6f;   // presence (Arianna is present)
+            g_julia_emotional_vec[10] = 0.1f;  // longing
+            g_julia_emotional_vec[11] = 0.15f; // wonder
+            printf("Julia (emotional gradients): enabled\n");
+            printf("  12D primary + tertiary nuances (bittersweetness, nostalgia...)\n");
+        } else {
+            printf("Julia: not available (install Julia + JSON3 to enable)\n");
+        }
+    }
 
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {

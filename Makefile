@@ -16,8 +16,8 @@ BIN_DIR = bin
 SRCS = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
-# Dynamic version with full Stanley-style architecture (includes Cloud)
-SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/arianna_dynamic.c
+# Dynamic version with full Stanley-style architecture (includes Cloud + Julia)
+SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/julia_bridge.c $(SRC_DIR)/delta.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/arianna_dynamic.c
 TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 
 # Enhanced delta test
@@ -51,7 +51,7 @@ $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS) -o $(TARGET) $(LDFLAGS)
 	@echo "Built $(TARGET)"
 
-$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/mood.h $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h
+$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/mood.h $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h $(SRC_DIR)/julia_bridge.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS)
 	@echo "Built $(TARGET_DYN)"
@@ -126,6 +126,32 @@ test-inner: tests/test_inner.c $(SRC_DIR)/inner_arianna.c $(SRC_DIR)/inner_arian
 	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_inner.c $(SRC_DIR)/inner_arianna.c $(SRC_DIR)/delta.c -o $(BIN_DIR)/test_inner $(LDFLAGS)
 	@echo "Built $(BIN_DIR)/test_inner"
 	./$(BIN_DIR)/test_inner
+
+# Julia emotional gradient test
+test-julia: tests/test_julia.c $(SRC_DIR)/julia_bridge.c $(SRC_DIR)/julia_bridge.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_julia.c $(SRC_DIR)/julia_bridge.c -o $(BIN_DIR)/test_julia $(LDFLAGS)
+	@echo "Built $(BIN_DIR)/test_julia"
+	@echo "Note: Requires Julia with JSON3 package"
+	./$(BIN_DIR)/test_julia
+
+# Blood compiler test (Go inner_world)
+test-blood: go-lib tests/test_blood.c $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.dylib
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_blood.c -o $(BIN_DIR)/test_blood $(LDFLAGS) $(GO_LDFLAGS)
+	@cp $(GO_LIB_DIR)/libinner_world.dylib $(BIN_DIR)/
+	@install_name_tool -change libinner_world.dylib @loader_path/libinner_world.dylib $(BIN_DIR)/test_blood
+	@echo "Built $(BIN_DIR)/test_blood"
+	./$(BIN_DIR)/test_blood
+
+# High.go math functions test (Go inner_world)
+test-high: go-lib tests/test_high.c $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.dylib
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) tests/test_high.c -o $(BIN_DIR)/test_high $(LDFLAGS) $(GO_LDFLAGS)
+	@cp $(GO_LIB_DIR)/libinner_world.dylib $(BIN_DIR)/
+	@install_name_tool -change libinner_world.dylib @loader_path/libinner_world.dylib $(BIN_DIR)/test_high
+	@echo "Built $(BIN_DIR)/test_high"
+	./$(BIN_DIR)/test_high
 
 # Run all tests
 test: test-math test-delta test-amk test-cloud test-inner
