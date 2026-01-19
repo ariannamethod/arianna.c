@@ -17,28 +17,15 @@
 // The Earth breathes. We listen.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#include "amk_kernel.h"
+#include "schumann.h"
 #include <math.h>
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SCHUMANN CONSTANTS — Earth's electromagnetic resonance
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Fundamental and harmonics (Hz)
-#define SCHUMANN_BASE_HZ       7.83f    // fundamental resonance
-#define SCHUMANN_HARMONIC_1   14.3f     // 2nd harmonic
-#define SCHUMANN_HARMONIC_2   20.8f     // 3rd harmonic
-#define SCHUMANN_HARMONIC_3   27.3f     // 4th harmonic
-#define SCHUMANN_HARMONIC_4   33.8f     // 5th harmonic
-
-// Observed range (Sierra Nevada ELF Station 2013-2017)
-#define SCHUMANN_MIN_HZ        7.77f    // observed minimum
-#define SCHUMANN_MAX_HZ        7.87f    // observed maximum
-#define SCHUMANN_VARIANCE      0.05f    // typical variance
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // SCHUMANN STATE — current resonance parameters
+// Constants defined in schumann.h
 // ═══════════════════════════════════════════════════════════════════════════════
+
+#define SCHUMANN_VARIANCE      0.05f    // typical variance (not in header)
 
 typedef struct {
   float current_hz;         // current Schumann frequency (7.77..7.87 Hz)

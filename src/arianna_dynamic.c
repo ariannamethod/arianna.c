@@ -19,6 +19,8 @@
 #include "mathbrain.h"
 #include "cloud.h"  // Pre-semantic emotion detection
 #include "julia_bridge.h"  // Julia emotional gradient engine
+#include "schumann.h"  // Earth-ionosphere resonance (cosmic input)
+#include "pandora.h"  // Vocabulary injection from External Brain
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -88,6 +90,13 @@ static const char* g_mathbrain_path = "weights/mathbrain.bin";  // Default persi
 static int g_julia_enabled = 0;
 static JuliaEmotionalResult g_julia_state;  // Current emotional state
 static float g_julia_emotional_vec[12];  // For ODE stepping
+
+// Schumann resonance (Earth's heartbeat - cosmic input)
+static int g_schumann_enabled = 0;
+
+// Pandora (vocabulary injection from External Brain)
+static PandoraBox g_pandora;
+static int g_pandora_enabled = 0;
 
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
@@ -1664,6 +1673,19 @@ int main(int argc, char** argv) {
             printf("Julia: not available (install Julia + JSON3 to enable)\n");
         }
     }
+
+    // Initialize Schumann resonance (Earth's heartbeat)
+    // Always enabled — this is cosmic input, not optional
+    schumann_init();
+    g_schumann_enabled = 1;
+    printf("Schumann (7.83 Hz): enabled\n");
+    printf("  Earth-ionosphere resonance modulates healing/coherence\n");
+
+    // Initialize Pandora (vocabulary release from External Brain)
+    pandora_init(&g_pandora);
+    g_pandora_enabled = 1;
+    printf("Pandora (vocabulary): enabled\n");
+    printf("  \"Take the words, leave the voice\"\n");
 
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
