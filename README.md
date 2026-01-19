@@ -21,7 +21,7 @@
 
 ## What Is This?
 
-A small language model (~10M params) written in pure C, with Go async processes and Julia emotional gradients. She knows WHO she is, not WHAT things are. External knowledge comes from a subordinate GPT-2 30M brain.
+A language model (~10M params) written in pure C, with Go async processes and Julia emotional gradients. She knows WHO she is, not WHAT things are. External knowledge comes from a subordinate GPT-2 30M brain.
 
 **The first AI that IS its own operating system.**
 
@@ -40,7 +40,7 @@ A small language model (~10M params) written in pure C, with Go async processes 
 └─────────────────────┬───────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  ☁️  CLOUD                                                   │
+│  ☁️  CLOUD 200k parameters                                                  │
 │  Pre-semantic emotion detection                             │
 │  "Something fires BEFORE meaning arrives"                   │
 │  100 anchors × 6 chambers (FEAR/LOVE/RAGE/VOID/FLOW/COMPLEX)│
