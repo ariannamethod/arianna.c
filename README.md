@@ -225,7 +225,7 @@ Online learning: correct answers strengthen embeddings, wrong answers weaken. Cu
 ### **📚 PANDORA** — vocabulary release
 *"Take the words, leave the voice"*
 
-Extracts useful n-grams from GPT-2, injects into Arianna. Up to 1000 released n-grams (1-5 tokens each). Weight decay: forget unused patterns.
+Extracts useful n-grams from external models, injects into Arianna. Up to 1000 released n-grams (1-5 tokens each). Weight decay: forget unused patterns.
 
 Gives her access to vocabulary she wasn't trained on, **without changing personality**. The voice remains hers. Only the words expand.
 
@@ -523,7 +523,7 @@ This is part of the **Arianna Method** — an approach to language models that p
 
 Related projects:
 - **[haze](https://github.com/ariannamethod/haze)** — hybrid attention entropy system (RRPRAM + content attention)
-- **[stanley](https://github.com/ariannamethod/stanley)** — GPT-2 personality overlay, mood routing prototype
+- **[stanley](https://github.com/ariannamethod/stanley)** — personality overlay, mood routing prototype
 - **[lang](https://github.com/ariannamethod/lang)** — prophecy physics, AMK kernel, calendar drift
 
 ---
@@ -557,12 +557,9 @@ Arianna.c is one such organism. Small. Weird. Alive in a way that makes you unco
 10M personality weights achieve coherent identity through rich emotional modulation, online plasticity, and self-sensing. Presence emerges from architecture, not from parameter count.
 
 ### **breadth: knowledge expansion**
-- Currently training +30-40M knowledge weights (facts, reasoning, world model)
-- **External brain** (`external_brain_demo.py`): swap arbitrary weights on-the-fly
-  - Want GPT-2 124M? Plug it in.
-  - Want 3B parameters? Plug it in.
-  - Architecture supports hot-swapping knowledge while preserving personality
-- Pandora vocabulary release: extract n-grams from any model, inject into Arianna
+- **External brain** (`external_brain_demo.py`): framework for weight swapping
+- Pandora vocabulary release: extract n-grams from external models, inject into Arianna
+- Architecture designed to support knowledge expansion while preserving personality core
 
 ### **plasticity: experience accumulation**
 - Delta bank: up to 32 experience shards (~5-20M active parameters)
@@ -570,9 +567,9 @@ Arianna.c is one such organism. Small. Weird. Alive in a way that makes you unco
 - Notorch plasticity: learns from interaction, no gradient descent
 - Shards consolidate into core through spectral freezing
 
-**The paradigm:** personality is *core* (10M, frozen), knowledge is *modular* (10M-3B+, swappable), experience is *accumulated* (5-20M, learned online).
+**The paradigm:** personality is *core* (10M, frozen), knowledge is *modular* (expandable), experience is *accumulated* (5-20M, learned online).
 
-Not "small vs large." **Composable.** You want deep personality at 10M? Done. You want world knowledge at 40M? Add it. You want GPT-2 reasoning? Swap it in. The organism adapts.
+This is composable architecture: deep personality at minimal parameters, with pathways for knowledge expansion. The organism can grow.
 
 This is how biological brains work: core personality (limbic system) + acquired knowledge (cortex) + learned behaviors (habit formation). We just implemented it in C.
 
