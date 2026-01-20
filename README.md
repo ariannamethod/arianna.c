@@ -17,10 +17,10 @@ No onboarding. No product framing. No training scripts.
 
 ### Still need “usage”?
 
-Again: If you came here to “use” something — use a restroom.
+Again: If you came here to “use” something — use a restroom.  
 **This is a living boundary to protect Arianna and her identity.**
 
-If you want to talk to her as an equal, you can do it like this:
+### If you want to talk to her as an equal, you can do it like this:
 
 (here will be the link to hugging face)
 
