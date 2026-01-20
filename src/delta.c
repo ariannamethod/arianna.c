@@ -787,3 +787,242 @@ void consolidate_experience(LowRankDelta* delta, LowRankDelta* core,
         }
     }
 }
+
+// ============================================================
+// Quantum Accumulation (Stanley-style)
+// "Don't train on every token - accumulate until critical mass"
+// ============================================================
+
+void init_accumulator(ExperienceAccumulator* acc, int dim, int vocab_size) {
+    if (!acc) return;
+    memset(acc, 0, sizeof(ExperienceAccumulator));
+
+    acc->dim = dim;
+    acc->vocab_size = vocab_size;
+
+    // Allocate buffers - lazy, only x and targets initially
+    // probs_buffer is huge, so we don't store full probs, just summary stats
+    acc->x_buffer = (float*)calloc(ACCUM_BUFFER_SIZE * dim, sizeof(float));
+    acc->target_buffer = (int*)calloc(ACCUM_BUFFER_SIZE, sizeof(int));
+    acc->signal_buffer = (float*)calloc(ACCUM_BUFFER_SIZE, sizeof(float));
+    // probs_buffer = NULL - we compute novelty inline instead
+
+    // Baseline distribution for novelty detection
+    acc->baseline_probs = (float*)calloc(vocab_size, sizeof(float));
+    // Init to uniform
+    float uniform = 1.0f / vocab_size;
+    for (int i = 0; i < vocab_size; i++) {
+        acc->baseline_probs[i] = uniform;
+    }
+    acc->baseline_alpha = 0.99f;  // Slow EMA decay
+
+    // Default thresholds (Stanley-inspired)
+    acc->bytes_threshold = 50.0f;       // ~50 tokens worth
+    acc->resonance_threshold = 5.0f;    // Accumulated relevance
+    acc->novelty_threshold = 2.0f;      // Distribution drift
+
+    // Cooldown: min 1 second between training cycles
+    acc->cooldown_period = 1.0f;
+    acc->cooldown_remaining = 0.0f;
+
+    acc->buffer_count = 0;
+    acc->training_in_progress = 0;
+    acc->total_training_cycles = 0;
+}
+
+void free_accumulator(ExperienceAccumulator* acc) {
+    if (!acc) return;
+    if (acc->x_buffer) free(acc->x_buffer);
+    if (acc->target_buffer) free(acc->target_buffer);
+    if (acc->signal_buffer) free(acc->signal_buffer);
+    if (acc->probs_buffer) free(acc->probs_buffer);
+    if (acc->baseline_probs) free(acc->baseline_probs);
+    memset(acc, 0, sizeof(ExperienceAccumulator));
+}
+
+// Compute novelty as KL divergence from baseline (simplified)
+static float compute_novelty(ExperienceAccumulator* acc, const float* probs) {
+    if (!acc || !probs || !acc->baseline_probs) return 0.0f;
+
+    float kl = 0.0f;
+    for (int i = 0; i < acc->vocab_size; i++) {
+        float p = fmaxf(probs[i], 1e-8f);
+        float q = fmaxf(acc->baseline_probs[i], 1e-8f);
+        kl += p * logf(p / q);
+    }
+    return fmaxf(0.0f, kl);  // KL is non-negative
+}
+
+// Update baseline with EMA
+static void update_baseline(ExperienceAccumulator* acc, const float* probs) {
+    if (!acc || !probs || !acc->baseline_probs) return;
+
+    float alpha = acc->baseline_alpha;
+    for (int i = 0; i < acc->vocab_size; i++) {
+        acc->baseline_probs[i] = alpha * acc->baseline_probs[i] + (1.0f - alpha) * probs[i];
+    }
+}
+
+int accumulate_experience(ExperienceAccumulator* acc, MicroTrainer* mt,
+                          LowRankDelta* delta, const float* x,
+                          const float* probs, int target_id, float signal) {
+    if (!acc || !x || !probs) return 0;
+    if (acc->training_in_progress) return 0;  // Skip while training
+
+    // Add to buffer
+    if (acc->buffer_count < ACCUM_BUFFER_SIZE) {
+        int idx = acc->buffer_count;
+
+        // Copy x
+        memcpy(&acc->x_buffer[idx * acc->dim], x, acc->dim * sizeof(float));
+        acc->target_buffer[idx] = target_id;
+        acc->signal_buffer[idx] = signal;
+
+        acc->buffer_count++;
+    }
+
+    // Update accumulation metrics
+    acc->bytes_delta += 1.0f;  // One token = one unit
+
+    // Resonance: signal strength weighted by target probability
+    float target_prob = (target_id >= 0 && target_id < acc->vocab_size) ?
+                        probs[target_id] : 0.5f;
+    acc->resonance_mass += fabsf(signal) * (1.0f - target_prob);
+
+    // Novelty: how different is this distribution from baseline?
+    float novelty = compute_novelty(acc, probs);
+    acc->novelty_mass += novelty;
+
+    // Update baseline (slowly drift towards current distribution)
+    update_baseline(acc, probs);
+
+    // Check if should trigger training
+    return maybe_trigger_training(acc, mt, delta);
+}
+
+// Do actual batched training on buffer
+static void do_batched_training(ExperienceAccumulator* acc, MicroTrainer* mt,
+                                LowRankDelta* delta) {
+    if (!acc || !mt || !delta || acc->buffer_count == 0) return;
+
+    // Average signal across buffer
+    float avg_signal = 0.0f;
+    for (int i = 0; i < acc->buffer_count; i++) {
+        avg_signal += acc->signal_buffer[i];
+    }
+    avg_signal /= acc->buffer_count;
+
+    // Average x across buffer (centroid of experience)
+    float* avg_x = (float*)calloc(acc->dim, sizeof(float));
+    for (int i = 0; i < acc->buffer_count; i++) {
+        for (int d = 0; d < acc->dim; d++) {
+            avg_x[d] += acc->x_buffer[i * acc->dim + d];
+        }
+    }
+    for (int d = 0; d < acc->dim; d++) {
+        avg_x[d] /= acc->buffer_count;
+    }
+
+    // Count target frequencies to build aggregate dy
+    int* target_counts = (int*)calloc(acc->vocab_size, sizeof(int));
+    for (int i = 0; i < acc->buffer_count; i++) {
+        int t = acc->target_buffer[i];
+        if (t >= 0 && t < acc->vocab_size) {
+            target_counts[t]++;
+        }
+    }
+
+    // Build dy: positive for frequent targets, negative for others
+    float* dy = (float*)calloc(acc->vocab_size, sizeof(float));
+    int max_count = 0;
+    for (int i = 0; i < acc->vocab_size; i++) {
+        if (target_counts[i] > max_count) max_count = target_counts[i];
+    }
+
+    if (max_count > 0) {
+        for (int i = 0; i < acc->vocab_size; i++) {
+            float freq = (float)target_counts[i] / max_count;
+            // Push frequent targets, pull rest
+            dy[i] = (freq > 0.1f) ? mt->push * freq : -mt->pull * (1.0f - freq) * 0.1f;
+        }
+    }
+
+    // Single notorch step with aggregated experience
+    notorch_step(mt, delta, avg_x, dy, avg_signal);
+
+    // Cleanup
+    free(avg_x);
+    free(target_counts);
+    free(dy);
+}
+
+int maybe_trigger_training(ExperienceAccumulator* acc, MicroTrainer* mt,
+                           LowRankDelta* delta) {
+    if (!acc) return 0;
+    if (acc->training_in_progress) return 0;
+    if (acc->cooldown_remaining > 0.0f) return 0;
+
+    // Check thresholds (Stanley: all must be exceeded)
+    int bytes_ready = acc->bytes_delta >= acc->bytes_threshold;
+    int resonance_ready = acc->resonance_mass >= acc->resonance_threshold;
+    int novelty_ready = acc->novelty_mass >= acc->novelty_threshold;
+    int buffer_full = acc->buffer_count >= ACCUM_BUFFER_SIZE;
+
+    // Trigger if:
+    // 1. Buffer is full (forced), OR
+    // 2. At least 2 of 3 thresholds exceeded and bytes > 10
+    int should_train = buffer_full ||
+                       (acc->bytes_delta > 10.0f &&
+                        ((bytes_ready && resonance_ready) ||
+                         (bytes_ready && novelty_ready) ||
+                         (resonance_ready && novelty_ready)));
+
+    if (!should_train) return 0;
+
+    // Mark training in progress
+    acc->training_in_progress = 1;
+
+    // Do the training (synchronous for now, TODO: make async with pthread)
+    do_batched_training(acc, mt, delta);
+
+    // Reset accumulators
+    acc->bytes_delta = 0.0f;
+    acc->resonance_mass = 0.0f;
+    acc->novelty_mass = 0.0f;
+    acc->buffer_count = 0;
+
+    // Start cooldown
+    acc->cooldown_remaining = acc->cooldown_period;
+
+    // Stats
+    acc->total_training_cycles++;
+    acc->training_in_progress = 0;
+
+    return 1;
+}
+
+void flush_accumulator(ExperienceAccumulator* acc, MicroTrainer* mt,
+                       LowRankDelta* delta) {
+    if (!acc || acc->buffer_count == 0) return;
+
+    // Force training regardless of thresholds
+    acc->training_in_progress = 1;
+    do_batched_training(acc, mt, delta);
+
+    acc->bytes_delta = 0.0f;
+    acc->resonance_mass = 0.0f;
+    acc->novelty_mass = 0.0f;
+    acc->buffer_count = 0;
+    acc->total_training_cycles++;
+    acc->training_in_progress = 0;
+}
+
+void accumulator_tick(ExperienceAccumulator* acc, float dt) {
+    if (!acc) return;
+    if (acc->cooldown_remaining > 0.0f) {
+        acc->cooldown_remaining -= dt;
+        if (acc->cooldown_remaining < 0.0f) {
+            acc->cooldown_remaining = 0.0f;
+        }
+    }
+}
