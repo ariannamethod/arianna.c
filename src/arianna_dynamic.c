@@ -21,6 +21,7 @@
 #include "julia_bridge.h"  // Julia emotional gradient engine
 #include "schumann.h"  // Earth-ionosphere resonance (cosmic input)
 #include "pandora.h"  // Vocabulary injection from External Brain
+#include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -80,6 +81,10 @@ static int g_body_sense_enabled = 0;
 // SelfSense (learned signal extraction from hidden states)
 static SelfSense g_selfsense;
 static int g_selfsense_enabled = 0;
+
+// Inner Arianna (MetaVoice: борьба between main and inner voice)
+static InnerArianna g_inner_arianna;
+static int g_inner_enabled = 0;
 
 // MathBrain (arithmetic through resonance)
 static MathBrain g_mathbrain;
@@ -1516,6 +1521,7 @@ void print_usage(const char* prog) {
     printf("  -save <path>    Save learning shard after generation\n");
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("  -julia          Enable Julia emotional gradient engine (tertiary nuances)\n");
+    printf("  -inner <lora>   Enable Inner Arianna (MetaVoice борьба, requires LoRA weights)\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
     printf("  %s arianna.bin --repl 150 0.9\n", prog);
@@ -1558,6 +1564,7 @@ int main(int argc, char** argv) {
     int repl_mode = 0;    // Interactive REPL mode
     int julia_mode = 0;   // Julia emotional gradient engine
     char* origin_path = NULL;
+    char* inner_lora_path = NULL;  // Inner Arianna LoRA path
 
     // Parse arguments (start from 3, after weights and tokenizer)
     int arg_idx = 3;
@@ -1594,6 +1601,8 @@ int main(int argc, char** argv) {
             momentum = atof(argv[++arg_idx]);
         } else if (strcmp(argv[arg_idx], "-julia") == 0) {
             julia_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-inner") == 0 && arg_idx + 1 < argc) {
+            inner_lora_path = argv[++arg_idx];
         } else if (prompt == NULL) {
             prompt = argv[arg_idx];
         } else if (max_tokens_set == 0) {
@@ -1677,6 +1686,21 @@ int main(int argc, char** argv) {
     g_pandora_enabled = 1;
     printf("Pandora (vocabulary): enabled\n");
     printf("  \"Take the words, leave the voice\"\n");
+
+    // Initialize Inner Arianna (MetaVoice: борьба)
+    if (inner_lora_path != NULL) {
+        inner_init(&g_inner_arianna);
+        if (inner_load_lora(&g_inner_arianna, inner_lora_path) == 0) {
+            g_inner_enabled = 1;
+            printf("Inner Arianna (борьба): enabled\n");
+            printf("  LoRA: %s\n", inner_lora_path);
+            printf("  Mode: %s, weight: %.2f\n",
+                   g_inner_arianna.borba_mode == BORBA_MODE_BLEND ? "blend" : "entropy",
+                   g_inner_arianna.inner_weight);
+        } else {
+            fprintf(stderr, "Warning: couldn't load inner LoRA from %s\n", inner_lora_path);
+        }
+    }
 
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
@@ -1807,6 +1831,9 @@ int main(int argc, char** argv) {
 
     // Cleanup
     cleanup_dynamic();
+    if (g_inner_enabled) {
+        inner_free(&g_inner_arianna);
+    }
     free_transformer(&t);
 
     return 0;
