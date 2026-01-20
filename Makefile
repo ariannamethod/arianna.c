@@ -22,6 +22,7 @@ SRCS_DYN = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/julia_bridge.c \
            $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c \
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
            $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/inner_arianna.c \
+           $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/arianna_dsl.c \
            $(SRC_DIR)/arianna_dynamic.c
 TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 
@@ -55,7 +56,8 @@ $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
                $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
-               $(SRC_DIR)/julia_bridge.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/inner_arianna.h
+               $(SRC_DIR)/julia_bridge.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/inner_arianna.h \
+               $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS)
 	@echo "Built $(TARGET_DYN)"
