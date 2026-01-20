@@ -3,17 +3,18 @@
 📚 EXTERNAL BRAIN 30M - Dataset A: Filtered Definitions
 
 Filters simplewiki_leads.txt to keep only short, high-quality definition cards.
-Target size: 10-15MB to maintain data/params ratio ≤0.5
+Target size: ~12MB to maintain data/params ratio ≤0.5
 
 Filtering criteria:
-- Only entries ≤200 characters (short definitions)
-- Prioritize most important/common topics
+- Only entries ≤300 characters (configurable via --max-chars)
+- Prioritize definition format entries ("X is a/an Y")
 - Remove wiki markup artifacts
 - Quality filtering (alphabetic ratio, complete sentences)
 
 Usage:
     python prepare_data_filtered.py                    # Default paths
-    python prepare_data_filtered.py --max-chars 200   # Custom max length
+    python prepare_data_filtered.py --max-chars 300   # Custom max length
+    python prepare_data_filtered.py --target-mb 10.0  # Custom target size
 """
 
 import argparse
@@ -24,14 +25,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
-
-
-# Important/common topics to prioritize (first-letter frequency)
-PRIORITY_TOPICS = {
-    'countries', 'capitals', 'cities', 'people', 'science',
-    'mathematics', 'physics', 'chemistry', 'biology', 'history',
-    'geography', 'music', 'art', 'literature', 'sports'
-}
 
 
 def load_tokenizer(tokenizer_path: str) -> Dict[str, int]:
