@@ -1,8 +1,5 @@
 # Build
-bin/
 build/
-*.o
-*.a
 
 # Go (but keep .dylib/.so for personality)
 inner_world/libinner_world.h
