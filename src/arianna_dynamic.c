@@ -745,13 +745,16 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             dsl_apply_to_logits(t->state.logits, t->config.vocab_size, &g_dsl_config);
 
             // Check for wormhole (creative skip)
+            // Only allow wormhole after sentence end (.!?) to avoid breaking words
             int skip = dsl_check_wormhole(&g_dsl_config);
-            if (skip > 0) {
-                printf(" [wormhole→%d] ", skip);
-                // Skip tokens by adding empty slots
-                for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
-                    tokens[++n_tokens] = char_to_token(' ');  // Space fill
-                    i++;
+            if (skip > 0 && n_tokens > 0) {
+                char last_char = token_to_char(tokens[n_tokens - 1]);
+                if (last_char == '.' || last_char == '!' || last_char == '?') {
+                    // Wormhole: skip tokens (time travel to future sentence)
+                    for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
+                        tokens[++n_tokens] = char_to_token(' ');
+                        i++;
+                    }
                 }
             }
         }
@@ -769,7 +772,6 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         }
         tokens[n_tokens] = next_token;
         char c = token_to_char(next_token);
-        putchar(c);
 
         // Go inner_world: accumulate prophecy debt and check wormhole
 #ifdef USE_GO_INNER_WORLD
@@ -786,11 +788,13 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             inner_world_accumulate_prophecy_debt(token_prob);
 
             // Check for wormhole activation (skip tokens when debt is high)
+            // Only after sentence end to avoid breaking words
             int skip_count = inner_world_check_wormhole();
             if (skip_count > 0) {
-                // Wormhole! Skip forward in generation
-                printf(" [~%d~] ", skip_count);  // Visual marker
-                i += (skip_count - 1);  // Adjust loop counter
+                char last_c = token_to_char(tokens[n_tokens]);
+                if (last_c == '.' || last_c == '!' || last_c == '?') {
+                    i += (skip_count - 1);
+                }
             }
         }
 #endif
@@ -822,12 +826,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Training triggers automatically when thresholds reached
             int layer = g_train_state.last_layer;
             if (layer >= 0 && layer < g_active_shard->n_layers) {
-                int trained = accumulate_experience(&g_accumulator, &g_trainer,
-                                                    &g_active_shard->attn_q_deltas[layer],
-                                                    t->state.xb, probs, next_token, signal);
-                if (trained) {
-                    printf(" [μ%d] ", g_accumulator.total_training_cycles);  // Training triggered
-                }
+                accumulate_experience(&g_accumulator, &g_trainer,
+                                     &g_active_shard->attn_q_deltas[layer],
+                                     t->state.xb, probs, next_token, signal);
             }
 
             // Tick cooldown (assume ~0.1s per token for now)
@@ -928,7 +929,22 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     }
 
     generated[gen_idx] = '\0';
-    printf("\n");
+
+    // Trim to last complete sentence (avoid mid-word cutoff)
+    int last_end = -1;
+    for (int j = gen_idx - 1; j >= 0; j--) {
+        if (generated[j] == '.' || generated[j] == '!' || generated[j] == '?') {
+            last_end = j;
+            break;
+        }
+    }
+    if (last_end >= 0) {
+        generated[last_end + 1] = '\0';
+        gen_idx = last_end + 1;
+    }
+
+    // Print trimmed output
+    printf("%s\n", generated);
 
     // 9. Post-generation: absorb output back into identity
     post_generation(&g_subjectivity, generated, gen_idx);

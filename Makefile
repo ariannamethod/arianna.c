@@ -1,13 +1,25 @@
 # arianna.c Makefile
-# Llama 3.5 Arianna Edition - C + Go
+# Llama 3.5 Arianna Edition
 
 CC = gcc
 CFLAGS = -O3 -Wall -Wextra -march=native
 LDFLAGS = -lm
 
+# Platform detection
+UNAME := $(shell uname -s)
+ifeq ($(UNAME),Darwin)
+  PLATFORM = macos
+  DYLIB_EXT = dylib
+  RPATH_FLAG = -Wl,-rpath,@loader_path
+else
+  PLATFORM = linux
+  DYLIB_EXT = so
+  RPATH_FLAG = -Wl,-rpath,'$$ORIGIN'
+endif
+
 # Go inner_world library
 GO_LIB_DIR = lib
-GO_LDFLAGS = -L$(GO_LIB_DIR) -linner_world -Wl,-rpath,@loader_path
+GO_LDFLAGS = -L$(GO_LIB_DIR) -linner_world $(RPATH_FLAG)
 
 SRC_DIR = src
 BIN_DIR = bin
@@ -71,17 +83,13 @@ both: $(TARGET) $(TARGET_DYN)
 
 # Build Go library
 go-lib:
-	@echo "Building Go inner_world library..."
-	cd inner_world && go build -buildmode=c-shared -o libinner_world.dylib .
+	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) .
 	@mkdir -p $(GO_LIB_DIR)
-	cp inner_world/libinner_world.dylib $(GO_LIB_DIR)/
-	@echo "Go library ready in $(GO_LIB_DIR)/"
+	cp inner_world/libinner_world.$(DYLIB_EXT) $(GO_LIB_DIR)/
 
 $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS) -o $(TARGET) $(LDFLAGS)
-	@echo "Built $(TARGET)"
-	@echo "Usage: ./bin/arianna weights/arianna.bin weights/tokenizer.json \"prompt\""
 
 $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
                $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
@@ -90,21 +98,18 @@ $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mo
                $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS)
-	@echo "Built $(TARGET_DYN)"
 
 # Full version with Go inner_world (C + Go hybrid)
 $(TARGET_FULL): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
                 $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                 $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
-                $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.dylib
+                $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -DUSE_GO_INNER_WORLD -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_FULL) $(LDFLAGS) $(GO_LDFLAGS)
-	@cp $(GO_LIB_DIR)/libinner_world.dylib $(BIN_DIR)/
+	@cp $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT) $(BIN_DIR)/
+ifeq ($(PLATFORM),macos)
 	@install_name_tool -change libinner_world.dylib @loader_path/libinner_world.dylib $(TARGET_FULL)
-	@echo "Built $(TARGET_FULL) (C + Go hybrid)"
-	@echo ""
-	@echo "Usage:"
-	@echo "  ./bin/arianna_full weights/arianna.bin weights/tokenizer.json \"prompt\" 100 0.9 -async"
+endif
 
 # Lua-enabled dynamic version
 $(TARGET_LUA): $(SRCS_DYN) $(SRCS_LUA) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
@@ -114,10 +119,6 @@ $(TARGET_LUA): $(SRCS_DYN) $(SRCS_LUA) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $
                $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h $(SRC_DIR)/amk_lua.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -DUSE_LUA -I$(SRC_DIR) $(SRCS_DYN) $(SRCS_LUA) -o $(TARGET_LUA) $(LDFLAGS) $(LUA_LDFLAGS)
-	@echo "Built $(TARGET_LUA) (with Lua scripting)"
-	@echo ""
-	@echo "Usage:"
-	@echo "  ./bin/arianna_lua weights/arianna.bin weights/tokenizer.json \"prompt\" 100 0.9 -lua scripts/amk_default.lua"
 
 clean:
 	rm -rf $(BIN_DIR)/*
