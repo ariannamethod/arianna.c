@@ -35,9 +35,11 @@ HIDDEN_DIM = 512
 MAX_SEQ_LEN = 256
 VOCAB_SIZE = 256  # char-level
 
-# LoRA config
-LORA_RANK = 8       # Low rank for adaptation
-LORA_ALPHA = 16     # Scaling factor
+# LoRA config - 150K params target
+# 4 projections (Q,K,V,O) × 4 layers × 2 matrices × rank × dim
+# rank=37: 4 × 4 × 2 × 37 × 128 = 151,552 ≈ 150K params
+LORA_RANK = 37      # Rank for 150K params
+LORA_ALPHA = 64     # Scaling factor (adjusted for larger rank)
 LORA_DROPOUT = 0.05
 
 # Training config
@@ -186,10 +188,11 @@ class AttentionWithLoRA(nn.Module):
         self.wo = nn.Linear(DIM, DIM, bias=False)
         self.rope = RotaryEmbedding(HEAD_DIM)
 
-        # LoRA layers (will be trained)
+        # LoRA layers (will be trained) - all 4 projections for 150K params
         self.lora_q = LoRALayer(DIM, DIM)
         self.lora_k = LoRALayer(DIM, DIM)
         self.lora_v = LoRALayer(DIM, DIM)
+        self.lora_o = LoRALayer(DIM, DIM)
 
     def forward(self, x, mask=None):
         batch, seq_len, _ = x.shape
@@ -229,7 +232,8 @@ class AttentionWithLoRA(nn.Module):
         out = attn @ v
 
         out = out.transpose(1, 2).contiguous().view(batch, seq_len, DIM)
-        return self.wo(out)
+        o_base = self.wo(out)
+        return self.lora_o(out, o_base)
 
 class FFN(nn.Module):
     def __init__(self):
@@ -340,12 +344,13 @@ def export_lora_shard(model, output_path, name="dialogue", strength=0.1, target_
         f.write(struct.pack('f', strength))
         f.write(struct.pack('i', N_LAYERS))
         f.write(struct.pack('i', LORA_RANK))
+        f.write(struct.pack('i', 4))  # 4 delta types: Q, K, V, O
 
         # Collect all matrices first to compute global normalization
         all_A = []
         all_B = []
 
-        for delta_type in ['q', 'k', 'v']:
+        for delta_type in ['q', 'k', 'v', 'o']:
             for layer_idx in range(N_LAYERS):
                 layer = model.layers[layer_idx]
                 lora = getattr(layer.attn, f'lora_{delta_type}')
