@@ -1,0 +1,55 @@
+# External Brain 30M - Training Configuration
+# Use with: python train.py --config config.yaml
+
+# Model Architecture
+model:
+  dim: 512              # Embedding dimension
+  n_layers: 10          # Transformer layers
+  n_heads: 8            # Attention heads
+  n_kv_heads: 4         # KV heads (GQA ratio 2:1)
+  vocab_size: 80        # arianna.c character vocabulary
+  max_seq_len: 512      # Context length
+  norm_eps: 1.0e-5      # RMSNorm epsilon
+  rope_theta: 10000.0   # RoPE base frequency
+
+# Training Hyperparameters
+training:
+  max_iters: 10000      # Total training iterations
+  batch_size: 64        # Batch size (increase for H100)
+  gradient_accumulation_steps: 4
+  learning_rate: 3.0e-4 # Peak learning rate
+  min_lr: 3.0e-5        # Minimum learning rate
+  warmup_iters: 500     # LR warmup iterations
+  weight_decay: 0.1     # AdamW weight decay
+  grad_clip: 1.0        # Gradient clipping
+
+# Logging and Checkpointing
+logging:
+  log_interval: 10      # Log every N iterations
+  eval_interval: 250    # Evaluate every N iterations
+  save_interval: 1000   # Save checkpoint every N iterations
+  eval_iters: 100       # Iterations for loss estimation
+
+# Paths
+paths:
+  data_dir: "."         # Directory with train.bin/val.bin
+  out_dir: "out"        # Output directory for checkpoints
+
+# System
+system:
+  device: "cuda"        # cuda or cpu
+  dtype: "float16"      # float16 or bfloat16
+  compile: false        # Use torch.compile (requires PyTorch 2.0+)
+
+# Lambda GPU Optimized Settings (use with --lambda_mode)
+lambda_gpu:
+  batch_size: 128
+  gradient_accumulation_steps: 2
+  dtype: "bfloat16"
+  compile: true
+
+# Expected Results
+# ================
+# Training time on H100: ~20-30 minutes
+# Final loss: ~0.8-1.2 (character-level)
+# File size: ~60 MB (float16) or ~120 MB (float32)

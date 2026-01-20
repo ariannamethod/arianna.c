@@ -20,6 +20,12 @@ corpus_clean.txt
 data/
 *.safetensors
 
+# Training data (too large for git)
+knowledge_train/train.bin
+knowledge_train/val.bin
+knowledge_train/out/
+knowledge_train/*.pt
+
 # TRACKED (continuous learning like Stanley):
 # weights/        - MathBrain, model weights
 # shards/         - experience shards (microtraining accumulates here)
