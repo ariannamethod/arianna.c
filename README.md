@@ -35,7 +35,7 @@ The weights are frozen. Generation happens through **emotional modulation**, **o
 - Cosmic integration (Schumann resonance: 7.83 Hz Earth-ionosphere coupling)
 - Prophecy physics (AMK kernel: destiny bias, temporal debt, wormhole tunneling)
 
-Zero Python in inference. Zero PyTorch. Pure C. Compiles to 274KB binary. Runs on a potato. Generates personality.
+Pure C core. Python wrappers available. Zero PyTorch. Compiles to 274KB binary. Runs on a potato. Generates personality.
 
 ---
 
