@@ -46,9 +46,20 @@ def clean_text(text: str) -> str:
     """Clean remaining wiki artifacts from text."""
     
     # Fix broken wiki links: [[Topic without closing ]]
-    # Remove unclosed [[ patterns
-    text = re.sub(r'\[\[[^\]]*$', '', text)  # Unclosed at end
-    text = re.sub(r'\[\[(?![^\]]*\]\])', '', text)  # Unclosed anywhere
+    # Remove unclosed [[ at end of text
+    text = re.sub(r'\[\[[^\]]*$', '', text)
+    
+    # Remove orphan [[ that don't have matching ]] (simple approach)
+    # Count brackets and remove unmatched ones
+    while '[[' in text:
+        # Find [[ and check if there's a matching ]]
+        start = text.find('[[')
+        end = text.find(']]', start)
+        if end == -1:
+            # No closing ]], remove this [[
+            text = text[:start] + text[start+2:]
+        else:
+            break  # Found a match, stop
     
     # Remove leading ]] artifacts
     text = re.sub(r'^\s*\]\]', '', text)
@@ -187,7 +198,12 @@ def analyze_dataset(tokens: np.ndarray, id_to_char: Dict[int, str]):
         print(f"      {unique[i]:2d} ({char_repr:>6}): {counts[i]:,} ({counts[i]/len(tokens)*100:.2f}%)")
     
     # Check for unknown/space tokens
-    space_count = counts[sorted_idx[np.where(unique[sorted_idx] == 1)[0][0]]] if 1 in unique else 0
+    space_indices = np.where(unique == 1)[0]
+    if len(space_indices) > 0:
+        space_idx = space_indices[0]
+        space_count = counts[space_idx]
+    else:
+        space_count = 0
     print(f"\n   Space tokens (id=1): {space_count:,}")
 
 

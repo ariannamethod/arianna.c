@@ -52,6 +52,8 @@ def export_to_binary(
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
     
+    # Note: weights_only=False is required because the checkpoint contains
+    # non-tensor data (config dict). The checkpoint is trusted local training output.
     checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
     
     if 'model' not in checkpoint:

@@ -16,7 +16,7 @@ Configuration:
 - n_layers: 10
 - n_heads: 8
 - n_kv_heads: 4 (GQA ratio 2:1)
-- hidden_dim: 1408 (SwiGLU: 4 * dim * 2/3, rounded)
+- hidden_dim: 1408 (SwiGLU: 4 * dim * 2/3, rounded to multiple of 64)
 - vocab_size: 80 (arianna.c character vocabulary)
 - max_seq_len: 512
 
