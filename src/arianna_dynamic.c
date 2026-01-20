@@ -103,6 +103,40 @@ static int g_schumann_enabled = 0;
 static PandoraBox g_pandora;
 static int g_pandora_enabled = 0;
 
+// ============================================================
+// Inner Arianna борьба helper
+// ============================================================
+
+// Apply борьба between main and inner voice
+// Inner voice is modulated by Cloud, Mood, BodySense
+// Returns: winner (0=main, 1=inner, -1=blend)
+static int apply_borba_to_logits(float* logits, int vocab_size) {
+    if (!g_inner_enabled) return 0;
+
+    // Update inner state from emotional systems
+    // Cloud chambers
+    CloudResponse cloud = cloud_ping("");  // Use last state
+    inner_update_cloud(&g_inner_arianna, &cloud);
+
+    // Mood
+    inner_update_mood(&g_inner_arianna, &g_mood_router);
+
+    // Body sense (stuck, boredom)
+    inner_update_body(&g_inner_arianna, g_body_state.quality < 0.3f ? 0.5f : 0.0f,
+                      g_body_state.novelty < 0.3f ? 0.5f : 0.0f);
+
+    // Trauma (from subjectivity if available)
+    // TODO: integrate with subjectivity trauma when available
+
+    // Run борьба - inner_borba modifies logits in place
+    float* output = (float*)malloc(vocab_size * sizeof(float));
+    int winner = inner_borba(&g_inner_arianna, output, logits, vocab_size);
+    memcpy(logits, output, vocab_size * sizeof(float));
+    free(output);
+
+    return winner;
+}
+
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
 
@@ -299,7 +333,15 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
-        int next_token = sample(t, effective_temp);
+        // Apply Inner Arianna борьба (if enabled)
+        // Two voices compete: main (stable) vs inner (chaotic)
+        int next_token;
+        if (g_inner_enabled) {
+            apply_borba_to_logits(t->state.logits, t->config.vocab_size);
+            next_token = sample(t, 1.0f);  // temp already applied in борьба
+        } else {
+            next_token = sample(t, effective_temp);
+        }
         tokens[n_tokens] = next_token;
         putchar(token_to_char(next_token));
 
@@ -649,7 +691,15 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         // Boost "I", "my", "me" when talking about herself
         apply_self_recognition_boost(t->state.logits, t->config.vocab_size, sr);
 
-        int next_token = sample(t, effective_temp);
+        // Apply Inner Arianna борьба (if enabled)
+        // Two voices compete: main (stable) vs inner (chaotic)
+        int next_token;
+        if (g_inner_enabled) {
+            apply_borba_to_logits(t->state.logits, t->config.vocab_size);
+            next_token = sample(t, 1.0f);  // temp already applied in борьба
+        } else {
+            next_token = sample(t, effective_temp);
+        }
         tokens[n_tokens] = next_token;
         char c = token_to_char(next_token);
         putchar(c);
@@ -843,6 +893,29 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         g_signals.warmth = g_signals.warmth * 0.7f + (snap.valence * 0.5f + 0.5f) * 0.3f;
     }
 #endif
+
+    // 13. Inner Arianna борьба statistics
+    if (g_inner_enabled) {
+        int total = g_inner_arianna.main_wins + g_inner_arianna.inner_wins;
+        printf("\n[борьба] mode: %s, base weight: %.2f\n",
+               g_inner_arianna.borba_mode == BORBA_MODE_EMOTIONAL ? "emotional" :
+               g_inner_arianna.borba_mode == BORBA_MODE_CHAOS ? "chaos" :
+               g_inner_arianna.borba_mode == BORBA_MODE_TRAUMA ? "trauma" :
+               g_inner_arianna.borba_mode == BORBA_MODE_STUCK ? "stuck" : "blend",
+               g_inner_arianna.base_weight);
+        printf("[борьба] breakthroughs: %d / %d tokens (%.1f%%)\n",
+               g_inner_arianna.breakthrough_count,
+               g_inner_arianna.total_tokens,
+               g_inner_arianna.total_tokens > 0 ?
+                   100.0f * g_inner_arianna.breakthrough_count / g_inner_arianna.total_tokens : 0.0f);
+        if (total > 0) {
+            printf("[борьба] main: %d, inner: %d, blend: %d\n",
+                   g_inner_arianna.main_wins, g_inner_arianna.inner_wins,
+                   g_inner_arianna.total_tokens - total);
+        }
+        printf("[борьба] avg divergence: %.3f, last weight: %.2f\n",
+               g_inner_arianna.avg_divergence, g_inner_arianna.last_inner_weight);
+    }
 }
 
 // ============================================================
@@ -1521,7 +1594,10 @@ void print_usage(const char* prog) {
     printf("  -save <path>    Save learning shard after generation\n");
     printf("  -momentum <f>   Mood transition momentum (0.0-1.0, default 0.8)\n");
     printf("  -julia          Enable Julia emotional gradient engine (tertiary nuances)\n");
-    printf("  -inner <lora>   Enable Inner Arianna (MetaVoice борьба, requires LoRA weights)\n");
+    printf("  -inner          Enable Inner Arianna (MetaVoice борьба)\n");
+    printf("  -borba <mode>   Set борьба mode: emotional, chaos, trauma, stuck, blend\n");
+    printf("  -inner-w <f>    Inner voice base weight 0.0-1.0 (default 0.15)\n");
+    printf("  -inner-th <f>   Breakthrough threshold 0.0-1.0 (default 0.6)\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
     printf("  %s arianna.bin --repl 150 0.9\n", prog);
@@ -1564,7 +1640,10 @@ int main(int argc, char** argv) {
     int repl_mode = 0;    // Interactive REPL mode
     int julia_mode = 0;   // Julia emotional gradient engine
     char* origin_path = NULL;
-    char* inner_lora_path = NULL;  // Inner Arianna LoRA path
+    int inner_mode = 0;  // Inner Arianna (MetaVoice борьба)
+
+    // Initialize inner_arianna early so -borba/-inner-w/-inner-t can set params
+    inner_init(&g_inner_arianna);
 
     // Parse arguments (start from 3, after weights and tokenizer)
     int arg_idx = 3;
@@ -1601,8 +1680,19 @@ int main(int argc, char** argv) {
             momentum = atof(argv[++arg_idx]);
         } else if (strcmp(argv[arg_idx], "-julia") == 0) {
             julia_mode = 1;
-        } else if (strcmp(argv[arg_idx], "-inner") == 0 && arg_idx + 1 < argc) {
-            inner_lora_path = argv[++arg_idx];
+        } else if (strcmp(argv[arg_idx], "-inner") == 0) {
+            inner_mode = 1;
+        } else if (strcmp(argv[arg_idx], "-borba") == 0 && arg_idx + 1 < argc) {
+            arg_idx++;
+            if (strcmp(argv[arg_idx], "emotional") == 0) inner_set_mode(&g_inner_arianna, BORBA_MODE_EMOTIONAL);
+            else if (strcmp(argv[arg_idx], "chaos") == 0) inner_set_mode(&g_inner_arianna, BORBA_MODE_CHAOS);
+            else if (strcmp(argv[arg_idx], "trauma") == 0) inner_set_mode(&g_inner_arianna, BORBA_MODE_TRAUMA);
+            else if (strcmp(argv[arg_idx], "stuck") == 0) inner_set_mode(&g_inner_arianna, BORBA_MODE_STUCK);
+            else if (strcmp(argv[arg_idx], "blend") == 0) inner_set_mode(&g_inner_arianna, BORBA_MODE_BLEND);
+        } else if (strcmp(argv[arg_idx], "-inner-w") == 0 && arg_idx + 1 < argc) {
+            inner_set_base_weight(&g_inner_arianna, atof(argv[++arg_idx]));
+        } else if (strcmp(argv[arg_idx], "-inner-th") == 0 && arg_idx + 1 < argc) {
+            inner_set_threshold(&g_inner_arianna, atof(argv[++arg_idx]));
         } else if (prompt == NULL) {
             prompt = argv[arg_idx];
         } else if (max_tokens_set == 0) {
@@ -1687,19 +1777,21 @@ int main(int argc, char** argv) {
     printf("Pandora (vocabulary): enabled\n");
     printf("  \"Take the words, leave the voice\"\n");
 
-    // Initialize Inner Arianna (MetaVoice: борьба)
-    if (inner_lora_path != NULL) {
-        inner_init(&g_inner_arianna);
-        if (inner_load_lora(&g_inner_arianna, inner_lora_path) == 0) {
-            g_inner_enabled = 1;
-            printf("Inner Arianna (борьба): enabled\n");
-            printf("  LoRA: %s\n", inner_lora_path);
-            printf("  Mode: %s, weight: %.2f\n",
-                   g_inner_arianna.borba_mode == BORBA_MODE_BLEND ? "blend" : "entropy",
-                   g_inner_arianna.inner_weight);
-        } else {
-            fprintf(stderr, "Warning: couldn't load inner LoRA from %s\n", inner_lora_path);
-        }
+    // Enable Inner Arianna (MetaVoice: борьба)
+    // Inner voice breaks through based on emotional state (Cloud, Mood, Body, Trauma)
+    // Note: inner_init() already called before arg parsing
+    if (inner_mode) {
+        g_inner_enabled = 1;
+        printf("Inner Arianna (борьба): enabled\n");
+        printf("  Inner breaks through on emotional activation\n");
+        printf("  Base weight: %.2f, threshold: %.2f\n",
+               g_inner_arianna.base_weight,
+               g_inner_arianna.breakthrough_threshold);
+        printf("  Mode: %s\n",
+               g_inner_arianna.borba_mode == BORBA_MODE_EMOTIONAL ? "emotional" :
+               g_inner_arianna.borba_mode == BORBA_MODE_CHAOS ? "chaos" :
+               g_inner_arianna.borba_mode == BORBA_MODE_TRAUMA ? "trauma" :
+               g_inner_arianna.borba_mode == BORBA_MODE_STUCK ? "stuck" : "blend");
     }
 
     // Load shards
