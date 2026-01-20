@@ -22,6 +22,8 @@
 #include "schumann.h"  // Earth-ionosphere resonance (cosmic input)
 #include "pandora.h"  // Vocabulary injection from External Brain
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
+#include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
+#include "arianna_dsl.h"  // DSL integration for generation
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -102,6 +104,10 @@ static int g_schumann_enabled = 0;
 // Pandora (vocabulary injection from External Brain)
 static PandoraBox g_pandora;
 static int g_pandora_enabled = 0;
+
+// AMK — Arianna Method Kernel (prophecy, destiny, suffering, movement)
+static int g_amk_enabled = 0;
+static DSL_GenerationConfig g_dsl_config;  // Current DSL config for generation
 
 // ============================================================
 // Inner Arianna борьба helper
@@ -691,6 +697,34 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         // Boost "I", "my", "me" when talking about herself
         apply_self_recognition_boost(t->state.logits, t->config.vocab_size, sr);
 
+        // Apply AMK/DSL — prophecy physics, destiny, suffering
+        // Destiny biases toward most probable, suffering dampens extremes
+        if (g_amk_enabled) {
+            // Step physics (dt = ~0.1s per token)
+            dsl_step(0.1f);
+
+            // Update config with Cloud state
+            CloudResponse cloud_now = cloud_ping("");  // Current state
+            dsl_apply_cloud(&g_dsl_config, &cloud_now);
+
+            // Rebuild config to get fresh AMK state
+            g_dsl_config = dsl_build_config();
+
+            // Apply to logits: destiny bias, pain dampen, tension focus
+            dsl_apply_to_logits(t->state.logits, t->config.vocab_size, &g_dsl_config);
+
+            // Check for wormhole (creative skip)
+            int skip = dsl_check_wormhole(&g_dsl_config);
+            if (skip > 0) {
+                printf(" [wormhole→%d] ", skip);
+                // Skip tokens by adding empty slots
+                for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
+                    tokens[++n_tokens] = char_to_token(' ');  // Space fill
+                    i++;
+                }
+            }
+        }
+
         // Apply Inner Arianna борьба (if enabled)
         // Two voices compete: main (stable) vs inner (chaotic)
         int next_token;
@@ -698,7 +732,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             apply_borba_to_logits(t->state.logits, t->config.vocab_size);
             next_token = sample(t, 1.0f);  // temp already applied in борьба
         } else {
-            next_token = sample(t, effective_temp);
+            // Use DSL temperature if AMK enabled
+            float final_temp = g_amk_enabled ? dsl_get_temperature(&g_dsl_config) : effective_temp;
+            next_token = sample(t, final_temp);
         }
         tokens[n_tokens] = next_token;
         char c = token_to_char(next_token);
@@ -1598,6 +1634,12 @@ void print_usage(const char* prog) {
     printf("  -borba <mode>   Set борьба mode: emotional, chaos, trauma, stuck, blend\n");
     printf("  -inner-w <f>    Inner voice base weight 0.0-1.0 (default 0.15)\n");
     printf("  -inner-th <f>   Breakthrough threshold 0.0-1.0 (default 0.6)\n");
+    printf("\nAMK (Arianna Method Kernel):\n");
+    printf("  -velocity <v>   Movement mode: nomove, walk, run, backward\n");
+    printf("  -destiny <f>    Bias toward probable path 0.0-1.0 (default 0.35)\n");
+    printf("  -wormhole <f>   Creative skip probability 0.0-1.0 (default 0.02)\n");
+    printf("  -prophecy <n>   Lookahead depth 1-64 (default 7)\n");
+    printf("  -amk <script>   Execute AMK DSL script (e.g. \"VELOCITY RUN; DESTINY 0.5\")\n");
     printf("\nExamples:\n");
     printf("  %s arianna.bin \"Who are you?\" 100 0.8\n", prog);
     printf("  %s arianna.bin --repl 150 0.9\n", prog);
@@ -1641,6 +1683,13 @@ int main(int argc, char** argv) {
     int julia_mode = 0;   // Julia emotional gradient engine
     char* origin_path = NULL;
     int inner_mode = 0;  // Inner Arianna (MetaVoice борьба)
+
+    // AMK parameters (applied after dsl_init)
+    int amk_velocity = -99;  // -99 = not set (note: AM_VEL_BACKWARD is -1)
+    float amk_destiny = -1.0f;
+    float amk_wormhole = -1.0f;
+    int amk_prophecy = -1;
+    char* amk_script = NULL;
 
     // Initialize inner_arianna early so -borba/-inner-w/-inner-t can set params
     inner_init(&g_inner_arianna);
@@ -1693,6 +1742,21 @@ int main(int argc, char** argv) {
             inner_set_base_weight(&g_inner_arianna, atof(argv[++arg_idx]));
         } else if (strcmp(argv[arg_idx], "-inner-th") == 0 && arg_idx + 1 < argc) {
             inner_set_threshold(&g_inner_arianna, atof(argv[++arg_idx]));
+        // AMK — Arianna Method Kernel commands (saved, applied after dsl_init)
+        } else if (strcmp(argv[arg_idx], "-velocity") == 0 && arg_idx + 1 < argc) {
+            arg_idx++;
+            if (strcmp(argv[arg_idx], "nomove") == 0) amk_velocity = AM_VEL_NOMOVE;
+            else if (strcmp(argv[arg_idx], "walk") == 0) amk_velocity = AM_VEL_WALK;
+            else if (strcmp(argv[arg_idx], "run") == 0) amk_velocity = AM_VEL_RUN;
+            else if (strcmp(argv[arg_idx], "backward") == 0) amk_velocity = AM_VEL_BACKWARD;
+        } else if (strcmp(argv[arg_idx], "-destiny") == 0 && arg_idx + 1 < argc) {
+            amk_destiny = atof(argv[++arg_idx]);
+        } else if (strcmp(argv[arg_idx], "-wormhole") == 0 && arg_idx + 1 < argc) {
+            amk_wormhole = atof(argv[++arg_idx]);
+        } else if (strcmp(argv[arg_idx], "-prophecy") == 0 && arg_idx + 1 < argc) {
+            amk_prophecy = atoi(argv[++arg_idx]);
+        } else if (strcmp(argv[arg_idx], "-amk") == 0 && arg_idx + 1 < argc) {
+            amk_script = argv[++arg_idx];
         } else if (prompt == NULL) {
             prompt = argv[arg_idx];
         } else if (max_tokens_set == 0) {
@@ -1770,6 +1834,35 @@ int main(int argc, char** argv) {
     g_schumann_enabled = 1;
     printf("Schumann (7.83 Hz): enabled\n");
     printf("  Earth-ionosphere resonance modulates healing/coherence\n");
+
+    // Initialize AMK — Arianna Method Kernel
+    // Always enabled — this is the physics of the field
+    dsl_init();  // Initializes both am_init() and schumann_init() (safe to call twice)
+    g_amk_enabled = 1;
+
+    // Apply AMK parameters from command line (after init)
+    // Use am_exec with DSL commands so effective_temp gets recalculated
+    if (amk_velocity != -99) {
+        const char* vel_cmd = amk_velocity == AM_VEL_RUN ? "VELOCITY RUN" :
+                              amk_velocity == AM_VEL_NOMOVE ? "VELOCITY NOMOVE" :
+                              amk_velocity == AM_VEL_BACKWARD ? "VELOCITY BACKWARD" : "VELOCITY WALK";
+        am_exec(vel_cmd);
+    }
+    AM_State* amk = am_get_state();
+    if (amk_destiny >= 0.0f) amk->destiny = amk_destiny;
+    if (amk_wormhole >= 0.0f) amk->wormhole = amk_wormhole;
+    if (amk_prophecy >= 0) amk->prophecy = amk_prophecy;
+    if (amk_script != NULL) am_exec(amk_script);
+
+    g_dsl_config = dsl_build_config();
+    printf("AMK (Arianna Method): enabled\n");
+    printf("  Prophecy: %d, Destiny: %.2f, Wormhole: %.2f\n",
+           amk->prophecy, amk->destiny, amk->wormhole);
+    printf("  Velocity: %s, Temperature: %.2f\n",
+           amk->velocity_mode == AM_VEL_WALK ? "walk" :
+           amk->velocity_mode == AM_VEL_RUN ? "run" :
+           amk->velocity_mode == AM_VEL_NOMOVE ? "nomove" : "backward",
+           amk->effective_temp);
 
     // Initialize Pandora (vocabulary release from External Brain)
     pandora_init(&g_pandora);
