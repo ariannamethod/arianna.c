@@ -218,4 +218,70 @@ void clamp_delta(LowRankDelta* delta, float max_norm);
 // Get delta norm (for monitoring)
 float get_delta_norm(LowRankDelta* delta);
 
+// ============================================================
+// Quantum Accumulation (Stanley-style)
+// "Don't train on every token - accumulate until critical mass"
+// ============================================================
+
+#define ACCUM_BUFFER_SIZE 256  // Max accumulated experiences before forced flush
+
+typedef struct {
+    // Accumulated experience buffer
+    float* x_buffer;              // [ACCUM_BUFFER_SIZE, dim] - input activations
+    float* probs_buffer;          // [ACCUM_BUFFER_SIZE, vocab_size] - output probs
+    int* target_buffer;           // [ACCUM_BUFFER_SIZE] - target tokens
+    float* signal_buffer;         // [ACCUM_BUFFER_SIZE] - learning signals
+    int buffer_count;             // Current items in buffer
+
+    // Accumulation metrics (Stanley-style)
+    float bytes_delta;            // Volume of new experience
+    float resonance_mass;         // Weighted contextual relevance
+    float novelty_mass;           // Distribution drift from baseline
+
+    // Thresholds for triggering training
+    float bytes_threshold;        // Trigger when bytes_delta exceeds this
+    float resonance_threshold;    // Trigger when resonance_mass exceeds this
+    float novelty_threshold;      // Trigger when novelty_mass exceeds this
+
+    // Cooldown (minimum time between training cycles)
+    float cooldown_remaining;     // Seconds until can train again
+    float cooldown_period;        // Minimum gap between training
+
+    // Dimensions (for allocation)
+    int dim;
+    int vocab_size;
+
+    // Baseline distribution for novelty detection
+    float* baseline_probs;        // [vocab_size] - running average
+    float baseline_alpha;         // EMA decay for baseline
+
+    // Training state
+    int training_in_progress;     // 1 if async training running
+    int total_training_cycles;    // Stats
+} ExperienceAccumulator;
+
+// Initialize accumulator
+void init_accumulator(ExperienceAccumulator* acc, int dim, int vocab_size);
+
+// Free accumulator
+void free_accumulator(ExperienceAccumulator* acc);
+
+// Accumulate one experience (instead of immediate training)
+// Returns 1 if training was triggered, 0 otherwise
+int accumulate_experience(ExperienceAccumulator* acc, MicroTrainer* mt,
+                          LowRankDelta* delta, const float* x,
+                          const float* probs, int target_id, float signal);
+
+// Check if training should trigger and do it if ready
+// Returns 1 if training was triggered
+int maybe_trigger_training(ExperienceAccumulator* acc, MicroTrainer* mt,
+                           LowRankDelta* delta);
+
+// Force training with current buffer (used before shutdown)
+void flush_accumulator(ExperienceAccumulator* acc, MicroTrainer* mt,
+                       LowRankDelta* delta);
+
+// Update cooldown (call each timestep with dt)
+void accumulator_tick(ExperienceAccumulator* acc, float dt);
+
 #endif // DELTA_H

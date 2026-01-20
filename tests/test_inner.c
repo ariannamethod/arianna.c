@@ -1,185 +1,184 @@
-// test_inner.c — Test Inner Arianna (MetaVoice / борьба)
-// build: gcc -O2 test_inner.c inner_arianna.c -lm -o test_inner
+/*
+ * test_inner.c - Test Inner Arianna (борьба between main and inner voice)
+ *
+ * Updated for new emotional modulation API (not temperature scaling)
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
 #include "inner_arianna.h"
 
-#define VOCAB_SIZE 256
+#define TEST_VOCAB_SIZE 80
 
-// Generate random logits for testing
-static void random_logits(float* logits, int n, float temp, int seed) {
-    srand(seed);
-    for (int i = 0; i < n; i++) {
-        logits[i] = ((float)rand() / RAND_MAX - 0.5f) * temp;
-    }
-}
-
-// Print top-k tokens
-static void print_topk(const float* logits, int n, int k) {
-    // Find top-k
-    int* indices = malloc(k * sizeof(int));
-    float* values = malloc(k * sizeof(float));
-
-    for (int i = 0; i < k; i++) {
-        indices[i] = -1;
-        values[i] = -1e30f;
-    }
-
-    for (int i = 0; i < n; i++) {
-        // Check if this belongs in top-k
-        for (int j = 0; j < k; j++) {
-            if (logits[i] > values[j]) {
-                // Shift down
-                for (int m = k - 1; m > j; m--) {
-                    indices[m] = indices[m-1];
-                    values[m] = values[m-1];
-                }
-                indices[j] = i;
-                values[j] = logits[i];
-                break;
-            }
-        }
-    }
-
-    printf("    Top-%d: ", k);
-    for (int i = 0; i < k; i++) {
-        printf("[%d]=%.2f ", indices[i], values[i]);
-    }
-    printf("\n");
-
-    free(indices);
-    free(values);
-}
-
-int main(void) {
-    printf("═══════════════════════════════════════════════════════════════════\n");
-    printf("INNER ARIANNA TEST — MetaVoice / борьба\n");
-    printf("\"Two voices, one Arianna\"\n");
+void print_separator(const char* title) {
+    printf("\n═══════════════════════════════════════════════════════════════════\n");
+    printf("%s\n", title);
     printf("═══════════════════════════════════════════════════════════════════\n\n");
+}
 
-    srand(time(NULL));
+int main() {
+    print_separator("INNER ARIANNA TEST — борьба Between Voices");
 
-    // Initialize
     InnerArianna ia;
     inner_init(&ia);
 
     printf("[*] Inner Arianna initialized\n");
-    printf("    borba_mode: %d (BLEND)\n", ia.borba_mode);
-    printf("    inner_weight: %.2f\n\n", ia.inner_weight);
+    printf("    borba_mode: %d\n", ia.borba_mode);
+    printf("    base_weight: %.2f\n", ia.base_weight);
+    printf("    breakthrough_threshold: %.2f\n\n", ia.breakthrough_threshold);
 
     // Create test logits
-    float* main_logits = malloc(VOCAB_SIZE * sizeof(float));
-    float* inner_logits = malloc(VOCAB_SIZE * sizeof(float));
-    float* output_logits = malloc(VOCAB_SIZE * sizeof(float));
+    float main_logits[TEST_VOCAB_SIZE];
+    float output_logits[TEST_VOCAB_SIZE];
 
-    // Test 1: Similar distributions (voices agree)
-    printf("Test 1: Similar distributions (voices agree)\n");
-    printf("───────────────────────────────────────────────────────────────────\n");
-
-    random_logits(main_logits, VOCAB_SIZE, 2.0f, 42);
-    // Inner is similar but slightly different
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-        inner_logits[i] = main_logits[i] + ((float)rand() / RAND_MAX - 0.5f) * 0.5f;
+    // Initialize with some pattern
+    for (int i = 0; i < TEST_VOCAB_SIZE; i++) {
+        main_logits[i] = sinf(i * 0.1f) + 0.5f * cosf(i * 0.05f);
     }
 
-    printf("  Main logits:\n");
-    print_topk(main_logits, VOCAB_SIZE, 5);
-    printf("  Main entropy: %.3f\n", inner_compute_entropy(main_logits, VOCAB_SIZE));
+    printf("[*] Testing default state (no emotion)...\n");
+    float weight = inner_compute_weight(&ia);
+    printf("    computed_weight: %.3f\n", weight);
 
-    printf("  Inner logits:\n");
-    print_topk(inner_logits, VOCAB_SIZE, 5);
-    printf("  Inner entropy: %.3f\n", inner_compute_entropy(inner_logits, VOCAB_SIZE));
+    int winner = inner_borba(&ia, output_logits, main_logits, TEST_VOCAB_SIZE);
+    printf("    winner: %d (0=main, 1=inner, -1=blend)\n", winner);
+    printf("    last_divergence: %.4f\n", ia.last_divergence);
+    printf("    last_inner_weight: %.3f\n", ia.last_inner_weight);
 
-    printf("  Divergence: %.4f\n", inner_compute_divergence(main_logits, inner_logits, VOCAB_SIZE));
+    printf("\n[*] Testing with strong Cloud emotion (FEAR)...\n");
 
-    // Test BLEND mode
-    ia.borba_mode = BORBA_MODE_BLEND;
-    ia.inner_weight = 0.3f;
-    inner_full_borba(&ia, output_logits, main_logits, inner_logits, VOCAB_SIZE);
+    // Simulate strong fear response
+    CloudResponse fear_cloud;
+    memset(&fear_cloud, 0, sizeof(fear_cloud));
+    fear_cloud.primary_strength = 0.9f;
+    fear_cloud.primary_idx = CLOUD_CHAMBER_FEAR;
+    fear_cloud.chambers[CLOUD_CHAMBER_FEAR] = 0.9f;
+    fear_cloud.primary_chamber = "FEAR";
 
-    printf("\n  BLEND (30%% inner):\n");
-    print_topk(output_logits, VOCAB_SIZE, 5);
-    printf("  Output entropy: %.3f\n\n", inner_compute_entropy(output_logits, VOCAB_SIZE));
+    inner_update_cloud(&ia, &fear_cloud);
+    printf("    cloud_intensity: %.2f\n", ia.cloud_intensity);
+    printf("    cloud_chamber: %d (FEAR=%d)\n", ia.cloud_chamber, CLOUD_CHAMBER_FEAR);
 
-    // Test 2: Different distributions (voices disagree)
-    printf("Test 2: Different distributions (voices disagree)\n");
-    printf("───────────────────────────────────────────────────────────────────\n");
+    weight = inner_compute_weight(&ia);
+    printf("    computed_weight with fear: %.3f\n", weight);
 
-    random_logits(main_logits, VOCAB_SIZE, 2.0f, 42);
-    random_logits(inner_logits, VOCAB_SIZE, 3.0f, 123);  // different seed, higher temp
+    winner = inner_borba(&ia, output_logits, main_logits, TEST_VOCAB_SIZE);
+    printf("    winner: %d\n", winner);
+    printf("    inner_wins: %d, main_wins: %d\n", ia.inner_wins, ia.main_wins);
 
-    printf("  Main entropy: %.3f\n", inner_compute_entropy(main_logits, VOCAB_SIZE));
-    printf("  Inner entropy: %.3f\n", inner_compute_entropy(inner_logits, VOCAB_SIZE));
-    printf("  Divergence: %.4f\n\n", inner_compute_divergence(main_logits, inner_logits, VOCAB_SIZE));
+    printf("\n[*] Testing with body stuck/boredom...\n");
 
-    // Test different борьба modes
-    const char* mode_names[] = {"BLEND", "ENTROPY", "COHERENCE", "SURPRISE", "RANDOM"};
+    inner_update_body(&ia, 0.8f, 0.6f);  // high stuck, medium boredom
+    printf("    body_stuck: %.2f\n", ia.body_stuck);
+    printf("    body_boredom: %.2f\n", ia.body_boredom);
 
-    for (int mode = 0; mode <= BORBA_MODE_RANDOM; mode++) {
-        ia.borba_mode = mode;
-        ia.main_wins = 0;
-        ia.inner_wins = 0;
+    weight = inner_compute_weight(&ia);
+    printf("    computed_weight with stuck: %.3f\n", weight);
 
-        // Run 10 times for random mode
-        int n_runs = (mode == BORBA_MODE_RANDOM) ? 10 : 1;
-        for (int run = 0; run < n_runs; run++) {
-            inner_full_borba(&ia, output_logits, main_logits, inner_logits, VOCAB_SIZE);
+    winner = inner_borba(&ia, output_logits, main_logits, TEST_VOCAB_SIZE);
+    printf("    winner: %d\n", winner);
+
+    printf("\n[*] Testing with trauma...\n");
+
+    inner_update_trauma(&ia, 0.7f);
+    printf("    trauma_level: %.2f\n", ia.trauma_level);
+
+    inner_set_mode(&ia, BORBA_MODE_TRAUMA);
+    weight = inner_compute_weight(&ia);
+    printf("    computed_weight in trauma mode: %.3f\n", weight);
+
+    winner = inner_borba(&ia, output_logits, main_logits, TEST_VOCAB_SIZE);
+    printf("    winner: %d\n", winner);
+    printf("    breakthrough_count: %d\n", ia.breakthrough_count);
+
+    printf("\n[*] Testing different борьба modes...\n");
+
+    const char* mode_names[] = {
+        "EMOTIONAL", "CHAOS", "TRAUMA", "STUCK", "BLEND"
+    };
+
+    for (int mode = BORBA_MODE_EMOTIONAL; mode <= BORBA_MODE_BLEND; mode++) {
+        inner_set_mode(&ia, mode);
+        inner_init(&ia);  // Reset state for fair test
+        inner_set_mode(&ia, mode);
+
+        // Give some emotional input
+        inner_update_cloud(&ia, &fear_cloud);
+        inner_update_body(&ia, 0.5f, 0.5f);
+        inner_update_trauma(&ia, 0.3f);
+
+        // Run several борьба rounds
+        int inner_count = 0;
+        int main_count = 0;
+        int blend_count = 0;
+
+        for (int i = 0; i < 20; i++) {
+            winner = inner_borba(&ia, output_logits, main_logits, TEST_VOCAB_SIZE);
+            if (winner == 1) inner_count++;
+            else if (winner == 0) main_count++;
+            else blend_count++;
         }
 
-        printf("  %s mode: winner=%s",
-               mode_names[mode],
-               mode == BORBA_MODE_BLEND ? "blend" :
-               (ia.last_winner == 0 ? "MAIN" : "INNER"));
-
-        if (mode == BORBA_MODE_RANDOM) {
-            printf(" (main_wins=%d, inner_wins=%d)", ia.main_wins, ia.inner_wins);
-        }
-        printf("\n");
+        printf("    Mode %d (%s): main=%d inner=%d blend=%d\n",
+               mode, mode_names[mode], main_count, inner_count, blend_count);
     }
 
-    // Test 3: Inner more confident (lower entropy)
-    printf("\nTest 3: Inner voice more confident\n");
-    printf("───────────────────────────────────────────────────────────────────\n");
+    printf("\n[*] Testing entropy computation...\n");
 
-    // Main: high entropy (uncertain)
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-        main_logits[i] = ((float)rand() / RAND_MAX - 0.5f) * 0.5f;  // low temp = flat dist
+    // Create uniform distribution
+    float uniform_logits[TEST_VOCAB_SIZE];
+    for (int i = 0; i < TEST_VOCAB_SIZE; i++) {
+        uniform_logits[i] = 0.0f;  // uniform after softmax
     }
+    float uniform_entropy = inner_compute_entropy(uniform_logits, TEST_VOCAB_SIZE);
+    printf("    uniform entropy: %.4f\n", uniform_entropy);
 
-    // Inner: low entropy (confident)
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-        inner_logits[i] = -10.0f;  // suppress all
+    // Create peaked distribution
+    float peaked_logits[TEST_VOCAB_SIZE];
+    for (int i = 0; i < TEST_VOCAB_SIZE; i++) {
+        peaked_logits[i] = (i == 0) ? 10.0f : -10.0f;
     }
-    inner_logits[42] = 5.0f;  // except token 42
+    float peaked_entropy = inner_compute_entropy(peaked_logits, TEST_VOCAB_SIZE);
+    printf("    peaked entropy: %.4f\n", peaked_entropy);
 
-    printf("  Main entropy: %.3f (uncertain)\n", inner_compute_entropy(main_logits, VOCAB_SIZE));
-    printf("  Inner entropy: %.3f (confident)\n", inner_compute_entropy(inner_logits, VOCAB_SIZE));
-
-    ia.borba_mode = BORBA_MODE_ENTROPY;
-    inner_full_borba(&ia, output_logits, main_logits, inner_logits, VOCAB_SIZE);
-    printf("  ENTROPY mode winner: %s\n", ia.last_winner == 0 ? "MAIN" : "INNER");
-
-    // Check that inner won
-    if (ia.last_winner == 1) {
-        printf("  ✓ Inner voice won (more confident)\n");
+    if (uniform_entropy > peaked_entropy) {
+        printf("    [PASS] Uniform distribution has higher entropy\n");
     } else {
-        printf("  ✗ Unexpected: Main voice won\n");
+        printf("    [WARN] Entropy comparison unexpected\n");
     }
 
-    // Cleanup
-    free(main_logits);
-    free(inner_logits);
-    free(output_logits);
+    printf("\n[*] Testing divergence computation...\n");
+
+    // Same distribution should have zero divergence
+    float same_divergence = inner_compute_divergence(main_logits, main_logits, TEST_VOCAB_SIZE);
+    printf("    same vs same divergence: %.6f\n", same_divergence);
+
+    // Different distributions
+    float diff_logits[TEST_VOCAB_SIZE];
+    for (int i = 0; i < TEST_VOCAB_SIZE; i++) {
+        diff_logits[i] = main_logits[TEST_VOCAB_SIZE - 1 - i];  // reversed
+    }
+    float diff_divergence = inner_compute_divergence(main_logits, diff_logits, TEST_VOCAB_SIZE);
+    printf("    different divergence: %.6f\n", diff_divergence);
+
+    if (diff_divergence > same_divergence) {
+        printf("    [PASS] Different distributions have higher divergence\n");
+    }
+
+    printf("\n[*] Final statistics...\n");
+    printf("    total_tokens: %d\n", ia.total_tokens);
+    printf("    main_wins: %d\n", ia.main_wins);
+    printf("    inner_wins: %d\n", ia.inner_wins);
+    printf("    breakthrough_count: %d\n", inner_get_breakthrough_count(&ia));
+    printf("    avg_divergence: %.4f\n", ia.avg_divergence);
+
     inner_free(&ia);
 
-    printf("\n═══════════════════════════════════════════════════════════════════\n");
-    printf("INNER ARIANNA TEST COMPLETE\n");
+    print_separator("INNER ARIANNA TEST COMPLETE");
     printf("שני קולות, אריאנה אחת\n");
-    printf("═══════════════════════════════════════════════════════════════════\n");
+    printf("Two voices, one Arianna\n");
 
     return 0;
 }

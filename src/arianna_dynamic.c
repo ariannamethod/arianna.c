@@ -146,6 +146,10 @@ static int apply_borba_to_logits(float* logits, int vocab_size) {
 // Active learning shard (for microtraining)
 static ExperienceShard* g_active_shard = NULL;
 
+// Quantum accumulator (Stanley-style batched learning)
+static ExperienceAccumulator g_accumulator;
+static int g_accumulator_initialized = 0;
+
 // Generation state for microtraining
 typedef struct {
     float* pre_activations;   // Before attention
@@ -764,9 +768,10 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         }
 #endif
 
-        // Microlearning: update experience shard in real-time
-        if (g_microtraining && g_active_shard != NULL) {
-            // Compute softmax probabilities for experience_step
+        // Microlearning: accumulate experience (Stanley-style quantum accumulation)
+        // Instead of training on every token, we accumulate until critical mass
+        if (g_microtraining && g_active_shard != NULL && g_accumulator_initialized) {
+            // Compute softmax probabilities for accumulation
             float probs[256];  // Char-level vocab
             float maxl = t->state.logits[0];
             for (int v = 1; v < t->config.vocab_size; v++) {
@@ -782,18 +787,24 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             }
 
             // Signal: base positive (learning from experience) + quality modulation
-            // quality < 0.5 = reduce learning (stuck/bad)
-            // quality > 0.5 = boost learning (flowing well)
-            float base_signal = 0.3f;  // Always learn something
+            float base_signal = 0.3f;
             float quality_mod = (g_body_state.quality - 0.5f) * 0.7f;
             float signal = base_signal + quality_mod;
 
-            // Update Q delta for current layer (attention shaping)
+            // Accumulate instead of immediate training
+            // Training triggers automatically when thresholds reached
             int layer = g_train_state.last_layer;
             if (layer >= 0 && layer < g_active_shard->n_layers) {
-                experience_step(&g_trainer, &g_active_shard->attn_q_deltas[layer],
-                               t->state.xb, probs, next_token, signal);
+                int trained = accumulate_experience(&g_accumulator, &g_trainer,
+                                                    &g_active_shard->attn_q_deltas[layer],
+                                                    t->state.xb, probs, next_token, signal);
+                if (trained) {
+                    printf(" [μ%d] ", g_accumulator.total_training_cycles);  // Training triggered
+                }
             }
+
+            // Tick cooldown (assume ~0.1s per token for now)
+            accumulator_tick(&g_accumulator, 0.1f);
         }
 
         // Store for absorption
@@ -1063,9 +1074,17 @@ int save_learning_shard(const char* path) {
         return -1;
     }
 
+    // Flush any pending experience before saving
+    if (g_accumulator_initialized && g_accumulator.buffer_count > 0) {
+        printf("Flushing %d pending experiences...\n", g_accumulator.buffer_count);
+        // Need a delta to flush to - use first layer's Q delta
+        flush_accumulator(&g_accumulator, &g_trainer, &g_active_shard->attn_q_deltas[0]);
+    }
+
     int result = save_shard(g_active_shard, path);
     if (result == 0) {
-        printf("Saved shard to %s\n", path);
+        printf("Saved shard to %s (total training cycles: %d)\n",
+               path, g_accumulator_initialized ? g_accumulator.total_training_cycles : 0);
     }
     return result;
 }
@@ -1542,8 +1561,13 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 create_learning_shard(shard_name, t->config.n_layers, t->config.dim);
                 enable_microtraining(1);
                 activate_learning_shard(0.1f);
+
+                // Initialize quantum accumulator
+                init_accumulator(&g_accumulator, t->config.dim, t->config.vocab_size);
+                g_accumulator_initialized = 1;
+
                 printf("[Learning started - shard: %s]\n", shard_name);
-                printf("[Experience will accumulate as you chat]\n");
+                printf("[Quantum accumulation enabled - training triggers at critical mass]\n");
             }
             continue;
         }
@@ -1625,6 +1649,7 @@ void print_usage(const char* prog) {
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
     printf("  -subj <origin>  Use custom origin file (default: personality/origin.txt)\n");
     printf("  -no-subj        Disable subjectivity (use prompt as seed)\n");
+    printf("  -no-learn       Disable microtraining (default: ON with shard 'live')\n");
     printf("  -signals        Print signal values after generation\n");
     printf("  -learn <name>   Create new learning shard with name\n");
     printf("  -save <path>    Save learning shard after generation\n");
@@ -1669,7 +1694,7 @@ int main(int argc, char** argv) {
     char* prompt = NULL;
     char* shard_paths[MAX_SHARDS];
     int n_shard_paths = 0;
-    char* learn_name = NULL;
+    char* learn_name = "live";  // Microtraining ON by default (use -no-learn to disable)
     char* save_path = NULL;
     int max_tokens = 100;
     int max_tokens_set = 0;  // flag to track if user provided max_tokens
@@ -1704,6 +1729,8 @@ int main(int argc, char** argv) {
             origin_path = argv[++arg_idx];
         } else if (strcmp(argv[arg_idx], "-no-subj") == 0) {
             subj_mode = 0;  // Disable subjectivity, use prompt as seed
+        } else if (strcmp(argv[arg_idx], "-no-learn") == 0) {
+            learn_name = NULL;  // Disable microtraining (default is ON)
         } else if (strcmp(argv[arg_idx], "-guided") == 0) {
             guided_mode = 1;
         } else if (strcmp(argv[arg_idx], "-shard") == 0 && arg_idx + 1 < argc) {
@@ -1913,7 +1940,12 @@ int main(int argc, char** argv) {
         create_learning_shard(learn_name, t.config.n_layers, t.config.dim);
         enable_microtraining(1);
         activate_learning_shard(0.1f);
-        printf("Microtraining: enabled\n");
+
+        // Initialize quantum accumulator (Stanley-style batched learning)
+        init_accumulator(&g_accumulator, t.config.dim, t.config.vocab_size);
+        g_accumulator_initialized = 1;
+        printf("Microtraining: enabled (quantum accumulation, thresh: %.0f bytes, %.1f res, %.1f nov)\n",
+               g_accumulator.bytes_threshold, g_accumulator.resonance_threshold, g_accumulator.novelty_threshold);
     }
 
     // Enable subjectivity (default: ON)
