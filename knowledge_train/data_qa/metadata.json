@@ -1,11 +1,13 @@
 {
   "dataset_type": "qa_format",
-  "format": "Q: {question}\\nA: {answer}",
-  "max_answer_len": 150,
-  "num_qa_pairs": 121702,
-  "train_tokens": 11956139,
-  "val_tokens": 626703,
-  "total_bytes": 12582842,
+  "train_tokens": 2981107,
+  "val_tokens": 156901,
+  "total_tokens": 3138008,
   "model_params": 29583872,
-  "data_params_ratio": 0.4253277596658071
+  "data_params_ratio": 9.427596105554862,
+  "tokenizer": "arianna_char_80",
+  "train_file": "train.bin",
+  "val_file": "val.bin",
+  "format": "Q: {question}\\nA: {answer}",
+  "max_answer_len": 150
 }
