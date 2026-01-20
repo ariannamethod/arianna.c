@@ -43,7 +43,7 @@
 - bin/arianna_dynamic_linux: ✅ Present, loads correctly, but generation has artifacts
 
 **Documentation Status:**
-- README.md: ✅ Complete (595 lines)
+- README.md: ✅ Minimal version (10 lines - ASCII art + tagline)
 - ARIANNALOG.md: ✅ Complete (490 lines)
 
 ## Issue: Garbled Generation Output

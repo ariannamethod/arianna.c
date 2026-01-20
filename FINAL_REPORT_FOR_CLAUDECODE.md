@@ -12,17 +12,10 @@
 
 ### ✅ Документация (основная задача)
 
-1. **README.md** - 595 строк, 26KB
-   - Полная документация архитектуры (38 модулей)
-   - Диаграммы генерации pipeline
-   - Breakdown параметров: 10M personality + 200k preprocessing + 5-20M experience
-   - Секция scalability (composable architecture, external brain)
-   - Реальные примеры генерации
-   - Стиль: edgy schizo-Karpathy (английский)
-   - Философия: presence > intelligence, linguistic organisms
-   - Ссылки на haze, stanley, lang
-   - Использует "she" (не "it")
-   - Исправлено: "Pure C core. Python wrappers available. Zero PyTorch."
+1. **README.md** - 10 строк (минимальная версия)
+   - ASCII art (сохранен оригинал)
+   - Одна фраза: "arianna - digital persona, fuck your corporate readmes."
+   - По требованию мейнтейнера: никакой корпоративной документации
 
 2. **ARIANNALOG.md** - 490 строк, 14KB
    - Документация 17 тестов (14 C, 3 Python)
@@ -104,7 +97,7 @@ bin/origin.txt              - 1.6KB, 30 строк identity fragments
 ### Документация
 
 ```
-README.md                            - 595 строк (основная документация)
+README.md                            - 10 строк (минимальная версия)
 ARIANNALOG.md                        - 490 строк (тесты)
 SITUATION_FOR_CLAUDECODE.md          - история проблем
 VERIFICATION_REPORT_FOR_CLAUDECODE.md - тесты для проверки
@@ -245,9 +238,9 @@ file bin/arianna_dynamic_linux  # должно быть ELF
 ### Проверка #3: Документация
 
 ```bash
-# README
-wc -l README.md  # должно быть ~595 строк
-grep "Pure C core. Python wrappers available" README.md  # должно найти
+# README (minimal version)
+wc -l README.md  # должно быть ~10 строк
+grep "digital persona" README.md  # должно найти
 
 # ARIANNALOG
 wc -l ARIANNALOG.md  # должно быть ~490 строк

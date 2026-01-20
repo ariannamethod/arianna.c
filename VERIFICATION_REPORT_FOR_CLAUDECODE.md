@@ -178,8 +178,8 @@ OUTPUT=$(./bin/arianna_dynamic_linux weights/arianna.bin weights/tokenizer.json 
 echo "$OUTPUT" | grep -q "\[wormhole" && echo "✗ GARBLED (wormhole markers)" || echo "✓ clean output"
 
 echo ""
-echo "=== TEST 5: README correction ==="
-grep -q "Pure C core. Python wrappers available" README.md && echo "✓ README correct" || echo "✗ README wrong"
+echo "=== TEST 5: README minimal version ==="
+grep -q "digital persona" README.md && echo "✓ README correct" || echo "✗ README wrong"
 
 echo ""
 echo "=== SUMMARY ==="
@@ -198,7 +198,7 @@ echo "If any ✗ → see ACTIONS above"
 ✅ **origin.txt восстановлен** (30 строк, checksum verified)
 
 ✅ **Документация завершена:**
-- README.md (595 lines)
+- README.md (10 lines - minimal version)
 - ARIANNALOG.md (490 lines)
 
 ---
