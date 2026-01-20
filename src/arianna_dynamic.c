@@ -112,7 +112,7 @@ typedef struct {
 static TrainingState g_train_state;
 
 // ============================================================
-// Extended forward pass with delta support (GPT-2 style)
+// Extended forward pass with delta support (Llama 3 style)
 // ============================================================
 
 void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
@@ -124,35 +124,23 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
 
     int dim = c->dim;
     int n_heads = c->n_heads;
+    int n_kv_heads = c->n_kv_heads;
     int head_dim = c->head_dim;
     int hidden_dim = c->hidden_dim;
     int max_seq = c->max_seq_len;
+    int kv_dim = n_kv_heads * head_dim;
+    int n_kv_groups = n_heads / n_kv_heads;
 
-    // Get embedding: x = wte[token] + wpe[pos] (GPT-2 style)
+    // Get embedding (Llama style - no position embedding, RoPE instead)
     int token = tokens[pos];
-    float* x = s->x + pos * dim;
-    for (int i = 0; i < dim; i++) {
-        x[i] = w->wte[token * dim + i] + w->wpe[pos * dim + i];
-    }
+    float* x = s->x;
+    float* tok_vec = w->tok_emb + token * dim;
+    memcpy(x, tok_vec, dim * sizeof(float));
 
     // Process through layers
     for (int layer = 0; layer < c->n_layers; layer++) {
-        // Layer weight offsets (GPT-2 naming)
-        float* ln1_w = w->ln1_weight + layer * dim;
-        float* ln1_b = w->ln1_bias + layer * dim;
-        float* c_attn_w = w->c_attn_weight + layer * dim * 3 * dim;
-        float* c_attn_b = w->c_attn_bias + layer * 3 * dim;
-        float* c_proj_w = w->c_proj_weight + layer * dim * dim;
-        float* c_proj_b = w->c_proj_bias + layer * dim;
-        float* ln2_w = w->ln2_weight + layer * dim;
-        float* ln2_b = w->ln2_bias + layer * dim;
-        float* c_fc_w = w->c_fc_weight + layer * dim * hidden_dim;
-        float* c_fc_b = w->c_fc_bias + layer * hidden_dim;
-        float* c_proj2_w = w->c_proj2_weight + layer * hidden_dim * dim;
-        float* c_proj2_b = w->c_proj2_bias + layer * dim;
-
-        // LayerNorm 1
-        layer_norm(s->xb, x, ln1_w, ln1_b, dim);
+        // RMSNorm before attention
+        rms_norm(s->xb, x, w->attn_norm + layer * dim, dim, c->norm_eps);
 
         // === MICROTRAINING HOOK: capture pre-attention state ===
         if (g_microtraining && g_train_state.pre_activations != NULL) {
@@ -161,100 +149,97 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
             g_train_state.sequence_pos = pos;
         }
 
-        // QKV projection (combined, GPT-2 style)
-        matmul_add(s->qkv, s->xb, c_attn_w, c_attn_b, dim, 3 * dim);
-
-        float* q = s->qkv;
-        float* k = s->qkv + dim;
-        float* v = s->qkv + 2 * dim;
+        // QKV projection (separate, Llama style)
+        matmul(s->q, s->xb, w->wq + layer * dim * dim, dim, dim);
+        matmul(s->k, s->xb, w->wk + layer * dim * kv_dim, dim, kv_dim);
+        matmul(s->v, s->xb, w->wv + layer * dim * kv_dim, dim, kv_dim);
 
         // === DELTA APPLICATION ===
         // Deltas modify ATTENTION, not weights directly
         // This is where experience shapes perception
         if (g_delta_enabled && g_delta_bank.n_shards > 0) {
-            apply_q_delta(&g_delta_bank, q, s->xb, layer, dim);
-            apply_k_delta(&g_delta_bank, k, s->xb, layer, dim);
-            apply_v_delta(&g_delta_bank, v, s->xb, layer, dim);
+            apply_q_delta(&g_delta_bank, s->q, s->xb, layer, dim);
+            apply_k_delta(&g_delta_bank, s->k, s->xb, layer, kv_dim);
+            apply_v_delta(&g_delta_bank, s->v, s->xb, layer, kv_dim);
         }
 
-        // Store K, V in cache
-        int cache_offset = layer * max_seq * dim + pos * dim;
-        memcpy(s->key_cache + cache_offset, k, dim * sizeof(float));
-        memcpy(s->value_cache + cache_offset, v, dim * sizeof(float));
+        // Apply RoPE
+        apply_rope(s->q, s->k, s->rope_cos, s->rope_sin, n_heads, n_kv_heads, head_dim, pos);
 
-        // Multi-head attention
-        memset(s->attn_out, 0, dim * sizeof(float));
+        // Store K, V in cache (GQA: smaller kv_dim)
+        int kv_cache_offset = layer * max_seq * kv_dim + pos * kv_dim;
+        memcpy(s->key_cache + kv_cache_offset, s->k, kv_dim * sizeof(float));
+        memcpy(s->value_cache + kv_cache_offset, s->v, kv_dim * sizeof(float));
+
+        // Multi-head attention with GQA
+        memset(s->xb, 0, dim * sizeof(float));
         float scale = 1.0f / sqrtf((float)head_dim);
 
         for (int h = 0; h < n_heads; h++) {
-            float* q_h = q + h * head_dim;
-            float* out_h = s->attn_out + h * head_dim;
+            float* qh = s->q + h * head_dim;
+            float* atth = s->att + h * max_seq;
+            int kv_h = h / n_kv_groups;  // Which KV head this Q head uses
 
-            // Attention scores for all cached positions
-            float scores[MAX_SEQ_LEN];
-            int n_ctx = pos + 1;
-
-            for (int t = 0; t < n_ctx; t++) {
-                float* k_t = s->key_cache + layer * max_seq * dim + t * dim + h * head_dim;
+            // Attention scores
+            for (int t = 0; t <= pos; t++) {
+                float* kh = s->key_cache + layer * max_seq * kv_dim + t * kv_dim + kv_h * head_dim;
                 float dot = 0.0f;
                 for (int i = 0; i < head_dim; i++) {
-                    dot += q_h[i] * k_t[i];
+                    dot += qh[i] * kh[i];
                 }
-                scores[t] = dot * scale;
+                atth[t] = dot * scale;
             }
 
             // Softmax
-            softmax(scores, n_ctx);
+            softmax(atth, pos + 1);
 
             // Weighted sum of values
-            for (int t = 0; t < n_ctx; t++) {
-                float* v_t = s->value_cache + layer * max_seq * dim + t * dim + h * head_dim;
+            float* xbh = s->xb + h * head_dim;
+            for (int t = 0; t <= pos; t++) {
+                float* vh = s->value_cache + layer * max_seq * kv_dim + t * kv_dim + kv_h * head_dim;
+                float a = atth[t];
                 for (int i = 0; i < head_dim; i++) {
-                    out_h[i] += scores[t] * v_t[i];
+                    xbh[i] += a * vh[i];
                 }
             }
         }
 
         // === MICROTRAINING HOOK: capture post-attention state ===
         if (g_microtraining && g_train_state.post_activations != NULL) {
-            memcpy(g_train_state.post_activations, s->attn_out, dim * sizeof(float));
+            memcpy(g_train_state.post_activations, s->xb, dim * sizeof(float));
         }
 
         // Output projection + residual
-        float proj_out[DIM];
-        matmul_add(proj_out, s->attn_out, c_proj_w, c_proj_b, dim, dim);
+        matmul(s->xb2, s->xb, w->wo + layer * dim * dim, dim, dim);
         for (int i = 0; i < dim; i++) {
-            x[i] += proj_out[i];
+            x[i] += s->xb2[i];
         }
 
-        // LayerNorm 2
-        layer_norm(s->xb, x, ln2_w, ln2_b, dim);
+        // RMSNorm before FFN
+        rms_norm(s->xb, x, w->ffn_norm + layer * dim, dim, c->norm_eps);
 
-        // FFN: fc -> gelu -> proj
-        matmul_add(s->ffn_buf, s->xb, c_fc_w, c_fc_b, dim, hidden_dim);
-        gelu(s->ffn_buf, hidden_dim);
+        // SwiGLU FFN
+        matmul(s->hb, s->xb, w->w_gate + layer * dim * hidden_dim, dim, hidden_dim);
+        matmul(s->hb2, s->xb, w->w_up + layer * dim * hidden_dim, dim, hidden_dim);
 
-        float ffn_out[DIM];
-        matmul_add(ffn_out, s->ffn_buf, c_proj2_w, c_proj2_b, hidden_dim, dim);
+        // SiLU activation and element-wise multiply
+        for (int i = 0; i < hidden_dim; i++) {
+            float gate = s->hb[i];
+            s->hb[i] = (gate / (1.0f + expf(-gate))) * s->hb2[i];
+        }
 
-        // Residual
+        // Down projection + residual
+        matmul(s->xb, s->hb, w->w_down + layer * hidden_dim * dim, hidden_dim, dim);
         for (int i = 0; i < dim; i++) {
-            x[i] += ffn_out[i];
+            x[i] += s->xb[i];
         }
     }
 
-    // Final LayerNorm
-    layer_norm(s->xb, x, w->ln_f_weight, w->ln_f_bias, dim);
+    // Final RMSNorm
+    rms_norm(s->x, x, w->final_norm, dim, c->norm_eps);
 
-    // Logits: x @ wte.T (weight tying) or x @ lm_head
-    float* lm = w->lm_head ? w->lm_head : w->wte;
-    for (int v = 0; v < c->vocab_size; v++) {
-        float dot = 0.0f;
-        for (int i = 0; i < dim; i++) {
-            dot += s->xb[i] * lm[v * dim + i];
-        }
-        s->logits[v] = dot;
-    }
+    // Logits
+    matmul(s->logits, s->x, w->lm_head, dim, c->vocab_size);
 }
 
 // ============================================================
@@ -263,7 +248,7 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
 
 void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temperature) {
     // Reset KV cache
-    t->state.cache_len = 0;
+    
 
     int tokens[MAX_SEQ_LEN];
     int n_tokens = strlen(prompt);
@@ -1518,8 +1503,8 @@ static const char* find_default_origin(void) {
 
 void print_usage(const char* prog) {
     printf("arianna_dynamic - Personality transformer with Stanley-style deltas\n\n");
-    printf("Usage: %s <weights.bin> \"<prompt>\" [max_tokens] [temperature]\n", prog);
-    printf("       %s <weights.bin> --repl [max_tokens] [temperature]\n", prog);
+    printf("Usage: %s <weights.bin> <tokenizer.json> \"<prompt>\" [max_tokens] [temperature]\n", prog);
+    printf("       %s <weights.bin> <tokenizer.json> --repl [max_tokens] [temperature]\n", prog);
     printf("\nOptions:\n");
     printf("  --repl          Interactive REPL mode (state persists between turns)\n");
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
@@ -1551,12 +1536,13 @@ int main(int argc, char** argv) {
     // Disable stdout buffering for immediate output
     setbuf(stdout, NULL);
 
-    if (argc < 3) {
+    if (argc < 4) {
         print_usage(argv[0]);
         return 1;
     }
 
     char* weights_path = argv[1];
+    char* tokenizer_path = argv[2];
     char* prompt = NULL;
     char* shard_paths[MAX_SHARDS];
     int n_shard_paths = 0;
@@ -1574,8 +1560,8 @@ int main(int argc, char** argv) {
     int julia_mode = 0;   // Julia emotional gradient engine
     char* origin_path = NULL;
 
-    // Parse arguments
-    int arg_idx = 2;
+    // Parse arguments (start from 3, after weights and tokenizer)
+    int arg_idx = 3;
     while (arg_idx < argc) {
         if (strcmp(argv[arg_idx], "--repl") == 0) {
             repl_mode = 1;
@@ -1626,6 +1612,12 @@ int main(int argc, char** argv) {
     }
 
     srand(time(NULL));
+
+    // Load tokenizer first
+    if (load_tokenizer(tokenizer_path) != 0) {
+        fprintf(stderr, "Error: couldn't load tokenizer from %s\n", tokenizer_path);
+        return 1;
+    }
 
     // Load model
     Transformer t;
