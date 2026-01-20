@@ -24,6 +24,8 @@ data/
 knowledge_train/train.bin
 knowledge_train/val.bin
 knowledge_train/out/
+knowledge_train/data_filtered/
+knowledge_train/data_qa/
 knowledge_train/*.pt
 
 # TRACKED (continuous learning like Stanley):

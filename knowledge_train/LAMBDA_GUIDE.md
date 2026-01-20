@@ -2,6 +2,19 @@
 
 Быстрый гайд для обучения External Brain 30M на Lambda Labs GPU (H100).
 
+## ⚠️ CRITICAL: Data/Params Ratio
+
+**ПРОЧИТАЙ ПЕРЕД ТРЕНИРОВКОЙ!**
+
+```
+Модель: 29.58M параметров
+Максимум данных: 15 MB (ratio 0.5:1)
+Безопасно: 10-12 MB (ratio 0.3-0.4:1)
+
+❌ СТАРЫЙ ПОДХОД (75 MB) = ratio 2.5:1 = МУСОР
+✅ НОВЫЙ ПОДХОД (12 MB) = ratio 0.4:1 = РАБОТАЕТ
+```
+
 ## 1. Создание инстанса
 
 1. Зайди на [lambda.cloud](https://cloud.lambdalabs.com/)
@@ -29,24 +42,34 @@ source venv/bin/activate
 pip install torch numpy pyyaml
 ```
 
-## 4. Подготовка данных
+## 4. Подготовка данных (ИСПОЛЬЗУЙ ПРАВИЛЬНЫЙ СКРИПТ!)
 
 ```bash
-# Очистка и токенизация Wikipedia (~30 секунд)
-python prepare_data.py --input simplewiki_leads.txt --tokenizer ../weights/tokenizer.json
+# ВАРИАНТ A: Фильтрованные определения (~12 MB, ratio 0.4:1)
+python prepare_data_filtered.py --target-mb 12.0
+# Результат: data_filtered/train.bin (~12 MB), data_filtered/val.bin (~0.6 MB)
 
-# Результат: train.bin (~75 MB), val.bin (~4 MB)
+# ВАРИАНТ B: Q&A формат (~12 MB, ratio 0.4:1)
+python prepare_data_qa.py --target-mb 12.0
+# Результат: data_qa/train.bin (~12 MB), data_qa/val.bin (~0.6 MB)
+
+# ⚠️ НЕ ИСПОЛЬЗУЙ старый prepare_data.py - он создаёт 75 MB мусора!
 ```
 
 ## 5. Обучение
 
 ```bash
 # Lambda mode: оптимизировано для H100
-python train.py --lambda_mode --out_dir out --max_iters 10000
+# Для Dataset A (filtered):
+python train.py --lambda_mode --data_dir data_filtered --out_dir out_filtered --max_iters 10000
+
+# Для Dataset B (Q&A):
+python train.py --lambda_mode --data_dir data_qa --out_dir out_qa --max_iters 10000
 
 # Параметры:
 #   --lambda_mode    : batch=128, bfloat16, torch.compile
 #   --max_iters      : 10000 итераций (~20-30 минут)
+#   --data_dir       : папка с train.bin/val.bin
 #   --out_dir        : папка для чекпоинтов
 ```
 
@@ -88,12 +111,14 @@ scp ubuntu@<your-instance-ip>:~/arianna.c/knowledge_train/external_brain.bin ./w
 
 ## 📊 Ожидаемые результаты
 
-| Метрика | Значение |
-|---------|----------|
-| Время обучения | ~20-30 мин |
-| Стоимость | ~$3-5 |
-| Финальный loss | ~0.8-1.2 |
-| Размер модели | ~60 MB (fp16) |
+| Метрика | Старый (ПЛОХО) | Новый (ПРАВИЛЬНО) |
+|---------|----------------|-------------------|
+| Размер данных | 75 MB | 12 MB |
+| Data/Params ratio | 2.5:1 ❌ | 0.4:1 ✅ |
+| Время обучения | ~30 мин | ~20 мин |
+| Стоимость | ~$5 | ~$3 |
+| Финальный loss | ~1.5 | ~0.8-1.0 |
+| Качество | "Einstein was a financial authority" 💀 | "Einstein was a physicist" ✅ |
 
 ## 🔧 Troubleshooting
 
