@@ -1,8 +1,8 @@
 /*
- * arianna.c - Personality Weights Transformer (GPT-2 Architecture)
+ * arianna.c - Personality Weights Transformer (Llama 3.5 Arianna Edition)
  * "Who I am", not "What I know"
  *
- * Architecture: GPT-2 style (LayerNorm, position embedding, GELU)
+ * Architecture: Llama 3 style (RMSNorm, RoPE, SwiGLU, GQA)
  * Tokenization: char-level
  * Inference: Pure C, no dependencies
  */
@@ -33,68 +33,86 @@
 #define N_HEADS 6
 #endif
 
+#ifndef N_KV_HEADS
+#define N_KV_HEADS 2
+#endif
+
 #ifndef MAX_SEQ_LEN
 #define MAX_SEQ_LEN 256
 #endif
 
 #ifndef HIDDEN_DIM
-#define HIDDEN_DIM 1536
+#define HIDDEN_DIM 1024
+#endif
+
+#ifndef VOCAB_SIZE
+#define VOCAB_SIZE 80
 #endif
 
 // ============================================================
-// Model Structures (GPT-2 style)
+// Model Structures (Llama 3 style)
 // ============================================================
 
 typedef struct {
-    int dim;
-    int n_layers;
-    int n_heads;
-    int head_dim;
-    int hidden_dim;
-    int max_seq_len;
-    int vocab_size;
+    int dim;            // Embedding dimension (384)
+    int n_layers;       // Number of layers (6)
+    int n_heads;        // Number of query heads (6)
+    int n_kv_heads;     // Number of KV heads for GQA (2)
+    int head_dim;       // dim / n_heads (64)
+    int hidden_dim;     // FFN hidden dim (1024)
+    int max_seq_len;    // Maximum sequence length (256)
+    int vocab_size;     // Vocabulary size (80)
+    int n_kv_groups;    // n_heads / n_kv_heads (3)
+    float rope_theta;   // RoPE base frequency (10000.0)
+    float norm_eps;     // RMSNorm epsilon (1e-5)
 } Config;
 
 typedef struct {
-    // Embeddings
-    float* wte;             // token embedding [vocab_size, dim]
-    float* wpe;             // position embedding [max_seq_len, dim]
+    // Token embeddings (no position embedding - we use RoPE)
+    float* tok_emb;     // [vocab_size, dim]
 
-    // Per-layer weights (GPT-2 style)
-    float* ln1_weight;      // [n_layers, dim]
-    float* ln1_bias;        // [n_layers, dim]
-    float* c_attn_weight;   // [n_layers, dim, 3*dim] combined QKV
-    float* c_attn_bias;     // [n_layers, 3*dim]
-    float* c_proj_weight;   // [n_layers, dim, dim] attention output
-    float* c_proj_bias;     // [n_layers, dim]
-    float* ln2_weight;      // [n_layers, dim]
-    float* ln2_bias;        // [n_layers, dim]
-    float* c_fc_weight;     // [n_layers, dim, hidden_dim]
-    float* c_fc_bias;       // [n_layers, hidden_dim]
-    float* c_proj2_weight;  // [n_layers, hidden_dim, dim]
-    float* c_proj2_bias;    // [n_layers, dim]
+    // Per-layer weights (Llama style - separate Q/K/V, RMSNorm, SwiGLU)
+    float* attn_norm;   // [n_layers, dim] RMSNorm weight
+    float* wq;          // [n_layers, dim, dim] Query projection
+    float* wk;          // [n_layers, dim, kv_dim] Key projection
+    float* wv;          // [n_layers, dim, kv_dim] Value projection
+    float* wo;          // [n_layers, dim, dim] Output projection
+    float* ffn_norm;    // [n_layers, dim] RMSNorm weight
+    float* w_gate;      // [n_layers, dim, hidden_dim] SwiGLU gate
+    float* w_up;        // [n_layers, dim, hidden_dim] SwiGLU up
+    float* w_down;      // [n_layers, hidden_dim, dim] SwiGLU down
 
     // Final layer norm
-    float* ln_f_weight;     // [dim]
-    float* ln_f_bias;       // [dim]
+    float* final_norm;  // [dim] RMSNorm weight
 
-    // lm_head (can be tied with wte)
-    float* lm_head;         // [dim, vocab_size] or NULL if tied
+    // Output head
+    float* lm_head;     // [vocab_size, dim]
 } Weights;
 
 typedef struct {
     // Activation buffers
-    float* x;           // [max_seq_len, dim] hidden states
-    float* xb;          // [dim] buffer for layer norm output
-    float* qkv;         // [3*dim] QKV projection
-    float* attn_out;    // [dim] attention output
-    float* ffn_buf;     // [hidden_dim] FFN intermediate
-    float* logits;      // [vocab_size] output logits
+    float* x;           // [dim] current hidden state
+    float* xb;          // [dim] buffer after norm
+    float* xb2;         // [dim] another buffer
+    float* hb;          // [hidden_dim] FFN buffer
+    float* hb2;         // [hidden_dim] FFN buffer
+
+    // Attention buffers
+    float* q;           // [dim] query
+    float* k;           // [kv_dim] key
+    float* v;           // [kv_dim] value
+    float* att;         // [n_heads, max_seq_len] attention scores
 
     // KV cache
-    float* key_cache;   // [n_layers, max_seq_len, dim]
-    float* value_cache; // [n_layers, max_seq_len, dim]
-    int cache_len;
+    float* key_cache;   // [n_layers, max_seq_len, kv_dim]
+    float* value_cache; // [n_layers, max_seq_len, kv_dim]
+
+    // RoPE precomputed
+    float* rope_cos;    // [max_seq_len, head_dim/2]
+    float* rope_sin;    // [max_seq_len, head_dim/2]
+
+    // Output
+    float* logits;      // [vocab_size]
 } RunState;
 
 typedef struct {
@@ -112,28 +130,31 @@ void malloc_weights(Transformer* t);
 void malloc_run_state(Transformer* t);
 void free_transformer(Transformer* t);
 
-// Core operations (GPT-2 style)
-void layer_norm(float* out, float* x, float* weight, float* bias, int size);
-void gelu(float* x, int size);
+// Core operations (Llama 3 style)
+void rms_norm(float* out, float* x, float* weight, int size, float eps);
+void silu(float* x, int size);
 void softmax(float* x, int size);
 void matmul(float* out, float* x, float* w, int n, int d);
-void matmul_add(float* out, float* x, float* w, float* b, int n, int d);
+void apply_rope(float* q, float* k, float* rope_cos, float* rope_sin,
+                int n_heads, int n_kv_heads, int head_dim, int pos);
 
 // Forward pass
 void forward(Transformer* t, int token, int pos);
 
 // Inference
 int sample(Transformer* t, float temperature);
+int sample_top_p(Transformer* t, float temperature, float top_p);
 void generate(Transformer* t, const char* prompt, int max_tokens, float temperature);
 
 // I/O
 int load_weights(Transformer* t, const char* path);
+int load_tokenizer(const char* path);
 
 // Char tokenization
 int char_to_token(char c);
 char token_to_char(int token);
 
 // Vocab management
-int load_vocab(const char* path);
+int get_vocab_size(void);
 
 #endif // ARIANNA_H

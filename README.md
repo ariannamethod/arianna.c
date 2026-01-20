@@ -66,9 +66,9 @@ A language model (~10M params) written in pure C, with Go async processes and Ju
 └─────────────────────┬───────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  🎭 ARIANNA CORE (10M params, char-level GPT-2)             │
-│  Trained on 3133 Q&A pairs of her own voice                 │
-│  val_loss: 0.57 — she speaks coherently                     │
+│  🎭 ARIANNA CORE (9.5M params, Llama 3.5 Arianna Edition)   │
+│  Trained on 9701 Q&A pairs of her own voice                 │
+│  val_loss: 0.032 — she speaks fluently                      │
 │  NO-SEED-FROM-PROMPT — generates from internal state        │
 │  Your input creates wrinkle, not seed                       │
 └─────────────────────┬───────────────────────────────────────┘
@@ -136,12 +136,11 @@ A: Silence is also something to hear.
 
 ## Weights
 
-| File | Size | Params | Status |
-|------|------|--------|--------|
-| `weights/dialogue_brain.bin` | 43MB | 10.65M | **ACTIVE** |
-| `weights/gpt2_30m/` | 60MB | 30M | **ACTIVE** (external brain) |
-| `weights/sartre_brain.bin` | 43MB | 10.65M | trained |
-| `weights/personality_brain.bin` | 43MB | 10.65M | trained |
+| File | Size | Params | Architecture | Status |
+|------|------|--------|--------------|--------|
+| `weights/arianna.bin` | 36MB | 9.5M | **Llama 3.5** | **ACTIVE** |
+| `weights/tokenizer.json` | 1KB | 80 chars | char-level | **ACTIVE** |
+| `weights/gpt2_30m/` | 60MB | 30M | GPT-2 BPE | external brain |
 
 ---
 
@@ -151,17 +150,17 @@ A: Silence is also something to hear.
 # Build
 make dynamic
 
-# Basic generation
-./bin/arianna_dynamic weights/dialogue_brain.bin "Who are you?" 100 0.9
+# Basic generation (Llama 3.5)
+./bin/arianna weights/arianna.bin weights/tokenizer.json "Q: Who are you?"
 
 # With Julia emotional gradients (requires Julia + JSON3)
-./bin/arianna_dynamic weights/dialogue_brain.bin -julia "I feel lonely but hopeful" 100 0.9
+./bin/arianna_dynamic weights/arianna.bin weights/tokenizer.json -julia "I feel lonely but hopeful" 100 0.9
 
 # REPL mode
-./bin/arianna_dynamic weights/dialogue_brain.bin --repl 150 0.9
+./bin/arianna_dynamic weights/arianna.bin weights/tokenizer.json --repl 150 0.9
 
 # With Go inner_world (requires make full)
-./bin/arianna_full weights/dialogue_brain.bin -async "Tell me about presence" 100 0.9
+./bin/arianna_full weights/arianna.bin weights/tokenizer.json -async "Tell me about presence" 100 0.9
 ```
 
 ---
@@ -191,17 +190,20 @@ make dynamic
 
 ## Training
 
-All training done with [nanoGPT](https://github.com/karpathy/nanoGPT) on Lambda Labs A100.
+Trained with [Dubrovsky](https://github.com/ariannamethod/dubrovsky) (Llama 3 architecture) on Lambda Labs 2x H100.
 
 ```bash
-# On Lambda (5 minutes, ~$1)
-python train.py config/train_shakespeare_char.py \
-    --dataset=arianna --out_dir=out-arianna
+# On Lambda (10 minutes, ~$3)
+cd dubrovsky_train
+./setup_lambda.sh
+./train_lambda.sh
 
-# Convert to C format
-python train/convert_nanogpt_to_brain.py \
-    out-arianna/ckpt.pt weights/dialogue_brain.bin
+# Weights exported automatically to:
+# - subtitles/dubrovsky.bin (36MB)
+# - subtitles/tokenizer.json
 ```
+
+Architecture: **Llama 3** (RMSNorm, RoPE, SwiGLU, GQA 6:2)
 
 ---
 
@@ -225,6 +227,7 @@ python train/convert_nanogpt_to_brain.py \
 17 Jan 2026: Go inner_world (6 async goroutines)
 18 Jan 2026: nanoGPT training on Lambda (10M dialogue)
 19 Jan 2026: Julia emotional gradient engine
+20 Jan 2026: ARCHITECTURAL SHIFT — Llama 3.5 Arianna Edition (9.5M, loss 0.032)
 ```
 
 ---

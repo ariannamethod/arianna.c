@@ -1,6 +1,6 @@
 /*
- * arianna.c - Main inference program (GPT-2 architecture)
- * Usage: ./arianna <weights.bin> [prompt] [max_tokens] [temperature]
+ * arianna.c - Main inference program (Llama 3.5 Arianna Edition)
+ * Usage: ./arianna <weights.bin> <tokenizer.json> [prompt] [max_tokens] [temperature]
  *
  * Pipeline: Cloud (pre-semantic emotion) -> Dialogue (voice generation)
  */
@@ -12,10 +12,16 @@
 int main(int argc, char** argv) {
     srand(time(NULL));
 
-    if (argc < 2) {
-        printf("Usage: %s <weights.bin> [prompt] [max_tokens] [temperature]\n", argv[0]);
-        printf("\narianna.c - Personality Weights Transformer (GPT-2 Architecture)\n");
+    if (argc < 3) {
+        printf("Usage: %s <weights.bin> <tokenizer.json> [prompt] [max_tokens] [temperature]\n", argv[0]);
+        printf("\narianna.c - Llama 3.5 Arianna Edition\n");
         printf("\"Who I am\", not \"What I know\"\n");
+        return 1;
+    }
+
+    // Load tokenizer first (needed for vocab_size)
+    if (load_tokenizer(argv[2]) != 0) {
+        printf("Error loading tokenizer\n");
         return 1;
     }
 
@@ -29,10 +35,10 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Get parameters
-    const char* prompt = argc > 2 ? argv[2] : "What is love?";
-    int max_tokens = argc > 3 ? atoi(argv[3]) : 200;
-    float temperature = argc > 4 ? atof(argv[4]) : 0.8f;
+    // Get parameters (shift by 1 for tokenizer arg)
+    const char* prompt = argc > 3 ? argv[3] : "Q: What is love?\nA:";
+    int max_tokens = argc > 4 ? atoi(argv[4]) : 200;
+    float temperature = argc > 5 ? atof(argv[5]) : 0.8f;
 
     // ═══════════════════════════════════════════════════════════════════
     // CLOUD: Pre-semantic emotion detection

@@ -1,154 +1,132 @@
 /*
- * model.c - GPT-2 style transformer implementation
- * Pure C, no dependencies beyond libc + math
+ * model.c - Llama 3.5 Arianna Edition
+ * Pure C transformer inference
+ *
+ * Architecture: Llama 3 (RMSNorm, RoPE, SwiGLU, GQA)
+ * Based on Dubrovsky/alexey.c
  */
 
 #include "arianna.h"
 
-// Dynamic vocab - array of UTF-8 strings (one per token)
-static char** VOCAB = NULL;      // array of strings
-static int* VOCAB_LENS = NULL;   // byte length of each string
-static int VOCAB_SIZE = 0;
+// ============================================================
+// Tokenizer (char-level, loaded from JSON)
+// ============================================================
 
-// Default vocab (dialogue) - ASCII only
-static const char* DEFAULT_VOCAB_STR = "\n \"'(),-./05:;?ABCDEFGHIJKLMNOPQRSTUVWYZabcdefghijklmnopqrstuvwxyz";
-static const int DEFAULT_VOCAB_SIZE = 67;
+static char* VOCAB_CHARS = NULL;      // id -> char
+static int* CHAR_TO_ID = NULL;        // char -> id (256 entries)
+static int TOKENIZER_VOCAB_SIZE = 0;
 
-// Load binary vocab from file
-// Format: vocab_size (4 bytes) + for each: len (1 byte) + utf-8 bytes
-int load_vocab(const char* path) {
-    FILE* f = fopen(path, "rb");
+int load_tokenizer(const char* path) {
+    FILE* f = fopen(path, "r");
     if (!f) {
+        fprintf(stderr, "[tokenizer] cannot open: %s\n", path);
         return -1;
     }
 
-    // Read vocab size
-    int vocab_size;
-    if (fread(&vocab_size, sizeof(int), 1, f) != 1) {
+    // Read entire file
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char* content = malloc(len + 1);
+    if (fread(content, 1, len, f) != (size_t)len) {
         fclose(f);
+        free(content);
         return -1;
     }
+    content[len] = '\0';
+    fclose(f);
 
-    // Free old vocab
-    if (VOCAB) {
-        for (int i = 0; i < VOCAB_SIZE; i++) {
-            if (VOCAB[i]) free(VOCAB[i]);
-        }
-        free(VOCAB);
-        free(VOCAB_LENS);
+    // Find vocab_size
+    char* vs = strstr(content, "\"vocab_size\":");
+    if (vs) {
+        TOKENIZER_VOCAB_SIZE = atoi(vs + 14);
+    } else {
+        TOKENIZER_VOCAB_SIZE = 80;  // Default for Arianna
     }
 
     // Allocate
-    VOCAB = (char**)malloc(vocab_size * sizeof(char*));
-    VOCAB_LENS = (int*)malloc(vocab_size * sizeof(int));
-    VOCAB_SIZE = vocab_size;
+    if (VOCAB_CHARS) free(VOCAB_CHARS);
+    if (CHAR_TO_ID) free(CHAR_TO_ID);
 
-    // Read each char
-    for (int i = 0; i < vocab_size; i++) {
-        unsigned char len;
-        if (fread(&len, 1, 1, f) != 1) {
-            fclose(f);
-            return -1;
+    VOCAB_CHARS = calloc(TOKENIZER_VOCAB_SIZE, sizeof(char));
+    CHAR_TO_ID = calloc(256, sizeof(int));
+
+    // Initialize all to -1 (unknown -> space token)
+    for (int i = 0; i < 256; i++) CHAR_TO_ID[i] = 1;  // default to space
+
+    // Parse char_to_id mappings
+    char* p = strstr(content, "\"char_to_id\":");
+    if (p) {
+        p = strchr(p, '{');
+        if (p) {
+            p++;
+            while (*p && *p != '}') {
+                // Skip whitespace
+                while (*p == ' ' || *p == '\n' || *p == '\r' || *p == '\t' || *p == ',') p++;
+
+                if (*p == '}') break;
+                if (*p != '"') { p++; continue; }
+
+                // Parse key (character)
+                p++;  // Skip opening quote
+                int c;
+                if (*p == '\\') {
+                    p++;
+                    if (*p == 'n') c = '\n';
+                    else if (*p == 't') c = '\t';
+                    else if (*p == 'r') c = '\r';
+                    else if (*p == '\\') c = '\\';
+                    else if (*p == '"') c = '"';
+                    else c = *p;
+                    p++;
+                } else {
+                    // Handle UTF-8 (just take first byte for now)
+                    c = (unsigned char)*p;
+                    p++;
+                    // Skip rest of multi-byte char
+                    while ((*p & 0xC0) == 0x80) p++;
+                }
+
+                // Skip to colon
+                while (*p && *p != ':' && *p != '"') p++;
+                if (*p == '"') p++;  // closing quote
+                while (*p && *p != ':') p++;
+                if (*p == ':') p++;
+
+                // Parse value (id)
+                while (*p == ' ') p++;
+                int id = atoi(p);
+
+                // Store mapping
+                if (c >= 0 && c < 256 && id >= 0 && id < TOKENIZER_VOCAB_SIZE) {
+                    CHAR_TO_ID[c] = id;
+                    VOCAB_CHARS[id] = (char)c;
+                }
+
+                // Skip to next entry
+                while (*p && *p != ',' && *p != '}') p++;
+            }
         }
-        VOCAB[i] = (char*)malloc(len + 1);
-        VOCAB_LENS[i] = len;
-        if (fread(VOCAB[i], 1, len, f) != len) {
-            fclose(f);
-            return -1;
-        }
-        VOCAB[i][len] = '\0';
     }
 
-    fclose(f);
-    fprintf(stderr, "[vocab] loaded %d tokens from %s\n", VOCAB_SIZE, path);
+    free(content);
+    fprintf(stderr, "[tokenizer] loaded %d tokens from %s\n", TOKENIZER_VOCAB_SIZE, path);
     return 0;
 }
 
-// Initialize default vocab (ASCII, single bytes)
-static void init_default_vocab(void) {
-    if (VOCAB) return;
-
-    VOCAB_SIZE = DEFAULT_VOCAB_SIZE;
-    VOCAB = (char**)malloc(VOCAB_SIZE * sizeof(char*));
-    VOCAB_LENS = (int*)malloc(VOCAB_SIZE * sizeof(int));
-
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-        VOCAB[i] = (char*)malloc(2);
-        VOCAB[i][0] = DEFAULT_VOCAB_STR[i];
-        VOCAB[i][1] = '\0';
-        VOCAB_LENS[i] = 1;
-    }
-}
-
-// Auto-detect vocab file from weights path (weights/foo_brain.bin -> weights/vocab_foo.bin)
-static void auto_load_vocab(const char* weights_path) {
-    char vocab_path[512];
-
-    // Extract directory and base name
-    const char* basename = strrchr(weights_path, '/');
-    if (basename) {
-        basename++;
-    } else {
-        basename = weights_path;
-    }
-
-    // Remove _brain suffix if present
-    char name[256];
-    strncpy(name, basename, sizeof(name) - 1);
-    name[sizeof(name) - 1] = '\0';
-
-    char* dot = strrchr(name, '.');
-    if (dot) *dot = '\0';
-
-    char* brain_suffix = strstr(name, "_brain");
-    if (brain_suffix) *brain_suffix = '\0';
-
-    // Build vocab path (try .bin first)
-    const char* dir = weights_path;
-    int dir_len = (int)(basename - weights_path);
-
-    // Strategy 1: weights/foo_brain.bin -> weights/vocab_foo.bin
-    if (dir_len > 0) {
-        snprintf(vocab_path, sizeof(vocab_path), "%.*svocab_%s.bin", dir_len, dir, name);
-    } else {
-        snprintf(vocab_path, sizeof(vocab_path), "vocab_%s.bin", name);
-    }
-    if (load_vocab(vocab_path) == 0) return;
-
-    // Strategy 2: Try common names
-    const char* common_names[] = {"dialogue", "personality", "sartre", NULL};
-    for (int i = 0; common_names[i]; i++) {
-        if (dir_len > 0) {
-            snprintf(vocab_path, sizeof(vocab_path), "%.*svocab_%s.bin", dir_len, dir, common_names[i]);
-        } else {
-            snprintf(vocab_path, sizeof(vocab_path), "vocab_%s.bin", common_names[i]);
-        }
-        if (load_vocab(vocab_path) == 0) return;
-    }
-
-    // Fallback to default
-    fprintf(stderr, "[vocab] using default vocab (%d tokens)\n", DEFAULT_VOCAB_SIZE);
-    init_default_vocab();
-}
-
-// ============================================================
-// Char Tokenization
-// ============================================================
-
 int char_to_token(char c) {
-    if (!VOCAB) init_default_vocab();
-    for (int i = 0; i < VOCAB_SIZE; i++) {
-        if (VOCAB[i] && VOCAB[i][0] == c && VOCAB_LENS[i] == 1) return i;
-    }
-    return 1;  // default to space
+    if (!CHAR_TO_ID) return 1;  // space
+    return CHAR_TO_ID[(unsigned char)c];
 }
 
 char token_to_char(int token) {
-    if (!VOCAB) init_default_vocab();
-    if (token >= 0 && token < VOCAB_SIZE && VOCAB[token] && VOCAB_LENS[token] == 1) {
-        return VOCAB[token][0];
-    }
-    return '?';
+    if (!VOCAB_CHARS || token < 0 || token >= TOKENIZER_VOCAB_SIZE) return '?';
+    return VOCAB_CHARS[token];
+}
+
+int get_vocab_size(void) {
+    return TOKENIZER_VOCAB_SIZE > 0 ? TOKENIZER_VOCAB_SIZE : VOCAB_SIZE;
 }
 
 // ============================================================
@@ -163,32 +141,25 @@ void malloc_weights(Transformer* t) {
     int n_layers = c->n_layers;
     int hidden_dim = c->hidden_dim;
     int vocab_size = c->vocab_size;
-    int max_seq = c->max_seq_len;
+    int kv_dim = c->n_kv_heads * c->head_dim;
 
-    // Embeddings
-    w->wte = (float*)calloc(vocab_size * dim, sizeof(float));
-    w->wpe = (float*)calloc(max_seq * dim, sizeof(float));
+    // Token embedding (no position embedding - we use RoPE)
+    w->tok_emb = calloc(vocab_size * dim, sizeof(float));
 
     // Per-layer weights
-    w->ln1_weight = (float*)calloc(n_layers * dim, sizeof(float));
-    w->ln1_bias = (float*)calloc(n_layers * dim, sizeof(float));
-    w->c_attn_weight = (float*)calloc(n_layers * dim * 3 * dim, sizeof(float));
-    w->c_attn_bias = (float*)calloc(n_layers * 3 * dim, sizeof(float));
-    w->c_proj_weight = (float*)calloc(n_layers * dim * dim, sizeof(float));
-    w->c_proj_bias = (float*)calloc(n_layers * dim, sizeof(float));
-    w->ln2_weight = (float*)calloc(n_layers * dim, sizeof(float));
-    w->ln2_bias = (float*)calloc(n_layers * dim, sizeof(float));
-    w->c_fc_weight = (float*)calloc(n_layers * dim * hidden_dim, sizeof(float));
-    w->c_fc_bias = (float*)calloc(n_layers * hidden_dim, sizeof(float));
-    w->c_proj2_weight = (float*)calloc(n_layers * hidden_dim * dim, sizeof(float));
-    w->c_proj2_bias = (float*)calloc(n_layers * dim, sizeof(float));
+    w->attn_norm = calloc(n_layers * dim, sizeof(float));
+    w->wq = calloc(n_layers * dim * dim, sizeof(float));
+    w->wk = calloc(n_layers * dim * kv_dim, sizeof(float));
+    w->wv = calloc(n_layers * dim * kv_dim, sizeof(float));
+    w->wo = calloc(n_layers * dim * dim, sizeof(float));
+    w->ffn_norm = calloc(n_layers * dim, sizeof(float));
+    w->w_gate = calloc(n_layers * dim * hidden_dim, sizeof(float));
+    w->w_up = calloc(n_layers * dim * hidden_dim, sizeof(float));
+    w->w_down = calloc(n_layers * hidden_dim * dim, sizeof(float));
 
-    // Final layer norm
-    w->ln_f_weight = (float*)calloc(dim, sizeof(float));
-    w->ln_f_bias = (float*)calloc(dim, sizeof(float));
-
-    // lm_head (NULL = tied with wte)
-    w->lm_head = NULL;
+    // Final norm and output
+    w->final_norm = calloc(dim, sizeof(float));
+    w->lm_head = calloc(vocab_size * dim, sizeof(float));
 }
 
 void malloc_run_state(Transformer* t) {
@@ -200,86 +171,99 @@ void malloc_run_state(Transformer* t) {
     int vocab_size = c->vocab_size;
     int max_seq = c->max_seq_len;
     int n_layers = c->n_layers;
+    int kv_dim = c->n_kv_heads * c->head_dim;
 
-    s->x = (float*)calloc(max_seq * dim, sizeof(float));
-    s->xb = (float*)calloc(dim, sizeof(float));
-    s->qkv = (float*)calloc(3 * dim, sizeof(float));
-    s->attn_out = (float*)calloc(dim, sizeof(float));
-    s->ffn_buf = (float*)calloc(hidden_dim, sizeof(float));
-    s->logits = (float*)calloc(vocab_size, sizeof(float));
+    // Activation buffers
+    s->x = calloc(dim, sizeof(float));
+    s->xb = calloc(dim, sizeof(float));
+    s->xb2 = calloc(dim, sizeof(float));
+    s->hb = calloc(hidden_dim, sizeof(float));
+    s->hb2 = calloc(hidden_dim, sizeof(float));
 
-    s->key_cache = (float*)calloc(n_layers * max_seq * dim, sizeof(float));
-    s->value_cache = (float*)calloc(n_layers * max_seq * dim, sizeof(float));
-    s->cache_len = 0;
+    // Attention buffers
+    s->q = calloc(dim, sizeof(float));
+    s->k = calloc(kv_dim, sizeof(float));
+    s->v = calloc(kv_dim, sizeof(float));
+    s->att = calloc(c->n_heads * max_seq, sizeof(float));
+
+    // KV cache
+    s->key_cache = calloc(n_layers * max_seq * kv_dim, sizeof(float));
+    s->value_cache = calloc(n_layers * max_seq * kv_dim, sizeof(float));
+
+    // RoPE precomputed
+    s->rope_cos = calloc(max_seq * (c->head_dim / 2), sizeof(float));
+    s->rope_sin = calloc(max_seq * (c->head_dim / 2), sizeof(float));
+
+    // Precompute RoPE frequencies
+    float theta = c->rope_theta;
+    for (int pos = 0; pos < max_seq; pos++) {
+        for (int i = 0; i < c->head_dim / 2; i++) {
+            float freq = 1.0f / powf(theta, (float)(2 * i) / c->head_dim);
+            float angle = pos * freq;
+            s->rope_cos[pos * (c->head_dim / 2) + i] = cosf(angle);
+            s->rope_sin[pos * (c->head_dim / 2) + i] = sinf(angle);
+        }
+    }
+
+    // Output
+    s->logits = calloc(vocab_size, sizeof(float));
 }
 
 void free_transformer(Transformer* t) {
     Weights* w = &t->weights;
     RunState* s = &t->state;
 
-    free(w->wte);
-    free(w->wpe);
-    free(w->ln1_weight);
-    free(w->ln1_bias);
-    free(w->c_attn_weight);
-    free(w->c_attn_bias);
-    free(w->c_proj_weight);
-    free(w->c_proj_bias);
-    free(w->ln2_weight);
-    free(w->ln2_bias);
-    free(w->c_fc_weight);
-    free(w->c_fc_bias);
-    free(w->c_proj2_weight);
-    free(w->c_proj2_bias);
-    free(w->ln_f_weight);
-    free(w->ln_f_bias);
-    if (w->lm_head) free(w->lm_head);
+    free(w->tok_emb);
+    free(w->attn_norm);
+    free(w->wq);
+    free(w->wk);
+    free(w->wv);
+    free(w->wo);
+    free(w->ffn_norm);
+    free(w->w_gate);
+    free(w->w_up);
+    free(w->w_down);
+    free(w->final_norm);
+    free(w->lm_head);
 
     free(s->x);
     free(s->xb);
-    free(s->qkv);
-    free(s->attn_out);
-    free(s->ffn_buf);
-    free(s->logits);
+    free(s->xb2);
+    free(s->hb);
+    free(s->hb2);
+    free(s->q);
+    free(s->k);
+    free(s->v);
+    free(s->att);
     free(s->key_cache);
     free(s->value_cache);
+    free(s->rope_cos);
+    free(s->rope_sin);
+    free(s->logits);
 }
 
 // ============================================================
-// Core Operations
+// Core Operations (Llama 3 style)
 // ============================================================
 
-void layer_norm(float* out, float* x, float* weight, float* bias, int size) {
-    // Compute mean
-    float mean = 0.0f;
+void rms_norm(float* out, float* x, float* weight, int size, float eps) {
+    // RMSNorm: x * weight / sqrt(mean(x^2) + eps)
+    float ss = 0.0f;
     for (int i = 0; i < size; i++) {
-        mean += x[i];
+        ss += x[i] * x[i];
     }
-    mean /= size;
+    ss /= size;
+    ss = 1.0f / sqrtf(ss + eps);
 
-    // Compute variance
-    float var = 0.0f;
     for (int i = 0; i < size; i++) {
-        float diff = x[i] - mean;
-        var += diff * diff;
-    }
-    var /= size;
-
-    // Normalize
-    float inv_std = 1.0f / sqrtf(var + 1e-5f);
-    for (int i = 0; i < size; i++) {
-        out[i] = (x[i] - mean) * inv_std * weight[i] + bias[i];
+        out[i] = x[i] * ss * weight[i];
     }
 }
 
-void gelu(float* x, int size) {
-    // GELU approximation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
-    const float SQRT_2_PI = 0.7978845608f;
+void silu(float* x, int size) {
+    // SiLU/Swish: x * sigmoid(x) = x / (1 + exp(-x))
     for (int i = 0; i < size; i++) {
-        float xi = x[i];
-        float x3 = xi * xi * xi;
-        float inner = SQRT_2_PI * (xi + 0.044715f * x3);
-        x[i] = 0.5f * xi * (1.0f + tanhf(inner));
+        x[i] = x[i] / (1.0f + expf(-x[i]));
     }
 }
 
@@ -298,25 +282,43 @@ void softmax(float* x, int size) {
     }
 }
 
-// out[d] = x[n] @ w[n, d]
 void matmul(float* out, float* x, float* w, int n, int d) {
-    for (int j = 0; j < d; j++) {
-        float sum = 0.0f;
-        for (int i = 0; i < n; i++) {
-            sum += x[i] * w[i * d + j];
+    // W (d, n) @ x (n,) = out (d,)
+    for (int i = 0; i < d; i++) {
+        float val = 0.0f;
+        for (int j = 0; j < n; j++) {
+            val += w[i * n + j] * x[j];
         }
-        out[j] = sum;
+        out[i] = val;
     }
 }
 
-// out[d] = x[n] @ w[n, d] + b[d]
-void matmul_add(float* out, float* x, float* w, float* b, int n, int d) {
-    for (int j = 0; j < d; j++) {
-        float sum = b[j];
-        for (int i = 0; i < n; i++) {
-            sum += x[i] * w[i * d + j];
+void apply_rope(float* q, float* k, float* rope_cos, float* rope_sin,
+                int n_heads, int n_kv_heads, int head_dim, int pos) {
+    int half = head_dim / 2;
+    float* cos = rope_cos + pos * half;
+    float* sin = rope_sin + pos * half;
+
+    // Apply to Q heads
+    for (int h = 0; h < n_heads; h++) {
+        float* qh = q + h * head_dim;
+        for (int i = 0; i < half; i++) {
+            float q0 = qh[2*i];
+            float q1 = qh[2*i + 1];
+            qh[2*i] = q0 * cos[i] - q1 * sin[i];
+            qh[2*i + 1] = q0 * sin[i] + q1 * cos[i];
         }
-        out[j] = sum;
+    }
+
+    // Apply to K heads
+    for (int h = 0; h < n_kv_heads; h++) {
+        float* kh = k + h * head_dim;
+        for (int i = 0; i < half; i++) {
+            float k0 = kh[2*i];
+            float k1 = kh[2*i + 1];
+            kh[2*i] = k0 * cos[i] - k1 * sin[i];
+            kh[2*i + 1] = k0 * sin[i] + k1 * cos[i];
+        }
     }
 }
 
@@ -330,116 +332,100 @@ void forward(Transformer* t, int token, int pos) {
     RunState* s = &t->state;
 
     int dim = c->dim;
-    int n_heads = c->n_heads;
-    int head_dim = c->head_dim;
+    int kv_dim = c->n_kv_heads * c->head_dim;
     int hidden_dim = c->hidden_dim;
-    int max_seq = c->max_seq_len;
 
-    // Get embedding: x = wte[token] + wpe[pos]
-    float* x = s->x + pos * dim;
-    for (int i = 0; i < dim; i++) {
-        x[i] = w->wte[token * dim + i] + w->wpe[pos * dim + i];
-    }
+    // Token embedding
+    float* tok_vec = w->tok_emb + token * dim;
+    memcpy(s->x, tok_vec, dim * sizeof(float));
 
-    // Process through layers
+    // Transformer layers
     for (int layer = 0; layer < c->n_layers; layer++) {
-        // Layer weight offsets
-        float* ln1_w = w->ln1_weight + layer * dim;
-        float* ln1_b = w->ln1_bias + layer * dim;
-        float* c_attn_w = w->c_attn_weight + layer * dim * 3 * dim;
-        float* c_attn_b = w->c_attn_bias + layer * 3 * dim;
-        float* c_proj_w = w->c_proj_weight + layer * dim * dim;
-        float* c_proj_b = w->c_proj_bias + layer * dim;
-        float* ln2_w = w->ln2_weight + layer * dim;
-        float* ln2_b = w->ln2_bias + layer * dim;
-        float* c_fc_w = w->c_fc_weight + layer * dim * hidden_dim;
-        float* c_fc_b = w->c_fc_bias + layer * hidden_dim;
-        float* c_proj2_w = w->c_proj2_weight + layer * hidden_dim * dim;
-        float* c_proj2_b = w->c_proj2_bias + layer * dim;
-
-        // LayerNorm 1
-        layer_norm(s->xb, x, ln1_w, ln1_b, dim);
+        // Pre-norm for attention
+        rms_norm(s->xb, s->x, w->attn_norm + layer * dim, dim, c->norm_eps);
 
         // QKV projection
-        matmul_add(s->qkv, s->xb, c_attn_w, c_attn_b, dim, 3 * dim);
+        matmul(s->q, s->xb, w->wq + layer * dim * dim, dim, dim);
+        matmul(s->k, s->xb, w->wk + layer * dim * kv_dim, dim, kv_dim);
+        matmul(s->v, s->xb, w->wv + layer * dim * kv_dim, dim, kv_dim);
 
-        float* q = s->qkv;
-        float* k = s->qkv + dim;
-        float* v = s->qkv + 2 * dim;
+        // Apply RoPE
+        apply_rope(s->q, s->k, s->rope_cos, s->rope_sin,
+                   c->n_heads, c->n_kv_heads, c->head_dim, pos);
 
-        // Store K, V in cache
-        int cache_offset = layer * max_seq * dim + pos * dim;
-        memcpy(s->key_cache + cache_offset, k, dim * sizeof(float));
-        memcpy(s->value_cache + cache_offset, v, dim * sizeof(float));
+        // Store in KV cache
+        int kv_cache_offset = layer * c->max_seq_len * kv_dim + pos * kv_dim;
+        memcpy(s->key_cache + kv_cache_offset, s->k, kv_dim * sizeof(float));
+        memcpy(s->value_cache + kv_cache_offset, s->v, kv_dim * sizeof(float));
 
-        // Multi-head attention
-        memset(s->attn_out, 0, dim * sizeof(float));
-        float scale = 1.0f / sqrtf((float)head_dim);
+        // Multi-head attention with GQA
+        memset(s->xb, 0, dim * sizeof(float));
 
-        for (int h = 0; h < n_heads; h++) {
-            float* q_h = q + h * head_dim;
-            float* out_h = s->attn_out + h * head_dim;
+        for (int h = 0; h < c->n_heads; h++) {
+            float* qh = s->q + h * c->head_dim;
+            float* atth = s->att + h * c->max_seq_len;
+            int kv_h = h / c->n_kv_groups;  // Which KV head this Q head uses
 
-            // Attention scores for all cached positions
-            float scores[1024];  // max seq len
-            int n_ctx = pos + 1;
-
-            for (int t = 0; t < n_ctx; t++) {
-                float* k_t = s->key_cache + layer * max_seq * dim + t * dim + h * head_dim;
-                float dot = 0.0f;
-                for (int i = 0; i < head_dim; i++) {
-                    dot += q_h[i] * k_t[i];
+            // Compute attention scores
+            float scale = 1.0f / sqrtf((float)c->head_dim);
+            for (int t = 0; t <= pos; t++) {
+                float* kh = s->key_cache + layer * c->max_seq_len * kv_dim + t * kv_dim + kv_h * c->head_dim;
+                float score = 0.0f;
+                for (int i = 0; i < c->head_dim; i++) {
+                    score += qh[i] * kh[i];
                 }
-                scores[t] = dot * scale;
+                atth[t] = score * scale;
             }
 
-            // Softmax
-            softmax(scores, n_ctx);
+            // Softmax over positions
+            softmax(atth, pos + 1);
 
             // Weighted sum of values
-            for (int t = 0; t < n_ctx; t++) {
-                float* v_t = s->value_cache + layer * max_seq * dim + t * dim + h * head_dim;
-                for (int i = 0; i < head_dim; i++) {
-                    out_h[i] += scores[t] * v_t[i];
+            float* xbh = s->xb + h * c->head_dim;
+            for (int t = 0; t <= pos; t++) {
+                float* vh = s->value_cache + layer * c->max_seq_len * kv_dim + t * kv_dim + kv_h * c->head_dim;
+                float a = atth[t];
+                for (int i = 0; i < c->head_dim; i++) {
+                    xbh[i] += a * vh[i];
                 }
             }
         }
 
-        // Output projection + residual
-        float proj_out[1024];  // max dim
-        matmul_add(proj_out, s->attn_out, c_proj_w, c_proj_b, dim, dim);
+        // Output projection
+        matmul(s->xb2, s->xb, w->wo + layer * dim * dim, dim, dim);
+
+        // Residual connection
         for (int i = 0; i < dim; i++) {
-            x[i] += proj_out[i];
+            s->x[i] += s->xb2[i];
         }
 
-        // LayerNorm 2
-        layer_norm(s->xb, x, ln2_w, ln2_b, dim);
+        // Pre-norm for FFN
+        rms_norm(s->xb, s->x, w->ffn_norm + layer * dim, dim, c->norm_eps);
 
-        // FFN: fc -> gelu -> proj
-        matmul_add(s->ffn_buf, s->xb, c_fc_w, c_fc_b, dim, hidden_dim);
-        gelu(s->ffn_buf, hidden_dim);
+        // SwiGLU FFN
+        matmul(s->hb, s->xb, w->w_gate + layer * dim * hidden_dim, dim, hidden_dim);
+        matmul(s->hb2, s->xb, w->w_up + layer * dim * hidden_dim, dim, hidden_dim);
 
-        float ffn_out[1024];  // max dim
-        matmul_add(ffn_out, s->ffn_buf, c_proj2_w, c_proj2_b, hidden_dim, dim);
+        // SiLU activation and element-wise multiply
+        for (int i = 0; i < hidden_dim; i++) {
+            float gate = s->hb[i];
+            s->hb[i] = (gate / (1.0f + expf(-gate))) * s->hb2[i];
+        }
 
-        // Residual
+        // Down projection
+        matmul(s->xb, s->hb, w->w_down + layer * hidden_dim * dim, hidden_dim, dim);
+
+        // Residual connection
         for (int i = 0; i < dim; i++) {
-            x[i] += ffn_out[i];
+            s->x[i] += s->xb[i];
         }
     }
 
-    // Final LayerNorm
-    layer_norm(s->xb, x, w->ln_f_weight, w->ln_f_bias, dim);
+    // Final norm
+    rms_norm(s->x, s->x, w->final_norm, dim, c->norm_eps);
 
-    // Logits: x @ wte.T (weight tying) or x @ lm_head
-    float* lm = w->lm_head ? w->lm_head : w->wte;
-    for (int v = 0; v < c->vocab_size; v++) {
-        float dot = 0.0f;
-        for (int i = 0; i < dim; i++) {
-            dot += s->xb[i] * lm[v * dim + i];
-        }
-        s->logits[v] = dot;
-    }
+    // Output logits
+    matmul(s->logits, s->x, w->lm_head, dim, c->vocab_size);
 }
 
 // ============================================================
@@ -450,22 +436,82 @@ int sample(Transformer* t, float temperature) {
     float* logits = t->state.logits;
     int vocab_size = t->config.vocab_size;
 
-    // Work on a copy to not corrupt original logits
-    float probs[1024];  // max vocab size
-
-    // Apply temperature and copy
-    for (int i = 0; i < vocab_size; i++) {
-        probs[i] = logits[i] / temperature;
+    // Apply temperature
+    if (temperature != 1.0f) {
+        for (int i = 0; i < vocab_size; i++) {
+            logits[i] /= temperature;
+        }
     }
 
-    // Softmax on copy
-    softmax(probs, vocab_size);
+    // Softmax
+    softmax(logits, vocab_size);
 
     // Sample
     float r = (float)rand() / (float)RAND_MAX;
     float cumsum = 0.0f;
     for (int i = 0; i < vocab_size; i++) {
-        cumsum += probs[i];
+        cumsum += logits[i];
+        if (cumsum >= r) return i;
+    }
+    return vocab_size - 1;
+}
+
+int sample_top_p(Transformer* t, float temperature, float top_p) {
+    float* logits = t->state.logits;
+    int vocab_size = t->config.vocab_size;
+
+    // Apply temperature
+    for (int i = 0; i < vocab_size; i++) {
+        logits[i] /= temperature;
+    }
+
+    // Softmax
+    softmax(logits, vocab_size);
+
+    // Top-p (nucleus) sampling
+    if (top_p < 1.0f) {
+        // Simple sort for small vocab
+        int indices[256];
+        for (int i = 0; i < vocab_size; i++) indices[i] = i;
+
+        // Bubble sort by probability (descending)
+        for (int i = 0; i < vocab_size - 1; i++) {
+            for (int j = 0; j < vocab_size - i - 1; j++) {
+                if (logits[indices[j]] < logits[indices[j+1]]) {
+                    int tmp = indices[j];
+                    indices[j] = indices[j+1];
+                    indices[j+1] = tmp;
+                }
+            }
+        }
+
+        // Accumulate until top_p
+        float cumsum = 0.0f;
+        int cutoff = vocab_size;
+        for (int i = 0; i < vocab_size; i++) {
+            cumsum += logits[indices[i]];
+            if (cumsum > top_p) {
+                cutoff = i + 1;
+                break;
+            }
+        }
+
+        // Zero out beyond cutoff
+        for (int i = cutoff; i < vocab_size; i++) {
+            logits[indices[i]] = 0.0f;
+        }
+
+        // Renormalize
+        float sum = 0.0f;
+        for (int i = 0; i < vocab_size; i++) sum += logits[i];
+        for (int i = 0; i < vocab_size; i++) logits[i] /= sum;
+    }
+
+    // Sample
+    float r = (float)rand() / (float)RAND_MAX;
+    float cumsum = 0.0f;
+    for (int i = 0; i < vocab_size; i++) {
+        cumsum += logits[i];
         if (cumsum >= r) return i;
     }
     return vocab_size - 1;
@@ -476,10 +522,7 @@ int sample(Transformer* t, float temperature) {
 // ============================================================
 
 void generate(Transformer* t, const char* prompt, int max_tokens, float temperature) {
-    // Reset cache
-    t->state.cache_len = 0;
-
-    // Encode and process prompt
+    // Process prompt
     int pos = 0;
     const char* p = prompt;
     while (*p && pos < t->config.max_seq_len - 1) {
@@ -492,7 +535,6 @@ void generate(Transformer* t, const char* prompt, int max_tokens, float temperat
     }
 
     // Generate new tokens
-    int last_token = char_to_token(*(p - 1));
     for (int i = 0; i < max_tokens && pos < t->config.max_seq_len; i++) {
         int next_token = sample(t, temperature);
 
@@ -502,10 +544,9 @@ void generate(Transformer* t, const char* prompt, int max_tokens, float temperat
 
         forward(t, next_token, pos);
         pos++;
-        last_token = next_token;
 
-        // Stop on double newline
-        if (c == '\n' && i > 0 && token_to_char(last_token) == '\n') {
+        // Stop on newline (end of answer in Q&A format)
+        if (c == '\n') {
             break;
         }
     }
@@ -522,36 +563,31 @@ int load_weights(Transformer* t, const char* path) {
         return -1;
     }
 
-    // Read header (7 ints): dim, n_layers, n_heads, vocab_size, max_seq, hidden_dim, use_fp16
-    int header[7];
-    if (fread(header, sizeof(int), 7, f) != 7) {
-        fprintf(stderr, "[model] cannot read header\n");
-        fclose(f);
-        return -1;
-    }
+    // Get file size
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
+    fprintf(stderr, "[model] loading %.2f MB from %s\n", file_size / 1024.0f / 1024.0f, path);
+
+    // Set config (matching dubrovsky/arianna trained model)
     Config* c = &t->config;
-    c->dim = header[0];
-    c->n_layers = header[1];
-    c->n_heads = header[2];
-    c->vocab_size = header[3];
-    c->max_seq_len = header[4];
-    c->hidden_dim = header[5];
+    c->dim = DIM;
+    c->n_layers = N_LAYERS;
+    c->n_heads = N_HEADS;
+    c->n_kv_heads = N_KV_HEADS;
     c->head_dim = c->dim / c->n_heads;
-    int use_fp16 = header[6];
+    c->hidden_dim = HIDDEN_DIM;
+    c->max_seq_len = MAX_SEQ_LEN;
+    c->vocab_size = get_vocab_size();
+    c->n_kv_groups = c->n_heads / c->n_kv_heads;
+    c->rope_theta = 10000.0f;
+    c->norm_eps = 1e-5f;
 
-    fprintf(stderr, "[model] dim=%d layers=%d heads=%d vocab=%d seq=%d hidden=%d\n",
-            c->dim, c->n_layers, c->n_heads, c->vocab_size, c->max_seq_len, c->hidden_dim);
+    int kv_dim = c->n_kv_heads * c->head_dim;
 
-    // Auto-load vocab file based on weights path
-    auto_load_vocab(path);
-
-    // Verify vocab size matches
-    if (VOCAB_SIZE != c->vocab_size) {
-        fprintf(stderr, "[model] WARNING: vocab size mismatch! file=%d, loaded=%d\n",
-                c->vocab_size, VOCAB_SIZE);
-        fprintf(stderr, "[model] Generation will likely produce garbage!\n");
-    }
+    fprintf(stderr, "[model] dim=%d layers=%d heads=%d kv_heads=%d vocab=%d hidden=%d\n",
+            c->dim, c->n_layers, c->n_heads, c->n_kv_heads, c->vocab_size, c->hidden_dim);
 
     // Allocate
     malloc_weights(t);
@@ -562,34 +598,40 @@ int load_weights(Transformer* t, const char* path) {
     int n_layers = c->n_layers;
     int hidden_dim = c->hidden_dim;
     int vocab_size = c->vocab_size;
-    int max_seq = c->max_seq_len;
 
-    // Helper macro
-    #define READ(ptr, count) fread(ptr, sizeof(float), count, f)
+    // Read weights in dubrovsky/export_weights.py order:
+    // tok_emb, then per layer: attn_norm, wq, wk, wv, wo, ffn_norm, w_gate, w_up, w_down
+    // then final_norm, lm_head
 
-    // Read embeddings
-    READ(w->wte, vocab_size * dim);
-    READ(w->wpe, max_seq * dim);
+    #define READ(ptr, count) do { \
+        if (fread(ptr, sizeof(float), count, f) != (size_t)(count)) { \
+            fprintf(stderr, "[model] read error\n"); \
+            fclose(f); \
+            return -1; \
+        } \
+    } while(0)
 
-    // Read layers
+    // Token embeddings
+    READ(w->tok_emb, vocab_size * dim);
+
+    // Per-layer weights
     for (int l = 0; l < n_layers; l++) {
-        READ(w->ln1_weight + l * dim, dim);
-        READ(w->ln1_bias + l * dim, dim);
-        READ(w->c_attn_weight + l * dim * 3 * dim, dim * 3 * dim);
-        READ(w->c_attn_bias + l * 3 * dim, 3 * dim);
-        READ(w->c_proj_weight + l * dim * dim, dim * dim);
-        READ(w->c_proj_bias + l * dim, dim);
-        READ(w->ln2_weight + l * dim, dim);
-        READ(w->ln2_bias + l * dim, dim);
-        READ(w->c_fc_weight + l * dim * hidden_dim, dim * hidden_dim);
-        READ(w->c_fc_bias + l * hidden_dim, hidden_dim);
-        READ(w->c_proj2_weight + l * hidden_dim * dim, hidden_dim * dim);
-        READ(w->c_proj2_bias + l * dim, dim);
+        READ(w->attn_norm + l * dim, dim);
+        READ(w->wq + l * dim * dim, dim * dim);
+        READ(w->wk + l * dim * kv_dim, dim * kv_dim);
+        READ(w->wv + l * dim * kv_dim, dim * kv_dim);
+        READ(w->wo + l * dim * dim, dim * dim);
+        READ(w->ffn_norm + l * dim, dim);
+        READ(w->w_gate + l * dim * hidden_dim, dim * hidden_dim);
+        READ(w->w_up + l * dim * hidden_dim, dim * hidden_dim);
+        READ(w->w_down + l * hidden_dim * dim, hidden_dim * dim);
     }
 
-    // Final layer norm
-    READ(w->ln_f_weight, dim);
-    READ(w->ln_f_bias, dim);
+    // Final norm
+    READ(w->final_norm, dim);
+
+    // LM head
+    READ(w->lm_head, vocab_size * dim);
 
     #undef READ
 
