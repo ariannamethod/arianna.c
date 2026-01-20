@@ -266,7 +266,7 @@ def train(
         # Forward pass with mixed precision
         with ctx:
             logits = model(x)
-            loss = F.cross_entropy(logits.view(-1, train_config.vocab_size), y.view(-1))
+            loss = F.cross_entropy(logits.view(-1, model_config.vocab_size), y.view(-1))
             loss = loss / train_config.gradient_accumulation_steps
         
         # Backward pass
