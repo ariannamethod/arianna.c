@@ -245,11 +245,30 @@ Before training, confirm:
 
 ## Files to Create
 
-- [ ] `prepare_data.py` - Data cleaning and tokenization
-- [ ] `model.py` - Llama 3 model architecture
-- [ ] `train.py` - Training script
-- [ ] `export.py` - Weight export to arianna.c format
-- [ ] `config.yaml` - Training configuration
+- [x] `prepare_data.py` - Data cleaning and tokenization ✅
+- [x] `model.py` - Llama 3 model architecture (30M params) ✅
+- [x] `train.py` - Training script with checkpoints ✅
+- [x] `export.py` - Weight export to arianna.c format ✅
+- [x] `config.yaml` - Training configuration ✅
+
+## Quick Start
+
+```bash
+# 1. Prepare data (clean + tokenize)
+python prepare_data.py --input simplewiki_leads.txt --tokenizer ../weights/tokenizer.json
+
+# 2. Train model (local)
+python train.py --data_dir . --out_dir out
+
+# 3. Train model (Lambda H100 - recommended)
+python train.py --lambda_mode --data_dir . --out_dir out
+
+# 4. Export weights to arianna.c format
+python export.py out/external_brain_final.pt ../weights/external_brain.bin --fp16
+
+# 5. Verify export
+python export.py out/external_brain_final.pt ../weights/external_brain.bin --fp16 --verify
+```
 
 ---
 
