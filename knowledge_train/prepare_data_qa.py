@@ -6,7 +6,7 @@ Converts simplewiki_leads.txt to structured Q&A format:
     Q: What is Paris?
     A: Paris is the capital of France.
 
-Target size: 10-15MB to maintain data/params ratio ≤0.5
+Target size: ~12MB to maintain data/params ratio ≤0.5
 
 Benefits of Q&A format:
 - Clearer pattern for model to learn
@@ -15,7 +15,7 @@ Benefits of Q&A format:
 
 Usage:
     python prepare_data_qa.py                    # Default paths
-    python prepare_data_qa.py --target-mb 12.0  # Custom target size
+    python prepare_data_qa.py --target-mb 10.0  # Custom target size
 """
 
 import argparse
@@ -26,6 +26,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
+
+
+# Minimum sentence length for quality filtering
+MIN_SENTENCE_LENGTH = 20
 
 
 def load_tokenizer(tokenizer_path: str) -> Dict[str, int]:
@@ -84,19 +88,19 @@ def parse_entry(raw_entry: str) -> Tuple[str, str]:
 def extract_first_sentence(text: str) -> str:
     """Extract first complete sentence from text."""
     # Match sentence ending with . ! or ? followed by space and capital or end
-    # But require at least 20 chars to avoid truncated garbage
-    match = re.match(r'^(.{20,}?[.!?])(?:\s+[A-Z]|\s*$)', text)
+    # Require minimum length to avoid truncated garbage
+    match = re.match(r'^(.{' + str(MIN_SENTENCE_LENGTH) + r',}?[.!?])(?:\s+[A-Z]|\s*$)', text)
     if match:
         return match.group(1)
     
-    # Fallback: take up to first period if it's after position 20
+    # Fallback: take up to first period if it's after minimum position
     period_pos = text.find('.')
-    if period_pos >= 20:
+    if period_pos >= MIN_SENTENCE_LENGTH:
         return text[:period_pos + 1]
     
     # If first sentence is too short, try to get more
     second_period = text.find('.', period_pos + 1) if period_pos > 0 else -1
-    if second_period >= 20:
+    if second_period >= MIN_SENTENCE_LENGTH:
         return text[:second_period + 1]
     
     return text
