@@ -148,7 +148,7 @@ def estimate_loss(model, train_loader, val_loader, config, ctx):
             
             with ctx:
                 logits = model(x)
-                loss = F.cross_entropy(logits.view(-1, model_config.vocab_size), y.view(-1))
+                loss = F.cross_entropy(logits.view(-1, model.config.vocab_size), y.view(-1))
             
             losses.append(loss.item())
         
