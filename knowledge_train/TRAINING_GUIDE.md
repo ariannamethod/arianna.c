@@ -8,13 +8,68 @@ This folder contains the dataset and instructions for training the **External Br
 
 ---
 
+## ⚠️ CRITICAL: Data/Params Ratio
+
+**THIS IS THE MOST IMPORTANT SECTION. READ BEFORE TRAINING.**
+
+### The Golden Rule
+
+```
+Data size (bytes) / Model params ≤ 0.5
+```
+
+### Why This Matters
+
+| Ratio | Result |
+|-------|--------|
+| 0.1-0.3 | ✅ Model learns patterns well |
+| 0.3-0.5 | ✅ Acceptable, may slightly overfit |
+| 0.5-1.0 | ⚠️ Risk of memorization without understanding |
+| >1.0 | ❌ GARBAGE - model can't compress the data |
+| 2.5 | 💀 CATASTROPHE - outputs nonsense |
+
+### External Brain 30M Calculation
+
+```
+Model parameters: 29,583,872 (~30M)
+Max data size:    29,583,872 × 0.5 = 14,791,936 bytes (~15 MB)
+Safe data size:   29,583,872 × 0.3 = 8,875,161 bytes (~9 MB)
+```
+
+### What Happened Before (DON'T REPEAT)
+
+```
+❌ Raw simplewiki_leads.txt: 85 MB
+❌ After basic cleaning: ~75 MB
+❌ Ratio: 75MB / 30M = 2.5:1
+❌ Result: "Albert Einstein was a financial services authority"
+```
+
+### Use Filtered Scripts
+
+```bash
+# Dataset A: Filtered definitions (short entries ≤300 chars)
+python prepare_data_filtered.py --target-mb 12.0
+
+# Dataset B: Q&A format (cleaner pattern)
+python prepare_data_qa.py --target-mb 12.0
+
+# Both scripts SHOW the ratio before saving!
+```
+
+---
+
 ## Dataset
 
-**File:** `simplewiki_leads.txt`
+**Raw file:** `simplewiki_leads.txt`
 - **Source:** Simple English Wikipedia (lead sections)
 - **Format:** `Title: Lead paragraph text\n\n`
-- **Size:** ~80 MB, ~237,000 articles
+- **Size:** ~85 MB, ~237,000 articles (RAW - DO NOT USE DIRECTLY!)
 - **Extraction script:** `extract_leads.py`
+
+**Prepared datasets:**
+- `data_filtered/` - Short definitions (≤300 chars), ~12 MB
+- `data_qa/` - Q&A format, ~12 MB
 
 ### Known Issues to Clean
 

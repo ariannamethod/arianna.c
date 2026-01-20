@@ -1,0 +1,10 @@
+{
+  "dataset_type": "filtered_definitions",
+  "max_chars": 200,
+  "num_entries": 34838,
+  "train_tokens": 5217009,
+  "val_tokens": 272496,
+  "total_bytes": 5489505,
+  "model_params": 29583872,
+  "data_params_ratio": 0.18555735368243886
+}
