@@ -61,7 +61,10 @@ def export_to_binary(
     
     state_dict = checkpoint['model']
     config = checkpoint.get('config', {})
-    
+
+    # Remove _orig_mod. prefix from torch.compile
+    state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
+
     # Get model dimensions from config or infer from weights
     dim = config.get('dim', state_dict['tok_emb.weight'].shape[1])
     n_layers = config.get('n_layers', sum(1 for k in state_dict if 'layers.' in k and '.attn_norm' in k))
