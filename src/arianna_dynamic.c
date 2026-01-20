@@ -1647,9 +1647,11 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
 // Default origin file paths to try
 static const char* DEFAULT_ORIGIN_PATHS[] = {
-    "personality/origin.txt",
-    "./personality/origin.txt",
-    "../personality/origin.txt",
+    "bin/origin.txt",
+    "./bin/origin.txt",
+    "../bin/origin.txt",
+    "origin.txt",          // fallback: same directory
+    "./origin.txt",
     NULL
 };
 
@@ -1674,7 +1676,7 @@ void print_usage(const char* prog) {
     printf("  -shard <path>   Load experience shard (can use multiple times)\n");
     printf("  -no-mood        Disable mood routing (enabled by default)\n");
     printf("  -guided         Enable guided attention (gravity centers, pulse)\n");
-    printf("  -subj <origin>  Use custom origin file (default: personality/origin.txt)\n");
+    printf("  -subj <origin>  Use custom origin file (default: bin/origin.txt)\n");
     printf("  -no-subj        Disable subjectivity (use prompt as seed)\n");
     printf("  -no-learn       Disable microtraining (default: ON with shard 'live')\n");
     printf("  -signals        Print signal values after generation\n");
@@ -2020,7 +2022,7 @@ int main(int argc, char** argv) {
             if (origin_path != NULL) {
                 fprintf(stderr, "Warning: couldn't load origin from %s\n", origin_path);
             } else {
-                fprintf(stderr, "Warning: no personality/origin.txt found, subjectivity disabled\n");
+                fprintf(stderr, "Warning: no bin/origin.txt found, subjectivity disabled\n");
             }
             fprintf(stderr, "Falling back to prompt-as-seed mode (-no-subj)\n");
             subj_mode = 0;
