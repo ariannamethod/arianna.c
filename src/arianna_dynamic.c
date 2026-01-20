@@ -24,6 +24,9 @@
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
+#ifdef USE_LUA
+#include "amk_lua.h"      // Lua scripting for hot-reload (silent fallback if unavailable)
+#endif
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -456,6 +459,30 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // Emotional nudge from input
     if (iw_analysis.overthink_total > 0.5f) {
         inner_world_nudge_emotion(-0.1f, 0.1f);  // Slight negative, higher arousal
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 0b+. BLOOD: Compile emotional kernel on strong emotion
+    // "C is the blood of the system, direct control over iron"
+    // ═══════════════════════════════════════════════════════════════════
+    if (input_cloud.primary_strength > 0.7f) {
+        // Strong emotion detected - compile a kernel for it
+        float valence = (input_cloud.chambers[CLOUD_CHAMBER_LOVE] +
+                        input_cloud.chambers[CLOUD_CHAMBER_FLOW]) -
+                       (input_cloud.chambers[CLOUD_CHAMBER_FEAR] +
+                        input_cloud.chambers[CLOUD_CHAMBER_RAGE] +
+                        input_cloud.chambers[CLOUD_CHAMBER_VOID]);
+        float arousal = input_cloud.primary_strength;
+
+        char* kernel_path = blood_compile_emotion(
+            input_cloud.primary_chamber ? input_cloud.primary_chamber : "emotion",
+            valence, arousal);
+
+        if (kernel_path) {
+            // Kernel compiled - could load and use here
+            // For now just note it was compiled (silent operation)
+            free(kernel_path);
+        }
     }
 #endif
 

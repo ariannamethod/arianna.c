@@ -41,11 +41,21 @@ TARGET_DYN = $(BIN_DIR)/arianna_dynamic
 # Full version with Go inner_world
 TARGET_FULL = $(BIN_DIR)/arianna_full
 
-# Lua support (optional)
-LUA_CFLAGS = $(shell pkg-config --cflags lua5.4 2>/dev/null || pkg-config --cflags lua 2>/dev/null)
-LUA_LDFLAGS = $(shell pkg-config --libs lua5.4 2>/dev/null || pkg-config --libs lua 2>/dev/null)
+# Lua support - bundled in compilers/lua/
+LUA_SRC_DIR = compilers/lua/src
+LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaselib.c \
+           $(LUA_SRC_DIR)/lcode.c $(LUA_SRC_DIR)/lcorolib.c $(LUA_SRC_DIR)/lctype.c \
+           $(LUA_SRC_DIR)/ldblib.c $(LUA_SRC_DIR)/ldebug.c $(LUA_SRC_DIR)/ldo.c \
+           $(LUA_SRC_DIR)/ldump.c $(LUA_SRC_DIR)/lfunc.c $(LUA_SRC_DIR)/lgc.c \
+           $(LUA_SRC_DIR)/linit.c $(LUA_SRC_DIR)/liolib.c $(LUA_SRC_DIR)/llex.c \
+           $(LUA_SRC_DIR)/lmathlib.c $(LUA_SRC_DIR)/lmem.c $(LUA_SRC_DIR)/loadlib.c \
+           $(LUA_SRC_DIR)/lobject.c $(LUA_SRC_DIR)/lopcodes.c $(LUA_SRC_DIR)/loslib.c \
+           $(LUA_SRC_DIR)/lparser.c $(LUA_SRC_DIR)/lstate.c $(LUA_SRC_DIR)/lstring.c \
+           $(LUA_SRC_DIR)/lstrlib.c $(LUA_SRC_DIR)/ltable.c $(LUA_SRC_DIR)/ltablib.c \
+           $(LUA_SRC_DIR)/ltm.c $(LUA_SRC_DIR)/lundump.c $(LUA_SRC_DIR)/lutf8lib.c \
+           $(LUA_SRC_DIR)/lvm.c $(LUA_SRC_DIR)/lzio.c
+LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
-TARGET_LUA = $(BIN_DIR)/arianna_lua
 
 .PHONY: all clean dynamic full go-lib both lua
 
@@ -80,15 +90,7 @@ $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mo
                $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS)
-ifeq ($(HAS_LUA),yes)
-	@echo "Built $(TARGET_DYN) [WITH LUA]"
-else
-	@echo "Built $(TARGET_DYN) [no lua - install lua to enable]"
-endif
-	@echo ""
-	@echo "Usage:"
-	@echo "  ./bin/arianna_dynamic weights/arianna.bin weights/tokenizer.json \"prompt\" 100 0.9"
-	@echo "  ./bin/arianna_dynamic weights/arianna.bin weights/tokenizer.json \"prompt\" 100 0.9 -lua scripts/amk_default.lua"
+	@echo "Built $(TARGET_DYN)"
 
 # Full version with Go inner_world (C + Go hybrid)
 $(TARGET_FULL): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
