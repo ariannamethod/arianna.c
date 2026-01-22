@@ -325,9 +325,12 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Device: {device}")
 
+    n_gpus = torch.cuda.device_count() if device == 'cuda' else 0
     if device == 'cuda':
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        print(f"GPUs available: {n_gpus}")
+        for i in range(n_gpus):
+            print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
+        print(f"Memory per GPU: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
     os.makedirs(config.out_dir, exist_ok=True)
 
@@ -364,10 +367,14 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
     n_params = model.count_parameters()
     print(f"  Parameters: {n_params:,} ({n_params/1e6:.1f}M)")
 
-    # Compile model for faster training (PyTorch 2.0+)
-    if hasattr(torch, 'compile') and device == 'cuda':
-        print("Compiling model with torch.compile...")
-        model = torch.compile(model)
+    # Multi-GPU support with DataParallel
+    use_multi_gpu = n_gpus > 1
+    if use_multi_gpu:
+        print(f"Using DataParallel on {n_gpus} GPUs!")
+        model = nn.DataParallel(model)
+        # Scale batch size by number of GPUs
+        config.batch_size = config.batch_size * n_gpus
+        print(f"  Effective batch size: {config.batch_size}")
 
     # Optimizer
     optimizer = torch.optim.AdamW(
@@ -451,10 +458,11 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
         if it > 0 and it % config.save_interval == 0:
             checkpoint_path = os.path.join(config.out_dir, f'checkpoint_{it}.pt')
 
-            # Get state dict without _orig_mod prefix
-            state_dict = model.state_dict()
-            if hasattr(model, '_orig_mod'):
-                state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
+            # Get state dict - handle DataParallel wrapper
+            model_to_save = model.module if hasattr(model, 'module') else model
+            state_dict = model_to_save.state_dict()
+            # Remove _orig_mod prefix if present (from torch.compile)
+            state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
 
             torch.save({
                 'model': state_dict,
@@ -472,9 +480,10 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
 
     final_path = os.path.join(config.out_dir, 'arianna_20m_final.pt')
 
-    state_dict = model.state_dict()
-    if hasattr(model, '_orig_mod'):
-        state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
+    # Get state dict - handle DataParallel wrapper
+    model_to_save = model.module if hasattr(model, 'module') else model
+    state_dict = model_to_save.state_dict()
+    state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
 
     torch.save({
         'model': state_dict,
@@ -505,8 +514,11 @@ def generate(
     tokens = tokenizer.encode(prompt)
     x = torch.tensor([tokens], dtype=torch.long, device=device)
 
+    # Handle DataParallel wrapper
+    actual_model = model.module if hasattr(model, 'module') else model
+
     for _ in range(max_new_tokens):
-        x_cond = x[:, -model.config.max_seq_len:]
+        x_cond = x[:, -actual_model.config.max_seq_len:]
         logits = model(x_cond)
         logits = logits[:, -1, :]
 
