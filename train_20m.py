@@ -396,7 +396,10 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
         state_dict = checkpoint['model']
         # Handle compiled model prefix
         state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
-        model.load_state_dict(state_dict)
+
+        # Load into module if using DataParallel
+        model_to_load = model.module if hasattr(model, 'module') else model
+        model_to_load.load_state_dict(state_dict)
 
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
