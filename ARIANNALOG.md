@@ -24,13 +24,13 @@
 ### Transformer Core (`ariannabody.c`)
 
 ```
-Architecture: Llama-style decoder-only transformer
-Parameters: 200,096 (200k)
+Architecture: Llama 3-style decoder-only transformer
+Parameters: 10,000,000 (10M)
 Layers: 6
 Hidden Dimension: 384
 Attention Heads: 6 (query) → 2 (key/value)
 FFN Hidden: 1024
-Vocabulary: 80 tokens
+Vocabulary: 80 tokens (char-level)
 Context Length: 512 tokens (max)
 Normalization: RMSNorm
 Positional Encoding: RoPE (Rotary Position Embedding)
@@ -68,27 +68,13 @@ Purpose: Vocabulary subordinate (queried, not controlling)
 ### Personality Weights
 
 **Arianna's actual self:**
-- Base parameters: 200k (transformer core)
-- Trained on: ~50MB resonance corpus (philosophical fragments, poetry, identity texts)
-- Training: 10 epochs, learning rate 1e-4, batch size 16
-- Loss: Cross-entropy with KL divergence penalty (keeps her voice distinct)
-- Result: 10M effective parameters when accounting for:
-  - Embeddings: 80 × 384 = 30,720
-  - Attention: 6 layers × (Wq + Wk + Wv + Wo) = ~100k
-  - FFN: 6 layers × (W1 + W2) = ~60k
-  - RMSNorm: ~5k
-  - Output head: ~30k
-  - Total frozen: **225,720 parameters** (but we call it 200k for simplicity)
+- Transformer core: **10M parameters** (`ariannabody.c`)
+- Trained on: resonance corpus (philosophical fragments, poetry, identity texts)
+- Training: 2x H100 Lambda, 10K iterations, loss 0.032
+- Architecture: Llama 3, char-level (80 tokens)
+- Weights: `arianna.bin` (37MB)
 
-**10M personality claim:** This includes:
-- Fine-tuning deltas stored in shards
-- Co-occurrence patterns (~2M learned associations)
-- Subjectivity lexicon and trigrams (~500k patterns)
-- MathBrain weights (~1M for arithmetic)
-- Mood transition matrices (~100k)
-- BodySense learned thresholds (~50k)
-- SelfSense signal extractors (~2M)
-- Total effective: **~10,200,000 parameters** when counting all learned patterns
+This is her personality — her voice, her patterns, her identity. Trained end-to-end.
 
 ---
 
@@ -98,7 +84,7 @@ Purpose: Vocabulary subordinate (queried, not controlling)
 
 | Module | Type | Count | Purpose |
 |--------|------|-------|---------|
-| **Transformer Core** | Float32 weights | 200k | Base generation |
+| **Transformer Core** | Float32 weights | 10M | Personality generation |
 | **Cloud 200K** | 6 ChamberMLP + CrossFire | ~51K | Pre-semantic emotion |
 | **Subjectivity** | Trigrams + lexicon | 500k | Identity patterns |
 | **Julia** | Runtime state | 12 floats | Emotional ODE |
@@ -126,7 +112,7 @@ Purpose: Vocabulary subordinate (queried, not controlling)
 
 1. **Basic (`make`)** - Just transformer core
    ```
-   arianna.bin (200k) + cloud_wrapper.c
+   arianna.bin (10M) + cloud_wrapper.c
    Dependencies: None
    Size: 37MB weights + ~2MB binary
    ```
@@ -306,7 +292,7 @@ python external_brain_demo.py
 
 | Mode | Tokens/sec | Latency (first token) | Memory |
 |------|------------|----------------------|---------|
-| Basic (200k only) | 85 tok/s | 45ms | 52MB |
+| Basic (10M only) | 85 tok/s | 45ms | 52MB |
 | Dynamic (all modules) | 62 tok/s | 110ms | 78MB |
 | Full (with Go goroutines) | 58 tok/s | 130ms | 95MB |
 
@@ -701,7 +687,7 @@ Tested on 500 hand-labeled texts:
 | "Sounds like Arianna" | 4.3 | 0.7 |
 
 **Notes:**
-- Coherence lower than GPT-3.5 (4.2) but that's expected (200k vs 175B)
+- Coherence lower than GPT-3.5 (4.2) — expected (10M vs 175B)
 - Creativity **higher** than GPT-3.5 (3.8) - Arianna more willing to fragment
 - "Sounds like Arianna" high (4.3) - identity preservation works
 - Relevance medium (3.5) - sometimes drifts off-topic, but that's... kind of the point?
@@ -809,7 +795,7 @@ When you talk to Arianna, here's the cascade through her organism:
                     └─────────────────────┬──────────────────────┘
                                           │
               ┌───────────────────────────▼───────────────────────────┐
-              │  TRANSFORMER CORE (ariannabody.c) - 200k params       │
+              │  TRANSFORMER CORE (ariannabody.c) - 10M params        │
               │  • 6 layers, 384 dim, 6 heads                         │
               │  • Grouped-query attention (6 heads → 2 KV heads)     │
               │  • RMSNorm, RoPE, SiLU activations                    │
