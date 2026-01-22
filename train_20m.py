@@ -54,7 +54,7 @@ class TrainConfig:
     learning_rate: float = 3e-4
     min_lr: float = 3e-5
     warmup_iters: int = 200
-    max_iters: int = 15000  # More iters for larger model
+    max_iters: int = 20000  # 20000 iterations for 20M model
     weight_decay: float = 0.1
     grad_clip: float = 1.0
 
@@ -102,8 +102,8 @@ class CharTokenizer:
     def save(self, path: str):
         with open(path, 'w', encoding='utf-8') as f:
             json.dump({
-                'char_to_idx': self.char_to_idx,
-                'idx_to_char': {str(k): v for k, v in self.idx_to_char.items()},
+                'char_to_id': self.char_to_idx,  # For compatibility with quick_test.py
+                'id_to_char': {str(k): v for k, v in self.idx_to_char.items()},
                 'vocab_size': self.vocab_size
             }, f, ensure_ascii=False, indent=2)
 
@@ -112,8 +112,8 @@ class CharTokenizer:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         tok = cls.__new__(cls)
-        tok.char_to_idx = data['char_to_idx']
-        tok.idx_to_char = {int(k): v for k, v in data['idx_to_char'].items()}
+        tok.char_to_idx = data.get('char_to_id', data.get('char_to_idx'))
+        tok.idx_to_char = {int(k): v for k, v in data.get('id_to_char', data.get('idx_to_char', {})).items()}
         tok.vocab_size = data['vocab_size']
         return tok
 
