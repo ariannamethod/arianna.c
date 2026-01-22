@@ -556,7 +556,7 @@ def main():
         # Optimized for H100
         config.batch_size = 128
         config.gradient_accumulation_steps = 2
-        config.max_iters = 15000  # ~440 epochs, enough for convergence
+        config.max_iters = 20000  # ~585 epochs, checkpoints saved every 500
         print("Lambda H100 mode enabled!")
 
     if args.max_iters:
