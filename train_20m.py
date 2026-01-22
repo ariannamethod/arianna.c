@@ -61,7 +61,7 @@ class TrainConfig:
     # Logging
     log_interval: int = 10
     eval_interval: int = 500
-    save_interval: int = 1000
+    save_interval: int = 500  # Save checkpoint every 500 iters
 
     # Paths
     data_path: str = 'd/arianna_unified_corpus.txt'
@@ -556,7 +556,7 @@ def main():
         # Optimized for H100
         config.batch_size = 128
         config.gradient_accumulation_steps = 2
-        config.max_iters = 20000
+        config.max_iters = 15000  # ~440 epochs, enough for convergence
         print("Lambda H100 mode enabled!")
 
     if args.max_iters:
