@@ -376,7 +376,12 @@ func inner_world_dsl_velocity(mode C.int) {
 //export inner_world_dsl_pain
 func inner_world_dsl_pain(level C.float) {
 	// Pain increases trauma and decreases valence
-	Global().State.SetTraumaLevel(Global().State.GetTraumaLevel() + float32(level)*0.3)
+	// Use atomic update to avoid race condition
+	state := Global().State
+	state.mu.Lock()
+	state.TraumaLevel = clamp(state.TraumaLevel+float32(level)*0.3, 0, 1)
+	state.mu.Unlock()
+
 	if ed := Global().GetEmotionalDrift(); ed != nil {
 		ed.Nudge(-float32(level)*0.2, float32(level)*0.1)
 	}

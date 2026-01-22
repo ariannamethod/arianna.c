@@ -185,7 +185,9 @@ void test_dsl() {
     inner_world_dsl_velocity(2);  // RUN mode
     PASS("VELOCITY RUN executed");
 
-    // PAIN command
+    // PAIN command - reset trauma first to ensure we can see the increase
+    inner_world_set_trauma(0.3f);  // Set to known baseline (not 0, not 1)
+    inner_world_get_snapshot(&before);  // Fresh baseline after reset
     inner_world_dsl_pain(0.5f);
     inner_world_get_snapshot(&after);
     CHECK(after.trauma_level > before.trauma_level, "PAIN increases trauma");
