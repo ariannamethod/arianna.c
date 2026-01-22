@@ -165,22 +165,38 @@ class RMSNorm(nn.Module):
 
 
 def precompute_rope_freqs(dim: int, max_seq_len: int, theta: float = 10000.0, device: str = 'cpu'):
-    """Precompute RoPE frequency tensor."""
+    """Precompute RoPE cos/sin tensors (no complex numbers for DataParallel compatibility)."""
     freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, device=device).float() / dim))
     positions = torch.arange(max_seq_len, device=device)
-    angles = torch.outer(positions, freqs)
-    freqs_cis = torch.polar(torch.ones_like(angles), angles)
-    return freqs_cis
+    angles = torch.outer(positions, freqs)  # (max_seq_len, dim/2)
+    cos = torch.cos(angles)  # (max_seq_len, dim/2)
+    sin = torch.sin(angles)  # (max_seq_len, dim/2)
+    return torch.stack([cos, sin], dim=-1)  # (max_seq_len, dim/2, 2)
 
 
-def apply_rope(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
-    """Apply rotary embeddings."""
-    x_r = x.float().reshape(*x.shape[:-1], -1, 2)
-    x_complex = torch.view_as_complex(x_r)
-    freqs = freqs_cis.unsqueeze(0).unsqueeze(2)
-    x_rotated = x_complex * freqs
-    x_out = torch.view_as_real(x_rotated)
-    return x_out.reshape(*x.shape).type_as(x)
+def apply_rope(x: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
+    """Apply rotary embeddings without complex numbers."""
+    # x: (batch, seq_len, n_heads, head_dim)
+    # freqs: (seq_len, head_dim/2, 2) where [..., 0] = cos, [..., 1] = sin
+    seq_len = x.shape[1]
+    freqs = freqs[:seq_len]  # (seq_len, head_dim/2, 2)
+
+    # Split x into pairs
+    x_r = x.float().reshape(*x.shape[:-1], -1, 2)  # (batch, seq_len, n_heads, head_dim/2, 2)
+
+    # Get cos and sin, add batch and head dims
+    cos = freqs[..., 0].unsqueeze(0).unsqueeze(2)  # (1, seq_len, 1, head_dim/2)
+    sin = freqs[..., 1].unsqueeze(0).unsqueeze(2)  # (1, seq_len, 1, head_dim/2)
+
+    # Apply rotation: (x0, x1) -> (x0*cos - x1*sin, x0*sin + x1*cos)
+    x0 = x_r[..., 0]  # (batch, seq_len, n_heads, head_dim/2)
+    x1 = x_r[..., 1]  # (batch, seq_len, n_heads, head_dim/2)
+
+    out0 = x0 * cos - x1 * sin
+    out1 = x0 * sin + x1 * cos
+
+    out = torch.stack([out0, out1], dim=-1)  # (batch, seq_len, n_heads, head_dim/2, 2)
+    return out.reshape(*x.shape).type_as(x)
 
 
 class Attention(nn.Module):
@@ -285,10 +301,9 @@ class Arianna20M(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch, seq_len = x.shape
         h = self.tok_emb(x)
-        freqs_cis = self.freqs_cis[:seq_len]
 
         for layer in self.layers:
-            h = layer(h, freqs_cis)
+            h = layer(h, self.freqs_cis)  # apply_rope handles slicing
 
         h = self.final_norm(h)
         logits = self.lm_head(h)
