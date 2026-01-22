@@ -17,19 +17,20 @@ else
   RPATH_FLAG = -Wl,-rpath,'$$ORIGIN'
 endif
 
-# Go inner_world library
+# Go libraries (inner_world + cloud)
 GO_LIB_DIR = lib
 GO_LDFLAGS = -L$(GO_LIB_DIR) -linner_world $(RPATH_FLAG)
+CLOUD_LDFLAGS = -L$(GO_LIB_DIR) -lcloud $(RPATH_FLAG)
 
 SRC_DIR = src
 BIN_DIR = bin
 
-# Basic version (with Cloud pre-processing)
-SRCS = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/main.c
+# Basic version (Cloud wrapper + Go library)
+SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
-# Dynamic version with full pipeline (includes Lua if available)
-SRCS_DYN_CORE = $(SRC_DIR)/model.c $(SRC_DIR)/cloud.c $(SRC_DIR)/julia_bridge.c \
+# Dynamic version with full pipeline (Cloud in Go via wrapper)
+SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/julia_bridge.c \
            $(SRC_DIR)/schumann.c $(SRC_DIR)/pandora.c $(SRC_DIR)/delta.c \
            $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c \
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
@@ -69,7 +70,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib both lua
+.PHONY: all clean dynamic full go-lib cloud-lib both lua
 
 all: $(TARGET)
 
@@ -81,11 +82,15 @@ full: go-lib $(TARGET_FULL)
 
 both: $(TARGET) $(TARGET_DYN)
 
-# Build Go library
-go-lib:
-	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) .
+# Build Go libraries (inner_world + cloud)
+go-lib: cloud-lib
+	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) inner_world.go
 	@mkdir -p $(GO_LIB_DIR)
 	cp inner_world/libinner_world.$(DYLIB_EXT) $(GO_LIB_DIR)/
+
+cloud-lib:
+	cd inner_world && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libcloud.$(DYLIB_EXT) cloud.go
+	@mkdir -p $(GO_LIB_DIR)
 
 $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	@mkdir -p $(BIN_DIR)

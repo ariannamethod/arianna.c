@@ -331,8 +331,16 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         effective_temp = adjust_temperature_by_mood(&g_mood_router, temperature);
     }
 
-    // Generate
-    printf("%s", prompt);
+    // Generate into buffer (for trim to sentence end)
+    char generated[MAX_SEQ_LEN * 2];
+    int gen_idx = 0;
+
+    // Copy prompt to buffer
+    int prompt_len = strlen(prompt);
+    for (int i = 0; i < prompt_len && gen_idx < MAX_SEQ_LEN * 2 - 1; i++) {
+        generated[gen_idx++] = prompt[i];
+    }
+
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
         // Apply guided attention bias to logits
         if (g_guided_enabled) {
@@ -356,7 +364,12 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             next_token = sample(t, effective_temp);
         }
         tokens[n_tokens] = next_token;
-        putchar(token_to_char(next_token));
+
+        // Add to buffer instead of putchar
+        char c = token_to_char(next_token);
+        if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
+            generated[gen_idx++] = c;
+        }
 
         // Re-route periodically (every 16 tokens for responsive mood shifts)
         if (n_tokens > 0 && n_tokens % 16 == 0) {
@@ -404,7 +417,21 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
         n_tokens++;
     }
-    printf("\n");
+    generated[gen_idx] = '\0';
+
+    // Trim to last sentence end (.!?) — like dubrovsky
+    int last_end = -1;
+    for (int j = prompt_len; j < gen_idx; j++) {
+        if (generated[j] == '.' || generated[j] == '!' || generated[j] == '?') {
+            last_end = j;
+        }
+    }
+    if (last_end >= 0) {
+        generated[last_end + 1] = '\0';
+    }
+
+    // Print trimmed output
+    printf("%s\n", generated);
 }
 
 // ============================================================
@@ -1829,12 +1856,15 @@ int main(int argc, char** argv) {
             amk_prophecy = atoi(argv[++arg_idx]);
         } else if (strcmp(argv[arg_idx], "-amk") == 0 && arg_idx + 1 < argc) {
             amk_script = argv[++arg_idx];
-        } else if (prompt == NULL) {
+        } else if (prompt == NULL && !repl_mode) {
+            // In non-REPL mode, first positional arg is prompt
             prompt = argv[arg_idx];
         } else if (max_tokens_set == 0) {
+            // Next positional arg is max_tokens (works for both REPL and non-REPL)
             max_tokens = atoi(argv[arg_idx]);
             max_tokens_set = 1;
         } else {
+            // Last positional arg is temperature
             temperature = atof(argv[arg_idx]);
         }
         arg_idx++;
@@ -1899,6 +1929,10 @@ int main(int argc, char** argv) {
             printf("Julia: not available (install Julia + JSON3 to enable)\n");
         }
     }
+
+    // Initialize Cloud (pre-semantic emotion detection)
+    // Calls Go library via cloud_wrapper.c
+    cloud_init();
 
     // Initialize Schumann resonance (Earth's heartbeat)
     // Always enabled — this is cosmic input, not optional
