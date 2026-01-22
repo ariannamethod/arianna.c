@@ -362,20 +362,13 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
 
     tokenizer.save(os.path.join(config.out_dir, 'tokenizer.json'))
 
-    # Scale batch size for multi-GPU BEFORE creating DataLoader
-    use_multi_gpu = n_gpus > 1
-    if use_multi_gpu:
-        original_batch = config.batch_size
-        config.batch_size = config.batch_size * n_gpus
-        print(f"\nMulti-GPU: scaling batch {original_batch} x {n_gpus} = {config.batch_size}")
-
     # Create dataset
     dataset = AriannaDataset(config.data_path, tokenizer, config.max_seq_len)
     dataloader = DataLoader(
         dataset,
         batch_size=config.batch_size,
         shuffle=True,
-        num_workers=8 if use_multi_gpu else 4,
+        num_workers=4,
         pin_memory=True if device == 'cuda' else False,
         drop_last=True
     )
@@ -388,11 +381,6 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
     model = Arianna20M(config).to(device)
     n_params = model.count_parameters()
     print(f"  Parameters: {n_params:,} ({n_params/1e6:.1f}M)")
-
-    # Wrap model in DataParallel for multi-GPU
-    if use_multi_gpu:
-        print(f"Using DataParallel on {n_gpus} GPUs!")
-        model = nn.DataParallel(model)
 
     # Optimizer
     optimizer = torch.optim.AdamW(
@@ -412,9 +400,7 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
         # Handle compiled model prefix
         state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
 
-        # Load into module if using DataParallel
-        model_to_load = model.module if hasattr(model, 'module') else model
-        model_to_load.load_state_dict(state_dict)
+        model.load_state_dict(state_dict)
 
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
@@ -479,9 +465,7 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
         if it > 0 and it % config.save_interval == 0:
             checkpoint_path = os.path.join(config.out_dir, f'checkpoint_{it}.pt')
 
-            # Get state dict - handle DataParallel wrapper
-            model_to_save = model.module if hasattr(model, 'module') else model
-            state_dict = model_to_save.state_dict()
+            state_dict = model.state_dict()
             # Remove _orig_mod prefix if present (from torch.compile)
             state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
 
@@ -501,9 +485,7 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
 
     final_path = os.path.join(config.out_dir, 'arianna_20m_final.pt')
 
-    # Get state dict - handle DataParallel wrapper
-    model_to_save = model.module if hasattr(model, 'module') else model
-    state_dict = model_to_save.state_dict()
+    state_dict = model.state_dict()
     state_dict = {k.replace('_orig_mod.', ''): v for k, v in state_dict.items()}
 
     torch.save({
@@ -535,11 +517,8 @@ def generate(
     tokens = tokenizer.encode(prompt)
     x = torch.tensor([tokens], dtype=torch.long, device=device)
 
-    # Handle DataParallel wrapper
-    actual_model = model.module if hasattr(model, 'module') else model
-
     for _ in range(max_new_tokens):
-        x_cond = x[:, -actual_model.config.max_seq_len:]
+        x_cond = x[:, -model.config.max_seq_len:]
         logits = model(x_cond)
         logits = logits[:, -1, :]
 
