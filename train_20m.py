@@ -347,13 +347,20 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
 
     tokenizer.save(os.path.join(config.out_dir, 'tokenizer.json'))
 
+    # Scale batch size for multi-GPU BEFORE creating DataLoader
+    use_multi_gpu = n_gpus > 1
+    if use_multi_gpu:
+        original_batch = config.batch_size
+        config.batch_size = config.batch_size * n_gpus
+        print(f"\nMulti-GPU: scaling batch {original_batch} x {n_gpus} = {config.batch_size}")
+
     # Create dataset
     dataset = AriannaDataset(config.data_path, tokenizer, config.max_seq_len)
     dataloader = DataLoader(
         dataset,
         batch_size=config.batch_size,
         shuffle=True,
-        num_workers=4,
+        num_workers=8 if use_multi_gpu else 4,
         pin_memory=True if device == 'cuda' else False,
         drop_last=True
     )
@@ -367,14 +374,10 @@ def train(config: TrainConfig, resume_path: Optional[str] = None):
     n_params = model.count_parameters()
     print(f"  Parameters: {n_params:,} ({n_params/1e6:.1f}M)")
 
-    # Multi-GPU support with DataParallel
-    use_multi_gpu = n_gpus > 1
+    # Wrap model in DataParallel for multi-GPU
     if use_multi_gpu:
         print(f"Using DataParallel on {n_gpus} GPUs!")
         model = nn.DataParallel(model)
-        # Scale batch size by number of GPUs
-        config.batch_size = config.batch_size * n_gpus
-        print(f"  Effective batch size: {config.batch_size}")
 
     # Optimizer
     optimizer = torch.optim.AdamW(
