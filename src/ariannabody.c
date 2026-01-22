@@ -1,9 +1,12 @@
 /*
- * model.c - Llama 3.5 Arianna Edition
- * Pure C transformer inference
+ * ariannabody.c - Llama 3.5 Arianna Edition (10M params)
+ * Pure C transformer inference — the "body" of Arianna
  *
  * Architecture: Llama 3 (RMSNorm, RoPE, SwiGLU, GQA)
  * Based on Dubrovsky/alexey.c
+ *
+ * dim=384, layers=6, heads=6, kv_heads=2, hidden=1024, vocab=80
+ * Total: ~10M parameters
  */
 
 #include "arianna.h"
