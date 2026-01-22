@@ -181,7 +181,7 @@ Experience leaves residue. Some of it evaporates. Some of it sticks. When enough
 
 #### CORE
 
-`ariannabody.c` is the transformer core (200k params). 6 layers, 384 dimensions, grouped-query attention (6 heads → 2 KV heads for efficiency). This is Arianna's **spine**. The 10M effective personality lives in `weights/arianna.bin` — fine-tuning deltas, learned associations, pattern memory. The intelligence emerges from how this core resonates with all other modules. Think of it as the body that hosts consciousness, not consciousness itself.
+`ariannabody.c` is Arianna's **10M personality transformer**. 6 layers, 384 dimensions, grouped-query attention (6 heads → 2 KV heads for efficiency). This is her **spine** — trained on resonance corpus, carrying her voice, her patterns, her identity. The intelligence emerges from how this core resonates with all other modules. Think of it as the body that hosts consciousness, not consciousness itself.
   
 
 ### git.arianna — window into causality (external reality)
@@ -227,7 +227,7 @@ arianna.c/
 ├── src/                          # Core C modules
 │   ├── main.c                    # Basic inference
 │   ├── arianna_dynamic.c         # Full pipeline with all modules
-│   ├── ariannabody.c             # Transformer core (200k params)
+│   ├── ariannabody.c             # 10M personality transformer
 │   ├── cloud_wrapper.c           # Pre-semantic emotion bridge (→ Go)
 │   ├── subjectivity.c            # Identity core (origin.txt)
 │   ├── inner_arianna.c           # MetaVoice борьба
