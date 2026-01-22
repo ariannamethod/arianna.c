@@ -85,7 +85,7 @@ This is her personality — her voice, her patterns, her identity. Trained end-t
 | Module | Type | Count | Purpose |
 |--------|------|-------|---------|
 | **Transformer Core** | Float32 weights | 10M | Personality generation |
-| **Cloud 200K** | 6 ChamberMLP + CrossFire | ~51K | Pre-semantic emotion |
+| **Cloud 200K** | 6 ChamberMLP + CrossFire | ~181K | Pre-semantic emotion |
 | **Subjectivity** | Trigrams + lexicon | 500k | Identity patterns |
 | **Julia** | Runtime state | 12 floats | Emotional ODE |
 | **AMK** | Config params | ~20 | Prophecy physics |
@@ -640,11 +640,12 @@ Trained on 1000 arithmetic problems (addition and subtraction, curriculum learni
 ```
 Chamber MLP (each):
   Input: 100 float32 (pre-computed text resonance)
-  Hidden1: 100 → 64 (ReLU)
-  Hidden2: 64 → 32 (ReLU)
+  Hidden1: 100 → 128 (Swish)
+  Hidden2: 128 → 64 (Swish)
+  Hidden3: 64 → 32 (Swish)
   Output: 32 → 1 (Sigmoid)
-  Parameters: ~8,500 each
-  Total: ~51,000 params
+  Parameters: ~23,297 each
+  Total: ~181,000 params (6 chambers + observer)
 
 CrossFire Stabilization:
   Coupling matrix: 6×6 with learned coefficients

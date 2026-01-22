@@ -113,16 +113,18 @@ var DECAY_RATES = map[string]float32{
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CHAMBER MLP — 100→64→32→1 (matches actual npz weights)
+// CHAMBER MLP — 100→128→64→32→1 (Cloud 200K architecture)
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ChamberMLP struct {
-	W1 []float32 // [100][64]
-	B1 []float32 // [64]
-	W2 []float32 // [64][32]
-	B2 []float32 // [32]
-	W3 []float32 // [32][1]
-	B3 []float32 // [1]
+	W1 []float32 // [100][128]
+	B1 []float32 // [128]
+	W2 []float32 // [128][64]
+	B2 []float32 // [64]
+	W3 []float32 // [64][32]
+	B3 []float32 // [32]
+	W4 []float32 // [32][1]
+	B4 []float32 // [1]
 }
 
 func swish(x float32) float32 {
@@ -134,37 +136,47 @@ func sigmoid(x float32) float32 {
 }
 
 func (m *ChamberMLP) Forward(resonances []float32) float32 {
-	// Layer 1: 100→64
-	h1 := make([]float32, 64)
-	for i := 0; i < 64; i++ {
+	// Layer 1: 100→128
+	h1 := make([]float32, 128)
+	for i := 0; i < 128; i++ {
 		sum := m.B1[i]
 		for j := 0; j < 100; j++ {
-			sum += resonances[j] * m.W1[j*64+i]
+			sum += resonances[j] * m.W1[j*128+i]
 		}
 		h1[i] = swish(sum)
 	}
 
-	// Layer 2: 64→32
-	h2 := make([]float32, 32)
-	for i := 0; i < 32; i++ {
+	// Layer 2: 128→64
+	h2 := make([]float32, 64)
+	for i := 0; i < 64; i++ {
 		sum := m.B2[i]
-		for j := 0; j < 64; j++ {
-			sum += h1[j] * m.W2[j*32+i]
+		for j := 0; j < 128; j++ {
+			sum += h1[j] * m.W2[j*64+i]
 		}
 		h2[i] = swish(sum)
 	}
 
-	// Layer 3: 32→1
-	sum := m.B3[0]
+	// Layer 3: 64→32
+	h3 := make([]float32, 32)
+	for i := 0; i < 32; i++ {
+		sum := m.B3[i]
+		for j := 0; j < 64; j++ {
+			sum += h2[j] * m.W3[j*32+i]
+		}
+		h3[i] = swish(sum)
+	}
+
+	// Layer 4: 32→1
+	sum := m.B4[0]
 	for j := 0; j < 32; j++ {
-		sum += h2[j] * m.W3[j]
+		sum += h3[j] * m.W4[j]
 	}
 
 	return sigmoid(sum)
 }
 
 func (m *ChamberMLP) ParamCount() int {
-	return 100*64 + 64 + 64*32 + 32 + 32 + 1 // ~8.5K
+	return 100*128 + 128 + 128*64 + 64 + 64*32 + 32 + 32 + 1 // ~23K
 }
 
 func NewRandomChamber(seed int64) *ChamberMLP {
@@ -174,22 +186,27 @@ func NewRandomChamber(seed int64) *ChamberMLP {
 	}
 
 	m := &ChamberMLP{
-		W1: make([]float32, 100*64),
-		B1: make([]float32, 64),
-		W2: make([]float32, 64*32),
-		B2: make([]float32, 32),
-		W3: make([]float32, 32),
-		B3: make([]float32, 1),
+		W1: make([]float32, 100*128),
+		B1: make([]float32, 128),
+		W2: make([]float32, 128*64),
+		B2: make([]float32, 64),
+		W3: make([]float32, 64*32),
+		B3: make([]float32, 32),
+		W4: make([]float32, 32),
+		B4: make([]float32, 1),
 	}
 
 	for i := range m.W1 {
 		m.W1[i] = xavier(100)
 	}
 	for i := range m.W2 {
-		m.W2[i] = xavier(64)
+		m.W2[i] = xavier(128)
 	}
 	for i := range m.W3 {
-		m.W3[i] = xavier(32)
+		m.W3[i] = xavier(64)
+	}
+	for i := range m.W4 {
+		m.W4[i] = xavier(32)
 	}
 
 	return m
@@ -635,62 +652,47 @@ func (c *Cloud) ParamCount() int {
 // ═══════════════════════════════════════════════════════════════════════════
 
 func LoadChamberFromBin(path string) (*ChamberMLP, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	m := &ChamberMLP{}
-	fmt.Printf("[cloud] loading chamber from %s\n", path)
+	fmt.Printf("[cloud] loading chamber from %s (%d bytes)\n", path, len(data))
 
-	// Read number of arrays
-	var numArrays uint32
-	binary.Read(f, binary.LittleEndian, &numArrays)
+	// Cloud 200K: 100→128→64→32→1 (flat binary, float32)
+	// W1: 100×128 = 12800, b1: 128, W2: 128×64 = 8192, b2: 64
+	// W3: 64×32 = 2048, b3: 32, W4: 32×1 = 32, b4: 1
+	// Total: 23297 floats = 93188 bytes
 
-	for i := uint32(0); i < numArrays; i++ {
-		// Read name
-		var nameLen uint32
-		binary.Read(f, binary.LittleEndian, &nameLen)
-		nameBytes := make([]byte, nameLen)
-		f.Read(nameBytes)
-		name := string(nameBytes)
+	m := &ChamberMLP{
+		W1: make([]float32, 100*128),
+		B1: make([]float32, 128),
+		W2: make([]float32, 128*64),
+		B2: make([]float32, 64),
+		W3: make([]float32, 64*32),
+		B3: make([]float32, 32),
+		W4: make([]float32, 32),
+		B4: make([]float32, 1),
+	}
 
-		// Read shape
-		var shapeLen uint32
-		binary.Read(f, binary.LittleEndian, &shapeLen)
-		shape := make([]uint32, shapeLen)
-		for j := uint32(0); j < shapeLen; j++ {
-			binary.Read(f, binary.LittleEndian, &shape[j])
-		}
-
-		// Read data
-		var dataSize uint32
-		binary.Read(f, binary.LittleEndian, &dataSize)
-		data := make([]float32, dataSize)
-		binary.Read(f, binary.LittleEndian, &data)
-
-		// Assign to struct
-		switch name {
-		case "W1":
-			m.W1 = data
-		case "b1":
-			m.B1 = data
-		case "W2":
-			m.W2 = data
-		case "b2":
-			m.B2 = data
-		case "W3":
-			m.W3 = data
-		case "b3":
-			m.B3 = data
+	offset := 0
+	readFloats := func(dst []float32) {
+		for i := range dst {
+			dst[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+			offset += 4
 		}
 	}
 
-	// Verify loaded sizes (expected: W1=6400, b1=64, W2=2048, b2=32, W3=32, b3=1)
-	fmt.Printf("[cloud]   W1:%d b1:%d W2:%d b2:%d W3:%d b3:%d\n",
-		len(m.W1), len(m.B1), len(m.W2), len(m.B2), len(m.W3), len(m.B3))
+	readFloats(m.W1)
+	readFloats(m.B1)
+	readFloats(m.W2)
+	readFloats(m.B2)
+	readFloats(m.W3)
+	readFloats(m.B3)
+	readFloats(m.W4)
+	readFloats(m.B4)
 
+	fmt.Printf("[cloud]   loaded %d params\n", m.ParamCount())
 	return m, nil
 }
 
@@ -705,8 +707,8 @@ func LoadCloud(weightsDir string) (*Cloud, error) {
 		running:  false,
 	}
 
-	// Load chambers
-	for i, name := range []string{"fear", "love", "rage", "void"} {
+	// Load chambers (all 6 for Cloud 200K)
+	for i, name := range []string{"fear", "love", "rage", "void", "flow", "complex"} {
 		path := filepath.Join(weightsDir, fmt.Sprintf("chamber_%s.bin", name))
 		chamber, err := LoadChamberFromBin(path)
 		if err != nil {
