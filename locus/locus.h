@@ -104,7 +104,9 @@ int locus_is_tense(Locus* l);
 int locus_is_wounded(Locus* l);
 int locus_is_hollow(Locus* l);
 int locus_is_prophetic(Locus* l);
+int locus_is_drowning(Locus* l);
 int locus_is_flowing(Locus* l);
+int locus_is_sacred(Locus* l);
 
 #ifdef __cplusplus
 }
