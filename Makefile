@@ -84,12 +84,12 @@ both: $(TARGET) $(TARGET_DYN)
 
 # Build Go libraries (inner_world + cloud)
 go-lib: cloud-lib
-	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) inner_world.go
+	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) .
 	@mkdir -p $(GO_LIB_DIR)
 	cp inner_world/libinner_world.$(DYLIB_EXT) $(GO_LIB_DIR)/
 
 cloud-lib:
-	cd inner_world && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libcloud.$(DYLIB_EXT) cloud.go
+	cd inner_world && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libcloud.$(DYLIB_EXT) .
 	@mkdir -p $(GO_LIB_DIR)
 
 $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
