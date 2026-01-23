@@ -8,6 +8,11 @@ bin/test_*
 inner_world/libinner_world.h
 inner_world/test_inner_world
 
+# Locus compiled files
+locus/*.o
+locus/*.a
+locus/locus_test
+
 # Python
 __pycache__/
 *.pyc
