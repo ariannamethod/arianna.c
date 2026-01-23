@@ -226,6 +226,11 @@ $(TEST_BIN_DIR)/test_delta: $(TEST_DIR)/test_delta.c $(SRC_DIR)/delta.c $(SRC_DI
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
+test_vagus_delta: $(TEST_BIN_DIR)/test_vagus_delta
+$(TEST_BIN_DIR)/test_vagus_delta: $(TEST_DIR)/test_vagus_delta.c $(SRC_DIR)/vagus_delta.c $(SRC_DIR)/delta.c $(SRC_DIR)/schumann.c locus/locus.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -Ilocus -Ivagus $^ -o $@ $(LDFLAGS)
+
 # Go race tests (requires Go)
 test_go_race:
 	@echo "[test] Running Go race tests..."
