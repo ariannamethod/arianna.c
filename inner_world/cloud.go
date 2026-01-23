@@ -443,7 +443,7 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 				// Special case: if chamber detected something significant (> 0.2 initial),
 				// preserve at least 0.35 to pass thresholds
 				if initialActivations[i] > 0.2 {
-					floor = max(floor, 0.35)
+					floor = max32(floor, 0.35)
 				}
 
 				if activations[i] < floor {
@@ -463,7 +463,7 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 		// Special case: if chamber detected something significant (> 0.2 initial),
 		// preserve at least 0.35 to pass thresholds
 		if initialActivations[i] > 0.2 {
-			floor = max(floor, 0.35)
+			floor = max32(floor, 0.35)
 		}
 
 		if activations[i] < floor {
@@ -867,4 +867,6 @@ func cloud_free() {
 	globalCloud = nil
 	lastResponse = nil
 }
+
+// main required for buildmode=c-shared
 func main() {}

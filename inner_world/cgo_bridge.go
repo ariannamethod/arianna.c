@@ -446,6 +446,3 @@ func inner_world_save_config(path *C.char) C.int {
 	}
 	return 1
 }
-
-// main is required for buildmode=c-shared
-func main() {}
