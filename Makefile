@@ -216,6 +216,21 @@ $(TEST_BIN_DIR)/test_ariannabody_extended: $(TEST_DIR)/test_ariannabody_extended
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
+test_sampling_edge_cases: $(TEST_BIN_DIR)/test_sampling_edge_cases
+$(TEST_BIN_DIR)/test_sampling_edge_cases: $(TEST_DIR)/test_sampling_edge_cases.c $(SRC_DIR)/ariannabody.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_delta: $(TEST_BIN_DIR)/test_delta
+$(TEST_BIN_DIR)/test_delta: $(TEST_DIR)/test_delta.c $(SRC_DIR)/delta.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+# Go race tests (requires Go)
+test_go_race:
+	@echo "[test] Running Go race tests..."
+	cd inner_world && go test -race -v ./...
+
 # Run all tests
 tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended
 	@echo ""
