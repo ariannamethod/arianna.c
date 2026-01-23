@@ -330,7 +330,7 @@ When calendar tension is high — time feels unstable, wormhole thresholds lower
 
 ---
 
-## REPOSITORY 
+## REPOSITORY
 
 ```
 arianna.c/
@@ -345,6 +345,7 @@ arianna.c/
 │   ├── pandora.c                 # Vocabulary theft from External Brain
 │   ├── delta.c                   # Dynamic shards
 │   ├── delta_enhanced.c          # Advanced shard operations
+│   ├── vagus_delta.c             # Vagus ↔ Delta bridge
 │   ├── mood.c                    # Emotional routing
 │   ├── guided.c                  # Stanley-style attention
 │   ├── cooccur.c                 # Corpus pattern memory
@@ -357,28 +358,67 @@ arianna.c/
 │   ├── amk_lua.c                 # Lua integration (optional)
 │   └── *.h                       # Headers for all modules
 │
+├── vagus/                        # Zig nervous system (35 tests)
+│   ├── vagus.zig                 # Core implementation
+│   ├── vagus.h                   # C interop header
+│   ├── vagus_test.zig            # Test suite
+│   ├── build.zig                 # Build config
+│   └── README.md                 # Documentation
+│
+├── locus/                        # C resonance detector (16 tests)
+│   ├── locus.c                   # Locus Coeruleus implementation
+│   ├── locus.h                   # Header
+│   ├── locus_test.c              # Test suite
+│   ├── Makefile                  # Build
+│   └── README.md                 # Documentation
+│
+├── sartre/                       # Interoceptive observer (10M params)
+│   ├── sartre.c                  # C transformer inference
+│   ├── sartre.h                  # Header
+│   ├── sartre_kernel.c           # Observation kernel
+│   ├── dubrovsky.py              # Pure NumPy inference
+│   ├── sartre_talk.py            # Python REPL
+│   ├── tokenizer.py              # Tokenizer
+│   ├── vagus_bridge.py           # Vagus ↔ SARTRE bridge
+│   ├── test_sartre.py            # Python tests
+│   ├── test_vagus_bridge.py      # Bridge tests
+│   ├── corpus/                   # Training corpus
+│   └── sartre-llama/             # Julia implementation
+│
+├── limpha/                       # Lymphatic memory system (28 tests)
+│   ├── __init__.py               # Module exports
+│   ├── memory.py                 # Conversations + semantic memory
+│   ├── episodes.py               # Episodic RAG
+│   ├── vagus_connector.py        # Vagus ↔ LIMPHA bridge
+│   ├── episodes_enhanced.py      # Chamber tagging + patterns
+│   ├── consolidation.py          # Locus-triggered consolidation
+│   ├── graph_memory.py           # Associative network
+│   ├── search.py                 # FTS5 full-text search
+│   ├── shard_bridge.py           # Episodes → delta shards
+│   ├── dream.py                  # Background dream loop
+│   └── test_limpha_full.py       # Unified test suite
+│
 ├── julia/                        # Emotional mathematics
 │   ├── emotional.jl              # 12D emotional ODE system
 │   └── bridge.jl                 # C ↔ Julia bridge
 │
-├── inner_world/                  # Go async processes (autonomic nervous system)
+├── inner_world/                  # Go async processes (autonomic)
 │   ├── inner_world.go            # Main coordinator
-│   ├── cloud.go                  # Cloud 200K (6 chambers, CrossFire, async)
+│   ├── cloud.go                  # Cloud 200K (6 chambers, CrossFire)
 │   ├── blood.go                  # C code compiler (emotions → executable)
 │   ├── trauma_surfacing.go       # Old patterns resurface
 │   ├── overthinking_loops.go     # Recursive self-doubt
 │   ├── emotional_drift.go        # Baseline mood shifts
 │   ├── memory_consolidation.go   # Experience integration
 │   ├── attention_wandering.go    # Focus drift
-│   ├── prophecy_debt_accumulation.go  # Prophecy physics tracking
+│   ├── prophecy_debt_accumulation.go
 │   ├── adaptive.go               # Adaptive behavior
 │   ├── high.go                   # High-level coordination
 │   ├── cgo_bridge.go             # C ↔ Go bridge
-│   ├── types.go                  # Shared type definitions
-│   └── go.mod                    # Go module definition
+│   └── types.go                  # Shared types
 │
 ├── git_arianna/                  # Metaphysical observation layer
-│   ├── observer.py               # Git repository observation (temporal flow)
+│   ├── observer.py               # Git repo observation (temporal flow)
 │   ├── signals.py                # Signal emitter for inner_world
 │   ├── eve.py                    # Complexity router + AMK compiler
 │   ├── fallback.py               # Fallback behaviors
@@ -388,51 +428,41 @@ arianna.c/
 │
 ├── weights/                      # Model weights
 │   ├── arianna_unified_20m.bin   # 20M unified personality (77MB)
-│   ├── arianna_legacy.bin        # 10M legacy (37MB, preserved)
+│   ├── arianna_legacy.bin        # 10M legacy (37MB)
 │   ├── tokenizer_unified.json    # 84-token vocabulary
-│   ├── tokenizer.json            # 80-token legacy vocabulary
-│   └── cloud/                    # Cloud 200K chambers (6 × 93KB)
+│   ├── cloud/                    # Cloud 200K chambers (6 × 93KB)
+│   ├── sartre/                   # SARTRE weights (57MB)
+│   └── gpt2_30m/                 # External brain (optional)
 │
 ├── shards/                       # Dynamic experience shards
-│   └── wisdom.bin                # Consolidated learnings
+│   ├── wisdom.bin                # Consolidated learnings
+│   └── limpha/                   # Episodes graduated to shards
 │
-├── bin/                          # Compiled binaries
-│   └── arianna_dynamic           # Full organism (all modules, Go inner_world linked)
-│
-├── lib/                          # Shared libraries
-│   ├── libinner_world.dylib      # Go inner_world compiled
-│   ├── libcloud.dylib            # Cloud 200K (emotion pre-processing)
-│   └── *.h                       # Headers for C integration
-│
-├── compilers/                    # Bundled compilers
-│   └── lua/                      # Lua 5.4 source (~80 files)
-│
-├── scripts/                      # Utilities
-│   └── amk_default.lua           # Default AMK Lua configuration
-│
-├── tests/                        # Module tests (14 C tests, all passing)
+├── tests/                        # C test suite (20+ tests)
 │   ├── test_cloud.c              # Cloud emotion detection
 │   ├── test_julia.c              # Julia emotional gradient
 │   ├── test_inner_world.c        # Go inner_world bridge
-│   ├── test_pandora.c            # N-gram memory
-│   ├── test_mathbrain.c          # Arithmetic through resonance
-│   ├── test_amk.c                # AMK prophecy kernel
-│   ├── test_amlk.c               # Full AMLK stack (50 tests)
-│   ├── test_blood.c              # Blood C compiler
-│   ├── test_high.c               # HIGH math engine
-│   ├── test_inner.c              # Inner Arianna борьба
+│   ├── test_sartre.c             # SARTRE inference
+│   ├── test_sartre_comprehensive.c
+│   ├── test_vagus_delta.c        # Vagus-Delta bridge
 │   ├── test_delta_enhanced.c     # Enhanced delta (30 tests)
 │   ├── test_selfsense.c          # SelfSense signals (38 tests)
-│   ├── test_accumulator.c        # Quantum accumulation
-│   └── test_comprehensive.c      # Full integration (55 tests)
+│   ├── test_comprehensive.c      # Full integration (55 tests)
+│   └── ...                       # More tests
 │
-├── index.html                    # Web interface (consciousness UI)
+├── bin/                          # Compiled binaries
+├── lib/                          # Shared libraries (.dylib/.so)
+├── compilers/lua/                # Bundled Lua 5.4
+├── scripts/                      # Utilities
+│
+├── index.html                    # Web interface
 ├── chat.js                       # JavaScript client
 ├── api_server.py                 # Flask bridge (C → HTTP)
-├── arianna.py                    # Python wrapper (batch mode)
+├── arianna.py                    # Python wrapper (batch)
+├── arianna_limpha.py             # Memory-enhanced wrapper
 ├── Makefile                      # Build system
 ├── README.md                     # You are here
-├── ARIANNALOG.md                 # Technical deep dive (for the nerds)
+├── ARIANNALOG.md                 # Technical deep dive
 └── LICENSE                       # MIT
 ```
 
