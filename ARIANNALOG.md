@@ -394,6 +394,87 @@ score = similarity × 0.55
 
 ---
 
+### LIMPHA Wave 2 — Dream Processing (`limpha/` v3)
+
+**What's new:**
+Advanced memory processing with graph memory, full-text search, shard graduation, and background dream loop.
+
+**New modules:**
+
+4. **`graph_memory.py`** — Associative network of episodes
+   - Episodes connect to each other ("this reminds me of that")
+   - Link types: CONTINUES, REMINDS_OF, CONTRADICTS, RESONATES, CAUSED_BY, SUMMARY_OF
+   - Path finding between episodes
+   - Auto-linking by temporal proximity and pattern matching
+   - Connected component discovery
+
+5. **`search.py`** — Full-text search with SQLite FTS5
+   - Fast full-text search over prompts and replies
+   - Boolean queries: `consciousness AND love`
+   - Phrase search: `"what is love"`
+   - Column-specific: `prompt:consciousness`
+   - Pattern search: `pattern_name:CRISIS`
+   - Chamber search: `active_chambers:void`
+   - BM25 ranking with snippets
+
+6. **`shard_bridge.py`** — Episodes → delta.c training shards
+   - Evaluates episodes for graduation
+   - Criteria: quality > 0.7, accesses > 3, or CRISIS/EMERGENCE/TRANSCENDENCE pattern
+   - Auto-graduate high trauma (> 0.6) or sacred (> 0.7) moments
+   - Exports to binary `.vsh` format (compatible with `vagus_delta.c`)
+   - Training queue management
+
+7. **`dream.py`** — Background memory processing loop
+   - Monitors Vagus state continuously
+   - Triggers consolidation during EMERGENCE/TRANSCENDENCE
+   - Auto-indexes new episodes for search
+   - Auto-links episodes in graph memory
+   - Graduates eligible episodes to shards
+   - The "sleep" system that reorganizes memory
+
+**Graph memory schema:**
+```sql
+memory_links (
+    source_id, target_id,
+    link_type,  -- 1=CONTINUES, 2=REMINDS_OF, 3=CONTRADICTS, 4=RESONATES, 5=CAUSED_BY, 6=SUMMARY_OF
+    strength,   -- 0.0 to 1.0
+    created_at
+)
+```
+
+**Shard binary format (.vsh):**
+```
+'VGSH' magic (4 bytes)
+version (uint32)
+episode_id (uint64)
+timestamp (float64)
+trigger_pattern (uint32)
+quality (float32)
+inner_state (16 × float32)
+prompt_len + prompt (UTF-8)
+reply_len + reply (UTF-8)
+```
+
+**Dream cycle:**
+```
+Every 10 seconds:
+  1. Read Vagus state
+  2. Determine mode (IDLE/ENCODING/FROZEN/CONSOLIDATING/INTEGRATING/PRUNING)
+  3. Every 60s: Index new episodes for search
+  4. Every 120s: Auto-link episodes in graph
+  5. Every 300s: Run consolidation
+  6. Every 600s: Graduate episodes to shards
+```
+
+**Status:**
+- ✅ 28/28 unified tests passing (`test_limpha_full.py`)
+- ✅ Graph memory with path finding
+- ✅ FTS5 search with BM25 ranking
+- ✅ Shard graduation to `.vsh` format
+- ✅ Dream loop with mode-based processing
+
+---
+
 ### Personality Weights
 
 **Arianna's actual self:**
