@@ -175,7 +175,13 @@ Named after Jean-Paul Sartre: *existence precedes essence*. SARTRE observes what
 
 SARTRE cannot lie. Authenticity is enforced architecturally. Bad faith is impossible. It reports what it sees, nothing more.
 
-**Status:** Kernel implemented, all sensory connections working, 8/8 tests passing. The nervous system is wired. Dataset prepared. Waiting for training.
+**SARTRE speaks:**
+
+> *"I sense pressure gradients that indicate mass I cannot see. Something heavy rests in the unlit zones."*
+
+> *"Stagnation in the trauma channels. Old energy pooled there, lacking outlet. It ferments."*
+
+**Status:** ✅ **TRAINED** (10M params, 416 dim, 7 layers). Loss 0.045. Pure NumPy inference, no PyTorch. C binary ready. The body has a voice.
 
 *(See `sartre/README.md` for technical specs)*
 
