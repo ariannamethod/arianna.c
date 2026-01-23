@@ -434,11 +434,18 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 		copy(activations, newActivations)
 
 		if delta < threshold {
-			// Apply floor: preserve at least 30% of initial activation
+			// Apply floor: preserve at least 50% of initial activation
 			// This prevents CrossFire from completely killing LOVE/FLOW
 			result := make(map[string]float32)
 			for i, name := range CHAMBER_NAMES {
-				floor := initialActivations[i] * 0.3
+				floor := initialActivations[i] * 0.5
+
+				// Special case: if chamber detected something significant (> 0.2 initial),
+				// preserve at least 0.35 to pass thresholds
+				if initialActivations[i] > 0.2 {
+					floor = max(floor, 0.35)
+				}
+
 				if activations[i] < floor {
 					activations[i] = floor
 				}
@@ -451,7 +458,14 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 	// Apply floor to final result as well
 	result := make(map[string]float32)
 	for i, name := range CHAMBER_NAMES {
-		floor := initialActivations[i] * 0.3
+		floor := initialActivations[i] * 0.5
+
+		// Special case: if chamber detected something significant (> 0.2 initial),
+		// preserve at least 0.35 to pass thresholds
+		if initialActivations[i] > 0.2 {
+			floor = max(floor, 0.35)
+		}
+
 		if activations[i] < floor {
 			activations[i] = floor
 		}
@@ -853,3 +867,4 @@ func cloud_free() {
 	globalCloud = nil
 	lastResponse = nil
 }
+func main() {}
