@@ -29,15 +29,43 @@ static const char* brain_script(ExternalBrainType brain) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SECURITY: Sanitize prompt to prevent command injection
+// ═══════════════════════════════════════════════════════════════════════════════
+
+static void sanitize_prompt(const char* input, char* output, size_t max_len) {
+    size_t j = 0;
+    for (size_t i = 0; input[i] && j < max_len - 1; i++) {
+        char c = input[i];
+        // Allow only safe characters: alphanumeric, space, basic punctuation
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == ' ' || c == '.' ||
+            c == ',' || c == '?' || c == '!' || c == '-' || c == ':') {
+            output[j++] = c;
+        }
+        // Skip all other characters (quotes, backticks, $, etc.)
+    }
+    output[j] = '\0';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // EXTERNAL BRAIN EXTRACTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
 int external_brain_extract_from(ExternalBrainType brain, const char* prompt, int* tokens, int max_tokens) {
+    // Sanitize prompt to prevent command injection
+    char safe_prompt[512];
+    sanitize_prompt(prompt, safe_prompt, sizeof(safe_prompt));
+
+    if (strlen(safe_prompt) == 0) {
+        fprintf(stderr, "[pandora_bridge] Empty prompt after sanitization\n");
+        return -1;
+    }
+
     // Build command - use --tokens for simple output format
     char cmd[1024];
     snprintf(cmd, sizeof(cmd),
              "python3 %s \"%s\" 50 --tokens 2>/dev/null",
-             brain_script(brain), prompt);
+             brain_script(brain), safe_prompt);
 
     // Call Python script
     FILE* fp = popen(cmd, "r");
