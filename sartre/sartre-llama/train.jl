@@ -31,7 +31,7 @@ using Statistics
 
 Base.@kwdef mutable struct TrainConfig
     # Data
-    corpus_path::String = "../corpus/sartre_unified_dialogue_voiced.txt"
+    corpus_path::String = "../corpus/sartre_corpus_unified.txt"
     val_split::Float32 = 0.1f0
 
     # Model
