@@ -104,13 +104,27 @@ class PandoraTorch:
             self._model.load_base_weights(self.config.weights_path)
             print(f"[pandora-torch] Loaded Stanley transformer")
         except ImportError:
+            # Auto-install Stanley if not found
+            print("[pandora-torch] Stanley not found, attempting auto-install...")
+            try:
+                from .download import ensure_stanley
+                if ensure_stanley(auto_install=True):
+                    # Retry import after installation
+                    from stanley.inference import StanleyTransformer
+                    self._model = StanleyTransformer()
+                    self._model.load_base_weights(self.config.weights_path)
+                    print(f"[pandora-torch] Loaded Stanley transformer (auto-installed)")
+                    return
+            except Exception as e:
+                print(f"[pandora-torch] Auto-install failed: {e}")
+
             # Fallback to simple GPT2 from transformers
             try:
                 from transformers import GPT2LMHeadModel, GPT2Tokenizer
                 self._model = GPT2LMHeadModel.from_pretrained("distilgpt2")
                 self._tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
                 self._model.eval()
-                print(f"[pandora-torch] Loaded distilgpt2 from transformers")
+                print(f"[pandora-torch] Loaded distilgpt2 from transformers (fallback)")
             except ImportError:
                 print("[pandora-torch] WARNING: No model available, using mock mode")
                 self._model = "mock"
