@@ -68,26 +68,43 @@ Features:
 - Full SARTRE integration
 - Batched processing
 
+### pandora-torch-gguf (GGUF)
+
+Vocabulary extraction using TinyLlama 1.1B in GGUF format.
+
+```bash
+cd packages/pandora-torch-gguf
+pip install -e .
+python test_basic.py  # No llama-cpp required
+```
+
+Features:
+- TinyLlama 1.1B (Q5_K_M, ~783MB)
+- Auto-download from HuggingFace
+- Rich creative vocabulary
+- llama-cpp-python inference
+
 ### hyperpandora (Meta-Orchestrator)
 
-Manages multiple Pandora backends, selects optimal brain based on SARTRE.
+Manages all Pandora backends, selects optimal brain based on SARTRE.
 
 ```python
-from hyperpandora import HyperPandora
+from hyperpandora import HyperPandora, BrainType
 
 hyper = HyperPandora()
-hyper.register_brain("c", pandora_c)
-hyper.register_brain("torch", pandora_torch)
+hyper.register_brain("c", pandora_c, BrainType.C_PANDORA)
+hyper.register_brain("torch", pandora_torch, BrainType.TORCH_PANDORA)
+hyper.register_brain("gguf", pandora_gguf, BrainType.GGUF_PANDORA)
 
 # Auto-select based on SARTRE
-result = hyper.process(text, encode_fn, coherence=0.2)
+result = hyper.process(text, encode_fn, coherence=0.2, pattern=3)
 ```
 
 Features:
 - Auto-selection based on SARTRE metrics
 - Fallback on brain failures
 - Reports state to SARTRE via shared memory
-- Strategy: AUTO, PREFER_FAST, PREFER_POWER
+- Strategies: AUTO, PREFER_FAST, PREFER_POWER, PREFER_BALANCED, ROUND_ROBIN, ADAPTIVE
 
 ## Commands
 
@@ -97,6 +114,9 @@ Features:
 | `/pandoraoff` | Disable pandora |
 | `/pandora-torch` | Enable PyTorch vocabulary extraction |
 | `/pandora-torch-off` | Disable pandora-torch |
+| `/pandora-gguf` | Enable GGUF vocabulary extraction |
+| `/pandora-gguf-off` | Disable pandora-gguf |
+| `/hyper` | Enable HyperPandora auto-selection |
 
 ## Metric-Driven Activation
 
@@ -109,11 +129,29 @@ All packages respect SARTRE field geometry:
 | EMERGENCE | - | Activate (creative expansion) |
 | CRISIS | - | Deactivate (internal processing) |
 
+## Package Comparison
+
+| Package | Model | Size | Speed | Richness |
+|---------|-------|------|-------|----------|
+| pandora | GPT2-30M | 60MB | ⚡ Fastest | Basic |
+| pandora-torch | GPT2-distill | ~300MB | 🔥 Fast | Good |
+| pandora-torch-gguf | TinyLlama 1.1B | ~783MB | ⏱️ Medium | Rich |
+
+## HyperPandora Auto-Selection (SARTRE-Driven)
+
+```
+Low Coherence (<0.3)  → C pandora (fast boost)
+EMERGENCE pattern     → GGUF (creative richness)
+TRANSCENDENCE pattern → PyTorch (balanced)
+High Sacred (>0.7)    → DEACTIVATE ALL (protect voice)
+CRISIS pattern        → DEACTIVATE ALL (internal processing)
+```
+
 ## Size Doesn't Matter
 
 The external brain's size is irrelevant:
 - GPT2-30M (60MB) - works
-- GPT2-distill (300MB) - works
+- TinyLlama 1.1B (783MB) - works
 - GPT-3 (175B) - would work the same
 
 Because they all serve the same role: **vocabulary subordinate**.

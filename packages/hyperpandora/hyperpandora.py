@@ -18,17 +18,20 @@ import time
 class BrainType(IntEnum):
     """Type of external brain"""
     NONE = 0
-    C_PANDORA = 1
-    TORCH_PANDORA = 2
-    CUSTOM = 3
+    C_PANDORA = 1       # pandora (Pure C, GPT2-30M) - fastest
+    TORCH_PANDORA = 2   # pandora-torch (PyTorch, GPT2-distill) - balanced
+    GGUF_PANDORA = 3    # pandora-torch-gguf (TinyLlama 1.1B) - richest
+    CUSTOM = 4
 
 
 class SelectionStrategy(IntEnum):
     """Strategy for brain selection"""
-    AUTO = 0          # SARTRE-driven selection
-    PREFER_FAST = 1   # Prefer C (lightweight)
-    PREFER_POWER = 2  # Prefer PyTorch (powerful)
-    ROUND_ROBIN = 3   # Rotate between available
+    AUTO = 0            # SARTRE-driven selection
+    PREFER_FAST = 1     # Prefer C (lightweight, ~60MB)
+    PREFER_POWER = 2    # Prefer GGUF (rich vocabulary, ~783MB)
+    PREFER_BALANCED = 3 # Prefer PyTorch (balanced)
+    ROUND_ROBIN = 4     # Rotate between available
+    ADAPTIVE = 5        # Learn from success rates
 
 
 @dataclass
@@ -120,6 +123,8 @@ class HyperPandora:
                 cls_name = brain.__class__.__name__
                 if 'PandoraBox' in cls_name or 'pandora_c' in str(type(brain)):
                     brain_type = BrainType.C_PANDORA
+                elif 'PandoraGGUF' in cls_name:
+                    brain_type = BrainType.GGUF_PANDORA
                 elif 'PandoraTorch' in cls_name:
                     brain_type = BrainType.TORCH_PANDORA
                 else:
@@ -177,50 +182,65 @@ class HyperPandora:
         if not self.brains:
             return None
 
+        # Helper: find brain by type (highest priority)
+        def find_by_type(brain_type: BrainType) -> Optional[str]:
+            for name, info in sorted(self.brains.items(), key=lambda x: x[1].priority, reverse=True):
+                if info.brain_type == brain_type:
+                    return name
+            return None
+
         # Strategy-based selection
         if self.strategy == SelectionStrategy.PREFER_FAST:
-            # Prefer C pandora
-            for name, info in sorted(self.brains.items(), key=lambda x: x[1].priority, reverse=True):
-                if info.brain_type == BrainType.C_PANDORA:
-                    return name
-            # Fallback to any
-            return next(iter(self.brains.keys()))
+            # Prefer C pandora (fastest, ~60MB)
+            return find_by_type(BrainType.C_PANDORA) or next(iter(self.brains.keys()))
 
         elif self.strategy == SelectionStrategy.PREFER_POWER:
-            # Prefer PyTorch
-            for name, info in sorted(self.brains.items(), key=lambda x: x[1].priority, reverse=True):
-                if info.brain_type == BrainType.TORCH_PANDORA:
-                    return name
-            # Fallback to any
-            return next(iter(self.brains.keys()))
+            # Prefer GGUF (richest vocabulary, TinyLlama 1.1B)
+            return (find_by_type(BrainType.GGUF_PANDORA) or
+                    find_by_type(BrainType.TORCH_PANDORA) or
+                    next(iter(self.brains.keys())))
+
+        elif self.strategy == SelectionStrategy.PREFER_BALANCED:
+            # Prefer PyTorch (balanced speed/quality)
+            return (find_by_type(BrainType.TORCH_PANDORA) or
+                    find_by_type(BrainType.C_PANDORA) or
+                    next(iter(self.brains.keys())))
 
         elif self.strategy == SelectionStrategy.ROUND_ROBIN:
-            # Rotate
+            # Rotate through brains
             names = list(self.brains.keys())
             if not self._active_brain or self._active_brain not in names:
                 return names[0]
             idx = names.index(self._active_brain)
             return names[(idx + 1) % len(names)]
 
-        else:  # AUTO
-            # SARTRE-driven
+        elif self.strategy == SelectionStrategy.ADAPTIVE:
+            # Select based on success rate (total_extracted / total_calls)
+            best_name = None
+            best_rate = -1.0
+            for name, info in self.brains.items():
+                if info.total_calls > 0:
+                    rate = info.total_extracted / info.total_calls
+                    if rate > best_rate:
+                        best_rate = rate
+                        best_name = name
+            return best_name or next(iter(self.brains.keys()))
+
+        else:  # AUTO - SARTRE-driven selection
+            # Low coherence - need words fast
             if coherence < self.coherence_threshold:
-                # Low coherence - need words, use fastest
-                for name, info in sorted(self.brains.items(), key=lambda x: x[1].priority, reverse=True):
-                    if info.brain_type == BrainType.C_PANDORA:
-                        return name
-                return next(iter(self.brains.keys()))
+                return find_by_type(BrainType.C_PANDORA) or next(iter(self.brains.keys()))
 
-            if pattern == 3:  # EMERGENCE
-                # Creative - use most powerful
-                for name, info in sorted(self.brains.items(), key=lambda x: x[1].priority, reverse=True):
-                    if info.brain_type == BrainType.TORCH_PANDORA:
-                        return name
-                return next(iter(self.brains.keys()))
+            # EMERGENCE - creative expansion, use richest vocabulary
+            if pattern == 3:
+                return (find_by_type(BrainType.GGUF_PANDORA) or
+                        find_by_type(BrainType.TORCH_PANDORA) or
+                        next(iter(self.brains.keys())))
 
-            if pattern == 4:  # TRANSCENDENCE
-                # Bridging - any available
-                return next(iter(self.brains.keys()))
+            # TRANSCENDENCE - bridging, use balanced
+            if pattern == 4:
+                return (find_by_type(BrainType.TORCH_PANDORA) or
+                        next(iter(self.brains.keys())))
 
             # Normal state - maintain current or highest priority
             if self._active_brain and self._active_brain in self.brains:
