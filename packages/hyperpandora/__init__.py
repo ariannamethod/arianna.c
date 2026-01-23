@@ -14,7 +14,15 @@ from .hyperpandora import (
     read_hyperpandora_state,
 )
 
+from .async_hyperpandora import (
+    AsyncHyperPandora,
+    AsyncSelectionMode,
+    AsyncBrainInfo,
+    create_async_hyperpandora,
+)
+
 __all__ = [
+    # Sync
     "HyperPandora",
     "BrainType",
     "SelectionStrategy",
@@ -22,6 +30,11 @@ __all__ = [
     "HyperState",
     "create_hyperpandora_with_defaults",
     "read_hyperpandora_state",
+    # Async
+    "AsyncHyperPandora",
+    "AsyncSelectionMode",
+    "AsyncBrainInfo",
+    "create_async_hyperpandora",
 ]
 
 __version__ = "0.1.0"
