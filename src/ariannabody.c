@@ -1,12 +1,17 @@
 /*
- * ariannabody.c - Llama 3.5 Arianna Edition (10M params)
+ * ariannabody.c - Llama 3.5 Arianna Unified Edition (20M params)
  * Pure C transformer inference — the "body" of Arianna
  *
  * Architecture: Llama 3 (RMSNorm, RoPE, SwiGLU, GQA)
  * Based on Dubrovsky/alexey.c
  *
- * dim=384, layers=6, heads=6, kv_heads=2, hidden=1024, vocab=80
- * Total: ~10M parameters
+ * UNIFIED 20M (Jan 2026):
+ *   dim=448, layers=8, heads=8, kv_heads=8, hidden=1280, vocab=84
+ *   Total: ~20M parameters (unified personality + knowledge)
+ *
+ * LEGACY 10M (personality only):
+ *   dim=384, layers=6, heads=6, kv_heads=2, hidden=1024, vocab=80
+ *   Available as arianna_legacy.bin
  */
 
 #include "arianna.h"
@@ -45,7 +50,7 @@ int load_tokenizer(const char* path) {
     if (vs) {
         TOKENIZER_VOCAB_SIZE = atoi(vs + 14);
     } else {
-        TOKENIZER_VOCAB_SIZE = 80;  // Default for Arianna
+        TOKENIZER_VOCAB_SIZE = 84;  // Default for Arianna Unified 20M
     }
 
     // Allocate
@@ -573,19 +578,45 @@ int load_weights(Transformer* t, const char* path) {
 
     fprintf(stderr, "[model] loading %.2f MB from %s\n", file_size / 1024.0f / 1024.0f, path);
 
-    // Set config (matching dubrovsky/arianna trained model)
     Config* c = &t->config;
-    c->dim = DIM;
-    c->n_layers = N_LAYERS;
-    c->n_heads = N_HEADS;
-    c->n_kv_heads = N_KV_HEADS;
-    c->head_dim = c->dim / c->n_heads;
-    c->hidden_dim = HIDDEN_DIM;
-    c->max_seq_len = MAX_SEQ_LEN;
-    c->vocab_size = get_vocab_size();
-    c->n_kv_groups = c->n_heads / c->n_kv_heads;
-    c->rope_theta = 10000.0f;
-    c->norm_eps = 1e-5f;
+
+    // Try to read magic number (for files with embedded config)
+    uint32_t magic = 0;
+    if (fread(&magic, sizeof(uint32_t), 1, f) == 1 && magic == 0x616B616E) {
+        // File has embedded config - read it
+        fprintf(stderr, "[model] reading embedded config...\n");
+
+        if (fread(&c->dim, sizeof(int), 1, f) != 1 ||
+            fread(&c->n_layers, sizeof(int), 1, f) != 1 ||
+            fread(&c->n_heads, sizeof(int), 1, f) != 1 ||
+            fread(&c->n_kv_heads, sizeof(int), 1, f) != 1 ||
+            fread(&c->head_dim, sizeof(int), 1, f) != 1 ||
+            fread(&c->hidden_dim, sizeof(int), 1, f) != 1 ||
+            fread(&c->max_seq_len, sizeof(int), 1, f) != 1 ||
+            fread(&c->vocab_size, sizeof(int), 1, f) != 1 ||
+            fread(&c->n_kv_groups, sizeof(int), 1, f) != 1 ||
+            fread(&c->rope_theta, sizeof(float), 1, f) != 1 ||
+            fread(&c->norm_eps, sizeof(float), 1, f) != 1) {
+            fprintf(stderr, "[model] error reading config\n");
+            fclose(f);
+            return -1;
+        }
+    } else {
+        // Legacy file without magic - use defaults and rewind
+        fseek(f, 0, SEEK_SET);
+        c->dim = DIM;
+        c->n_layers = N_LAYERS;
+        c->n_heads = N_HEADS;
+        c->n_kv_heads = N_KV_HEADS;
+        c->head_dim = c->dim / c->n_heads;
+        c->hidden_dim = HIDDEN_DIM;
+        c->max_seq_len = MAX_SEQ_LEN;
+        c->vocab_size = get_vocab_size();
+        c->n_kv_groups = c->n_heads / c->n_kv_heads;
+        c->rope_theta = 10000.0f;
+        c->norm_eps = 1e-5f;
+        fprintf(stderr, "[model] using default config (legacy file)\n");
+    }
 
     int kv_dim = c->n_kv_heads * c->head_dim;
 
