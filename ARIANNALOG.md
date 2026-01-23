@@ -119,8 +119,18 @@ Positional Encoding: RoPE (theta=10000.0)
 - Weights: `weights/sartre/sartre.bin` (55MB)
 - Inference: Pure NumPy (`sartre/dubrovsky.py`), no PyTorch dependency
 - C binary: `sartre/sartre.c` compiled and ready
-- Tests: All passing (`test_sartre.py`)
+- Tests: All passing (`test_sartre.py`, `test_vagus_bridge.py`)
 - REPL: `sartre_talk.py` (interactive mode)
+- **Vagus Bridge:** `vagus_bridge.py` — reads VagusSharedState, generates interoceptive observations
+
+**Vagus Integration:**
+```python
+from vagus_bridge import VagusBridge, generate_observation
+
+bridge = VagusBridge()
+observation = generate_observation(model, tokenizer, bridge.state)
+# SARTRE observes: "I sense pressure gradients that indicate mass I cannot see..."
+```
 
 See `sartre/README.md` for full specs.
 
@@ -221,6 +231,43 @@ The brain's alarm system. Monitors everything, detects significance, triggers ar
 **Build:** `cd locus && make && make test`
 
 **Tests:** 16/16 passing
+
+---
+
+### Vagus-Delta Bridge (`src/vagus_delta.c`)
+
+The connection between nervous system and learning. Resonance modulates plasticity.
+
+**What it does:**
+```
+       VAGUS                  LOCUS                  DELTA
+    ┌──────────┐          ┌──────────┐          ┌──────────┐
+    │ state    │─────────▶│ pattern  │─────────▶│ lr mod   │
+    │ snapshot │          │ detect   │          │ notorch  │
+    └──────────┘          └──────────┘          └──────────┘
+                               │
+                               ▼
+                        ResonanceTrainer
+                        • CRISIS → 2x lr
+                        • DISSOLUTION → 0.5x lr
+                        • EMERGENCE → 1.5x lr
+```
+
+**Key structures:**
+```c
+VagusAwareShard    // Shard with full field geometry snapshot
+ResonanceTrainer   // Locus-modulated experience learning
+```
+
+**Learning rate modulation:**
+| Pattern | LR Multiplier | Rationale |
+|---------|---------------|-----------|
+| CRISIS | 2.0x | Learn fast in danger |
+| DISSOLUTION | 0.5x | Protect during decay |
+| EMERGENCE | 1.5x | Consolidate insights |
+| TRANSCENDENCE | freeze? | Crystallize moments |
+
+**Tests:** 13/13 passing
 
 ---
 
