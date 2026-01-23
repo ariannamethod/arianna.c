@@ -458,6 +458,9 @@ int sample(Transformer* t, float temperature) {
     float* logits = t->state.logits;
     int vocab_size = t->config.vocab_size;
 
+    // Guard against division by zero
+    if (temperature < 1e-6f) temperature = 1e-6f;
+
     // Apply temperature
     if (temperature != 1.0f) {
         for (int i = 0; i < vocab_size; i++) {
@@ -482,6 +485,9 @@ int sample_top_p(Transformer* t, float temperature, float top_p) {
     float* logits = t->state.logits;
     int vocab_size = t->config.vocab_size;
 
+    // Guard against division by zero
+    if (temperature < 1e-6f) temperature = 1e-6f;
+
     // Apply temperature
     for (int i = 0; i < vocab_size; i++) {
         logits[i] /= temperature;
@@ -492,8 +498,12 @@ int sample_top_p(Transformer* t, float temperature, float top_p) {
 
     // Top-p (nucleus) sampling
     if (top_p < 1.0f) {
-        // Simple sort for small vocab
-        int indices[256];
+        // Dynamic allocation for arbitrary vocab sizes (fixes buffer overflow for vocab > 256)
+        int* indices = (int*)malloc(vocab_size * sizeof(int));
+        if (!indices) {
+            // Fallback: return last token if malloc fails
+            return vocab_size - 1;
+        }
         for (int i = 0; i < vocab_size; i++) indices[i] = i;
 
         // Bubble sort by probability (descending)
@@ -523,10 +533,15 @@ int sample_top_p(Transformer* t, float temperature, float top_p) {
             logits[indices[i]] = 0.0f;
         }
 
+        // Free dynamically allocated indices
+        free(indices);
+
         // Renormalize
         float sum = 0.0f;
         for (int i = 0; i < vocab_size; i++) sum += logits[i];
-        for (int i = 0; i < vocab_size; i++) logits[i] /= sum;
+        if (sum > 0.0f) {
+            for (int i = 0; i < vocab_size; i++) logits[i] /= sum;
+        }
     }
 
     // Sample
@@ -653,8 +668,9 @@ int load_weights(Transformer* t, const char* path) {
 
     #define READ(ptr, count) do { \
         if (fread(ptr, sizeof(float), count, f) != (size_t)(count)) { \
-            fprintf(stderr, "[model] read error\n"); \
+            fprintf(stderr, "[model] read error at %s\n", #ptr); \
             fclose(f); \
+            free_transformer(t); \
             return -1; \
         } \
     } while(0)

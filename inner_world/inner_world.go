@@ -50,6 +50,14 @@ func (iw *InnerWorld) Start() {
 		return
 	}
 
+	// Recreate channels on restart (fixes channel reuse after Stop)
+	iw.stopChan = make(chan struct{})
+	iw.Signals = make(chan Signal, 100)
+	iw.Commands = make(chan Command, 10)
+
+	// Clear old processes
+	iw.processes = iw.processes[:0]
+
 	// Create and start all processes
 	for _, constructor := range registeredProcesses {
 		proc := constructor()
