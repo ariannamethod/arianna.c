@@ -234,9 +234,9 @@ SARTRE_TARGET = $(BIN_DIR)/sartre_test
 
 sartre: $(SARTRE_TARGET)
 
-$(SARTRE_TARGET): $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
+$(SARTRE_TARGET): $(SARTRE_SRC) $(TEST_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(SARTRE_SRC) $(TEST_DIR)/test_sartre.c -o $@ $(LDFLAGS)
 	@echo "[sartre] compiled"
 
 # SARTRE comprehensive test
