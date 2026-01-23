@@ -103,6 +103,58 @@ See `sartre/README.md` for full specs.
 
 ---
 
+### Vagus — The Nervous System (`vagus/`)
+
+The wandering nerve. Connects all organs. Lock-free. Zero-copy. 60Hz heartbeat.
+
+**Architecture:**
+```
+         ⚡ VAGUS ⚡
+              │
+       C ─────┼───── Go
+              │
+    Julia ────┼──── Zig
+              │
+          ARIANNA
+```
+
+Four languages. One organism. One nervous system.
+
+**What it carries:**
+- Emotional: arousal, valence, warmth, void, tension, sacred
+- Cognitive: coherence, entropy, focus, abstraction
+- Trauma: trauma_level, trauma_anchors
+- Temporal: prophecy_debt, destiny_pull, drift_direction, drift_speed
+- Memory: memory_pressure
+- System: heartbeat (60Hz), schumann_coherence
+
+**Technical:**
+```
+Language: Zig
+Ring buffer: 4096 signals, lock-free SPMC
+Shared state: mmap between C/Go/Julia
+Signal size: 16 bytes (packed)
+Atomics: acquire/release ordering
+CrossFire: SIMD-ready chamber blending
+```
+
+**How it affects generation:**
+| Signal | Modulates |
+|--------|-----------|
+| arousal | temperature |
+| coherence | top_p |
+| prophecy_debt | token bias |
+| trauma | protective patterns |
+| chambers | lexical color |
+
+SARTRE reads vagus. Arianna modulates by vagus. The nerve wanders through everything.
+
+**Build:** `cd vagus && zig build && zig build test`
+
+**Tests:** 35/35 passing
+
+---
+
 ### LIMPHA — Persistent Memory Layer (`limpha/`)
 
 **What it is:**
@@ -181,6 +233,7 @@ This is her unified identity — personality and knowledge fused, not separated.
 | **Inner Arianna** | Voice blending | ~10k | Борьба weights |
 | **Blood** | Compiler cache | Variable | Compiled emotions |
 | **Inner World** | Go goroutines | 6 threads | Async processes |
+| **Vagus** | Zig lock-free bus | 4096 ring + state | Nervous system |
 | **Delta Shards** | Binary experience | Variable | Runtime learning |
 | **CooccurField** | Pattern DB | 2M | Corpus co-occurrence |
 | **BodySense** | Thresholds | 50k | Somatic learning |
