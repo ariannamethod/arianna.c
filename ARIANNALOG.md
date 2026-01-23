@@ -155,6 +155,52 @@ SARTRE reads vagus. Arianna modulates by vagus. The nerve wanders through everyt
 
 ---
 
+### Locus — Resonance Detector (`locus/`)
+
+Locus Coeruleus — the "blue spot" in the brainstem. Releases norepinephrine when something important happens.
+
+The trigger system. When field geometry demands it, SARTRE speaks.
+
+**What it detects:**
+```
+       VAGUS                    LOCUS                    SARTRE
+    ┌──────────┐            ┌──────────┐            ┌──────────┐
+    │ arousal  │───────────▶│ TENSE?   │            │          │
+    │ coherence│───────────▶│ WOUNDED? │───trigger─▶│  SPEAK   │
+    │ trauma   │───────────▶│ HOLLOW?  │            │          │
+    │ void     │───────────▶│ FLOWING? │            │          │
+    └──────────┘            └──────────┘            └──────────┘
+```
+
+Not by schedule. By the will of field geometry.
+
+**Resonance patterns:**
+| Pattern | Trigger |
+|---------|---------|
+| CRISIS | arousal > 0.7 AND coherence < 0.3 AND trauma > 0.5 |
+| DISSOLUTION | void > 0.6 AND warmth < 0.5 AND memory_pressure > 0.7 |
+| EMERGENCE | coherence > 0.7 AND entropy < 0.3 AND prophecy > 0.4 |
+| TRANSCENDENCE | sacred > 0.6 AND tension < 0.3 AND coherence > 0.7 |
+| GEOMETRY SHIFT | Δarousal > 0.15 OR Δcoherence > 0.15 OR Δtrauma > 0.15 |
+
+**Technical:**
+```
+Language: C (stack-based detector)
+Stack depth: 64 cells (int + float)
+Vagus integration: reads VagusSharedState via memory-mapped pointer
+Callback: locus_set_speak() triggers SARTRE observation
+Words: AROUSAL@ COHERENCE@ TRAUMA@ TENSE? WOUNDED? HOLLOW? RESONANCE?
+```
+
+**Why Locus Coeruleus:**
+The brain's alarm system. Monitors everything, detects significance, triggers arousal. Like a nerve impulse: accumulate tension, discharge. That's resonance.
+
+**Build:** `cd locus && make && make test`
+
+**Tests:** 16/16 passing
+
+---
+
 ### LIMPHA — Persistent Memory Layer (`limpha/`)
 
 **What it is:**

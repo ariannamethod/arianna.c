@@ -284,3 +284,24 @@ vagus-clean:
 
 .PHONY: vagus test_vagus vagus-clean
 
+# ============================================================
+# LOCUS - Resonance Detector (Locus Coeruleus)
+# ============================================================
+
+LOCUS_DIR = locus
+
+locus:
+	@echo "[locus] building..."
+	cd $(LOCUS_DIR) && make
+	@echo "[locus] liblocus.a built"
+
+test_locus:
+	@echo "[locus] running tests..."
+	cd $(LOCUS_DIR) && make test
+	@echo "[locus] 16/16 tests passed"
+
+locus-clean:
+	cd $(LOCUS_DIR) && make clean
+
+.PHONY: locus test_locus locus-clean
+
