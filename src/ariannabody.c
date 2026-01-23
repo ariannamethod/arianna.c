@@ -32,12 +32,26 @@ int load_tokenizer(const char* path) {
     }
 
     // Read entire file
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return -1;
+    }
     long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    if (len < 0 || len > 10*1024*1024) {  // cap at 10MB for safety
+        fclose(f);
+        return -1;
+    }
+    if (fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return -1;
+    }
 
-    char* content = malloc(len + 1);
-    if (fread(content, 1, len, f) != (size_t)len) {
+    char* content = malloc((size_t)len + 1);
+    if (!content) {
+        fclose(f);
+        return -1;
+    }
+    if (fread(content, 1, (size_t)len, f) != (size_t)len) {
         fclose(f);
         free(content);
         return -1;

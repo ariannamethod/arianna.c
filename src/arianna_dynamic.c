@@ -303,10 +303,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     
 
     int tokens[MAX_SEQ_LEN];
-    int n_tokens = strlen(prompt);
+    size_t prompt_strlen = strlen(prompt);
+    int n_tokens = (prompt_strlen > MAX_SEQ_LEN) ? MAX_SEQ_LEN : (int)prompt_strlen;
 
     // Tokenize prompt (using vocab mapping, not raw ASCII)
-    for (int i = 0; i < n_tokens && i < MAX_SEQ_LEN; i++) {
+    for (int i = 0; i < n_tokens; i++) {
         tokens[i] = char_to_token(prompt[i]);
     }
 
