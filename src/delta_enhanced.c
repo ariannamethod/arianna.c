@@ -743,6 +743,20 @@ int load_enhanced_delta_system(EnhancedDeltaSystem* eds, const char* path) {
         return 0;
     }
 
+    // SECURITY: validate dim to prevent OOM/corruption
+    if (dim < 1 || dim > 8192) {  // Reasonable max for transformer dim
+        fprintf(stderr, "[delta_enhanced] corrupt file: invalid dim %d\n", dim);
+        fclose(f);
+        return 0;
+    }
+
+    // Validate dim matches if already initialized
+    if (eds->contrastive.dim > 0 && eds->contrastive.dim != dim) {
+        fprintf(stderr, "[delta_enhanced] dim mismatch: file=%d, expected=%d\n", dim, eds->contrastive.dim);
+        fclose(f);
+        return 0;
+    }
+
     if (initialized) {
         if (eds->contrastive.identity_dir == NULL) {
             init_contrastive_forces(&eds->contrastive, dim);
