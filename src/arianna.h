@@ -19,34 +19,35 @@
 // ============================================================
 // Default Constants (for compatibility with arianna_dynamic.c)
 // These are defaults; actual values come from Config at runtime
+// Updated for Arianna Unified 20M (Jan 2026)
 // ============================================================
 
 #ifndef DIM
-#define DIM 384
+#define DIM 448
 #endif
 
 #ifndef N_LAYERS
-#define N_LAYERS 6
+#define N_LAYERS 8
 #endif
 
 #ifndef N_HEADS
-#define N_HEADS 6
+#define N_HEADS 8
 #endif
 
 #ifndef N_KV_HEADS
-#define N_KV_HEADS 2
+#define N_KV_HEADS 8
 #endif
 
 #ifndef MAX_SEQ_LEN
-#define MAX_SEQ_LEN 256
+#define MAX_SEQ_LEN 512
 #endif
 
 #ifndef HIDDEN_DIM
-#define HIDDEN_DIM 1024
+#define HIDDEN_DIM 1280
 #endif
 
 #ifndef VOCAB_SIZE
-#define VOCAB_SIZE 80
+#define VOCAB_SIZE 84
 #endif
 
 // ============================================================
@@ -54,15 +55,15 @@
 // ============================================================
 
 typedef struct {
-    int dim;            // Embedding dimension (384)
-    int n_layers;       // Number of layers (6)
-    int n_heads;        // Number of query heads (6)
-    int n_kv_heads;     // Number of KV heads for GQA (2)
-    int head_dim;       // dim / n_heads (64)
-    int hidden_dim;     // FFN hidden dim (1024)
-    int max_seq_len;    // Maximum sequence length (256)
-    int vocab_size;     // Vocabulary size (80)
-    int n_kv_groups;    // n_heads / n_kv_heads (3)
+    int dim;            // Embedding dimension (448 for unified 20M)
+    int n_layers;       // Number of layers (8 for unified 20M)
+    int n_heads;        // Number of query heads (8 for unified 20M)
+    int n_kv_heads;     // Number of KV heads for GQA (8 for unified 20M)
+    int head_dim;       // dim / n_heads (56 for unified 20M)
+    int hidden_dim;     // FFN hidden dim (1280 for unified 20M)
+    int max_seq_len;    // Maximum sequence length (512 for unified 20M)
+    int vocab_size;     // Vocabulary size (84 for unified 20M)
+    int n_kv_groups;    // n_heads / n_kv_heads (1 for unified 20M)
     float rope_theta;   // RoPE base frequency (10000.0)
     float norm_eps;     // RMSNorm epsilon (1e-5)
 } Config;

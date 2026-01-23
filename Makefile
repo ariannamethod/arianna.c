@@ -70,7 +70,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib both lua
+.PHONY: all clean dynamic full go-lib cloud-lib both lua tests
 
 all: $(TARGET)
 
@@ -127,3 +127,94 @@ $(TARGET_LUA): $(SRCS_DYN) $(SRCS_LUA) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $
 
 clean:
 	rm -rf $(BIN_DIR)/*
+
+# ============================================================
+# TESTS
+# ============================================================
+
+TEST_DIR = tests
+TEST_BIN_DIR = $(BIN_DIR)
+
+# Common test dependencies
+TEST_COMMON = $(SRC_DIR)/ariannabody.c
+
+# Individual tests
+test_cloud: $(TEST_BIN_DIR)/test_cloud
+$(TEST_BIN_DIR)/test_cloud: $(TEST_DIR)/test_cloud.c $(SRC_DIR)/cloud_wrapper.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_amlk: $(TEST_BIN_DIR)/test_amlk
+$(TEST_BIN_DIR)/test_amlk: $(TEST_DIR)/test_amlk.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/schumann.c $(SRC_DIR)/amk_lua.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS) $(DYN_LDFLAGS) $(GO_LDFLAGS)
+
+test_comprehensive: $(TEST_BIN_DIR)/test_comprehensive
+$(TEST_BIN_DIR)/test_comprehensive: $(TEST_DIR)/test_comprehensive.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/schumann.c \
+                                     $(SRC_DIR)/mood.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/delta.c $(SRC_DIR)/mathbrain.c \
+                                     $(SRC_DIR)/inner_arianna.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/cooccur.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_julia: $(TEST_BIN_DIR)/test_julia
+$(TEST_BIN_DIR)/test_julia: $(TEST_DIR)/test_julia.c $(SRC_DIR)/julia_bridge.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_inner: $(TEST_BIN_DIR)/test_inner
+$(TEST_BIN_DIR)/test_inner: $(TEST_DIR)/test_inner.c $(SRC_DIR)/inner_arianna.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_amk: $(TEST_BIN_DIR)/test_amk
+$(TEST_BIN_DIR)/test_amk: $(TEST_DIR)/test_amk.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_accumulator: $(TEST_BIN_DIR)/test_accumulator
+$(TEST_BIN_DIR)/test_accumulator: $(TEST_DIR)/test_accumulator.c $(SRC_DIR)/delta.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_blood: $(TEST_BIN_DIR)/test_blood
+$(TEST_BIN_DIR)/test_blood: $(TEST_DIR)/test_blood.c
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS) $(GO_LDFLAGS)
+
+test_high: $(TEST_BIN_DIR)/test_high
+$(TEST_BIN_DIR)/test_high: $(TEST_DIR)/test_high.c
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS) $(GO_LDFLAGS)
+
+test_delta_enhanced: $(TEST_BIN_DIR)/test_delta_enhanced
+$(TEST_BIN_DIR)/test_delta_enhanced: $(TEST_DIR)/test_delta_enhanced.c $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/delta.c $(SRC_DIR)/body_sense.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_inner_world: $(TEST_BIN_DIR)/test_inner_world
+$(TEST_BIN_DIR)/test_inner_world: $(TEST_DIR)/test_inner_world.c
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS) $(GO_LDFLAGS)
+
+test_mathbrain: $(TEST_BIN_DIR)/test_mathbrain
+$(TEST_BIN_DIR)/test_mathbrain: $(TEST_DIR)/test_mathbrain.c $(SRC_DIR)/mathbrain.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_pandora: $(TEST_BIN_DIR)/test_pandora
+$(TEST_BIN_DIR)/test_pandora: $(TEST_DIR)/test_pandora.c $(SRC_DIR)/pandora.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_selfsense: $(TEST_BIN_DIR)/test_selfsense
+$(TEST_BIN_DIR)/test_selfsense: $(TEST_DIR)/test_selfsense.c $(SRC_DIR)/selfsense.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+# Run all tests
+tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia
+	@echo ""
+	@echo "=========================================="
+	@echo "RUNNING ALL ARIANNA TESTS"
+	@echo "=========================================="
+	@./run_all_tests.sh
