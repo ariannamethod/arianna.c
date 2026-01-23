@@ -54,3 +54,10 @@ samples/
 _codeql_detected_source_root
 .zig-cache/
 zig-out/
+
+# Package binary artifacts
+packages/**/*.bin
+packages/**/build/
+packages/**/*.a
+packages/**/*.o
+packages/**/*.so
