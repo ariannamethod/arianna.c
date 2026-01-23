@@ -136,14 +136,14 @@ static void free_sartre(void) {
 // ============================================================
 
 int sartre_init(const char* weights_path) {
-    // Set default config (tiny Llama 3)
-    sartre.config.dim = 256;
-    sartre.config.n_layers = 3;
-    sartre.config.n_heads = 4;
-    sartre.config.n_kv_heads = 4;
+    // Set default config (10M params, same as legacy Arianna)
+    sartre.config.dim = 384;
+    sartre.config.n_layers = 6;
+    sartre.config.n_heads = 6;
+    sartre.config.n_kv_heads = 6;
     sartre.config.head_dim = 64;
-    sartre.config.hidden_dim = 512;
-    sartre.config.max_seq_len = 256;
+    sartre.config.hidden_dim = 1024;
+    sartre.config.max_seq_len = 512;
     sartre.config.vocab_size = 256;
     sartre.config.n_kv_groups = 1;
     sartre.config.rope_theta = 10000.0f;
