@@ -119,8 +119,18 @@ Positional Encoding: RoPE (theta=10000.0)
 - Weights: `weights/sartre/sartre.bin` (55MB)
 - Inference: Pure NumPy (`sartre/dubrovsky.py`), no PyTorch dependency
 - C binary: `sartre/sartre.c` compiled and ready
-- Tests: All passing (`test_sartre.py`)
+- Tests: All passing (`test_sartre.py`, `test_vagus_bridge.py`)
 - REPL: `sartre_talk.py` (interactive mode)
+- **Vagus Bridge:** `vagus_bridge.py` — reads VagusSharedState, generates interoceptive observations
+
+**Vagus Integration:**
+```python
+from vagus_bridge import VagusBridge, generate_observation
+
+bridge = VagusBridge()
+observation = generate_observation(model, tokenizer, bridge.state)
+# SARTRE observes: "I sense pressure gradients that indicate mass I cannot see..."
+```
 
 See `sartre/README.md` for full specs.
 
@@ -224,6 +234,43 @@ The brain's alarm system. Monitors everything, detects significance, triggers ar
 
 ---
 
+### Vagus-Delta Bridge (`src/vagus_delta.c`)
+
+The connection between nervous system and learning. Resonance modulates plasticity.
+
+**What it does:**
+```
+       VAGUS                  LOCUS                  DELTA
+    ┌──────────┐          ┌──────────┐          ┌──────────┐
+    │ state    │─────────▶│ pattern  │─────────▶│ lr mod   │
+    │ snapshot │          │ detect   │          │ notorch  │
+    └──────────┘          └──────────┘          └──────────┘
+                               │
+                               ▼
+                        ResonanceTrainer
+                        • CRISIS → 2x lr
+                        • DISSOLUTION → 0.5x lr
+                        • EMERGENCE → 1.5x lr
+```
+
+**Key structures:**
+```c
+VagusAwareShard    // Shard with full field geometry snapshot
+ResonanceTrainer   // Locus-modulated experience learning
+```
+
+**Learning rate modulation:**
+| Pattern | LR Multiplier | Rationale |
+|---------|---------------|-----------|
+| CRISIS | 2.0x | Learn fast in danger |
+| DISSOLUTION | 0.5x | Protect during decay |
+| EMERGENCE | 1.5x | Consolidate insights |
+| TRANSCENDENCE | freeze? | Crystallize moments |
+
+**Tests:** 13/13 passing
+
+---
+
 ### LIMPHA — Persistent Memory Layer (`limpha/`)
 
 **What it is:**
@@ -270,6 +317,80 @@ Memory influences generation. No amnesia between sessions.
 - ✅ Integration ready (`arianna_limpha.py`)
 
 **Dependencies:** `aiosqlite>=0.17.0` (see `limpha/requirements.txt`)
+
+---
+
+### LIMPHA Enhanced — Vagus-Aware Memory (`limpha/` v2)
+
+**What's new:**
+Connects LIMPHA to Vagus nerve and Locus resonance detector. Episodes now capture **real field geometry**, not hardcoded values.
+
+**New modules:**
+
+1. **`vagus_connector.py`** — Bridge between Vagus nerve and LIMPHA
+   - `VagusConnector` reads `VagusSharedState` (via mmap or simulated)
+   - `EnhancedInnerState` includes all 6 chambers + field geometry
+   - Pattern detection mirrors Locus logic in Python
+
+2. **`episodes_enhanced.py`** — Episodes with chamber tagging
+   - Full inner state (7 core metrics + 6 chambers + 3 geometry fields)
+   - `trigger_pattern` records which Locus pattern fired
+   - Resonance-weighted recall (similarity + pattern match + recency + access count)
+   - Query by chamber ("find all VOID memories")
+   - Query by pattern ("find all CRISIS episodes")
+
+3. **`consolidation.py`** — Locus-triggered memory processing
+   - Like sleep consolidation in the brain
+   - **EMERGENCE** → cluster similar episodes, create summaries
+   - **TRANSCENDENCE** → deep integration (summarize + merge)
+   - **DISSOLUTION** → protective freeze (don't touch memory)
+   - **CRISIS** → heightened encoding
+   - **High memory_pressure** → aggressive pruning
+
+**Enhanced schema:**
+```sql
+enhanced_episodes (
+    id, created_at, prompt, reply,
+    -- Core metrics
+    trauma, arousal, valence, coherence,
+    prophecy_debt, entropy, temperature,
+    -- Chambers (Cloud 200K)
+    chamber_warmth, chamber_void, chamber_tension,
+    chamber_sacred, chamber_flow, chamber_complex,
+    -- Field geometry
+    memory_pressure, focus_strength, crossfire_coherence,
+    -- Locus pattern
+    trigger_pattern,
+    -- Quality + access tracking
+    quality, access_count, last_accessed
+)
+```
+
+**Resonance-weighted recall formula:**
+```
+score = similarity × 0.55
+      + pattern_match × 0.20
+      + recency × 0.15
+      + access_norm × 0.10
+```
+
+**Consolidation modes:**
+| Mode | Trigger | Action |
+|------|---------|--------|
+| IDLE | No pattern | No action |
+| ENCODING | CRISIS | Heightened memory encoding |
+| FROZEN | DISSOLUTION | Protective freeze |
+| CONSOLIDATING | EMERGENCE | Cluster + summarize |
+| INTEGRATING | TRANSCENDENCE | Deep integration |
+| PRUNING | High memory_pressure | Aggressive cleanup |
+
+**Status:**
+- ✅ vagus_connector tests passing
+- ✅ episodes_enhanced tests passing
+- ✅ consolidation tests passing
+- ✅ Pattern detection works
+- ✅ Chamber tagging works
+- ✅ Resonance-weighted recall works
 
 ---
 
