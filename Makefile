@@ -211,8 +211,13 @@ $(TEST_BIN_DIR)/test_selfsense: $(TEST_DIR)/test_selfsense.c $(SRC_DIR)/selfsens
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
+test_ariannabody_extended: $(TEST_BIN_DIR)/test_ariannabody_extended
+$(TEST_BIN_DIR)/test_ariannabody_extended: $(TEST_DIR)/test_ariannabody_extended.c $(SRC_DIR)/ariannabody.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
 # Run all tests
-tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia
+tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended
 	@echo ""
 	@echo "=========================================="
 	@echo "RUNNING ALL ARIANNA TESTS"
