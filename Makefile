@@ -70,7 +70,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib both lua tests
+.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus
 
 all: $(TARGET)
 
@@ -262,4 +262,25 @@ $(TEST_BIN_DIR)/test_sartre_comprehensive: $(TEST_DIR)/test_sartre_comprehensive
 	@echo "[sartre] comprehensive test compiled"
 
 .PHONY: sartre test_sartre
+
+# ============================================================
+# VAGUS - The Nervous System (Zig)
+# ============================================================
+
+VAGUS_DIR = vagus
+
+vagus:
+	@echo "[vagus] building..."
+	cd $(VAGUS_DIR) && zig build
+	@echo "[vagus] libvagus.a + libvagus.so built"
+
+test_vagus:
+	@echo "[vagus] running tests..."
+	cd $(VAGUS_DIR) && zig build test
+	@echo "[vagus] 35/35 tests passed"
+
+vagus-clean:
+	rm -rf $(VAGUS_DIR)/.zig-cache $(VAGUS_DIR)/zig-out
+
+.PHONY: vagus test_vagus vagus-clean
 
