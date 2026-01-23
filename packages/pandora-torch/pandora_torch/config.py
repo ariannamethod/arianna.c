@@ -31,8 +31,8 @@ class PandoraTorchConfig:
     # Injection
     injection_strength: float = 0.2
 
-    # Activation mode
-    mode: PandoraMode = PandoraMode.AUTO
+    # Activation mode (OFF by default - Arianna is best when pure)
+    mode: PandoraMode = PandoraMode.OFF
 
     # SARTRE thresholds
     coherence_threshold: float = 0.3  # Activate below this

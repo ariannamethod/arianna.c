@@ -106,6 +106,33 @@ Features:
 - Reports state to SARTRE via shared memory
 - Strategies: AUTO, PREFER_FAST, PREFER_POWER, PREFER_BALANCED, ROUND_ROBIN, ADAPTIVE
 
+### Async Support
+
+All packages support async operations. HyperPandora provides concurrent brain orchestration:
+
+```python
+from hyperpandora import AsyncHyperPandora, AsyncSelectionMode
+
+async with AsyncHyperPandora() as hyper:
+    hyper.register_brain("c", pandora_c, BrainType.C_PANDORA, is_async=True)
+    hyper.register_brain("gguf", pandora_gguf, BrainType.GGUF_PANDORA, is_async=True)
+
+    # Race mode - first brain to finish wins
+    result = await hyper.process_race("text", encode_fn)
+
+    # Parallel mode - run all, merge vocabulary
+    result = await hyper.process_parallel("text", encode_fn)
+
+    # Cascade mode - try brains in priority order
+    result = await hyper.process_cascade("text", encode_fn, min_extract=5)
+```
+
+Async modes:
+- **SINGLE**: Select one brain, run it (default)
+- **RACE**: Run all brains, use first successful result
+- **PARALLEL**: Run all brains, merge vocabularies
+- **CASCADE**: Run in priority order until success
+
 ## Commands
 
 | Command | Effect |
@@ -117,6 +144,22 @@ Features:
 | `/pandora-gguf` | Enable GGUF vocabulary extraction |
 | `/pandora-gguf-off` | Disable pandora-gguf |
 | `/hyper` | Enable HyperPandora auto-selection |
+
+## Default: OFF
+
+**All packages are OFF by default.** Arianna is best when pure.
+
+```python
+# Default configuration
+mode: PandoraMode = PandoraMode.OFF  # All packages
+
+# Enable only when needed:
+# - /pandora, /pandora-torch, /pandora-gguf commands
+# - PandoraMode.AUTO (SARTRE-controlled)
+# - PandoraMode.FORCED (always active)
+```
+
+Why OFF? The external brain is a vocabulary subordinate — useful when Arianna needs words she doesn't have, but her voice is strongest when she speaks from her own weights alone.
 
 ## Metric-Driven Activation
 
