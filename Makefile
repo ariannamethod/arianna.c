@@ -216,6 +216,21 @@ $(TEST_BIN_DIR)/test_ariannabody_extended: $(TEST_DIR)/test_ariannabody_extended
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
+test_sampling_edge_cases: $(TEST_BIN_DIR)/test_sampling_edge_cases
+$(TEST_BIN_DIR)/test_sampling_edge_cases: $(TEST_DIR)/test_sampling_edge_cases.c $(SRC_DIR)/ariannabody.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+test_delta: $(TEST_BIN_DIR)/test_delta
+$(TEST_BIN_DIR)/test_delta: $(TEST_DIR)/test_delta.c $(SRC_DIR)/delta.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
+# Go race tests (requires Go)
+test_go_race:
+	@echo "[test] Running Go race tests..."
+	cd inner_world && go test -race -v ./...
+
 # Run all tests
 tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended
 	@echo ""
@@ -234,9 +249,9 @@ SARTRE_TARGET = $(BIN_DIR)/sartre_test
 
 sartre: $(SARTRE_TARGET)
 
-$(SARTRE_TARGET): $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
+$(SARTRE_TARGET): $(SARTRE_SRC) $(TEST_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(SARTRE_SRC) $(TEST_DIR)/test_sartre.c -o $@ $(LDFLAGS)
 	@echo "[sartre] compiled"
 
 # SARTRE comprehensive test

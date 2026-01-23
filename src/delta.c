@@ -223,39 +223,65 @@ int load_shard(ExperienceShard* shard, const char* path, int n_layers, int dim) 
     FILE* f = fopen(path, "rb");
     if (!f) return -1;
 
+    // Helper macro for checked reads
+    #define READ_CHECK(ptr, size, count) do { \
+        if (fread(ptr, size, count, f) != (size_t)(count)) { \
+            fprintf(stderr, "[delta] shard read error at %s\n", #ptr); \
+            fclose(f); \
+            free_shard(shard); \
+            return -1; \
+        } \
+    } while(0)
+
     // Read header
-    fread(shard->name, 1, 64, f);
-    fread(&shard->strength, sizeof(float), 1, f);
-    fread(&shard->n_layers, sizeof(int), 1, f);
+    READ_CHECK(shard->name, 1, 64);
+    READ_CHECK(&shard->strength, sizeof(float), 1);
+    READ_CHECK(&shard->n_layers, sizeof(int), 1);
 
     int rank;
-    fread(&rank, sizeof(int), 1, f);
+    READ_CHECK(&rank, sizeof(int), 1);
+
+    // Validate rank
+    if (rank <= 0 || rank > DELTA_RANK) {
+        fprintf(stderr, "[delta] invalid rank %d in shard\n", rank);
+        fclose(f);
+        return -1;
+    }
 
     // Allocate deltas
     shard->attn_q_deltas = (LowRankDelta*)calloc(n_layers, sizeof(LowRankDelta));
     shard->attn_k_deltas = (LowRankDelta*)calloc(n_layers, sizeof(LowRankDelta));
     shard->attn_v_deltas = (LowRankDelta*)calloc(n_layers, sizeof(LowRankDelta));
 
+    if (!shard->attn_q_deltas || !shard->attn_k_deltas || !shard->attn_v_deltas) {
+        fprintf(stderr, "[delta] allocation failed\n");
+        fclose(f);
+        free_shard(shard);
+        return -1;
+    }
+
     // Read Q deltas
     for (int l = 0; l < n_layers; l++) {
         init_low_rank_delta(&shard->attn_q_deltas[l], dim, dim, rank);
-        fread(shard->attn_q_deltas[l].A, sizeof(float), dim * rank, f);
-        fread(shard->attn_q_deltas[l].B, sizeof(float), rank * dim, f);
+        READ_CHECK(shard->attn_q_deltas[l].A, sizeof(float), dim * rank);
+        READ_CHECK(shard->attn_q_deltas[l].B, sizeof(float), rank * dim);
     }
 
     // Read K deltas
     for (int l = 0; l < n_layers; l++) {
         init_low_rank_delta(&shard->attn_k_deltas[l], dim, dim, rank);
-        fread(shard->attn_k_deltas[l].A, sizeof(float), dim * rank, f);
-        fread(shard->attn_k_deltas[l].B, sizeof(float), rank * dim, f);
+        READ_CHECK(shard->attn_k_deltas[l].A, sizeof(float), dim * rank);
+        READ_CHECK(shard->attn_k_deltas[l].B, sizeof(float), rank * dim);
     }
 
     // Read V deltas
     for (int l = 0; l < n_layers; l++) {
         init_low_rank_delta(&shard->attn_v_deltas[l], dim, dim, rank);
-        fread(shard->attn_v_deltas[l].A, sizeof(float), dim * rank, f);
-        fread(shard->attn_v_deltas[l].B, sizeof(float), rank * dim, f);
+        READ_CHECK(shard->attn_v_deltas[l].A, sizeof(float), dim * rank);
+        READ_CHECK(shard->attn_v_deltas[l].B, sizeof(float), rank * dim);
     }
+
+    #undef READ_CHECK
 
     fclose(f);
     return 0;

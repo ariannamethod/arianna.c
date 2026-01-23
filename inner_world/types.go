@@ -289,3 +289,19 @@ func clamp(v, min, max float32) float32 {
 	}
 	return v
 }
+
+// min32 returns the smaller of a and b
+func min32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// max32 returns the larger of a and b
+func max32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
