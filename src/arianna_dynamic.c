@@ -1768,7 +1768,7 @@ int main(int argc, char** argv) {
     int n_shard_paths = 0;
     char* learn_name = "live";  // Microtraining ON by default (use -no-learn to disable)
     char* save_path = NULL;
-    int max_tokens = 100;
+    int max_tokens = 250;  // Character-level tokenizer: ~250 chars = 35-40 words
     int max_tokens_set = 0;  // flag to track if user provided max_tokens
     float temperature = 0.8f;
     float momentum = 0.8f;
