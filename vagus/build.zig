@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    unit_tests.linkLibC();
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
     // Integration tests (vagus_test.zig)
@@ -38,6 +39,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    integration_tests.linkLibC();
     const run_integration_tests = b.addRunArtifact(integration_tests);
 
     // Test step runs both
