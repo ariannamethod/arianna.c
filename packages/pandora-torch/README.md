@@ -55,7 +55,7 @@ Requirements:
 - PyTorch 2.0+
 - transformers (for tokenizer)
 
-**Stanley auto-download:** On first use, Pandora-Torch will automatically install Stanley from `github.com/ariannamethod/stanley` (~300MB). No manual setup required!
+**Stanley auto-download:** On first use, Pandora-Torch will automatically install Stanley code from `github.com/ariannamethod/stanley`. Stanley then downloads GPT2-distill weights (~300MB) from HuggingFace on first inference. No manual setup required!
 
 ```python
 # Manual install (if needed)

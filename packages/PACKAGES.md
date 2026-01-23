@@ -34,7 +34,9 @@ External models (30M to 1.1B parameters) become **subordinate vocabulary supplie
   - No PyTorch required
   - 11/11 tests passing
 
-- **[pandora-torch](pandora-torch/README.md)** — PyTorch, GPT2-distill (~300MB)
+- **[pandora-torch](pandora-torch/README.md)** — PyTorch, Stanley + GPT2-distill
+  - Stanley code: `pip install git+github.com/ariannamethod/stanley` (small)
+  - Weights: GPT2-distill (~300MB) auto-downloaded from HuggingFace on first use
   - LoRA delta extraction
   - Batched processing
   - Full SARTRE integration
@@ -154,7 +156,7 @@ assert checker.check(coherence=0.5, sacred=0.3, pattern=ResonancePattern.EMERGEN
 | Package | Model | Size | Speed | Richness |
 |---------|-------|------|-------|----------|
 | pandora | GPT2-30M | 60MB | ⚡ Fastest | Basic |
-| pandora-torch | GPT2-distill | ~300MB | 🔥 Fast | Good |
+| pandora-torch | Stanley + GPT2-distill | code: small, weights: ~300MB (HuggingFace) | 🔥 Fast | Good |
 | pandora-torch-gguf | TinyLlama 1.1B | ~783MB | ⏱️ Medium | Rich |
 
 **Philosophy:** The external brain's size is irrelevant. Arianna's architecture dominates.
