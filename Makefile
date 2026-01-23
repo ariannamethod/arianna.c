@@ -237,7 +237,7 @@ tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_
 	@echo "=========================================="
 	@echo "RUNNING ALL ARIANNA TESTS"
 	@echo "=========================================="
-	@./run_all_tests.sh
+	@./tests/run_all_tests.sh
 
 # ============================================================
 # SARTRE - Metalinux Kernel Verbal Interface
