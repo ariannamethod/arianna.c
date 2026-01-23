@@ -24,15 +24,26 @@ pub fn build(b: *std.Build) void {
     shared.linkLibC();
     b.installArtifact(shared);
 
-    // Tests
-    const tests = b.addTest(.{
+    // Unit tests (vagus.zig internal tests)
+    const unit_tests = b.addTest(.{
         .root_source_file = b.path("vagus.zig"),
         .target = target,
         .optimize = optimize,
     });
-    const run_tests = b.addRunArtifact(tests);
-    const test_step = b.step("test", "Run vagus tests");
-    test_step.dependOn(&run_tests.step);
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+
+    // Integration tests (vagus_test.zig)
+    const integration_tests = b.addTest(.{
+        .root_source_file = b.path("vagus_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const run_integration_tests = b.addRunArtifact(integration_tests);
+
+    // Test step runs both
+    const test_step = b.step("test", "Run all vagus tests");
+    test_step.dependOn(&run_unit_tests.step);
+    test_step.dependOn(&run_integration_tests.step);
 
     // Header installation
     const install_header = b.addInstallHeaderFile(
