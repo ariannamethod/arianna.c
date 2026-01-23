@@ -21,6 +21,7 @@
 #include "julia_bridge.h"  // Julia emotional gradient engine
 #include "schumann.h"  // Earth-ionosphere resonance (cosmic input)
 #include "pandora.h"  // Vocabulary injection from External Brain
+#include "../packages/pandora/pandora_bridge.h"  // Python bridge to external brains
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
@@ -1553,6 +1554,70 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
+        // Pandora: steal vocabulary from external brain (GPT2-30M)
+        if (strncmp(input, "steal ", 6) == 0) {
+            const char* prompt = input + 6;
+            if (strlen(prompt) > 0) {
+                g_pandora_enabled = 1;
+                pandora_set_active(&g_pandora, 1);
+                int n = pandora_steal_from_brain(&g_pandora, prompt);
+                if (n > 0) {
+                    printf("[Pandora] Stole %d n-grams from GPT2-30M\n", n);
+                    printf("[Pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
+                }
+            } else {
+                printf("Usage: steal <prompt>\n");
+                printf("Example: steal What is consciousness?\n");
+            }
+            continue;
+        }
+
+        // Pandora: steal from TinyLlama 1.1B GGUF (auto-downloads if needed)
+        if (strncmp(input, "stealtiny ", 10) == 0) {
+            const char* prompt = input + 10;
+            if (strlen(prompt) > 0) {
+                g_pandora_enabled = 1;
+                pandora_set_active(&g_pandora, 1);
+                printf("[Pandora] Using TinyLlama 1.1B (first run downloads ~700MB)...\n");
+                int n = pandora_steal_from(&g_pandora, BRAIN_TINYLLAMA, prompt);
+                if (n > 0) {
+                    printf("[Pandora] Stole %d n-grams from TinyLlama-1.1B\n", n);
+                    printf("[Pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
+                }
+            } else {
+                printf("Usage: stealtiny <prompt>\n");
+                printf("Example: stealtiny What is the meaning of life?\n");
+            }
+            continue;
+        }
+
+        if (strcmp(input, "pandora") == 0) {
+            printf("Pandora status: %s\n", g_pandora_enabled ? "ENABLED" : "DISABLED");
+            printf("  N-grams stolen: %d / %d\n", g_pandora.n_ngrams, PANDORA_MAX_NGRAMS);
+            printf("  Injection strength: %.2f\n", g_pandora.injection_strength);
+            printf("\nExternal Brains:\n");
+            printf("  steal <prompt>      - GPT2-30M (fast, ~100MB local)\n");
+            printf("  stealtiny <prompt>  - TinyLlama 1.1B (larger, auto-download)\n");
+            printf("\nControl:\n");
+            printf("  pandoraon           - enable vocabulary injection\n");
+            printf("  pandoraoff          - disable (pure voice)\n");
+            continue;
+        }
+
+        if (strcmp(input, "pandoraon") == 0) {
+            g_pandora_enabled = 1;
+            pandora_set_active(&g_pandora, 1);
+            printf("[Pandora ENABLED]\n");
+            continue;
+        }
+
+        if (strcmp(input, "pandoraoff") == 0) {
+            g_pandora_enabled = 0;
+            pandora_set_active(&g_pandora, 0);
+            printf("[Pandora DISABLED - pure voice]\n");
+            continue;
+        }
+
         if (strcmp(input, "help") == 0) {
             printf("Commands:\n");
             printf("  signals  - show signal values\n");
@@ -1562,6 +1627,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  cooccur  - show co-occurrence stats\n");
             printf("  math     - show MathBrain stats\n");
             printf("  mathsave - save MathBrain state now\n");
+            printf("  pandora  - show Pandora (external brain) status\n");
+            printf("  steal X  - steal vocabulary from GPT2-30M for prompt X\n");
+            printf("  stealtiny X - steal from TinyLlama 1.1B GGUF\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL (auto-saves MathBrain)\n");

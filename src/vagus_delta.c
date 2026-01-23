@@ -256,6 +256,21 @@ VagusAwareShard* load_vagus_shard(const char* path, int n_layers, int dim) {
     int rank;
     fread(&rank, sizeof(int), 1, f);
 
+    // SECURITY: validate rank and n_layers to prevent OOB/OOM
+    if (rank < 1 || rank > DELTA_RANK) {
+        fprintf(stderr, "[vagus_delta] corrupt file: invalid rank %d (max %d)\n", rank, DELTA_RANK);
+        free(vs);
+        fclose(f);
+        return NULL;
+    }
+    if (vs->shard.n_layers != n_layers) {
+        fprintf(stderr, "[vagus_delta] corrupt file: n_layers mismatch %d vs expected %d\n",
+                vs->shard.n_layers, n_layers);
+        free(vs);
+        fclose(f);
+        return NULL;
+    }
+
     // Allocate and read deltas
     vs->shard.attn_q_deltas = (LowRankDelta*)calloc(n_layers, sizeof(LowRankDelta));
     vs->shard.attn_k_deltas = (LowRankDelta*)calloc(n_layers, sizeof(LowRankDelta));

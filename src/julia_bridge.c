@@ -287,13 +287,33 @@ int julia_analyze_text(const char* text, JuliaEmotionalResult* result) {
 
     if (!julia_is_available()) return 0;
 
-    /* Escape text for JSON */
+    /* Escape text for JSON (full escaping) */
     char escaped[1024];
     const char* s = text;
     char* d = escaped;
-    while (*s && d < escaped + sizeof(escaped) - 2) {
-        if (*s == '"' || *s == '\\') *d++ = '\\';
-        *d++ = *s++;
+    while (*s && d < escaped + sizeof(escaped) - 6) {  // -6 for \uXXXX
+        unsigned char c = (unsigned char)*s;
+        if (c == '"') {
+            *d++ = '\\'; *d++ = '"';
+        } else if (c == '\\') {
+            *d++ = '\\'; *d++ = '\\';
+        } else if (c == '\n') {
+            *d++ = '\\'; *d++ = 'n';
+        } else if (c == '\r') {
+            *d++ = '\\'; *d++ = 'r';
+        } else if (c == '\t') {
+            *d++ = '\\'; *d++ = 't';
+        } else if (c == '\b') {
+            *d++ = '\\'; *d++ = 'b';
+        } else if (c == '\f') {
+            *d++ = '\\'; *d++ = 'f';
+        } else if (c < 32) {
+            // Other control chars as \u00XX
+            d += snprintf(d, 7, "\\u%04x", c);
+        } else {
+            *d++ = *s;
+        }
+        s++;
     }
     *d = '\0';
 
