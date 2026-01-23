@@ -47,3 +47,5 @@ samples/
 *.swp
 .DS_Store
 _codeql_detected_source_root
+.zig-cache/
+zig-out/
