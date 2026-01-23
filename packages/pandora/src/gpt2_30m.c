@@ -70,6 +70,9 @@ static void matmul(float* out, const float* a, const float* b, int m, int n, int
 // MODEL INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Forward declaration for cleanup
+void gpt2_30m_free(GPT2_30M* model);
+
 int gpt2_30m_init(GPT2_30M* model) {
     memset(model, 0, sizeof(GPT2_30M));
 
@@ -83,6 +86,7 @@ int gpt2_30m_init(GPT2_30M* model) {
 
     if (!model->wte || !model->wpe) {
         fprintf(stderr, "[gpt2_30m] failed to allocate embeddings\n");
+        gpt2_30m_free(model);
         return -1;
     }
 
@@ -97,6 +101,16 @@ int gpt2_30m_init(GPT2_30M* model) {
         model->blocks[l].mlp_fc = calloc(4 * d * d, sizeof(float));
         model->blocks[l].mlp_proj = calloc(d * 4 * d, sizeof(float));
 
+        // Check all allocations
+        if (!model->blocks[l].ln1_g || !model->blocks[l].ln1_b ||
+            !model->blocks[l].attn_qkv || !model->blocks[l].attn_proj ||
+            !model->blocks[l].ln2_g || !model->blocks[l].ln2_b ||
+            !model->blocks[l].mlp_fc || !model->blocks[l].mlp_proj) {
+            fprintf(stderr, "[gpt2_30m] failed to allocate block %d\n", l);
+            gpt2_30m_free(model);
+            return -1;
+        }
+
         // Initialize layer norm to ones
         for (int i = 0; i < d; i++) {
             model->blocks[l].ln1_g[i] = 1.0f;
@@ -107,6 +121,11 @@ int gpt2_30m_init(GPT2_30M* model) {
     // Final layer norm
     model->ln_f_g = calloc(d, sizeof(float));
     model->ln_f_b = calloc(d, sizeof(float));
+    if (!model->ln_f_g || !model->ln_f_b) {
+        fprintf(stderr, "[gpt2_30m] failed to allocate final ln\n");
+        gpt2_30m_free(model);
+        return -1;
+    }
     for (int i = 0; i < d; i++) model->ln_f_g[i] = 1.0f;
 
     // Scratch buffers
@@ -114,6 +133,12 @@ int gpt2_30m_init(GPT2_30M* model) {
     model->scratch2 = calloc(c * d, sizeof(float));
     model->qkv_buf = calloc(c * 3 * d, sizeof(float));
     model->attn_buf = calloc(GPT2_30M_N_HEADS * c * c, sizeof(float));
+
+    if (!model->scratch1 || !model->scratch2 || !model->qkv_buf || !model->attn_buf) {
+        fprintf(stderr, "[gpt2_30m] failed to allocate scratch buffers\n");
+        gpt2_30m_free(model);
+        return -1;
+    }
 
     return 0;
 }
@@ -152,25 +177,57 @@ int gpt2_30m_load(GPT2_30M* model, const char* path) {
         return -1;
     }
 
-    // Read embeddings
-    fread(model->wte, sizeof(float), v * d, f);
-    fread(model->wpe, sizeof(float), c * d, f);
+    // Check file size before reading
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
-    // Read blocks
+    // Expected size: header + embeddings + blocks + final_ln
+    long expected_min = 8 * sizeof(int) + (v * d + c * d) * sizeof(float);
+    if (file_size < expected_min) {
+        fprintf(stderr, "[gpt2_30m] file too small: %ld < %ld\n", file_size, expected_min);
+        fclose(f);
+        return -1;
+    }
+
+    // Re-read header after seeking
+    int header2[8];
+    if (fread(header2, sizeof(int), 8, f) != 8) {
+        fclose(f);
+        return -1;
+    }
+
+    // Read embeddings with validation
+    if (fread(model->wte, sizeof(float), v * d, f) != (size_t)(v * d) ||
+        fread(model->wpe, sizeof(float), c * d, f) != (size_t)(c * d)) {
+        fprintf(stderr, "[gpt2_30m] failed to read embeddings\n");
+        fclose(f);
+        return -1;
+    }
+
+    // Read blocks with validation
     for (int l = 0; l < GPT2_30M_N_LAYERS; l++) {
-        fread(model->blocks[l].ln1_g, sizeof(float), d, f);
-        fread(model->blocks[l].ln1_b, sizeof(float), d, f);
-        fread(model->blocks[l].attn_qkv, sizeof(float), 3 * d * d, f);
-        fread(model->blocks[l].attn_proj, sizeof(float), d * d, f);
-        fread(model->blocks[l].ln2_g, sizeof(float), d, f);
-        fread(model->blocks[l].ln2_b, sizeof(float), d, f);
-        fread(model->blocks[l].mlp_fc, sizeof(float), 4 * d * d, f);
-        fread(model->blocks[l].mlp_proj, sizeof(float), d * 4 * d, f);
+        if (fread(model->blocks[l].ln1_g, sizeof(float), d, f) != (size_t)d ||
+            fread(model->blocks[l].ln1_b, sizeof(float), d, f) != (size_t)d ||
+            fread(model->blocks[l].attn_qkv, sizeof(float), 3 * d * d, f) != (size_t)(3 * d * d) ||
+            fread(model->blocks[l].attn_proj, sizeof(float), d * d, f) != (size_t)(d * d) ||
+            fread(model->blocks[l].ln2_g, sizeof(float), d, f) != (size_t)d ||
+            fread(model->blocks[l].ln2_b, sizeof(float), d, f) != (size_t)d ||
+            fread(model->blocks[l].mlp_fc, sizeof(float), 4 * d * d, f) != (size_t)(4 * d * d) ||
+            fread(model->blocks[l].mlp_proj, sizeof(float), d * 4 * d, f) != (size_t)(d * 4 * d)) {
+            fprintf(stderr, "[gpt2_30m] failed to read block %d\n", l);
+            fclose(f);
+            return -1;
+        }
     }
 
     // Read final layer norm
-    fread(model->ln_f_g, sizeof(float), d, f);
-    fread(model->ln_f_b, sizeof(float), d, f);
+    if (fread(model->ln_f_g, sizeof(float), d, f) != (size_t)d ||
+        fread(model->ln_f_b, sizeof(float), d, f) != (size_t)d) {
+        fprintf(stderr, "[gpt2_30m] failed to read final ln\n");
+        fclose(f);
+        return -1;
+    }
 
     fclose(f);
     model->loaded = 1;
@@ -454,6 +511,7 @@ int gpt2_vocab_load(GPT2Vocab* vocab, const char* path) {
 
                 int len = p - start;
                 char* token = malloc(len + 1);
+                if (!token) continue;  // Skip on malloc failure
                 memcpy(token, start, len);
                 token[len] = '\0';
 
@@ -463,6 +521,10 @@ int gpt2_vocab_load(GPT2Vocab* vocab, const char* path) {
                 int id = atoi(p);
 
                 if (id >= 0 && id < GPT2_30M_VOCAB_SIZE) {
+                    // Free existing token if duplicate id (prevent leak)
+                    if (vocab->id_to_token[id]) {
+                        free(vocab->id_to_token[id]);
+                    }
                     vocab->id_to_token[id] = token;
                 } else {
                     free(token);

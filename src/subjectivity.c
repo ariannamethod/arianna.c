@@ -646,15 +646,21 @@ void generate_internal_seed(InternalSeed* seed, ExtendedIdentity* identity,
             }
         }
 
-        if (pos > 0) {
+        if (pos > 0 && pos < 510) {
             buf[pos++] = ' ';
         }
         int trig_len = strlen(identity->trigrams[chosen]);
-        strncpy(buf + pos, identity->trigrams[chosen], 511 - pos);
-        pos += trig_len;
+        int max_copy = 511 - pos;
+        if (max_copy > 0) {
+            int actual_copy = trig_len < max_copy ? trig_len : max_copy;
+            strncpy(buf + pos, identity->trigrams[chosen], actual_copy);
+            pos += actual_copy;  // SECURITY: only add what we actually copied
+        }
         seed->trigram_contribution = trig_weight;
     }
 
+    // SECURITY: ensure pos is in bounds before null termination
+    if (pos > 511) pos = 511;
     buf[pos] = '\0';
     strncpy(seed->text, buf, 511);
     seed->text[511] = '\0';

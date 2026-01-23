@@ -470,14 +470,19 @@ int sample_top_p(float* logits, int n, float temperature, float top_p) {
             logits[indices[i]] = 0.0f;
         }
         
-        // Renormalize
+        // Renormalize (SECURITY: prevent division by zero)
         float sum = 0.0f;
         for (int i = 0; i < n; i++) sum += logits[i];
-        for (int i = 0; i < n; i++) logits[i] /= sum;
-        
+        if (sum > 0.0f) {
+            for (int i = 0; i < n; i++) logits[i] /= sum;
+        } else {
+            // Fallback: uniform distribution over top candidates
+            for (int i = 0; i < cutoff && i < n; i++) logits[indices[i]] = 1.0f / cutoff;
+        }
+
         free(indices);
     }
-    
+
     return sample_multinomial(logits, n);
 }
 
@@ -507,14 +512,20 @@ void load_tokenizer(Tokenizer* t, const char* path) {
     fseek(f, 0, SEEK_SET);
     
     char* content = malloc(len + 1);
+    if (!content) {
+        fprintf(stderr, "Error allocating memory for tokenizer\n");
+        fclose(f);
+        return;
+    }
     if (fread(content, 1, len, f) != (size_t)len) {
         fprintf(stderr, "Error reading tokenizer file\n");
+        free(content);
         fclose(f);
         return;
     }
     content[len] = '\0';
     fclose(f);
-    
+
     // Find vocab_size
     char* vs = strstr(content, "\"vocab_size\":");
     if (vs) {
@@ -522,9 +533,23 @@ void load_tokenizer(Tokenizer* t, const char* path) {
     } else {
         t->vocab_size = 88;  // Default
     }
-    
+
+    // SECURITY: limit vocab_size to prevent OOM
+    if (t->vocab_size < 1 || t->vocab_size > 65536) {
+        fprintf(stderr, "Invalid vocab_size: %d\n", t->vocab_size);
+        free(content);
+        return;
+    }
+
     t->chars = calloc(t->vocab_size, sizeof(char));
     t->char_to_id = calloc(256, sizeof(int));
+    if (!t->chars || !t->char_to_id) {
+        fprintf(stderr, "Error allocating tokenizer arrays\n");
+        free(t->chars);
+        free(t->char_to_id);
+        free(content);
+        return;
+    }
     
     // Initialize all to -1 (unknown)
     for (int i = 0; i < 256; i++) t->char_to_id[i] = -1;
@@ -678,7 +703,32 @@ int main(int argc, char** argv) {
     fseek(f, 0, SEEK_END);
     long file_size = ftell(f);
     fseek(f, 0, SEEK_SET);
-    
+
+    // SECURITY: Calculate expected minimum weights size
+    int kv_dim = config.n_kv_heads * config.head_dim;
+    long expected_size = (long)(
+        config.vocab_size * config.dim +  // tok_emb
+        config.n_layers * (
+            config.dim +                   // attn_norm
+            config.dim * config.dim +      // wq
+            config.dim * kv_dim +          // wk
+            config.dim * kv_dim +          // wv
+            config.dim * config.dim +      // wo
+            config.dim +                   // ffn_norm
+            config.dim * config.hidden_dim + // w_gate
+            config.dim * config.hidden_dim + // w_up
+            config.hidden_dim * config.dim   // w_down
+        ) +
+        config.dim +                       // final_norm
+        config.vocab_size * config.dim     // output (lm_head)
+    ) * sizeof(float);
+
+    if (file_size < expected_size) {
+        fprintf(stderr, "Error: weights file too small (%ld < %ld bytes)\n", file_size, expected_size);
+        fclose(f);
+        return 1;
+    }
+
     float* weight_data = malloc(file_size);
     if (!weight_data) {
         fprintf(stderr, "Error allocating memory for weights\n");
@@ -692,7 +742,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     fclose(f);
-    
+
     printf("   Loaded %.2f MB\n", file_size / 1024.0f / 1024.0f);
     
     // Load tokenizer
