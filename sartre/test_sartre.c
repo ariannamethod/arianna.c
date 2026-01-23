@@ -21,14 +21,21 @@ int main() {
     sartre_notify_event("Package numpy connected");
     printf("✓ Event notified\n\n");
 
-    // Query
-    printf("[3] Querying SARTRE...\n");
-    char* response = sartre_query("What is your status?");
-    printf("Response: %s\n\n", response);
-    free(response);
+    // Update state
+    printf("[3] Updating state...\n");
+    sartre_update_inner_state(0.2f, 0.6f, 0.7f, 0.85f, 0.1f);
+    sartre_update_schumann(0.8f, 1.2f);
+    sartre_update_calendar(0.3f, 0);
+    sartre_update_module("arianna_core", MODULE_ACTIVE, 0.7f);
+    printf("✓ State updated\n\n");
+
+    // Print state
+    printf("[4] Printing state...\n\n");
+    sartre_print_state();
+    printf("✓ State printed\n\n");
 
     // Shutdown
-    printf("[4] Shutting down...\n");
+    printf("[5] Shutting down...\n");
     sartre_shutdown();
     printf("✓ SARTRE shutdown\n\n");
 

@@ -224,7 +224,7 @@ tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_
 # ============================================================
 
 SARTRE_DIR = sartre
-SARTRE_SRC = $(SARTRE_DIR)/sartre_llama.c
+SARTRE_SRC = $(SARTRE_DIR)/sartre_kernel.c
 SARTRE_TARGET = $(BIN_DIR)/sartre_test
 
 sartre: $(SARTRE_TARGET)

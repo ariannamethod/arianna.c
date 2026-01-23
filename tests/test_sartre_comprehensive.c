@@ -205,28 +205,7 @@ int test_modules() {
 }
 
 // ============================================================
-// TEST 7: Query interface
-// ============================================================
-
-int test_query() {
-    start_test("Query interface");
-
-    char* response = sartre_query("What is your status?");
-    ASSERT(response != NULL, "Query returned NULL");
-    ASSERT(strlen(response) > 0, "Query returned empty string");
-
-    free(response);
-
-    response = sartre_query("Another question");
-    ASSERT(response != NULL, "Second query returned NULL");
-    free(response);
-
-    test_passed();
-    return 0;
-}
-
-// ============================================================
-// TEST 8: State formatting (print)
+// TEST 7: State formatting (print)
 // ============================================================
 
 int test_state_print() {
@@ -240,29 +219,7 @@ int test_state_print() {
 }
 
 // ============================================================
-// TEST 9: Error handling
-// ============================================================
-
-int test_error_handling() {
-    start_test("Error handling");
-
-    // Query after shutdown
-    sartre_shutdown();
-    char* response = sartre_query("After shutdown");
-    ASSERT(response != NULL, "Query after shutdown returned NULL");
-    ASSERT(strstr(response, "ERROR") != NULL || strstr(response, "not initialized") != NULL,
-           "Query after shutdown should indicate error");
-    free(response);
-
-    // Re-init for next tests
-    sartre_init(NULL);
-
-    test_passed();
-    return 0;
-}
-
-// ============================================================
-// TEST 10: Full integration scenario
+// TEST 8: Full integration scenario
 // ============================================================
 
 int test_integration() {
@@ -286,10 +243,8 @@ int test_integration() {
     ASSERT(state->calendar_tension == 0.3f, "Integration: calendar wrong");
     ASSERT(state->module_count >= 2, "Integration: modules not tracked");
 
-    // Query with full state
-    char* response = sartre_query("What is system status?");
-    ASSERT(response != NULL, "Integration query failed");
-    free(response);
+    // Print state (verify no crash)
+    sartre_print_state();
 
     test_passed();
     return 0;
@@ -311,9 +266,7 @@ int main() {
     if (test_schumann()) return 1;
     if (test_calendar()) return 1;
     if (test_modules()) return 1;
-    if (test_query()) return 1;
     if (test_state_print()) return 1;
-    if (test_error_handling()) return 1;
     if (test_integration()) return 1;
 
     printf("\n╔═══════════════════════════════════════════════════════════╗\n");
