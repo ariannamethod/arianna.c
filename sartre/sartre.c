@@ -637,7 +637,7 @@ int main(int argc, char** argv) {
     
     char* weights_path = argv[1];
     char* prompt = "Q: What do you sense in your body?\nA: ";
-    char* tokenizer_path = "../weights/sartre/tokenizer.json";
+    char* tokenizer_path = "weights/sartre/tokenizer.json";
     int max_tokens = 100;
     float temperature = 0.8f;
     float top_p = 0.9f;
@@ -811,20 +811,6 @@ int main(int argc, char** argv) {
             forward(&config, &weights, &state, next, pos++);
         }
         output_buffer[output_len] = '\0';
-        
-        // Trim to last complete sentence to avoid mid-word cutoff
-        int last_end = -1;
-        for (int i = output_len - 1; i >= 0; i--) {
-            if (output_buffer[i] == '.' || output_buffer[i] == '!' || output_buffer[i] == '?') {
-                last_end = i;
-                break;
-            }
-        }
-        if (last_end >= 0) {
-            output_buffer[last_end + 1] = '\0';
-        }
-        
-        // Print the trimmed output
         printf("%s", output_buffer);
         
         clock_t end = clock();

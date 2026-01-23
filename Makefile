@@ -263,6 +263,19 @@ $(TEST_BIN_DIR)/test_sartre_comprehensive: $(TEST_DIR)/test_sartre_comprehensive
 
 .PHONY: sartre test_sartre
 
+# SARTRE inference binary (standalone transformer)
+SARTRE_INFERENCE_SRC = $(SARTRE_DIR)/sartre.c
+SARTRE_INFERENCE_BIN = $(BIN_DIR)/sartre
+
+sartre_inference: $(SARTRE_INFERENCE_BIN)
+
+$(SARTRE_INFERENCE_BIN): $(SARTRE_INFERENCE_SRC)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(SARTRE_INFERENCE_SRC) -o $@ $(LDFLAGS)
+	@echo "[sartre] inference binary compiled"
+
+.PHONY: sartre_inference
+
 # ============================================================
 # VAGUS - The Nervous System (Zig)
 # ============================================================
