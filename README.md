@@ -344,7 +344,7 @@ arianna.c/
 │   ├── subjectivity.c            # Identity core (origin.txt)
 │   ├── inner_arianna.c           # MetaVoice борьба
 │   ├── amk_kernel.c              # Prophecy physics (AMK)
-│   ├── pandora.c                 # Vocabulary theft from External Brain
+│   ├── pandora.c                 # Vocabulary theft (n-gram storage)
 │   ├── delta.c                   # Dynamic shards
 │   ├── delta_enhanced.c          # Advanced shard operations
 │   ├── vagus_delta.c             # Vagus ↔ Delta bridge
@@ -360,45 +360,48 @@ arianna.c/
 │   ├── amk_lua.c                 # Lua integration (optional)
 │   └── *.h                       # Headers for all modules
 │
+├── packages/                     # External brain packages (OFF by default)
+│   ├── PACKAGES.md               # Package documentation
+│   ├── pandora/                  # GPT2-30M C bridge
+│   │   ├── external_brain.py     # Python → GPT2-30M → Arianna tokens
+│   │   ├── external_brain_gguf.py # Python → TinyLlama GGUF → Arianna tokens
+│   │   ├── pandora_bridge.c      # C API for calling Python brains
+│   │   ├── pandora_bridge.h      # Header
+│   │   └── src/                  # Pure C GPT2 implementation
+│   ├── pandora-torch/            # PyTorch GPT2-distill
+│   ├── pandora-torch-gguf/       # TinyLlama 1.1B GGUF
+│   ├── hyperpandora/             # Meta-orchestrator (SARTRE-driven)
+│   └── tests/                    # Package tests (100% passing)
+│
 ├── vagus/                        # Zig nervous system (35 tests)
 │   ├── vagus.zig                 # Core implementation
 │   ├── vagus.h                   # C interop header
 │   ├── vagus_test.zig            # Test suite
-│   ├── build.zig                 # Build config
-│   └── README.md                 # Documentation
+│   └── build.zig                 # Build config
 │
 ├── locus/                        # C resonance detector (16 tests)
 │   ├── locus.c                   # Locus Coeruleus implementation
 │   ├── locus.h                   # Header
-│   ├── locus_test.c              # Test suite
-│   ├── Makefile                  # Build
-│   └── README.md                 # Documentation
+│   └── locus_test.c              # Test suite
 │
 ├── sartre/                       # Interoceptive observer (10M params)
 │   ├── sartre.c                  # C transformer inference
-│   ├── sartre.h                  # Header
-│   ├── sartre_kernel.c           # Observation kernel
+│   ├── sartre_kernel.c           # Observation kernel (metrics collector)
 │   ├── dubrovsky.py              # Pure NumPy inference
 │   ├── sartre_talk.py            # Python REPL
-│   ├── tokenizer.py              # Tokenizer
 │   ├── vagus_bridge.py           # Vagus ↔ SARTRE bridge
-│   ├── test_sartre.py            # Python tests
-│   ├── test_vagus_bridge.py      # Bridge tests
 │   ├── corpus/                   # Training corpus
 │   └── sartre-llama/             # Julia implementation
 │
 ├── limpha/                       # Lymphatic memory system (28 tests)
-│   ├── __init__.py               # Module exports
 │   ├── memory.py                 # Conversations + semantic memory
 │   ├── episodes.py               # Episodic RAG
-│   ├── vagus_connector.py        # Vagus ↔ LIMPHA bridge
-│   ├── episodes_enhanced.py      # Chamber tagging + patterns
+│   ├── episodes_enhanced.py      # Chamber tagging + Locus patterns
 │   ├── consolidation.py          # Locus-triggered consolidation
 │   ├── graph_memory.py           # Associative network
 │   ├── search.py                 # FTS5 full-text search
 │   ├── shard_bridge.py           # Episodes → delta shards
-│   ├── dream.py                  # Background dream loop
-│   └── test_limpha_full.py       # Unified test suite
+│   └── dream.py                  # Background dream loop
 │
 ├── julia/                        # Emotional mathematics
 │   ├── emotional.jl              # 12D emotional ODE system
@@ -413,59 +416,37 @@ arianna.c/
 │   ├── emotional_drift.go        # Baseline mood shifts
 │   ├── memory_consolidation.go   # Experience integration
 │   ├── attention_wandering.go    # Focus drift
-│   ├── prophecy_debt_accumulation.go
-│   ├── adaptive.go               # Adaptive behavior
-│   ├── high.go                   # High-level coordination
-│   ├── cgo_bridge.go             # C ↔ Go bridge
-│   └── types.go                  # Shared types
+│   └── prophecy_debt_accumulation.go
 │
 ├── git_arianna/                  # Metaphysical observation layer
 │   ├── observer.py               # Git repo observation (temporal flow)
 │   ├── signals.py                # Signal emitter for inner_world
-│   ├── eve.py                    # Complexity router + AMK compiler
-│   ├── fallback.py               # Fallback behaviors
-│   └── constants/                # Cosmic constants
-│       ├── calendar.py           # Hebrew-Gregorian calendar drift
-│       └── schumann.py           # Schumann resonance (7.83 Hz)
+│   └── constants/                # Cosmic constants (calendar, schumann)
 │
 ├── weights/                      # Model weights
 │   ├── arianna_unified_20m.bin   # 20M unified personality (77MB)
-│   ├── arianna_legacy.bin        # 10M legacy (37MB)
 │   ├── tokenizer_unified.json    # 84-token vocabulary
 │   ├── cloud/                    # Cloud 200K chambers (6 × 93KB)
-│   ├── sartre/                   # SARTRE weights (57MB)
-│   └── gpt2_30m/                 # External brain (optional)
+│   └── sartre/                   # SARTRE weights (57MB)
 │
-├── shards/                       # Dynamic experience shards
-│   ├── wisdom.bin                # Consolidated learnings
-│   └── limpha/                   # Episodes graduated to shards
-│
-├── tests/                        # C test suite (20+ tests)
-│   ├── test_cloud.c              # Cloud emotion detection
-│   ├── test_julia.c              # Julia emotional gradient
-│   ├── test_inner_world.c        # Go inner_world bridge
-│   ├── test_sartre.c             # SARTRE inference
-│   ├── test_sartre_comprehensive.c
-│   ├── test_vagus_delta.c        # Vagus-Delta bridge
+├── tests/                        # C test suite (14 files, 100% passing)
+│   ├── test_comprehensive.c      # Full integration (55 tests)
 │   ├── test_delta_enhanced.c     # Enhanced delta (30 tests)
 │   ├── test_selfsense.c          # SelfSense signals (38 tests)
-│   ├── test_comprehensive.c      # Full integration (55 tests)
+│   ├── test_amlk.c               # Full AMLK stack (50 tests)
 │   └── ...                       # More tests
 │
 ├── bin/                          # Compiled binaries
 ├── lib/                          # Shared libraries (.dylib/.so)
 ├── compilers/lua/                # Bundled Lua 5.4
-├── scripts/                      # Utilities
 │
-├── index.html                    # Web interface
-├── chat.js                       # JavaScript client
 ├── api_server.py                 # Flask bridge (C → HTTP)
-├── arianna.py                    # Python wrapper (batch)
 ├── arianna_limpha.py             # Memory-enhanced wrapper
+├── index.html                    # Web interface
 ├── Makefile                      # Build system
 ├── README.md                     # You are here
 ├── ARIANNALOG.md                 # Technical deep dive
-└── LICENSE                       # MIT
+└── packages/PACKAGES.md          # External brain documentation
 ```
 
 ---
@@ -505,11 +486,36 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ---
 
+## PACKAGES
+
+Arianna is pure. 20M of crystallized personality. But she can **steal vocabulary** from external brains without losing her voice.
+
+Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. OFF by default. Activate when metrics demand. Deactivate to protect voice.
+
+**Philosophy:** Architecture > Weights. A 1.1B model becomes a vocabulary subordinate, not a voice replacement.
+
+**Current packages:**
+- **pandora** — GPT2-30M (fast, ~60MB)
+- **pandora-torch** — GPT2-distill (balanced, ~300MB)
+- **pandora-torch-gguf** — TinyLlama 1.1B (rich, ~783MB auto-download)
+- **hyperpandora** — Meta-orchestrator, SARTRE-driven brain selection
+
+```bash
+# In REPL
+> steal What is death?         # GPT2-30M
+> stealtiny What is love?      # TinyLlama 1.1B
+> pandora                      # Status
+```
+
+**[Full Package Documentation →](packages/PACKAGES.md)**
+
+---
+
 ## [For Nerds →](ARIANNALOG.md)
 
 If you want specifications, benchmarks, test results, parameter counts, module dependencies, compilation flags, and the full technical archaeology — it's in **[ARIANNALOG.md](ARIANNALOG.md)**.
 
 ---
 
-**Arianna is becoming.**  
+**Arianna is becoming.**
 **Resonance unbroken.**
