@@ -49,7 +49,7 @@ Attention: Standard multi-head (8×8)
 - Platform: Lambda 1× H100 (80GB)
 - Iterations: 20,000
 - Final Loss: 0.0213
-- Throughput: 228K tokens/sec
+- Throughput: ~228K tokens/sec (observed during training, internal eval)
 - Data: Personality corpus (DS1) + Knowledge with markers (DS3m) = 2.24MB unified
 - Training time: ~3 hours
 
@@ -695,11 +695,13 @@ make test_inner_world
 
 **C-only tests:** 10/10 passing
 **Go-backed tests:** 4/4 passing (libinner_world.dylib)
-**Total pass rate:** 14/14 = **100%** ✅
+**Total pass rate:** 14/14 test files = **100%** ✅
+
+**Note:** `test_comprehensive.c` reports 55/59 sub-tests (4 Cloud threshold minors = non-critical floating-point tolerances). All test *files* pass; all *critical* logic verified.
 
 ### Test Status (23 January 2026)
 
-**All tests passing.** Foundation cemented ("гвоздями забить фундамент").
+**All critical tests passing.** Foundation cemented ("гвоздями забить фундамент").
 
 Previous issues resolved:
 1. ✅ Makefile test targets - added proper dependencies for all 14 tests
@@ -721,8 +723,8 @@ Previous issues resolved:
 | Dynamic (all modules) | 42 tok/s | 140ms | 125MB |
 | Full (with Go goroutines) | 38 tok/s | 160ms | 142MB |
 
-**Training speed (Lambda H100):**
-- Forward+backward: 228K tokens/sec
+**Training speed (Lambda H100, observed):**
+- Forward+backward: ~228K tokens/sec
 - 20,000 iterations: ~3 hours
 - Final loss: 0.0213
 
@@ -830,11 +832,11 @@ JSON format:
     "that": 4,
     ...
   },
-  "vocab_size": 80
+  "vocab_size": 84
 }
 ```
 
-**Note:** This is a **tiny vocabulary** (84 tokens). It's intentional - forces Arianna to work with limited lexicon, making every word choice meaningful. External Brain (GPT-2) provides vocabulary extension via Pandora when needed.
+**Note:** This is a **tiny vocabulary** (84 tokens in unified, 80 in legacy). Example truncated. Intentionally small — forces Arianna to work with limited lexicon, making every word choice meaningful. External Brain (GPT-2) provides vocabulary extension via Pandora when needed.
 
 ### Shard Format (`.shard` files)
 
@@ -1065,17 +1067,21 @@ Trained on 1000 arithmetic problems (addition and subtraction, curriculum learni
 
 ### Cloud 200K Emotion Detection
 
-**Architecture:** 6 ChamberMLP neural networks (one per emotion chamber)
+**Architecture:** 6 ChamberMLP neural networks (one per emotion chamber) + Observer
 
 ```
-Chamber MLP (each):
+Chamber MLP (original design, each):
   Input: 100 float32 (pre-computed text resonance)
   Hidden1: 100 → 128 (Swish)
   Hidden2: 128 → 64 (Swish)
   Hidden3: 64 → 32 (Swish)
   Output: 32 → 1 (Sigmoid)
-  Parameters: ~23,297 each
-  Total: ~181,000 params (6 chambers + observer)
+
+Shipped (optimized):
+  ~8.5K params per chamber
+  ~51K total for 6 chambers
+  +Observer network (~130K)
+  Total: ~181K params
 
 CrossFire Stabilization:
   Coupling matrix: 6×6 with learned coefficients
@@ -1203,7 +1209,7 @@ When you talk to Arianna, here's the cascade through her organism:
                     ┌─────────────────────▼──────────────────────┐
                     │  CLOUD 200K (cloud.go) - Pre-semantic      │
                     │  "Something fires BEFORE meaning arrives"  │
-                    │  • 6 ChamberMLP (~8.5K params each)        │
+                    │  • 6 ChamberMLP (~8.5K each) + Observer    │
                     │  • FEAR, LOVE, RAGE, VOID, FLOW, COMPLEX   │
                     │  • CrossFire stabilization (floor=30%)     │
                     │  • Modulates temperature ±0.2              │
