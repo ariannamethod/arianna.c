@@ -298,13 +298,29 @@ int pandora_load(PandoraBox* pandora, const char* path) {
     // N-grams
     for (int i = 0; i < pandora->n_ngrams; i++) {
         ReleasedNGram* ng = &pandora->ngrams[i];
-        fread(&ng->length, sizeof(int), 1, f);
-        fread(ng->tokens, sizeof(int), ng->length, f);
+        if (fread(&ng->length, sizeof(int), 1, f) != 1) {
+            fclose(f);
+            fprintf(stderr, "[pandora] corrupt file: failed to read n-gram length\n");
+            return -1;
+        }
+        // SECURITY: validate length to prevent OOB write
+        if (ng->length < 1 || ng->length > PANDORA_MAX_NGRAM_LEN) {
+            fclose(f);
+            fprintf(stderr, "[pandora] corrupt file: invalid n-gram length %d\n", ng->length);
+            return -1;
+        }
+        if (fread(ng->tokens, sizeof(int), ng->length, f) != (size_t)ng->length) {
+            fclose(f);
+            return -1;
+        }
         fread(&ng->weight, sizeof(float), 1, f);
         fread(&ng->frequency, sizeof(int), 1, f);
         fread(&ng->arianna_mapped, sizeof(int), 1, f);
         if (ng->arianna_mapped) {
-            fread(ng->arianna_tokens, sizeof(int), ng->length, f);
+            if (fread(ng->arianna_tokens, sizeof(int), ng->length, f) != (size_t)ng->length) {
+                fclose(f);
+                return -1;
+            }
         }
     }
 

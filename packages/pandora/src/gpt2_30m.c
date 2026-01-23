@@ -366,6 +366,9 @@ int gpt2_30m_sample(const float* logits, int vocab_size, float temperature) {
         seeded = 1;
     }
 
+    // SECURITY: prevent division by zero
+    if (temperature <= 0.0f) temperature = 1.0f;
+
     // Copy and apply temperature
     float probs[GPT2_30M_VOCAB_SIZE];
     for (int i = 0; i < vocab_size; i++) {
