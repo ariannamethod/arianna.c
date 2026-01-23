@@ -4,7 +4,7 @@
 # Set library path for Go dylibs
 export DYLD_LIBRARY_PATH=./lib:./bin:$DYLD_LIBRARY_PATH
 
-TESTS="test_amlk test_cloud test_comprehensive test_accumulator test_inner test_mathbrain test_pandora test_selfsense test_amk test_delta_enhanced test_blood test_high test_inner_world test_julia test_ariannabody_extended test_sartre test_sartre_comprehensive"
+TESTS="test_amlk test_cloud test_comprehensive test_accumulator test_inner test_mathbrain test_pandora test_selfsense test_amk test_delta_enhanced test_blood test_high test_inner_world test_julia test_ariannabody_extended test_sartre test_sartre_comprehensive test_sampling_edge_cases test_delta"
 
 PASSED=0
 FAILED=0

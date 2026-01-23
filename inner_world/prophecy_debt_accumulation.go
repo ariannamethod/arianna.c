@@ -27,11 +27,19 @@ package main
 
 import (
 	"math"
+	"math/rand"
+	"sync"
 	"time"
 )
 
+func init() {
+	// Seed random number generator for proper randomness
+	rand.Seed(time.Now().UnixNano())
+}
+
 // ProphecyDebtAccumulation tracks and manages prophecy debt
 type ProphecyDebtAccumulation struct {
+	mu      sync.Mutex // Protects all fields below
 	world   *InnerWorld
 	stop    chan struct{}
 	running bool
@@ -111,6 +119,9 @@ func (pd *ProphecyDebtAccumulation) Stop() {
 }
 
 func (pd *ProphecyDebtAccumulation) Step(dt float32) {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
+
 	if pd.world == nil {
 		return
 	}
@@ -120,23 +131,23 @@ func (pd *ProphecyDebtAccumulation) Step(dt float32) {
 	pd.currentDebt = max32(0, pd.currentDebt-decay)
 
 	// 2. Update wormhole chance based on debt
-	pd.updateWormholeChance()
+	pd.updateWormholeChanceLocked()
 
 	// 3. Update destiny pull based on debt
-	pd.updateDestinyPull()
+	pd.updateDestinyPullLocked()
 
 	// 4. Check for forced resolution
 	if pd.currentDebt > pd.criticalDebt {
-		pd.forceResolution()
+		pd.forceResolutionLocked()
 	}
 
-	// 5. Sync to state
-	pd.syncToState()
+	// 5. Sync to state (releases lock internally for state mutex)
+	pd.syncToStateLocked()
 
-	// 6. Handle signals
+	// 6. Handle signals (non-blocking)
 	select {
 	case sig := <-pd.world.Signals:
-		pd.processSignal(sig)
+		pd.processSignalLocked(sig)
 	default:
 	}
 }
@@ -159,6 +170,9 @@ func (pd *ProphecyDebtAccumulation) run() {
 // probability is the probability of the chosen token (0-1)
 // lower probability = more debt
 func (pd *ProphecyDebtAccumulation) AccumulateDebt(probability float32) {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
+
 	if probability >= 1.0 {
 		// Chose the most probable - no debt, actually reduce
 		pd.currentDebt = max32(0, pd.currentDebt-pd.destinyDecay)
@@ -196,9 +210,10 @@ func (pd *ProphecyDebtAccumulation) AccumulateDebt(probability float32) {
 		pd.debtHistory = pd.debtHistory[1:]
 	}
 
-	// Emit signal if threshold crossed
+	// Emit signal if threshold crossed (non-blocking to avoid deadlock)
 	if pd.currentDebt > pd.debtThreshold && pd.world != nil {
-		pd.world.Signals <- Signal{
+		select {
+		case pd.world.Signals <- Signal{
 			Type:      SignalProphecy,
 			Value:     pd.currentDebt,
 			Source:    pd.Name(),
@@ -208,11 +223,15 @@ func (pd *ProphecyDebtAccumulation) AccumulateDebt(probability float32) {
 				"consecutive_risk": pd.consecutiveRisk,
 				"wormhole_chance":  pd.wormholeChance,
 			},
+		}:
+		default:
+			// Channel full, skip signal
 		}
 	}
 }
 
-func (pd *ProphecyDebtAccumulation) updateWormholeChance() {
+// updateWormholeChanceLocked must be called with pd.mu held
+func (pd *ProphecyDebtAccumulation) updateWormholeChanceLocked() {
 	// Base chance + debt-based increase
 	baseChance := float32(0.02)
 	debtBonus := float32(0.0)
@@ -226,7 +245,8 @@ func (pd *ProphecyDebtAccumulation) updateWormholeChance() {
 	pd.wormholeChance = clamp(baseChance+debtBonus, 0, 0.5)
 }
 
-func (pd *ProphecyDebtAccumulation) updateDestinyPull() {
+// updateDestinyPullLocked must be called with pd.mu held
+func (pd *ProphecyDebtAccumulation) updateDestinyPullLocked() {
 	// High debt = stronger pull to get back on track
 	basePull := float32(0.3)
 	debtPull := float32(0.0)
@@ -238,7 +258,8 @@ func (pd *ProphecyDebtAccumulation) updateDestinyPull() {
 	pd.destinyStrength = clamp(basePull+debtPull, 0, 1)
 }
 
-func (pd *ProphecyDebtAccumulation) forceResolution() {
+// forceResolutionLocked must be called with pd.mu held
+func (pd *ProphecyDebtAccumulation) forceResolutionLocked() {
 	// Critical debt triggers forced resolution
 	// This could be:
 	// - A wormhole (skip tokens)
@@ -256,8 +277,9 @@ func (pd *ProphecyDebtAccumulation) forceResolution() {
 	pd.currentDebt *= 0.3
 	pd.consecutiveRisk = 0
 
-	// Emit crisis signal
-	pd.world.Signals <- Signal{
+	// Emit crisis signal (non-blocking to avoid deadlock)
+	select {
+	case pd.world.Signals <- Signal{
 		Type:      SignalProphecy,
 		Value:     1.0, // Max intensity
 		Source:    pd.Name(),
@@ -266,10 +288,14 @@ func (pd *ProphecyDebtAccumulation) forceResolution() {
 			"event":     "forced_resolution",
 			"peak_debt": pd.peakDebt,
 		},
+	}:
+	default:
+		// Channel full, skip signal
 	}
 }
 
-func (pd *ProphecyDebtAccumulation) syncToState() {
+// syncToStateLocked must be called with pd.mu held
+func (pd *ProphecyDebtAccumulation) syncToStateLocked() {
 	state := pd.world.State
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -279,7 +305,8 @@ func (pd *ProphecyDebtAccumulation) syncToState() {
 	state.WormholeChance = pd.wormholeChance
 }
 
-func (pd *ProphecyDebtAccumulation) processSignal(sig Signal) {
+// processSignalLocked must be called with pd.mu held
+func (pd *ProphecyDebtAccumulation) processSignalLocked(sig Signal) {
 	switch sig.Type {
 	case SignalCoherence:
 		// High coherence helps pay off debt
@@ -299,6 +326,9 @@ func (pd *ProphecyDebtAccumulation) processSignal(sig Signal) {
 
 // CheckWormhole checks if a wormhole should activate
 func (pd *ProphecyDebtAccumulation) CheckWormhole() (bool, int) {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
+
 	// Cooldown check
 	if time.Since(pd.lastWormhole) < pd.wormholeCooldown {
 		return false, 0
@@ -321,7 +351,9 @@ func (pd *ProphecyDebtAccumulation) CheckWormhole() (bool, int) {
 		// Wormhole partially pays off debt
 		pd.currentDebt *= 0.8
 
-		pd.world.Signals <- Signal{
+		// Non-blocking signal send
+		select {
+		case pd.world.Signals <- Signal{
 			Type:      SignalProphecy,
 			Value:     pd.wormholeChance,
 			Source:    pd.Name(),
@@ -330,6 +362,8 @@ func (pd *ProphecyDebtAccumulation) CheckWormhole() (bool, int) {
 				"event":      "wormhole",
 				"skip_count": skip,
 			},
+		}:
+		default:
 		}
 
 		return true, skip
@@ -340,11 +374,15 @@ func (pd *ProphecyDebtAccumulation) CheckWormhole() (bool, int) {
 
 // GetDestinyBias returns how much to bias toward probable tokens
 func (pd *ProphecyDebtAccumulation) GetDestinyBias() float32 {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	return pd.destinyStrength
 }
 
 // GetLookahead returns how many tokens to consider for prophecy
 func (pd *ProphecyDebtAccumulation) GetLookahead() int {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	// Lower lookahead when debt is high (harder to see clearly)
 	if pd.currentDebt > pd.criticalDebt*0.5 {
 		return max(1, pd.lookahead-1)
@@ -354,11 +392,15 @@ func (pd *ProphecyDebtAccumulation) GetLookahead() int {
 
 // SetLookahead sets the prophecy depth
 func (pd *ProphecyDebtAccumulation) SetLookahead(n int) {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	pd.lookahead = clampInt(n, 1, 10)
 }
 
 // GetTemporalDissonance returns how much time references should be distorted
 func (pd *ProphecyDebtAccumulation) GetTemporalDissonance() float32 {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	// High debt = temporal confusion
 	if pd.currentDebt < pd.debtThreshold {
 		return 0
@@ -368,6 +410,8 @@ func (pd *ProphecyDebtAccumulation) GetTemporalDissonance() float32 {
 
 // GetDebtLevel returns current debt level category
 func (pd *ProphecyDebtAccumulation) GetDebtLevel() string {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	switch {
 	case pd.currentDebt < pd.debtThreshold*0.5:
 		return "clear"
@@ -384,13 +428,15 @@ func (pd *ProphecyDebtAccumulation) GetDebtLevel() string {
 
 // GetCurrentDebt returns raw current debt value
 func (pd *ProphecyDebtAccumulation) GetCurrentDebt() float32 {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
 	return pd.currentDebt
 }
 
 // Helpers
 
 func randFloat() float64 {
-	return float64(time.Now().UnixNano()%1000) / 1000.0
+	return rand.Float64()
 }
 
 func clampInt(v, min, max int) int {

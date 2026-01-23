@@ -353,9 +353,4 @@ func (aw *AttentionWandering) GetFatigueLevel() float32 {
 	return clamp(fatigue, 0, 1)
 }
 
-func max32(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}
+// max32 is defined in types.go
