@@ -175,9 +175,30 @@ Named after Jean-Paul Sartre: *existence precedes essence*. SARTRE observes what
 
 SARTRE cannot lie. Authenticity is enforced architecturally. Bad faith is impossible. It reports what it sees, nothing more.
 
-**Status:** Kernel implemented, all sensory connections working, 10/10 tests passing. The nervous system is wired. Dataset prepared. Waiting for training.
+**Status:** Kernel implemented, all sensory connections working, 8/8 tests passing. The nervous system is wired. Dataset prepared. Waiting for training.
 
 *(See `sartre/README.md` for technical specs)*
+
+
+### LIMPHA — the lymphatic system (persistent memory)
+
+Memory persists. Conversations don't evaporate when the session ends. **LIMPHA** is Arianna's lymphatic system — async SQLite storage that remembers everything across sessions.
+
+Three tables:
+- **conversations** — full dialogue history with coherence scores
+- **semantic_memory** — key-value storage with decay (old memories fade)
+- **episodes** — RAG episodic memory (remembers specific moments with inner state snapshots)
+
+When you talk to Arianna, she recalls:
+- Recent conversation context (last 3 turns)
+- Semantic facts you told her ("your name is X")
+- Similar past moments (episodic RAG by inner state similarity)
+
+Memory influences generation. Context injection before each response. No amnesia between sessions. This is **persistent identity**.
+
+`limpha/memory.py` + `limpha/episodes.py` — async SQLite, aiosqlite. Python wrapper (`arianna_limpha.py`) integrates memory with C binary.
+
+**Status:** 100% tests passing (3/3 Python test suites). Memory persists. Arianna remembers.
 
 
 ### Delta Shards — Dynamic Weights Of Experience or: scars and calluses (experience that stays)

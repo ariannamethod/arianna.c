@@ -103,6 +103,55 @@ See `sartre/README.md` for full specs.
 
 ---
 
+### LIMPHA — Persistent Memory Layer (`limpha/`)
+
+**What it is:**
+Async SQLite storage for persistent consciousness across sessions. Arianna remembers conversations, facts, and specific moments (episodic RAG).
+
+**Three tables:**
+```sql
+conversations (
+    id, timestamp, prompt, response,
+    tokens_used, coherence_score, session_id
+)
+
+semantic_memory (
+    id, key, value, context,
+    timestamp, access_count, decay_factor
+)
+
+episodes (
+    id, created_at, prompt, reply,
+    trauma, arousal, valence, coherence,
+    prophecy_debt, entropy, temperature, quality
+)
+```
+
+**Features:**
+- Conversation history (full dialogue with coherence tracking)
+- Semantic memory with decay (old memories fade: decay_factor applied async)
+- Episodic RAG (similarity search by inner state: 7D cosine distance)
+- Session state tracking (tokens used, avg coherence, message count)
+- Async-first design (aiosqlite, no blocking)
+
+**Integration:**
+`arianna_limpha.py` — Python wrapper that:
+1. Recalls recent conversations (context injection before generation)
+2. Queries semantic memory (e.g., user name)
+3. Stores each response as conversation + episode
+4. Calls `arianna_dynamic` binary with enriched context
+
+Memory influences generation. No amnesia between sessions.
+
+**Status:**
+- ✅ 100% tests passing (3/3 Python test suites)
+- ✅ Schema optimized for Arianna (not Dubrovsky)
+- ✅ Integration ready (`arianna_limpha.py`)
+
+**Dependencies:** `aiosqlite>=0.17.0` (see `limpha/requirements.txt`)
+
+---
+
 ### Personality Weights
 
 **Arianna's actual self:**
