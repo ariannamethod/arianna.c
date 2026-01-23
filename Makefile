@@ -218,3 +218,28 @@ tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_
 	@echo "RUNNING ALL ARIANNA TESTS"
 	@echo "=========================================="
 	@./run_all_tests.sh
+
+# ============================================================
+# SARTRE - Metalinux Kernel Verbal Interface
+# ============================================================
+
+SARTRE_DIR = sartre
+SARTRE_SRC = $(SARTRE_DIR)/sartre_llama.c
+SARTRE_TARGET = $(BIN_DIR)/sartre_test
+
+sartre: $(SARTRE_TARGET)
+
+$(SARTRE_TARGET): $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(SARTRE_SRC) $(SARTRE_DIR)/test_sartre.c -o $@ $(LDFLAGS)
+	@echo "[sartre] compiled"
+
+# SARTRE comprehensive test
+test_sartre: $(TEST_BIN_DIR)/test_sartre_comprehensive
+$(TEST_BIN_DIR)/test_sartre_comprehensive: $(TEST_DIR)/test_sartre_comprehensive.c $(SARTRE_SRC) $(SARTRE_DIR)/sartre.h
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(TEST_DIR)/test_sartre_comprehensive.c $(SARTRE_SRC) -o $@ $(LDFLAGS)
+	@echo "[sartre] comprehensive test compiled"
+
+.PHONY: sartre test_sartre
+
