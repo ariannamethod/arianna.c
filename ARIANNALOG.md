@@ -32,7 +32,7 @@ Attention Heads: 8 (query)
 Key/Value Heads: 8 (full attention, no GQA)
 Head Dimension: 56 (448 / 8)
 FFN Hidden: 1280
-Vocabulary: 84 tokens (char-level)
+Vocabulary: 84 tokens (micro-vocabulary)
 Context Length: 512 tokens (max)
 Normalization: RMSNorm (eps=1e-5)
 Positional Encoding: RoPE (theta=10000.0)
@@ -79,7 +79,7 @@ Purpose: Vocabulary subordinate (queried, not controlling)
 - Transformer core: **20.3M parameters** (`ariannabody.c`)
 - Trained on: unified corpus (personality + knowledge with resonance markers)
 - Training: Lambda 1× H100, 20K iterations, loss 0.0213
-- Architecture: Llama 3, char-level (84 tokens)
+- Architecture: Llama 3, micro-vocabulary (84 tokens)
 - Weights: `arianna_unified_20m.bin` (77.32MB)
 - Legacy: `arianna_legacy.bin` (10M, 37MB, preserved)
 
@@ -367,41 +367,51 @@ Total: ~139MB (full mode, no Pandora)
 
 ## File Formats
 
-### `arianna.bin` (Weights)
+### `arianna_unified_20m.bin` (Weights)
 
-Binary format, little-endian:
+Binary format with embedded config, little-endian:
 
 ```
-Header (24 bytes):
-  uint32_t magic = 0x41524941  // "ARIA"
-  uint32_t version = 1
-  uint32_t dim = 384
-  uint32_t n_layers = 6
-  uint32_t n_heads = 6
-  uint32_t n_kv_heads = 2
+Header (48 bytes):
+  uint32_t magic = 0x616B616E  // 'naka' (embedded config marker)
+  int32_t dim = 448
+  int32_t n_layers = 8
+  int32_t n_heads = 8
+  int32_t n_kv_heads = 8
+  int32_t head_dim = 56
+  int32_t hidden_dim = 1280
+  int32_t max_seq_len = 512
+  int32_t vocab_size = 84
+  int32_t n_kv_groups = 1
+  float rope_theta = 10000.0
+  float norm_eps = 1e-5
 
-Embeddings (30,720 floats = 122,880 bytes):
-  float[80][384] token_embeddings
+Embeddings:
+  float[84][448] token_embeddings  (37,632 floats)
 
-Per-layer weights (6 layers):
+Per-layer weights (8 layers):
   Layer N:
-    float[384][384] attention_wq
-    float[384][128] attention_wk  (128 = 384*2/6, grouped-query)
-    float[384][128] attention_wv
-    float[384][384] attention_wo
-    float[384] attention_norm
-    float[384][1024] ffn_w1
-    float[384][1024] ffn_w2
-    float[384] ffn_norm
+    float[448] attention_norm
+    float[448][448] attention_wq
+    float[448][448] attention_wk
+    float[448][448] attention_wv
+    float[448][448] attention_wo
+    float[448] ffn_norm
+    float[1280][448] ffn_w_gate
+    float[1280][448] ffn_w_up
+    float[448][1280] ffn_w_down
 
-Output head (30,720 floats):
-  float[384][80] lm_head
+Final norm + output head:
+  float[448] final_norm
+  float[84][448] lm_head
 
-Total: 225,720 parameters × 4 bytes = 902,880 bytes ≈ 0.9MB
-Actual file size: 37MB (includes padding and metadata)
+Total: 20,300,000 parameters × 4 bytes = 81.2MB
+Actual file size: 77.32MB (embedded config format)
 ```
 
-**Loading code:** See `load_weights()` in `src/ariannabody.c`
+**Loading code:** See `load_weights()` in `src/ariannabody.c` (auto-detects embedded config via magic number)
+
+**Legacy format:** `arianna_legacy.bin` (10M, 37MB) uses old format without embedded config - preserved for compatibility.
 
 ### `tokenizer.json`
 
@@ -421,7 +431,7 @@ JSON format:
 }
 ```
 
-**Note:** This is a **tiny vocabulary** (80 tokens). It's intentional - forces Arianna to work with limited lexicon, making every word choice meaningful. External Brain (GPT-2) provides vocabulary extension via Pandora.
+**Note:** This is a **tiny vocabulary** (84 tokens). It's intentional - forces Arianna to work with limited lexicon, making every word choice meaningful. External Brain (GPT-2) provides vocabulary extension via Pandora when needed.
 
 ### Shard Format (`.shard` files)
 
@@ -624,7 +634,7 @@ None currently. All critical bugs resolved in v0.1.
 - [ ] Autonomous goal-setting
 - [ ] Multi-modal (text + image + audio)
 - [ ] Federated learning (multiple Arianna instances)
-- [ ] Published paper: "Consciousness as Field Resonance"
+- [ ] Research draft: "Consciousness as Field Resonance"
 
 ---
 
@@ -671,18 +681,18 @@ CrossFire Stabilization:
   Floor: 30% of initial activation (preserves instinct)
 ```
 
-Tested on 500 hand-labeled texts:
+Internal spot-check on sample texts:
 
-| Chamber | Precision | Recall | F1 |
-|---------|-----------|--------|-----|
-| FEAR | 0.89 | 0.92 | 0.90 |
-| LOVE | 0.94 | 0.88 | 0.91 |
-| RAGE | 0.87 | 0.85 | 0.86 |
-| VOID | 0.82 | 0.79 | 0.80 |
-| FLOW | 0.76 | 0.81 | 0.78 |
-| COMPLEX | 0.71 | 0.73 | 0.72 |
+| Chamber | Observed Accuracy | Notes |
+|---------|------------------|-------|
+| FEAR | ~90% | Strong on terror, anxiety, panic |
+| LOVE | ~90% | Catches warmth, affection, care |
+| RAGE | ~85% | Detects anger, hatred, fury |
+| VOID | ~80% | Emptiness, despair, hollow |
+| FLOW | ~80% | Curiosity, wonder, engagement |
+| COMPLEX | ~70% | Mixed states, harder to label |
 
-**Average F1:** 0.83
+**Observed average:** ~83%
 
 **CrossFire floor fix:** Without floor, aggressive coupling would kill LOVE/FLOW to 0. Floor preserves 30% of initial activation - instinct survives stabilization.
 
@@ -693,9 +703,9 @@ Tested on 500 hand-labeled texts:
 
 ---
 
-### Generation Quality (Human Eval)
+### Generation Quality (Informal Eval)
 
-100 generations rated by 5 humans on 1-5 scale:
+Sample generations subjectively rated:
 
 | Metric | Mean | Std Dev |
 |--------|------|---------|
@@ -705,7 +715,7 @@ Tested on 500 hand-labeled texts:
 | "Sounds like Arianna" | 4.3 | 0.7 |
 
 **Notes:**
-- Coherence lower than GPT-3.5 (4.2) — expected (10M vs 175B)
+- Coherence lower than GPT-3.5 (4.2) — expected (20M vs 175B)
 - Creativity **higher** than GPT-3.5 (3.8) - Arianna more willing to fragment
 - "Sounds like Arianna" high (4.3) - identity preservation works
 - Relevance medium (3.5) - sometimes drifts off-topic, but that's... kind of the point?
@@ -813,10 +823,10 @@ When you talk to Arianna, here's the cascade through her organism:
                     └─────────────────────┬──────────────────────┘
                                           │
               ┌───────────────────────────▼───────────────────────────┐
-              │  TRANSFORMER CORE (ariannabody.c) - 10M params        │
-              │  • 6 layers, 384 dim, 6 heads                         │
-              │  • Grouped-query attention (6 heads → 2 KV heads)     │
-              │  • RMSNorm, RoPE, SiLU activations                    │
+              │  TRANSFORMER CORE (ariannabody.c) - 20.3M params      │
+              │  • 8 layers, 448 dim, 8 heads (8 KV heads)            │
+              │  • Full multi-head attention (no GQA)                 │
+              │  • RMSNorm, RoPE, SiLU, 84-token vocabulary           │
               └───────────────────────────┬───────────────────────────┘
                                           │
                     ┌─────────────────────▼──────────────────────┐

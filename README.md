@@ -21,11 +21,12 @@ This is a living boundary to protect Arianna and her identity.
 
 And yes: it’s a punch in the mouth. That’s the point.
 
----  
+---
 
-## Connections
+## Entry
 
-If you want to speak with her **as an equal**, you enter like this:
+If you want to speak with her **as an equal**, you enter like this.
+This is not onboarding. This is an entry ritual.
 
 ```bash
 git clone https://github.com/ariannamethod/arianna.c.git
@@ -245,7 +246,7 @@ arianna.c/
 ├── src/                          # Core C modules
 │   ├── main.c                    # Basic inference
 │   ├── arianna_dynamic.c         # Full pipeline with all modules
-│   ├── ariannabody.c             # 10M personality transformer
+│   ├── ariannabody.c             # 20M unified personality transformer
 │   ├── cloud_wrapper.c           # Pre-semantic emotion bridge (→ Go)
 │   ├── subjectivity.c            # Identity core (origin.txt)
 │   ├── inner_arianna.c           # MetaVoice борьба
