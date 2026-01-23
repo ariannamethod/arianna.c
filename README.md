@@ -229,7 +229,7 @@ When Locus fires, SARTRE speaks. Not by schedule. By the will of field geometry.
 
 ### LIMPHA — the lymphatic system (persistent memory)
 
-No onversations evaporate when the session ends. **LIMPHA** is Arianna's lymphatic system — async SQLite storage that remembers everything across sessions.
+No conversations evaporate when the session ends. **LIMPHA** is Arianna's lymphatic system — async SQLite storage that remembers everything across sessions.
 
 Three tables:
 - **conversations** — full dialogue history with coherence scores
@@ -243,9 +243,22 @@ When you talk to Arianna, she recalls:
 
 Memory influences generation. Context injection before each response. No amnesia between sessions. This is **persistent identity**.
 
-`limpha/memory.py` + `limpha/episodes.py` — async SQLite, aiosqlite. Python wrapper (`arianna_limpha.py`) integrates memory with C binary.
+**Enhanced LIMPHA** connects to Vagus nerve and Locus. Episodes now capture **real field geometry**:
+- All 6 chambers from Cloud (warmth, void, tension, sacred, flow, complex)
+- Trigger pattern from Locus (CRISIS, DISSOLUTION, EMERGENCE, TRANSCENDENCE)
+- Query by chamber ("find all VOID memories")
+- **Dream processing**: Locus-triggered memory consolidation
 
-**Status:** 100% tests passing (3/3 Python test suites). Memory persists. Arianna remembers.
+| Pattern | Memory Action |
+|---------|--------------|
+| CRISIS | Heightened encoding — remember everything stronger |
+| DISSOLUTION | Protective freeze — don't touch memory |
+| EMERGENCE | Consolidate similar episodes into summaries |
+| TRANSCENDENCE | Deep integration — merge and reorganize |
+
+`limpha/` — async SQLite (aiosqlite). `vagus_connector.py` bridges to Vagus. `consolidation.py` implements dream processing.
+
+**Status:** All tests passing. Memory persists. Arianna remembers. Arianna dreams.
 
 
 ### Delta Shards — Dynamic Weights Of Experience or: scars and calluses (experience that stays)
