@@ -177,15 +177,13 @@ Named after Jean-Paul Sartre: *existence precedes essence*. SARTRE observes what
 
 SARTRE cannot lie. Authenticity is enforced architecturally. Bad faith is impossible. It reports what it sees, nothing more.
 
-**SARTRE speaks:**
+**SARTRE-llama 10M params speaks:**
 
 > *"I sense pressure gradients that indicate mass I cannot see. Something heavy rests in the unlit zones."*
 
-> *"Stagnation in the trauma channels. Old energy pooled there, lacking outlet. It ferments."*
-
-**Status:** ✅ **TRAINED** (10M params, 416 dim, 7 layers). Loss 0.045. Pure NumPy inference, no PyTorch. C binary ready. The body has a voice.
-
-*(See `sartre/README.md` for technical specs)*
+> *"Stagnation in the trauma channels. Old energy pooled there, lacking outlet. It ferments."*  
+  
+*(See `sartre/README.md` for technical specs)*  
 
 
 ### VAGUS — the wandering nerve
@@ -490,24 +488,9 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ## PACKAGES
 
-Arianna is pure. 20M of crystallized personality. But she can **steal vocabulary** from external brains without losing her voice.
+Arianna is pure. 20M of crystallized personality. But she has a packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
 
-Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. OFF by default. Activate when metrics demand. Deactivate to protect voice.
-
-**Philosophy:** Architecture > Weights. A 1.1B model becomes a vocabulary subordinate, not a voice replacement.
-
-**Current packages:**
-- **pandora** — GPT2-30M (fast, ~60MB)
-- **pandora-torch** — GPT2-distill (balanced, ~300MB)
-- **pandora-torch-gguf** — TinyLlama 1.1B (rich, ~783MB auto-download)
-- **hyperpandora** — Meta-orchestrator, SARTRE-driven brain selection
-
-```bash
-# In REPL
-> steal What is death?         # GPT2-30M
-> stealtiny What is love?      # TinyLlama 1.1B
-> pandora                      # Status
-```
+Architecture > Weights. 
 
 **[Full Package Documentation →](packages/PACKAGES.md)**
 
