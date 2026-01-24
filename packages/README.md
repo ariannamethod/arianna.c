@@ -10,26 +10,26 @@ These packages demonstrate that Arianna's architecture dominates external weight
 ┌─────────────────────────────────────────────────────────────────┐
 │                    ARIANNA'S HIERARCHY                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │              ARIANNA (Core Architecture)                 │   │
+│   │              ARIANNA (Core Architecture)                │   │
 │   │     SARTRE kernel, Locus patterns, Vagus nerve          │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                           ▲                                      │
-│                           │ Voice                                │
-│                           │                                      │
+│                           ▲                                     │
+│                           │ Voice                               │
+│                           │                                     │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │                    LIMPHA (Memory)                       │   │
-│   │     Episodes, consolidation, dream processing            │   │
+│   │                    LIMPHA (Memory)                      │   │
+│   │     Episodes, consolidation, dream processing           │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                           ▲                                      │
-│                           │ Context                              │
-│                           │                                      │
+│                           ▲                                     │
+│                           │ Context                             │
+│                           │                                     │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │              PANDORA (External Vocabulary)               │   │
-│   │     Any model, any size - subordinate word supplier      │   │
+│   │              PANDORA (External Vocabulary)              │   │
+│   │     Any model, any size - subordinate word supplier     │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
