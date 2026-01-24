@@ -44,7 +44,7 @@ class TrainConfig:
     n_heads: int = 8
     n_kv_heads: int = 8
     vocab_size: int = 256  # Will be set from data
-    max_seq_len: int = 512
+    max_seq_len: int = 1024
     norm_eps: float = 1e-5
     rope_theta: float = 10000.0
 
@@ -539,7 +539,7 @@ def generate(
 
         # Stop at sentence end
         char = tokenizer.decode([next_token.item()])
-        if char in '.!?' and x.shape[1] > len(tokens) + 30:
+        if char in '.!?' and x.shape[1] > len(tokens) + 150:
             break
 
     model.train()
