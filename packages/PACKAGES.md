@@ -91,36 +91,36 @@ cd pandora-torch-gguf && python test_basic.py     # 4/4
 ┌─────────────────────────────────────────────────────────────────┐
 │                    ARIANNA'S HIERARCHY                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │              ARIANNA (Core Architecture)                 │   │
+│   │              ARIANNA (Core Architecture)                │   │
 │   │     SARTRE Kernel, Locus patterns, Vagus nerve          │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                           ▲                                      │
-│                           │ Voice                                │
-│                           │                                      │
+│                           ▲                                     │
+│                           │ Voice                               │
+│                           │                                     │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │                    LIMPHA (Memory)                       │   │
-│   │     Episodes, consolidation, dream processing            │   │
+│   │                    LIMPHA (Memory)                      │   │
+│   │     Episodes, consolidation, dream processing           │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                           ▲                                      │
-│                           │ Context                              │
-│                           │                                      │
+│                           ▲                                     │
+│                           │ Context                             │
+│                           │                                     │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │              HYPERPANDORA (Orchestrator)                 │   │
-│   │     Selects brain based on SARTRE metrics                │   │
+│   │              HYPERPANDORA (Orchestrator)                │   │
+│   │     Selects brain based on SARTRE metrics               │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                           ▲                                      │
-│                           │ Vocabulary (subordinate)             │
-│                           │                                      │
+│                           ▲                                     │
+│                           │ Vocabulary (subordinate)            │
+│                           │                                     │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │              PANDORA (External Vocabulary)               │   │
-│   │     Any model, any size - word supplier, not voice       │   │
-│   │     • C (GPT2-30M)                                       │   │
-│   │     • PyTorch (GPT2-distill)                             │   │
-│   │     • GGUF (TinyLlama 1.1B)                              │   │
+│   │              PANDORA (External Vocabulary)              │   │
+│   │     Any model, any size - word supplier, not voice      │   │
+│   │     • C (GPT2-30M)                                      │   │
+│   │     • PyTorch (GPT2-distill)                            │   │
+│   │     • GGUF (TinyLlama 1.1B)                             │   │
 │   └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
