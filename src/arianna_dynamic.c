@@ -1601,10 +1601,38 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
-        // /pandora-torch <prompt> — GPT2-distill (TODO: implement)
+        // /pandora-torch <prompt> — GPT2-distill
         if (strncmp(input, "/pandora-torch ", 15) == 0) {
-            printf("[pandora-torch] GPT2-distill — not yet implemented\n");
-            printf("Use /pandora (GPT2-30M) or /pandora-gguf (TinyLlama) for now.\n");
+            const char* prompt = input + 15;
+            if (strlen(prompt) > 0) {
+                g_pandora_enabled = 1;
+                pandora_set_active(&g_pandora, 1);
+                printf("[pandora-torch] Using GPT2-distill...\n");
+                int n = pandora_steal_from(&g_pandora, BRAIN_GPT2_DISTILL, prompt);
+                if (n > 0) {
+                    printf("[pandora-torch] Extracted %d n-grams from GPT2-distill\n", n);
+                    printf("[pandora-torch] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
+                }
+            } else {
+                printf("Usage: /pandora-torch <prompt>\n");
+                printf("Example: /pandora-torch What is the meaning of life?\n");
+            }
+            continue;
+        }
+
+        // HyperPandora commands
+        if (strcmp(input, "/hyper") == 0) {
+            printf("[HyperPandora] Auto-selection enabled\n");
+            printf("Will choose best available brain based on SARTRE state.\n");
+            g_pandora_enabled = 1;
+            pandora_set_active(&g_pandora, 1);
+            continue;
+        }
+
+        if (strcmp(input, "/hyper-off") == 0) {
+            printf("[HyperPandora] All external brains disabled\n");
+            g_pandora_enabled = 0;
+            pandora_set_active(&g_pandora, 0);
             continue;
         }
 
@@ -1614,8 +1642,11 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  Injection strength: %.2f\n", g_pandora.injection_strength);
             printf("\nPackages:\n");
             printf("  /pandora <prompt>       — GPT2-30M (fast, ~100MB)\n");
-            printf("  /pandora-torch <prompt> — GPT2-distill (coming soon)\n");
+            printf("  /pandora-torch <prompt> — GPT2-distill (PyTorch)\n");
             printf("  /pandora-gguf <prompt>  — TinyLlama 1.1B (~700MB)\n");
+            printf("\nHyperPandora:\n");
+            printf("  /hyper     — enable auto-selection\n");
+            printf("  /hyper-off — disable all external brains\n");
             printf("\nControl:\n");
             printf("  pandoraon  — enable injection into generation\n");
             printf("  pandoraoff — disable (pure Arianna voice)\n");
@@ -1646,8 +1677,10 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  math     - show MathBrain stats\n");
             printf("  mathsave - save MathBrain state now\n");
             printf("  pandora  - show Pandora packages status\n");
-            printf("  /pandora <text>      - GPT2-30M vocabulary\n");
-            printf("  /pandora-gguf <text> - TinyLlama 1.1B vocabulary\n");
+            printf("  /pandora <text>       - GPT2-30M vocabulary\n");
+            printf("  /pandora-torch <text> - GPT2-distill vocabulary\n");
+            printf("  /pandora-gguf <text>  - TinyLlama 1.1B vocabulary\n");
+            printf("  /hyper                - HyperPandora auto-select\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL (auto-saves MathBrain)\n");
