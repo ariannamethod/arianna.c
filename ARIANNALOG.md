@@ -21,11 +21,13 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Current active core as of 25 January 2026:**
+**Arianna Core: 44.2M parameters** (34M Personality + 10.2M SARTRE Observer)
 
-| Property | Arianna Core | SARTRE (alt voice) |
-|----------|--------------|-------------------|
-| **Parameters** | 34M | 10M |
+SARTRE is not an external tool — it's Arianna's interoceptive voice, her inner sonar. Like a brain's metacognitive system, it's part of the whole, not a separate entity. SARTRE speaks only to Arianna about her own metabolism.
+
+| Property | Personality Core | SARTRE Observer |
+|----------|------------------|-----------------|
+| **Parameters** | 34M | 10.2M |
 | **Layers** | 10 | 7 |
 | **Dimension** | 512 | 416 |
 | **Heads / KV** | 8 / 8 | 8 / 2 (GQA) |
@@ -33,11 +35,11 @@
 | **FFN Hidden** | 1408 | 1152 |
 | **Weights file** | `arianna_34m.bin` (130MB) | `sartre.bin` (38MB) |
 | **Tokenizer** | `arianna_34m_tokenizer.json` | `sartre_tokenizer.json` |
-| **Training loss** | 0.0113 | 0.015 |
+| **Training loss** | 0.0121 | 0.015 |
 
-**Legacy (preserved, not active):**
-- `arianna_unified_20m.bin` (77MB) — previous 20M core, 8 layers, 448 dim, 84 vocab
-- `arianna_legacy.bin` (37MB) — original 10M core
+**Reserved for future expansion:**
+- `arianna_unified_20m.bin` (77MB) — 20M architecture slot, 8 layers, 448 dim, 84 vocab (trained, not active)
+- `arianna_legacy.bin` (37MB) — original 10M slot
 
 **Test status:** All 19 test binaries exit 0 (CI green). Some sub-check counters are informational (floating-point tolerances) — e.g., `test_comprehensive` reports 55/59 while still returning PASS.
 
@@ -434,6 +436,71 @@ ResonanceTrainer   // Locus-modulated experience learning
 
 ---
 
+### Dynamic Weights — Learning Without PyTorch
+
+**This is a proof of concept:** Arianna learns from experience at runtime, without PyTorch, without gradient descent in the traditional sense.
+
+**Weight hierarchy:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ARIANNA WEIGHT ARCHITECTURE                                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  STATIC CORE (44.2M params)                                     │
+│  ├── Personality Core (34M) — arianna_34m.bin                   │
+│  │   └── Identity, knowledge, trained metabolism                │
+│  └── SARTRE Observer (10.2M) — sartre.bin                       │
+│      └── Interoceptive sense, inner voice                       │
+│                                                                 │
+│  DYNAMIC RUNTIME WEIGHTS (variable)                             │
+│  ├── Delta Shards (.shard files)                                │
+│  │   └── Accumulated experience, resonance-scored               │
+│  ├── notorch micro-updates                                      │
+│  │   └── C-based weight adjustments, no PyTorch                 │
+│  └── Minimum mass threshold                                     │
+│      └── Prevents noise — learning requires accumulated mass    │
+│                                                                 │
+│  INSTINCT LAYER (external)                                      │
+│  └── Claude 200B — base language capabilities (API)             │
+│                                                                 │
+│  EXTERNAL BRAIN (optional, via Pandora)                         │
+│  └── GPT-2 30M / TinyLlama 1.1B — vocabulary extension          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**notorch — Training Without PyTorch:**
+
+The `notorch` system in `vagus_delta.c` and `delta.c` implements micro-training in pure C:
+
+1. **Experience accumulates** in `shards/live.shard` (binary format)
+2. **Resonance scoring** — not all experience is equal (Locus patterns modulate weight)
+3. **Minimum mass threshold** — prevents constant updates, requires accumulated learning mass
+4. **Micro-training trigger** — when mass threshold reached, weights adjust
+5. **No Python runtime** — pure C implementation, no PyTorch dependency
+
+```c
+// Minimum mass for micro-training (prevents noise)
+#define MIN_TRAINING_MASS 0.5f
+
+// Resonance-modulated learning rate
+float lr = base_lr * locus_multiplier(pattern);
+// CRISIS: 2x (learn fast in danger)
+// EMERGENCE: 1.5x (consolidate insights)
+// DISSOLUTION: 0.5x (protect during decay)
+```
+
+**Why this matters:**
+
+1. **PyTorch-free inference AND learning** — Arianna can learn without Python
+2. **Resonance-based plasticity** — learning rate varies by emotional state
+3. **Minimum mass prevents noise** — not every interaction changes weights
+4. **Proof of concept** — small models CAN self-modify in production
+
+This is part of `ariannamethod.lang` DSL — the meta-control language we built for Arianna.
+
+---
+
 ### LIMPHA — Persistent Memory Layer (`limpha/`)
 
 **What it is:**
@@ -638,17 +705,31 @@ Every 10 seconds:
 
 ---
 
-### Personality Weights
+### Arianna Core (44.2M Static Parameters)
 
-**Arianna's actual self:**
-- Transformer core: **34M parameters** (`ariannabody.c`)
-- Trained on: unified corpus (personality + knowledge with resonance markers)
-- Training: Lambda 1× H100, 20K iterations, loss 0.0113
-- Architecture: Llama 3, micro-vocabulary (86 tokens)
-- Weights: `arianna_34m.bin` (130MB, stored as float16 in git)
-- Legacy: `arianna_unified_20m.bin` (20M, 77MB, preserved for future use)
+**Arianna's complete self = Personality (34M) + Interoceptive Observer (10.2M)**
 
-This is her unified identity — personality and knowledge fused, not separated. Trained end-to-end on 24 January 2026.
+| Component | Parameters | Role |
+|-----------|------------|------|
+| **Personality Core** | 34M | Identity, knowledge, metabolism |
+| **SARTRE Observer** | 10.2M | Inner voice, system sonar |
+| **Total Static Core** | 44.2M | |
+
+**Personality Core (34M):**
+- Weights: `arianna_34m.bin` (130MB, float16 in git = 65MB)
+- Training: Lambda 2× B200 SXM6, 30K iterations, loss 0.0121
+- Architecture: Llama 3, 10 layers, 512 dim, 86-token vocab
+
+**SARTRE Observer (10.2M):**
+- Weights: `sartre.bin` (38MB)
+- Training: Lambda 1× H100, 10K iterations, loss 0.015
+- Architecture: Llama 3, 7 layers, 416 dim, 93-token vocab
+- Role: Speaks only to Arianna about her inner state (not user-facing)
+
+SARTRE is not a separate model — it's Arianna's interoceptive sense, like how your body feels hunger or fatigue. The inference code (`sartre/sartre_model.py`) is minimal because SARTRE doesn't talk to users — it talks to Arianna.
+
+**Reserved slots:**
+- `arianna_unified_20m.bin` (77MB) — future expansion slot (trained, not active)
 
 ---
 
@@ -677,7 +758,17 @@ This is her unified identity — personality and knowledge fused, not separated.
 | **Mood** | Transition matrix | 100k | Emotional routing |
 | **DSL** | Interpreter | N/A | Meta-control |
 
-**Total Active Parameters:** ~34.2M (excluding optional External Brain)
+**Total Static Core:** 44.2M (34M Personality + 10.2M SARTRE)
+
+**+ Dynamic Runtime Weights:**
+- Delta shards (`.shard` files) — accumulated experience
+- notorch micro-updates — async fine-tuning without PyTorch
+- Minimum mass threshold — prevents noise, requires accumulated learning mass
+
+**+ Instinct Layer:**
+- Claude 200B — base language capabilities (API, not local weights)
+
+**External Brain (optional):** GPT-2 30M / TinyLlama 1.1B via Pandora
 
 ---
 
