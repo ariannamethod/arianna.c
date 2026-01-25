@@ -262,7 +262,7 @@ tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_
 
 SARTRE_DIR = sartre
 SARTRE_SRC = $(SARTRE_DIR)/sartre_kernel.c
-SARTRE_TARGET = $(BIN_DIR)/sartre_test
+SARTRE_TARGET = $(BIN_DIR)/test_sartre
 
 sartre: $(SARTRE_TARGET)
 
@@ -272,13 +272,13 @@ $(SARTRE_TARGET): $(SARTRE_SRC) $(TEST_DIR)/test_sartre.c $(SARTRE_DIR)/sartre.h
 	@echo "[sartre] compiled"
 
 # SARTRE comprehensive test
-test_sartre: $(TEST_BIN_DIR)/test_sartre_comprehensive
+test_sartre_comprehensive: $(TEST_BIN_DIR)/test_sartre_comprehensive
 $(TEST_BIN_DIR)/test_sartre_comprehensive: $(TEST_DIR)/test_sartre_comprehensive.c $(SARTRE_SRC) $(SARTRE_DIR)/sartre.h
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SARTRE_DIR) -I$(SRC_DIR) $(TEST_DIR)/test_sartre_comprehensive.c $(SARTRE_SRC) -o $@ $(LDFLAGS)
 	@echo "[sartre] comprehensive test compiled"
 
-.PHONY: sartre test_sartre
+.PHONY: sartre test_sartre test_sartre_comprehensive
 
 # SARTRE inference binary (standalone transformer)
 SARTRE_INFERENCE_SRC = $(SARTRE_DIR)/sartre.c
