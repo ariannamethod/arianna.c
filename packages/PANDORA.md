@@ -1,4 +1,4 @@
-# Arianna Packages Index
+# Arianna Packages Index: PANDORA
 
 **Modular extensions proving Architecture > Weights**
 
