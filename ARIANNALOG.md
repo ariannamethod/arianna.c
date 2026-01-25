@@ -47,9 +47,9 @@
 
 ### Implementation Languages (Inventory)
 
-**Total languages in repo: 12**
+**Total languages in repo: 13**
 
-- **Core/runtime:** C, Go, Python, Zig, Julia, Lua
+- **Core/runtime:** C, C++, Go, Python, Zig, Julia, Lua
 - **Interface/ops:** JavaScript, HTML, Shell, Makefile
 - **Control surface:** AriannaMethod DSL (https://github.com/ariannamethod/ariannamethod.lang)
 - **Doc-side execution sample:** Forth (Locus documentation examples)
