@@ -344,7 +344,7 @@ arianna.c/
 │   ├── subjectivity.c            # Identity core (origin.txt)
 │   ├── inner_arianna.c           # MetaVoice борьба
 │   ├── amk_kernel.c              # Prophecy physics (AMK)
-│   ├── pandora.c                 # Vocabulary theft (n-gram storage)
+│   ├── pandora.c                 # Vocabulary extraction (n-gram storage)
 │   ├── delta.c                   # Dynamic shards
 │   ├── delta_enhanced.c          # Advanced shard operations
 │   ├── vagus_delta.c             # Vagus ↔ Delta bridge
