@@ -42,17 +42,27 @@ int julia_is_available(void);
  * INITIALIZATION
  * ═══════════════════════════════════════════════════════════════════════════════ */
 
-static int find_julia(void) {
-    /* Check if Julia is installed */
-    FILE* fp = popen("which julia 2>/dev/null", "r");
-    if (!fp) return 0;
+/* SECURITY: Store verified Julia path */
+static char g_julia_path[512] = "";
 
-    char path[256];
-    if (fgets(path, sizeof(path), fp) != NULL) {
-        pclose(fp);
-        return 1;
+/* SECURITY: Check Julia at known safe locations only */
+static int find_julia(void) {
+    /* Known safe Julia installation paths */
+    const char* safe_paths[] = {
+        "/usr/bin/julia",
+        "/usr/local/bin/julia",
+        "/opt/homebrew/bin/julia",
+        "/Applications/Julia-1.10.app/Contents/Resources/julia/bin/julia",
+        "/Applications/Julia-1.11.app/Contents/Resources/julia/bin/julia",
+        NULL
+    };
+
+    for (int i = 0; safe_paths[i]; i++) {
+        if (access(safe_paths[i], X_OK) == 0) {
+            strncpy(g_julia_path, safe_paths[i], sizeof(g_julia_path) - 1);
+            return 1;
+        }
     }
-    pclose(fp);
     return 0;
 }
 
@@ -135,8 +145,8 @@ int julia_init(void) {
         close(pipe_to_julia[0]);
         close(pipe_from_julia[1]);
 
-        /* Run Julia with optimizations */
-        execlp("julia", "julia",
+        /* SECURITY: Run Julia from verified absolute path */
+        execl(g_julia_path, g_julia_path,
                "--startup-file=no",
                "-O1",
                g_bridge_path,

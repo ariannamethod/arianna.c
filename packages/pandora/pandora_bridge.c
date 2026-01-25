@@ -6,7 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 #include "pandora_bridge.h"
+
+// Store child PID for cleanup
+static pid_t g_last_brain_pid = -1;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BRAIN TYPE HELPERS
@@ -54,7 +60,7 @@ static void sanitize_prompt(const char* input, char* output, size_t max_len) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 int external_brain_extract_from(ExternalBrainType brain, const char* prompt, int* tokens, int max_tokens) {
-    // Sanitize prompt to prevent command injection
+    // Sanitize prompt to prevent injection
     char safe_prompt[512];
     sanitize_prompt(prompt, safe_prompt, sizeof(safe_prompt));
 
@@ -63,27 +69,55 @@ int external_brain_extract_from(ExternalBrainType brain, const char* prompt, int
         return -1;
     }
 
-    // Build command - use --tokens for simple output format
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd),
-             "python3 %s \"%s\" 50 --tokens 2>/dev/null",
-             brain_script(brain), safe_prompt);
+    // SECURITY: Use pipe+fork+exec instead of popen to avoid shell
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        fprintf(stderr, "[pandora_bridge] pipe() failed\n");
+        return -1;
+    }
 
-    // Call Python script
-    FILE* fp = popen(cmd, "r");
+    pid_t pid = fork();
+    if (pid == -1) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        fprintf(stderr, "[pandora_bridge] fork() failed\n");
+        return -1;
+    }
+
+    if (pid == 0) {
+        // Child: redirect stdout to pipe, exec python directly
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        // Redirect stderr to /dev/null
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) { dup2(devnull, STDERR_FILENO); close(devnull); }
+
+        // exec with argv array - no shell!
+        execlp("python3", "python3", brain_script(brain), safe_prompt, "50", "--tokens", (char*)NULL);
+        _exit(127);  // exec failed
+    }
+
+    // Parent: read from pipe
+    close(pipefd[1]);
+    FILE* fp = fdopen(pipefd[0], "r");
     if (!fp) {
-        fprintf(stderr, "[pandora_bridge] Failed to call external brain\n");
+        close(pipefd[0]);
+        waitpid(pid, NULL, 0);
+        fprintf(stderr, "[pandora_bridge] fdopen() failed\n");
         return -1;
     }
 
     // Read output: FORMAT is "COUNT:tok1,tok2,tok3,..."
     char output[8192];
     if (!fgets(output, sizeof(output), fp)) {
-        pclose(fp);
+        fclose(fp);
+        waitpid(pid, NULL, 0);
         fprintf(stderr, "[pandora_bridge] No output from external brain\n");
         return -1;
     }
-    pclose(fp);
+    fclose(fp);
+    waitpid(pid, NULL, 0);  // Reap child process
 
     // Parse count
     int count = 0;

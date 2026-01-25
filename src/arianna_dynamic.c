@@ -660,9 +660,11 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Add suffix: " [word] "
             char suffix[80];
             snprintf(suffix, sizeof(suffix), " %s ", best_word);
-            int slen = strlen(suffix);
-            if (seed->len + slen < 500) {
-                strcat(seed->text, suffix);
+            int slen = (int)strlen(suffix);
+            // SECURITY: Explicit bounds check before concatenation
+            if (seed->len + slen < 500 && seed->len + slen < 511) {
+                strncat(seed->text, suffix, 511 - seed->len);
+                seed->text[511] = '\0';  // Ensure null-termination
                 seed->len += slen;
             }
         }

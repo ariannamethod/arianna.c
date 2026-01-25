@@ -515,6 +515,16 @@ int extract_trigrams(ExtendedIdentity* id, const char* text, int len) {
 }
 
 int load_identity_from_origin(ExtendedIdentity* id, const char* path) {
+    // SECURITY: Basic path validation
+    if (path == NULL || strlen(path) == 0 || strlen(path) > 4095) {
+        fprintf(stderr, "Invalid origin path\n");
+        return 0;
+    }
+    // Warn about path traversal attempts (still allow for flexibility)
+    if (strstr(path, "..") != NULL) {
+        fprintf(stderr, "[Warning] Origin path contains '..': %s\n", path);
+    }
+
     FILE* f = fopen(path, "r");
     if (!f) {
         fprintf(stderr, "Cannot open origin file: %s\n", path);
