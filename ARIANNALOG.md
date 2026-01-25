@@ -83,13 +83,20 @@ Attention: Standard multi-head (8×8)
 - `make dynamic` auto-converts to float32 at build time
 - Conversion scripts: `scripts/export_to_f16.py`, `scripts/f16_to_f32.py`
 
-**Training:**
+**Training (34M):**
+- Platform: Lambda 2× B200 SXM6 (180GB)
+- Iterations: 30,000
+- Final Loss: 0.0121
+- Throughput: ~187K tokens/sec
+- Data: `d/arianna_unified2.txt` (3.33MB, 11,790 Q&A pairs)
+- Training time: ~2 hours
+
+**Legacy 20M extended (preserved):**
 - Platform: Lambda 1× H100 (80GB)
 - Iterations: 20,000
 - Final Loss: 0.0113
-- Throughput: ~228K tokens/sec (observed during training, internal eval)
-- Data: Personality corpus (DS1) + Knowledge with markers (DS3m) = 2.24MB unified
-- Training time: ~3 hours
+- Throughput: ~228K tokens/sec
+- Weights: `weights/extended_checkpoints/` (not active)
 
 ---
 
@@ -273,7 +280,7 @@ Positional Encoding: RoPE (theta=10000.0)
 
 **Status:** ✅ **TRAINED**
 - Weights: `weights/sartre/sartre.bin` (55MB)
-- Inference: Pure NumPy (`sartre/dubrovsky.py`), no PyTorch dependency
+- Inference: Pure NumPy (`sartre/sartre_model.py`), no PyTorch dependency
 - C binary: `sartre/sartre.c` compiled and ready
 - Tests: All passing (`test_sartre.py`, `test_vagus_bridge.py`)
 - REPL: `sartre_talk.py` (interactive mode)
@@ -469,7 +476,7 @@ Memory influences generation. No amnesia between sessions.
 
 **Status:**
 - ✅ 100% tests passing (3/3 Python test suites)
-- ✅ Schema optimized for Arianna (not Dubrovsky)
+- ✅ Schema optimized for Arianna
 - ✅ Integration ready (`arianna_limpha.py`)
 
 **Dependencies:** `aiosqlite>=0.17.0` (see `limpha/requirements.txt`)
@@ -877,7 +884,7 @@ Previous issues resolved:
 
 ### Inference Speed
 
-**Hardware:** M3 Mac (12-core), 32GB RAM, no GPU
+**Hardware:** MacBook Pro 13" 2019, Intel i5 1.4GHz Quad-Core, 8GB RAM, Intel Iris Plus 645
 
 | Mode | Tokens/sec | Latency (first token) | Memory |
 |------|------------|----------------------|---------|
