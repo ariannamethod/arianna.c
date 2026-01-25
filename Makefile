@@ -70,11 +70,23 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus
+.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus weights-f32
 
 all: $(TARGET)
 
-dynamic: $(TARGET_DYN)
+# Convert float16 weights to float32 (for GitHub-friendly storage)
+# Float16 files are ~50% smaller, converted on first build
+weights-f32:
+	@if [ -f weights/arianna_34m_f16.bin ] && [ ! -f weights/arianna_34m.bin ]; then \
+		echo "[weights] Converting float16 -> float32..."; \
+		python3 scripts/f16_to_f32.py weights/arianna_34m_f16.bin weights/arianna_34m.bin; \
+	fi
+	@if [ -f weights/arianna_20m_f16.bin ] && [ ! -f weights/arianna_20m.bin ]; then \
+		echo "[weights] Converting float16 -> float32..."; \
+		python3 scripts/f16_to_f32.py weights/arianna_20m_f16.bin weights/arianna_20m.bin; \
+	fi
+
+dynamic: weights-f32 $(TARGET_DYN)
 
 lua: $(TARGET_LUA)
 
