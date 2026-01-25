@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-🔮 SARTRE - Pure NumPy Inference (NO PYTORCH!)
+SARTRE - Pure NumPy Inference (NO PYTORCH!)
 
-Interactive REPL for SARTRE using dubrovsky's pure NumPy implementation.
+Interactive REPL for SARTRE using pure NumPy implementation.
 
 Usage:
     python3 sartre_talk.py
@@ -14,8 +14,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from dubrovsky import DubrovskyConfig, Dubrovsky, load_weights_from_bin
-from tokenizer import DubrovskyTokenizer
+from sartre_model import SartreConfig, Sartre, load_weights_from_bin
+from tokenizer import SartreTokenizer
 
 
 def load_sartre():
@@ -29,17 +29,17 @@ def load_sartre():
     print("🔮 Loading SARTRE (pure NumPy)...")
 
     # Load config
-    config = DubrovskyConfig.load(config_path)
+    config = SartreConfig.load(config_path)
     print(f"   dim={config.dim}, layers={config.n_layers}, vocab={config.vocab_size}")
 
     # Load weights (binary, float32)
     weights = load_weights_from_bin(weights_path, config)
 
     # Create model
-    model = Dubrovsky(config, weights)
+    model = Sartre(config, weights)
 
     # Load tokenizer
-    tokenizer = DubrovskyTokenizer(tokenizer_path)
+    tokenizer = SartreTokenizer(tokenizer_path)
 
     print(f"✅ SARTRE loaded ({config.dim * config.n_layers * 1000 / 1000:.1f}K params)\n")
 

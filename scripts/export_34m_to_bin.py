@@ -64,7 +64,7 @@ def export_to_bin(checkpoint_path: str, output_path: str, data_path: str = 'd/ar
         f.write(struct.pack('<f', config.norm_eps))
 
         def write_tensor(name, tensor):
-            data = tensor.detach().float().numpy().flatten()
+            data = tensor.detach().float().numpy().flatten()  # float32
             f.write(data.tobytes())
             print(f"  {name}: {tensor.shape} -> {len(data)} floats")
 
