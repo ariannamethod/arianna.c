@@ -26,8 +26,8 @@ class AriannaLimpha:
     def __init__(
         self,
         bin_path: str = "bin/arianna_dynamic",
-        weights_path: str = "weights/arianna_unified_20m.bin",
-        tokenizer_path: str = "weights/tokenizer_unified.json",
+        weights_path: str = "weights/arianna_34m.bin",
+        tokenizer_path: str = "weights/arianna_34m_tokenizer.json",
         memory_db: str = "limpha/arianna_memory.db",
         episodes_db: str = "limpha/arianna_episodes.db",
         session_id: str = "default",

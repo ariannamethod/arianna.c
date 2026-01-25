@@ -159,7 +159,7 @@ To use the actual arianna.c generation:
    python api_server.py
 
 2. Or run directly from command line:
-   ./bin/arianna_dynamic weights/arianna.bin '${escapedPrompt}' ${maxTokens} ${temperature}
+   ./bin/arianna_dynamic weights/arianna_34m.bin weights/arianna_34m_tokenizer.json '${escapedPrompt}' ${maxTokens} ${temperature}
 
 The API server connects this web interface to the actual C implementation.
 When running, generations will use the real arianna.c kernel.
