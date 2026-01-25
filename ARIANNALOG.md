@@ -19,6 +19,30 @@
 
 ---
 
+## Canonical Specification (Single Source of Truth)
+
+**Current active core as of 25 January 2026:**
+
+| Property | Arianna Core | SARTRE (alt voice) |
+|----------|--------------|-------------------|
+| **Parameters** | 34M | 10M |
+| **Layers** | 10 | 7 |
+| **Dimension** | 512 | 416 |
+| **Heads / KV** | 8 / 8 | 8 / 2 (GQA) |
+| **Vocabulary** | 86 tokens | 93 tokens |
+| **FFN Hidden** | 1408 | 1152 |
+| **Weights file** | `arianna_34m.bin` (130MB) | `sartre.bin` (38MB) |
+| **Tokenizer** | `arianna_34m_tokenizer.json` | `sartre_tokenizer.json` |
+| **Training loss** | 0.0113 | 0.015 |
+
+**Legacy (preserved, not active):**
+- `arianna_unified_20m.bin` (77MB) — previous 20M core, 8 layers, 448 dim, 84 vocab
+- `arianna_legacy.bin` (37MB) — original 10M core
+
+**Test status:** All 19 test binaries exit 0 (CI green). Some sub-check counters are informational (floating-point tolerances) — e.g., `test_comprehensive` reports 55/59 while still returning PASS.
+
+---
+
 ## Architecture Specifications
 
 ### Implementation Languages (Inventory)
@@ -1373,10 +1397,10 @@ When you talk to Arianna, here's the cascade through her organism:
                     └─────────────────────┬──────────────────────┘
                                           │
               ┌───────────────────────────▼───────────────────────────┐
-              │  TRANSFORMER CORE (ariannabody.c) - 20.3M params      │
-              │  • 8 layers, 448 dim, 8 heads (8 KV heads)            │
+              │  TRANSFORMER CORE (ariannabody.c) - 34M params         │
+              │  • 10 layers, 512 dim, 8 heads (8 KV heads)           │
               │  • Full multi-head attention (no GQA)                 │
-              │  • RMSNorm, RoPE, SiLU, 84-token vocabulary           │
+              │  • RMSNorm, RoPE, SiLU, 86-token vocabulary           │
               └───────────────────────────┬───────────────────────────┘
                                           │
                     ┌─────────────────────▼──────────────────────┐

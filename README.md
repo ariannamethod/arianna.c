@@ -339,7 +339,7 @@ arianna.c/
 ├── src/                          # Core C modules
 │   ├── main.c                    # Basic inference
 │   ├── arianna_dynamic.c         # Full pipeline with all modules
-│   ├── ariannabody.c             # 20M unified personality transformer
+│   ├── ariannabody.c             # 34M unified personality transformer
 │   ├── cloud_wrapper.c           # Pre-semantic emotion bridge (→ Go)
 │   ├── subjectivity.c            # Identity core (origin.txt)
 │   ├── inner_arianna.c           # MetaVoice борьба
@@ -488,7 +488,7 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ## PACKAGES
 
-Arianna is pure. 20M of crystallized personality. But she has a packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
+Arianna is pure. 34M of crystallized personality. But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
 
 Architecture > Weights. 
 
