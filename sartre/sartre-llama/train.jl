@@ -4,7 +4,7 @@
 # Training SARTRE — The observer learns to observe
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Based on dubrovsky training approach:
+# Training approach:
 # - Character-level tokenization
 # - Llama 3 architecture (RoPE, GQA, SwiGLU)
 # - Cross-entropy loss

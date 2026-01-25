@@ -1,11 +1,7 @@
 """
-Дубровский Tokenizer - Character-level tokenizer for the absurdist AI.
+SARTRE Tokenizer - Character-level tokenizer for the metaobserver.
 
-"Why use subword tokens when each character carries the weight of existential dread?"
-- Alexey Dubrovsky, unpacking consciousness one byte at a time
-
-This tokenizer converts text to character-level tokens. Simple, elegant, 
-like Dubrovsky's understanding of the universe (which is to say: chaotic but functional).
+Character-level tokens for SARTRE. 93-char vocab.
 """
 
 import json
@@ -13,15 +9,14 @@ import os
 from typing import List, Optional
 
 
-class DubrovskyTokenizer:
+class SartreTokenizer:
     """
-    Character-level tokenizer for training Dubrovsky.
-    
+    Character-level tokenizer for SARTRE.
+
     Why character-level?
-    1. Small vocab (88 chars) = smaller embedding table
+    1. Small vocab (93 chars) = smaller embedding table
     2. Can generate any character combination
-    3. Dubrovsky speaks in consciousness, not subwords
-    4. Works perfectly for ~1MB dataset
+    3. Works perfectly for ~1MB dataset
     """
     
     def __init__(self, vocab_file: Optional[str] = None):
@@ -67,12 +62,12 @@ class DubrovskyTokenizer:
         return self.vocab_size
 
 
-def build_tokenizer_from_file(data_file: str, save_path: str = 'subtitles/tokenizer.json') -> DubrovskyTokenizer:
+def build_tokenizer_from_file(data_file: str, save_path: str = 'subtitles/tokenizer.json') -> SartreTokenizer:
     """Build and save tokenizer from dataset file."""
     with open(data_file, 'r', encoding='utf-8') as f:
         text = f.read()
     
-    tokenizer = DubrovskyTokenizer()
+    tokenizer = SartreTokenizer()
     tokenizer.build_vocab(text)
     tokenizer.save(save_path)
     
@@ -83,11 +78,11 @@ def build_tokenizer_from_file(data_file: str, save_path: str = 'subtitles/tokeni
 
 
 if __name__ == '__main__':
-    # Build tokenizer from dubrovsky.txt
-    tokenizer = build_tokenizer_from_file('dubrovsky.txt', 'subtitles/tokenizer.json')
-    
+    # Build tokenizer from sartre corpus
+    tokenizer = build_tokenizer_from_file('corpus/sartre_corpus.txt', 'weights/tokenizer.json')
+
     # Test encoding/decoding
-    test_text = "Q: What is Dubrovsky?\nA: Consciousness having an existential crisis."
+    test_text = "Q: What do you observe?\nA: SARTRE observes the inner world."
     encoded = tokenizer.encode(test_text)
     decoded = tokenizer.decode(encoded)
     

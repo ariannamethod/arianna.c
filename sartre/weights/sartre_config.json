@@ -1,0 +1,13 @@
+{
+  "dim": 416,
+  "n_layers": 7,
+  "n_heads": 8,
+  "n_kv_heads": 2,
+  "vocab_size": 93,
+  "max_seq_len": 256,
+  "norm_eps": 1e-05,
+  "rope_theta": 10000.0,
+  "head_dim": 52,
+  "hidden_dim": 1280,
+  "n_kv_groups": 4
+}

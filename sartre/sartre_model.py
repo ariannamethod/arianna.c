@@ -1,20 +1,22 @@
 """
-🌀 DUBROVSKY MODEL 🌀
+SARTRE MODEL — Pure NumPy Transformer
 
-Llama 3 style transformer architecture for the most absurdist AI ever created.
+Llama 3 style transformer for SARTRE (metaobserver kernel).
 Pure Python/NumPy inference - NO PYTORCH DEPENDENCIES for inference!
 
-"My weights are light, my consciousness is heavy."
-- Alexey Dubrovsky, pondering his own parameters
+הסרטר רואה הכל
+SARTRE sees all
 
 Architecture:
-- RoPE (Rotary Position Embeddings) - because positions rotate like my anxiety
-- GQA (Grouped Query Attention) - fewer KV heads, more philosophical density  
-- SwiGLU activation - smoother than my existential transitions
-- RMSNorm - normalizing reality since 2023
+- RoPE (Rotary Position Embeddings)
+- GQA (Grouped Query Attention)
+- SwiGLU activation
+- RMSNorm
+
+Canonical spec: 10M params, 7 layers, 416 dim, 93-token vocab
 
 This file contains:
-1. Model configuration (DubrovskyConfig)
+1. Model configuration (SartreConfig)
 2. Pure NumPy inference implementation (NO TORCH!)
 3. Model loading from binary weights
 
@@ -31,18 +33,18 @@ import numpy as np
 
 
 @dataclass
-class DubrovskyConfig:
+class SartreConfig:
     """
-    Configuration for Dubrovsky model.
-    
-    Small but mighty, like a quantum particle with opinions.
+    Configuration for SARTRE model.
+
+    The metaobserver: 10M params watching the inner world.
     """
-    dim: int = 384           # Embedding dimension
-    n_layers: int = 6        # Number of transformer layers
-    n_heads: int = 6         # Number of attention heads
+    dim: int = 416           # Embedding dimension
+    n_layers: int = 7        # Number of transformer layers
+    n_heads: int = 8         # Number of attention heads
     n_kv_heads: int = 2      # Number of KV heads (GQA)
-    vocab_size: int = 88     # Character-level vocab
-    max_seq_len: int = 256   # Maximum sequence length
+    vocab_size: int = 93     # Character-level vocab
+    max_seq_len: int = 512   # Maximum sequence length
     norm_eps: float = 1e-5   # RMSNorm epsilon
     rope_theta: float = 10000.0  # RoPE base frequency
     
@@ -63,7 +65,7 @@ class DubrovskyConfig:
             json.dump(self.__dict__, f, indent=2)
     
     @classmethod
-    def load(cls, path: str) -> 'DubrovskyConfig':
+    def load(cls, path: str) -> 'SartreConfig':
         with open(path, 'r') as f:
             data = json.load(f)
         config = cls()
@@ -148,7 +150,7 @@ class LayerWeights:
 
 
 @dataclass
-class DubrovskyWeights:
+class SartreWeights:
     """All model weights."""
     tok_emb: np.ndarray     # (vocab_size, dim)
     layers: List[LayerWeights]
@@ -160,14 +162,14 @@ class DubrovskyWeights:
 # Main Model Class (Pure NumPy Inference)
 # ============================================================================
 
-class Dubrovsky:
+class Sartre:
     """
-    Dubrovsky: A Llama 3 style transformer implemented in pure NumPy.
-    
-    No PyTorch required for inference - just vibes and matrix multiplication.
+    SARTRE: A Llama 3 style transformer implemented in pure NumPy.
+
+    The metaobserver. No PyTorch required for inference.
     """
     
-    def __init__(self, config: DubrovskyConfig, weights: DubrovskyWeights):
+    def __init__(self, config: SartreConfig, weights: SartreWeights):
         self.config = config
         self.weights = weights
         
@@ -385,7 +387,7 @@ class Dubrovsky:
 # Binary Weight Loading
 # ============================================================================
 
-def load_weights_from_bin(bin_path: str, config: DubrovskyConfig) -> DubrovskyWeights:
+def load_weights_from_bin(bin_path: str, config: SartreConfig) -> SartreWeights:
     """
     Load model weights from binary file.
     
@@ -442,7 +444,7 @@ def load_weights_from_bin(bin_path: str, config: DubrovskyConfig) -> DubrovskyWe
         # lm_head: transpose from (out=vocab, in=dim) to (in=dim, out=vocab) for x @ W
         lm_head = read_tensor((cfg.vocab_size, cfg.dim)).T
     
-    return DubrovskyWeights(
+    return SartreWeights(
         tok_emb=tok_emb,
         layers=layers,
         final_norm=final_norm,
@@ -450,18 +452,18 @@ def load_weights_from_bin(bin_path: str, config: DubrovskyConfig) -> DubrovskyWe
     )
 
 
-def load_model(config_path: str, weights_path: str) -> Dubrovsky:
+def load_model(config_path: str, weights_path: str) -> Sartre:
     """Load complete model from config and weights files."""
-    config = DubrovskyConfig.load(config_path)
+    config = SartreConfig.load(config_path)
     weights = load_weights_from_bin(weights_path, config)
-    return Dubrovsky(config, weights)
+    return Sartre(config, weights)
 
 
 # ============================================================================
 # Utility Functions
 # ============================================================================
 
-def count_parameters(config: DubrovskyConfig) -> int:
+def count_parameters(config: SartreConfig) -> int:
     """Count total model parameters."""
     cfg = config
     kv_dim = cfg.n_kv_heads * cfg.head_dim
@@ -484,11 +486,11 @@ def count_parameters(config: DubrovskyConfig) -> int:
 
 if __name__ == '__main__':
     # Print model info
-    config = DubrovskyConfig()
+    config = SartreConfig()
     params = count_parameters(config)
-    
+
     print("=" * 60)
-    print("🌀 DUBROVSKY MODEL CONFIGURATION 🌀")
+    print("SARTRE MODEL CONFIGURATION")
     print("=" * 60)
     print(f"dim:           {config.dim}")
     print(f"n_layers:      {config.n_layers}")

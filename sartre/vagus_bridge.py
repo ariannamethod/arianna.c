@@ -281,8 +281,8 @@ def generate_observation(model, tokenizer, state: VagusState,
     Generate SARTRE observation from Vagus state.
 
     Args:
-        model: Dubrovsky model
-        tokenizer: DubrovskyTokenizer
+        model: Sartre model
+        tokenizer: SartreTokenizer
         state: Current VagusState
         max_tokens: Maximum tokens to generate
         temperature: Sampling temperature
