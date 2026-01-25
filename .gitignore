@@ -36,6 +36,13 @@ knowledge_train/*.pt
 # shards/         - experience shards (microtraining accumulates here)
 # bin/            - compiled binaries + origin.txt personality
 
+# Float32 weights (generated from float16 at build time)
+# Store *_f16.bin in git, generate full weights via `make dynamic`
+weights/arianna_34m.bin
+weights/arianna_20m.bin
+weights/arianna_34m_from_f16.bin
+weights/arianna_20m_from_f16.bin
+
 # Dev files
 *.log
 test_*.py
