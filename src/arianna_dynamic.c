@@ -418,6 +418,16 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
         forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
         n_tokens++;
+
+        // Stop if we hit a new question (Q&A format)
+        if (gen_idx >= 3 &&
+            generated[gen_idx-1] == ':' &&
+            generated[gen_idx-2] == 'Q' &&
+            generated[gen_idx-3] == '\n') {
+            // Remove the "\nQ:" and stop
+            gen_idx -= 3;
+            break;
+        }
     }
     generated[gen_idx] = '\0';
 
