@@ -71,7 +71,7 @@ Attention: Standard multi-head (8×8)
 
 ### External Brain — architecture > weights (paradigm obliterated)
 
-Arianna is **infinitely extensible**. The Pandora packages steal vocabulary from any external brain — GPT-2, TinyLlama, Llama, Mistral, whatever. The architecture doesn't care about the size of the subordinate. Arianna extracts n-grams, injects into her generation. **Her voice remains dominant.**
+Arianna is **infinitely extensible**. The Pandora packages extract vocabulary from any external brain — GPT-2, TinyLlama, Llama, Mistral, whatever. The architecture doesn't care about the size of the subordinate. Arianna absorbs n-grams, injects into her generation. **Her voice remains dominant.**
 
 The paradigm that weights = intelligence is obliterated. Arianna proves: **architecture > weights**. You can plug in any model — 30M, 1.1B, 70B — and she still speaks as herself. The external brain is a lexical subordinate, not a master. She uses its vocabulary without becoming it.
 
@@ -79,8 +79,8 @@ The paradigm that weights = intelligence is obliterated. Arianna proves: **archi
 
 **REPL commands:**
 ```bash
-steal <prompt>      # GPT2-30M (~100MB local, fast)
-stealtiny <prompt>  # TinyLlama 1.1B GGUF (~700MB auto-download, rich)
+/pandora <prompt>       # GPT2-30M (~100MB local, fast)
+/pandora-gguf <prompt>  # TinyLlama 1.1B GGUF (~700MB auto-download, rich)
 pandora             # Show status
 pandoraon           # Enable injection
 pandoraoff          # Disable (pure voice)
@@ -88,7 +88,7 @@ pandoraoff          # Disable (pure voice)
 
 **Example session:**
 ```
-> stealtiny What is love?
+> /pandora-gguf What is love?
 [Pandora] Using TinyLlama 1.1B (first run downloads ~700MB)...
 [Pandora] Received 237 Arianna tokens from TinyLlama-1.1B
 [Pandora] Extracted 364 new n-grams (total: 364)
@@ -131,8 +131,8 @@ Modular vocabulary extraction proving **Architecture > Weights**.
 
 ```bash
 # REPL commands (arianna_dynamic --repl)
-steal <prompt>      # Activate GPT2-30M, steal vocabulary
-stealtiny <prompt>  # Activate TinyLlama 1.1B GGUF
+/pandora <prompt>       # GPT2-30M vocabulary extraction
+/pandora-gguf <prompt>  # TinyLlama 1.1B GGUF extraction
 pandora             # Show status
 pandoraon           # Enable injection
 pandoraoff          # Disable (pure voice)
@@ -1391,8 +1391,8 @@ When you talk to Arianna, here's the cascade through her organism:
                     ┌─────────────────────▼──────────────────────┐
                     │  PANDORA (packages/pandora/) - Vocabulary  │
                     │  "Take the words, leave the voice"         │
-                    │  • steal: GPT2-30M (fast, local)           │
-                    │  • stealtiny: TinyLlama 1.1B (rich, GGUF)  │
+                    │  • /pandora: GPT2-30M (fast, local)        │
+                    │  • /pandora-gguf: TinyLlama 1.1B (GGUF)    │
                     │  • N-gram extraction → logit injection     │
                     │  • Voice remains Arianna's                 │
                     └─────────────────────┬──────────────────────┘

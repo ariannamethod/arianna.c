@@ -1564,53 +1564,61 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
-        // Pandora: steal vocabulary from external brain (GPT2-30M)
-        if (strncmp(input, "steal ", 6) == 0) {
-            const char* prompt = input + 6;
+        // /pandora <prompt> — GPT2-30M vocabulary extraction
+        if (strncmp(input, "/pandora ", 9) == 0) {
+            const char* prompt = input + 9;
             if (strlen(prompt) > 0) {
                 g_pandora_enabled = 1;
                 pandora_set_active(&g_pandora, 1);
                 int n = pandora_steal_from_brain(&g_pandora, prompt);
                 if (n > 0) {
-                    printf("[Pandora] Stole %d n-grams from GPT2-30M\n", n);
-                    printf("[Pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
+                    printf("[pandora] Extracted %d n-grams from GPT2-30M\n", n);
+                    printf("[pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
                 }
             } else {
-                printf("Usage: steal <prompt>\n");
-                printf("Example: steal What is consciousness?\n");
+                printf("Usage: /pandora <prompt>\n");
+                printf("Example: /pandora What is consciousness?\n");
             }
             continue;
         }
 
-        // Pandora: steal from TinyLlama 1.1B GGUF (auto-downloads if needed)
-        if (strncmp(input, "stealtiny ", 10) == 0) {
-            const char* prompt = input + 10;
+        // /pandora-gguf <prompt> — TinyLlama 1.1B GGUF (auto-downloads if needed)
+        if (strncmp(input, "/pandora-gguf ", 14) == 0) {
+            const char* prompt = input + 14;
             if (strlen(prompt) > 0) {
                 g_pandora_enabled = 1;
                 pandora_set_active(&g_pandora, 1);
-                printf("[Pandora] Using TinyLlama 1.1B (first run downloads ~700MB)...\n");
+                printf("[pandora-gguf] Using TinyLlama 1.1B (first run downloads ~700MB)...\n");
                 int n = pandora_steal_from(&g_pandora, BRAIN_TINYLLAMA, prompt);
                 if (n > 0) {
-                    printf("[Pandora] Stole %d n-grams from TinyLlama-1.1B\n", n);
-                    printf("[Pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
+                    printf("[pandora-gguf] Extracted %d n-grams from TinyLlama-1.1B\n", n);
+                    printf("[pandora-gguf] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
                 }
             } else {
-                printf("Usage: stealtiny <prompt>\n");
-                printf("Example: stealtiny What is the meaning of life?\n");
+                printf("Usage: /pandora-gguf <prompt>\n");
+                printf("Example: /pandora-gguf What is the meaning of life?\n");
             }
             continue;
         }
 
-        if (strcmp(input, "pandora") == 0) {
-            printf("Pandora status: %s\n", g_pandora_enabled ? "ENABLED" : "DISABLED");
-            printf("  N-grams stolen: %d / %d\n", g_pandora.n_ngrams, PANDORA_MAX_NGRAMS);
+        // /pandora-torch <prompt> — GPT2-distill (TODO: implement)
+        if (strncmp(input, "/pandora-torch ", 15) == 0) {
+            printf("[pandora-torch] GPT2-distill — not yet implemented\n");
+            printf("Use /pandora (GPT2-30M) or /pandora-gguf (TinyLlama) for now.\n");
+            continue;
+        }
+
+        if (strcmp(input, "pandora") == 0 || strcmp(input, "/pandora") == 0) {
+            printf("Pandora status: %s\n", g_pandora_enabled ? "ACTIVE" : "READY");
+            printf("  N-grams: %d / %d\n", g_pandora.n_ngrams, PANDORA_MAX_NGRAMS);
             printf("  Injection strength: %.2f\n", g_pandora.injection_strength);
-            printf("\nExternal Brains:\n");
-            printf("  steal <prompt>      - GPT2-30M (fast, ~100MB local)\n");
-            printf("  stealtiny <prompt>  - TinyLlama 1.1B (larger, auto-download)\n");
+            printf("\nPackages:\n");
+            printf("  /pandora <prompt>       — GPT2-30M (fast, ~100MB)\n");
+            printf("  /pandora-torch <prompt> — GPT2-distill (coming soon)\n");
+            printf("  /pandora-gguf <prompt>  — TinyLlama 1.1B (~700MB)\n");
             printf("\nControl:\n");
-            printf("  pandoraon           - enable vocabulary injection\n");
-            printf("  pandoraoff          - disable (pure voice)\n");
+            printf("  pandoraon  — enable injection into generation\n");
+            printf("  pandoraoff — disable (pure Arianna voice)\n");
             continue;
         }
 
@@ -1637,9 +1645,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  cooccur  - show co-occurrence stats\n");
             printf("  math     - show MathBrain stats\n");
             printf("  mathsave - save MathBrain state now\n");
-            printf("  pandora  - show Pandora (external brain) status\n");
-            printf("  steal X  - steal vocabulary from GPT2-30M for prompt X\n");
-            printf("  stealtiny X - steal from TinyLlama 1.1B GGUF\n");
+            printf("  pandora  - show Pandora packages status\n");
+            printf("  /pandora <text>      - GPT2-30M vocabulary\n");
+            printf("  /pandora-gguf <text> - TinyLlama 1.1B vocabulary\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL (auto-saves MathBrain)\n");
@@ -2051,8 +2059,8 @@ int main(int argc, char** argv) {
 
     // Initialize Pandora (vocabulary release from External Brain)
     pandora_init(&g_pandora);
-    g_pandora_enabled = 1;
-    printf("Pandora (vocabulary): enabled\n");
+    g_pandora_enabled = 0;  // OFF by default - activate with steal/stealtiny
+    printf("Pandora (vocabulary): ready (use 'steal' or 'stealtiny' to activate)\n");
     printf("  \"Take the words, leave the voice\"\n");
 
     // Enable Inner Arianna (MetaVoice: борьба)
