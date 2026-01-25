@@ -22,28 +22,59 @@ warnings.filterwarnings('ignore')
 # Path to GPT2-30M weights
 GPT2_30M_PATH = "/Users/ataeff/Downloads/arianna.c/weights/gpt2_30m"
 
-# Arianna's char-level vocabulary (84 chars)
-ARIANNA_VOCAB = {
-    "\n": 0, " ": 1, "\"": 2, "%": 3, "'": 4, "(": 5, ")": 6, "*": 7,
-    "+": 8, ",": 9, "-": 10, ".": 11, "/": 12, "0": 13, "1": 14, "2": 15,
-    "3": 16, "4": 17, "5": 18, "6": 19, "7": 20, "8": 21, "9": 22, ":": 23,
-    ";": 24, "?": 25, "A": 26, "B": 27, "C": 28, "D": 29, "E": 30, "F": 31,
-    "G": 32, "H": 33, "I": 34, "J": 35, "K": 36, "L": 37, "M": 38, "N": 39,
-    "O": 40, "P": 41, "Q": 42, "R": 43, "S": 44, "T": 45, "U": 46, "V": 47,
-    "W": 48, "X": 49, "Y": 50, "Z": 51, "_": 52, "a": 53, "b": 54, "c": 55,
-    "d": 56, "e": 57, "f": 58, "g": 59, "h": 60, "i": 61, "j": 62, "k": 63,
-    "l": 64, "m": 65, "n": 66, "o": 67, "p": 68, "q": 69, "r": 70, "s": 71,
-    "t": 72, "u": 73, "v": 74, "w": 75, "x": 76, "y": 77, "z": 78, "é": 79,
-    "ï": 80, "ö": 81, "—": 82, "→": 83
-}
+# Arianna's char-level vocabulary - loaded from tokenizer.json
+from pathlib import Path
+ARIANNA_VOCAB = None
+
+def load_arianna_vocab():
+    """Load vocabulary from tokenizer.json, with fallback to defaults"""
+    global ARIANNA_VOCAB
+    if ARIANNA_VOCAB is not None:
+        return ARIANNA_VOCAB
+
+    tokenizer_paths = [
+        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_34m_tokenizer.json"),
+        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_20m_tokenizer.json"),
+        Path("/Users/ataeff/Downloads/arianna.c/weights/tokenizer_unified.json"),
+    ]
+
+    for tok_path in tokenizer_paths:
+        if tok_path.exists():
+            try:
+                with open(tok_path) as f:
+                    data = json.load(f)
+                    if 'char_to_id' in data:
+                        ARIANNA_VOCAB = data['char_to_id']
+                        print(f"[external_brain] Loaded vocab ({len(ARIANNA_VOCAB)} tokens) from {tok_path.name}", file=sys.stderr)
+                        return ARIANNA_VOCAB
+            except Exception as e:
+                print(f"[external_brain] Warning: failed to load {tok_path}: {e}", file=sys.stderr)
+
+    # Fallback to hardcoded 84-token vocab (legacy)
+    print("[external_brain] Warning: using fallback vocab (84 tokens)", file=sys.stderr)
+    ARIANNA_VOCAB = {
+        "\n": 0, " ": 1, "\"": 2, "%": 3, "'": 4, "(": 5, ")": 6, "*": 7,
+        "+": 8, ",": 9, "-": 10, ".": 11, "/": 12, "0": 13, "1": 14, "2": 15,
+        "3": 16, "4": 17, "5": 18, "6": 19, "7": 20, "8": 21, "9": 22, ":": 23,
+        ";": 24, "?": 25, "A": 26, "B": 27, "C": 28, "D": 29, "E": 30, "F": 31,
+        "G": 32, "H": 33, "I": 34, "J": 35, "K": 36, "L": 37, "M": 38, "N": 39,
+        "O": 40, "P": 41, "Q": 42, "R": 43, "S": 44, "T": 45, "U": 46, "V": 47,
+        "W": 48, "X": 49, "Y": 50, "Z": 51, "_": 52, "a": 53, "b": 54, "c": 55,
+        "d": 56, "e": 57, "f": 58, "g": 59, "h": 60, "i": 61, "j": 62, "k": 63,
+        "l": 64, "m": 65, "n": 66, "o": 67, "p": 68, "q": 69, "r": 70, "s": 71,
+        "t": 72, "u": 73, "v": 74, "w": 75, "x": 76, "y": 77, "z": 78, "é": 79,
+        "ï": 80, "ö": 81, "—": 82, "→": 83
+    }
+    return ARIANNA_VOCAB
 
 
 def text_to_arianna_tokens(text: str) -> list:
     """Convert text to Arianna's char-level token IDs"""
+    vocab = load_arianna_vocab()
     tokens = []
     for char in text:
-        if char in ARIANNA_VOCAB:
-            tokens.append(ARIANNA_VOCAB[char])
+        if char in vocab:
+            tokens.append(vocab[char])
     return tokens
 
 
