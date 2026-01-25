@@ -294,15 +294,24 @@ func (pd *ProphecyDebtAccumulation) forceResolutionLocked() {
 	}
 }
 
-// syncToStateLocked must be called with pd.mu held
+// syncToStateLocked copies values while holding pd.mu, then syncs to state
+// IMPORTANT: We copy values first, then release pd.mu before taking state.mu
+// to avoid deadlock (always acquire locks in consistent order)
 func (pd *ProphecyDebtAccumulation) syncToStateLocked() {
+	// Copy values while holding pd.mu
+	debt := pd.currentDebt
+	destiny := pd.destinyStrength
+	wormhole := pd.wormholeChance
 	state := pd.world.State
-	state.mu.Lock()
-	defer state.mu.Unlock()
 
-	state.ProphecyDebt = pd.currentDebt
-	state.DestinyPull = pd.destinyStrength
-	state.WormholeChance = pd.wormholeChance
+	// Release pd.mu, acquire state.mu (avoids nested lock)
+	pd.mu.Unlock()
+	state.mu.Lock()
+	state.ProphecyDebt = debt
+	state.DestinyPull = destiny
+	state.WormholeChance = wormhole
+	state.mu.Unlock()
+	pd.mu.Lock() // Re-acquire for defer in caller
 }
 
 // processSignalLocked must be called with pd.mu held

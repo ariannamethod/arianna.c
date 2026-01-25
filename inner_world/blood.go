@@ -112,10 +112,30 @@ func (bc *BloodCompiler) hashCode(code string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// sanitizeName removes path traversal and unsafe characters from name
+func (bc *BloodCompiler) sanitizeName(name string) string {
+	// Only allow alphanumeric, underscore, dash
+	result := make([]byte, 0, len(name))
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') || c == '_' || c == '-' {
+			result = append(result, c)
+		}
+	}
+	if len(result) == 0 {
+		return "unnamed"
+	}
+	return string(result)
+}
+
 // Compile compiles C code to a shared library
 func (bc *BloodCompiler) Compile(name string, code string) (*CompiledModule, error) {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+
+	// SECURITY: Sanitize name to prevent path traversal
+	safeName := bc.sanitizeName(name)
 
 	// Check cache
 	codeHash := bc.hashCode(code)
@@ -124,7 +144,7 @@ func (bc *BloodCompiler) Compile(name string, code string) (*CompiledModule, err
 	}
 
 	// Create source file
-	srcPath := filepath.Join(bc.tempDir, fmt.Sprintf("blood_%s_%s.c", name, codeHash[:8]))
+	srcPath := filepath.Join(bc.tempDir, fmt.Sprintf("blood_%s_%s.c", safeName, codeHash[:8]))
 	if err := os.WriteFile(srcPath, []byte(code), 0644); err != nil {
 		return nil, fmt.Errorf("blood: failed to write source: %w", err)
 	}
@@ -134,7 +154,7 @@ func (bc *BloodCompiler) Compile(name string, code string) (*CompiledModule, err
 	if runtime.GOOS == "darwin" {
 		libExt = ".dylib"
 	}
-	libPath := filepath.Join(bc.tempDir, fmt.Sprintf("blood_%s_%s%s", name, codeHash[:8], libExt))
+	libPath := filepath.Join(bc.tempDir, fmt.Sprintf("blood_%s_%s%s", safeName, codeHash[:8], libExt))
 
 	// Compile
 	args := append(bc.compileFlags, "-o", libPath, srcPath)

@@ -8,6 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <limits.h>
+#include <libgen.h>
+#include <unistd.h>
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GO LIBRARY FUNCTION POINTERS
@@ -101,29 +108,69 @@ static int initialized = 0;
 // LIBRARY LOADING
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// SECURITY: Get directory of running executable for safe library loading
+static int get_executable_dir(char* buf, size_t bufsize) {
+#ifdef __APPLE__
+    uint32_t size = (uint32_t)bufsize;
+    if (_NSGetExecutablePath(buf, &size) == 0) {
+        char* dir = dirname(buf);
+        if (dir) {
+            memmove(buf, dir, strlen(dir) + 1);
+            return 0;
+        }
+    }
+#else
+    ssize_t len = readlink("/proc/self/exe", buf, bufsize - 1);
+    if (len > 0) {
+        buf[len] = '\0';
+        char* dir = dirname(buf);
+        if (dir) {
+            memmove(buf, dir, strlen(dir) + 1);
+            return 0;
+        }
+    }
+#endif
+    return -1;
+}
+
 static int load_go_library(void) {
     if (go_lib) return 0;  // Already loaded
 
-    // Try different paths
-    const char* lib_paths[] = {
-        "./lib/libcloud.dylib",
-        "./lib/libcloud.so",
-        "../lib/libcloud.dylib",
-        "../lib/libcloud.so",
-        "libcloud.dylib",
-        "libcloud.so",
-        NULL
-    };
+    // SECURITY: Use absolute paths relative to executable directory
+    char exe_dir[PATH_MAX];
+    char lib_path[PATH_MAX];
 
-    for (int i = 0; lib_paths[i]; i++) {
-        go_lib = dlopen(lib_paths[i], RTLD_NOW);
-        if (go_lib) {
-            fprintf(stderr, "[cloud] loaded Go library from %s\n", lib_paths[i]);
-            break;
+    if (get_executable_dir(exe_dir, sizeof(exe_dir)) != 0) {
+        fprintf(stderr, "[cloud] WARNING: Cannot determine executable directory\n");
+        return -1;
+    }
+
+    // Try library paths relative to executable
+#ifdef __APPLE__
+    const char* lib_name = "libcloud.dylib";
+#else
+    const char* lib_name = "libcloud.so";
+#endif
+
+    // Try exe_dir/lib/libcloud.{dylib,so}
+    snprintf(lib_path, sizeof(lib_path), "%s/lib/%s", exe_dir, lib_name);
+    go_lib = dlopen(lib_path, RTLD_NOW);
+
+    if (!go_lib) {
+        // Try exe_dir/../lib/libcloud.{dylib,so}
+        snprintf(lib_path, sizeof(lib_path), "%s/../lib/%s", exe_dir, lib_name);
+        char resolved[PATH_MAX];
+        if (realpath(lib_path, resolved)) {
+            go_lib = dlopen(resolved, RTLD_NOW);
+            if (go_lib) {
+                snprintf(lib_path, sizeof(lib_path), "%s", resolved);
+            }
         }
     }
 
-    if (!go_lib) {
+    if (go_lib) {
+        fprintf(stderr, "[cloud] loaded Go library from %s\n", lib_path);
+    } else {
         fprintf(stderr, "[cloud] WARNING: Go library not found, using fallback\n");
         return -1;
     }

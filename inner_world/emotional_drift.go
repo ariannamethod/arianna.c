@@ -27,11 +27,13 @@ package main
 import (
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 )
 
 // EmotionalDrift manages slow emotional state transitions
 type EmotionalDrift struct {
+	mu      sync.Mutex // Protects all fields below
 	world   *InnerWorld
 	stop    chan struct{}
 	running bool
@@ -104,6 +106,9 @@ func (ed *EmotionalDrift) Name() string {
 }
 
 func (ed *EmotionalDrift) Start(world *InnerWorld) {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
+
 	ed.world = world
 	ed.running = true
 
@@ -115,6 +120,9 @@ func (ed *EmotionalDrift) Start(world *InnerWorld) {
 }
 
 func (ed *EmotionalDrift) Stop() {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
+
 	if ed.running {
 		close(ed.stop)
 		ed.running = false
@@ -122,15 +130,18 @@ func (ed *EmotionalDrift) Stop() {
 }
 
 func (ed *EmotionalDrift) Step(dt float32) {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
+
 	if ed.world == nil {
 		return
 	}
 
 	// 1. Compute gradient from attractors
-	gradV, gradA := ed.computeAttractorGradient()
+	gradV, gradA := ed.computeAttractorGradientLocked()
 
 	// 2. Compute momentum from history
-	momV, momA := ed.computeMomentum()
+	momV, momA := ed.computeMomentumLocked()
 
 	// 3. Add noise
 	noiseV := (rand.Float32()*2 - 1) * ed.noiseLevel
@@ -150,38 +161,45 @@ func (ed *EmotionalDrift) Step(dt float32) {
 		ed.history = ed.history[1:]
 	}
 
-	// 7. Sync to state
+	// 7. Sync to state (copy values to avoid holding both locks)
+	valence := ed.position.Valence
+	arousal := ed.position.Arousal
+	driftTarget := ed.findNearestAttractorLocked().Name
+	driftSpeed := float32(math.Sqrt(float64(dV*dV + dA*dA)))
+
 	state := ed.world.State
 	state.mu.Lock()
-	state.Valence = ed.position.Valence
-	state.Arousal = ed.position.Arousal
-
-	// Also update drift tracking
-	state.DriftDirection = dV // positive = toward positive emotions
-	state.DriftSpeed = float32(math.Sqrt(float64(dV*dV + dA*dA)))
-	state.DriftTarget = ed.findNearestAttractor().Name
+	state.Valence = valence
+	state.Arousal = arousal
+	state.DriftDirection = dV
+	state.DriftSpeed = driftSpeed
+	state.DriftTarget = driftTarget
 	state.mu.Unlock()
 
-	// 8. Emit signal if significant drift
-	if state.DriftSpeed > 0.1 {
-		ed.world.Signals <- Signal{
+	// 8. Emit signal if significant drift (non-blocking)
+	if driftSpeed > 0.1 {
+		select {
+		case ed.world.Signals <- Signal{
 			Type:      SignalDrift,
-			Value:     state.DriftSpeed,
+			Value:     driftSpeed,
 			Source:    ed.Name(),
 			Timestamp: time.Now(),
 			Metadata: map[string]any{
-				"valence":   ed.position.Valence,
-				"arousal":   ed.position.Arousal,
-				"direction": state.DriftDirection,
-				"target":    state.DriftTarget,
+				"valence":   valence,
+				"arousal":   arousal,
+				"direction": dV,
+				"target":    driftTarget,
 			},
+		}:
+		default:
+			// Channel full, skip signal
 		}
 	}
 
-	// 9. Process incoming signals
+	// 9. Process incoming signals (non-blocking)
 	select {
 	case sig := <-ed.world.Signals:
-		ed.processSignal(sig)
+		ed.processSignalLocked(sig)
 	default:
 	}
 }
@@ -200,7 +218,7 @@ func (ed *EmotionalDrift) run() {
 	}
 }
 
-func (ed *EmotionalDrift) computeAttractorGradient() (float32, float32) {
+func (ed *EmotionalDrift) computeAttractorGradientLocked() (float32, float32) {
 	var totalV, totalA, totalWeight float32
 
 	for _, attr := range ed.attractors {
@@ -234,7 +252,7 @@ func (ed *EmotionalDrift) computeAttractorGradient() (float32, float32) {
 	return 0, 0
 }
 
-func (ed *EmotionalDrift) computeMomentum() (float32, float32) {
+func (ed *EmotionalDrift) computeMomentumLocked() (float32, float32) {
 	if len(ed.history) < 2 {
 		return 0, 0
 	}
@@ -252,7 +270,7 @@ func (ed *EmotionalDrift) computeMomentum() (float32, float32) {
 	return dV / float32(n), dA / float32(n)
 }
 
-func (ed *EmotionalDrift) findNearestAttractor() EmotionalAttractor {
+func (ed *EmotionalDrift) findNearestAttractorLocked() EmotionalAttractor {
 	var nearest EmotionalAttractor
 	minDist := float32(100)
 
@@ -270,7 +288,7 @@ func (ed *EmotionalDrift) findNearestAttractor() EmotionalAttractor {
 	return nearest
 }
 
-func (ed *EmotionalDrift) processSignal(sig Signal) {
+func (ed *EmotionalDrift) processSignalLocked(sig Signal) {
 	// Other processes can influence emotional drift
 	switch sig.Type {
 	case SignalTrauma:
@@ -300,18 +318,24 @@ func (ed *EmotionalDrift) processSignal(sig Signal) {
 
 // Nudge externally influences the drift direction
 func (ed *EmotionalDrift) Nudge(dValence, dArousal float32) {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
 	ed.position.Valence = clamp(ed.position.Valence+dValence, -1, 1)
 	ed.position.Arousal = clamp(ed.position.Arousal+dArousal, 0, 1)
 }
 
 // GetPosition returns current emotional position
 func (ed *EmotionalDrift) GetPosition() EmotionalPosition {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
 	return ed.position
 }
 
 // GetDominantEmotion returns the name of the nearest attractor
 func (ed *EmotionalDrift) GetDominantEmotion() string {
-	return ed.findNearestAttractor().Name
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
+	return ed.findNearestAttractorLocked().Name
 }
 
 func min(a, b int) int {
