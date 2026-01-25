@@ -14,17 +14,19 @@
 
 const char* external_brain_name(ExternalBrainType brain) {
     switch (brain) {
-        case BRAIN_GPT2_30M:  return "GPT2-30M";
-        case BRAIN_TINYLLAMA: return "TinyLlama-1.1B";
-        default:              return "Unknown";
+        case BRAIN_GPT2_30M:    return "GPT2-30M";
+        case BRAIN_TINYLLAMA:   return "TinyLlama-1.1B";
+        case BRAIN_GPT2_DISTILL: return "GPT2-distill";
+        default:                return "Unknown";
     }
 }
 
 static const char* brain_script(ExternalBrainType brain) {
     switch (brain) {
-        case BRAIN_GPT2_30M:  return EXTERNAL_BRAIN_GPT2_SCRIPT;
-        case BRAIN_TINYLLAMA: return EXTERNAL_BRAIN_GGUF_SCRIPT;
-        default:              return EXTERNAL_BRAIN_GPT2_SCRIPT;
+        case BRAIN_GPT2_30M:    return EXTERNAL_BRAIN_GPT2_SCRIPT;
+        case BRAIN_TINYLLAMA:   return EXTERNAL_BRAIN_GGUF_SCRIPT;
+        case BRAIN_GPT2_DISTILL: return EXTERNAL_BRAIN_TORCH_SCRIPT;
+        default:                return EXTERNAL_BRAIN_GPT2_SCRIPT;
     }
 }
 
@@ -123,7 +125,7 @@ int external_brain_extract(const char* prompt, int* tokens, int max_tokens) {
 int pandora_steal_from(PandoraBox* pandora, ExternalBrainType brain, const char* prompt) {
     int tokens[EXTERNAL_BRAIN_MAX_TOKENS];
 
-    printf("[pandora] Stealing vocabulary from %s...\n", external_brain_name(brain));
+    printf("[pandora] Extracting vocabulary from %s...\n", external_brain_name(brain));
     printf("[pandora] Prompt: \"%s\"\n", prompt);
 
     int n_tokens = external_brain_extract_from(brain, prompt, tokens, EXTERNAL_BRAIN_MAX_TOKENS);

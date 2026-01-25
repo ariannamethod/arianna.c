@@ -15,12 +15,22 @@
 // Path to external brain Python scripts
 #define EXTERNAL_BRAIN_GPT2_SCRIPT "packages/pandora/external_brain.py"
 #define EXTERNAL_BRAIN_GGUF_SCRIPT "packages/pandora/external_brain_gguf.py"
+#define EXTERNAL_BRAIN_TORCH_SCRIPT "packages/pandora/external_brain_torch.py"
 
 // External brain types
 typedef enum {
     BRAIN_GPT2_30M = 0,      // GPT2-30M (fast, local)
-    BRAIN_TINYLLAMA = 1      // TinyLlama 1.1B GGUF (larger, auto-download)
+    BRAIN_TINYLLAMA = 1,     // TinyLlama 1.1B GGUF (larger, auto-download)
+    BRAIN_GPT2_DISTILL = 2   // GPT2-distill via pandora-torch
 } ExternalBrainType;
+
+// HyperPandora modes
+typedef enum {
+    HYPER_OFF = 0,           // No external brain
+    HYPER_AUTO = 1,          // Auto-select best brain
+    HYPER_FORCE_C = 2,       // Force pandora C (GPT2-30M)
+    HYPER_FORCE_TORCH = 3    // Force pandora-torch
+} HyperPandoraMode;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXTERNAL BRAIN API
