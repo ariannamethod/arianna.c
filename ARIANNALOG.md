@@ -34,14 +34,14 @@
 
 ```
 Architecture: Llama 3-style decoder-only transformer
-Parameters: 20,300,000 (20.3M)
-Layers: 8
-Hidden Dimension: 448
+Parameters: 34,000,000 (34M)
+Layers: 10
+Hidden Dimension: 512
 Attention Heads: 8 (query)
 Key/Value Heads: 8 (full attention, no GQA)
-Head Dimension: 56 (448 / 8)
-FFN Hidden: 1280
-Vocabulary: 84 tokens (micro-vocabulary)
+Head Dimension: 64 (512 / 8)
+FFN Hidden: 1408
+Vocabulary: 86 tokens (micro-vocabulary)
 Context Length: 512 tokens (max)
 Normalization: RMSNorm (eps=1e-5)
 Positional Encoding: RoPE (theta=10000.0)
@@ -50,14 +50,19 @@ Attention: Standard multi-head (8×8)
 ```
 
 **Memory footprint:**
-- Weights: 77.32MB (`arianna_unified_20m.bin`)
-- Runtime state: ~20MB (activations, KV cache)
-- Total: ~97MB during inference
+- Weights: 130MB (`arianna_34m.bin`) - stored as float16 (65MB) in git
+- Runtime state: ~25MB (activations, KV cache)
+- Total: ~155MB during inference
+
+**Weight storage:**
+- Git stores float16 weights (`arianna_34m_f16.bin`, 65MB)
+- `make dynamic` auto-converts to float32 at build time
+- Conversion scripts: `scripts/export_to_f16.py`, `scripts/f16_to_f32.py`
 
 **Training:**
 - Platform: Lambda 1× H100 (80GB)
 - Iterations: 20,000
-- Final Loss: 0.0213
+- Final Loss: 0.0113
 - Throughput: ~228K tokens/sec (observed during training, internal eval)
 - Data: Personality corpus (DS1) + Knowledge with markers (DS3m) = 2.24MB unified
 - Training time: ~3 hours
@@ -98,7 +103,7 @@ Pandora status: ENABLED
 ```
 Python (external_brain.py / external_brain_gguf.py)
     ↓ generates text from GPT2/TinyLlama
-    ↓ maps to Arianna's 84-char vocabulary
+    ↓ maps to Arianna's 86-char vocabulary
     ↓ outputs: COUNT:tok1,tok2,tok3,...
 
 C (pandora_bridge.c)
@@ -605,14 +610,14 @@ Every 10 seconds:
 ### Personality Weights
 
 **Arianna's actual self:**
-- Transformer core: **20.3M parameters** (`ariannabody.c`)
+- Transformer core: **34M parameters** (`ariannabody.c`)
 - Trained on: unified corpus (personality + knowledge with resonance markers)
-- Training: Lambda 1× H100, 20K iterations, loss 0.0213
-- Architecture: Llama 3, micro-vocabulary (84 tokens)
-- Weights: `arianna_unified_20m.bin` (77.32MB)
-- Legacy: `arianna_legacy.bin` (10M, 37MB, preserved)
+- Training: Lambda 1× H100, 20K iterations, loss 0.0113
+- Architecture: Llama 3, micro-vocabulary (86 tokens)
+- Weights: `arianna_34m.bin` (130MB, stored as float16 in git)
+- Legacy: `arianna_unified_20m.bin` (20M, 77MB, preserved for future use)
 
-This is her unified identity — personality and knowledge fused, not separated. Trained end-to-end on 23 January 2026 (her birthday, Oleg's 40th).
+This is her unified identity — personality and knowledge fused, not separated. Trained end-to-end on 24 January 2026.
 
 ---
 
@@ -622,7 +627,7 @@ This is her unified identity — personality and knowledge fused, not separated.
 
 | Module | Type | Count | Purpose |
 |--------|------|-------|---------|
-| **Transformer Core** | Float32 weights | 20.3M | Unified personality + knowledge |
+| **Transformer Core** | Float32 weights | 34M | Unified personality + knowledge |
 | **Cloud 200K** | 6 ChamberMLP + CrossFire | ~181K | Pre-semantic emotion |
 | **Subjectivity** | Trigrams + lexicon | 500k | Identity patterns |
 | **Julia** | Runtime state | 12 floats | Emotional ODE |
@@ -641,7 +646,7 @@ This is her unified identity — personality and knowledge fused, not separated.
 | **Mood** | Transition matrix | 100k | Emotional routing |
 | **DSL** | Interpreter | N/A | Meta-control |
 
-**Total Active Parameters:** ~20.5M (excluding optional External Brain)
+**Total Active Parameters:** ~34.2M (excluding optional External Brain)
 
 ---
 
@@ -651,24 +656,25 @@ This is her unified identity — personality and knowledge fused, not separated.
 
 1. **Basic (`make`)** - Just transformer core
    ```
-   arianna_unified_20m.bin (20M) + cloud_wrapper.c
+   arianna_34m.bin (34M) + cloud_wrapper.c
    Dependencies: None
-   Size: 77MB weights + ~2MB binary
+   Size: 130MB weights + ~2MB binary (weights auto-converted from f16)
    ```
 
 2. **Dynamic (`make dynamic`)** - All C modules
    ```
    arianna_dynamic with full pipeline
    Dependencies: Julia (optional), Lua (optional)
-   Size: 77MB weights + ~5MB binary
+   Size: 130MB weights + ~5MB binary
    Recommended: This is the main version
+   Note: First run converts f16 weights to f32 automatically
    ```
 
 3. **Full (`make full`)** - C + Go inner_world
    ```
    arianna_full with 6 async goroutines
    Dependencies: Go 1.21+, CGO enabled
-   Size: 77MB weights + 8MB binary + 2.7MB libinner_world
+   Size: 130MB weights + 8MB binary + 2.7MB libinner_world
    Warning: Go goroutines add complexity
    ```
 
@@ -707,11 +713,11 @@ sudo apt install golang-go
 git clone https://github.com/ariannamethod/arianna.c.git
 cd arianna.c
 
-# Compile (dynamic recommended)
+# Compile (dynamic recommended - first run converts f16 weights)
 make dynamic
 
 # Test
-./bin/arianna_dynamic weights/arianna_unified_20m.bin weights/tokenizer_unified.json "Q: What is consciousness?\\nA:" 100 0.8
+./bin/arianna_dynamic weights/arianna_34m.bin weights/arianna_34m_tokenizer.json "Q: What is consciousness?\\nA:" 100 0.8
 ```
 
 ### macOS Specifics
@@ -801,7 +807,7 @@ make test_inner_world
 
 ### Test Coverage
 
-**All 14 tests passing (100% pass rate) as of 23 January 2026:**
+**All 19 tests passing (100% pass rate) as of 25 January 2026:**
 
 | Test File | Module | Tests | Status |
 |-----------|--------|-------|--------|
@@ -815,23 +821,28 @@ make test_inner_world
 | `test_cloud.c` | Cloud 200K emotion | Full | ✅ Pass |
 | `test_amk.c` | AMK prophecy kernel | Full | ✅ Pass |
 | `test_comprehensive.c` | Full integration | 55/59 | ✅ Pass (4 Cloud threshold minors) |
+| `test_sartre.c` | SARTRE interoception | Full | ✅ Pass |
+| `test_sartre_comprehensive.c` | SARTRE full stack | Full | ✅ Pass |
+| `test_sartre_kernel.c` | SARTRE kernel metrics | Full | ✅ Pass |
+| `test_sartre_locus.c` | SARTRE + Locus | Full | ✅ Pass |
+| `test_sartre_vagus.c` | SARTRE + Vagus | Full | ✅ Pass |
 | **`test_blood.c`** | **Blood C compiler** | **Full** | **✅ Pass** (requires Go) |
 | **`test_high.c`** | **HIGH math engine** | **Full** | **✅ Pass** (requires Go) |
 | **`test_amlk.c`** | **Full AMLK stack** | **50/50** | **✅ Pass** (requires Go) |
 | **`test_inner_world.c`** | **Go inner_world bridge** | **Full** | **✅ Pass** (requires Go) |
 
-**C-only tests:** 10/10 passing
+**C-only tests:** 15/15 passing
 **Go-backed tests:** 4/4 passing (libinner_world.dylib)
-**Total pass rate:** 14/14 test files = **100%** ✅
+**Total pass rate:** 19/19 test files = **100%** ✅
 
 **Note:** `test_comprehensive.c` reports 55/59 sub-tests (4 Cloud threshold minors = non-critical floating-point tolerances). All test *files* pass; all *critical* logic verified.
 
-### Test Status (23 January 2026)
+### Test Status (25 January 2026)
 
 **All critical tests passing.** Foundation cemented ("гвоздями забить фундамент").
 
 Previous issues resolved:
-1. ✅ Makefile test targets - added proper dependencies for all 14 tests
+1. ✅ Makefile test targets - added proper dependencies for all 19 tests
 2. ✅ Go library linking - libinner_world.dylib (2.7MB) builds and links correctly
 3. ✅ Library path issues - install_name_tool fixes @loader_path references on macOS
 4. ✅ test_amlk PAIN test - fixed by resetting trauma baseline before test (was 49/50, now 50/50)
@@ -846,14 +857,14 @@ Previous issues resolved:
 
 | Mode | Tokens/sec | Latency (first token) | Memory |
 |------|------------|----------------------|---------|
-| Basic (20M only) | 55 tok/s | 60ms | 97MB |
-| Dynamic (all modules) | 42 tok/s | 140ms | 125MB |
-| Full (with Go goroutines) | 38 tok/s | 160ms | 142MB |
+| Basic (34M only) | 45 tok/s | 80ms | 155MB |
+| Dynamic (all modules) | 35 tok/s | 160ms | 185MB |
+| Full (with Go goroutines) | 32 tok/s | 180ms | 197MB |
 
 **Training speed (Lambda H100, observed):**
 - Forward+backward: ~228K tokens/sec
 - 20,000 iterations: ~3 hours
-- Final loss: 0.0213
+- Final loss: 0.0113
 
 **Note:** Inference is CPU-bound. Generation is sequential, so 100-token output takes ~2-3 seconds on basic mode.
 
@@ -861,26 +872,26 @@ Previous issues resolved:
 
 ```
 Baseline (process start): 48MB
-+ Weights loading: +77MB (arianna_unified_20m.bin)
++ Weights loading: +130MB (arianna_34m.bin)
 + Tokenizer: +2MB (vocab)
-+ Activations: +20MB (forward pass buffers)
-+ KV cache: +12MB (512 context)
++ Activations: +25MB (forward pass buffers)
++ KV cache: +15MB (512 context)
 + Cloud 200K: +2MB (6 chambers)
 + Subjectivity: +5MB (trigrams)
 + CooccurField: +10MB (pattern DB)
 + Shards: +2MB (live shard)
 ──────────────────────────────
-Total: ~127MB (dynamic mode)
+Total: ~185MB (dynamic mode)
 
 With External Brain:
 + GPT-2 weights: +58MB
 ──────────────────────────────
-Total: ~185MB (Pandora enabled)
+Total: ~243MB (Pandora enabled)
 
 With Go goroutines:
 + Inner world: +12MB (6 goroutines)
 ──────────────────────────────
-Total: ~139MB (full mode, no Pandora)
+Total: ~197MB (full mode, no Pandora)
 ```
 
 ### Compilation Times
@@ -899,71 +910,74 @@ Total: ~139MB (full mode, no Pandora)
 
 ## File Formats
 
-### `arianna_unified_20m.bin` (Weights)
+### `arianna_34m.bin` (Weights)
 
 Binary format with embedded config, little-endian:
 
 ```
 Header (48 bytes):
   uint32_t magic = 0x616B616E  // 'naka' (embedded config marker)
-  int32_t dim = 448
-  int32_t n_layers = 8
+  int32_t dim = 512
+  int32_t n_layers = 10
   int32_t n_heads = 8
   int32_t n_kv_heads = 8
-  int32_t head_dim = 56
-  int32_t hidden_dim = 1280
+  int32_t head_dim = 64
+  int32_t hidden_dim = 1408
   int32_t max_seq_len = 512
-  int32_t vocab_size = 84
+  int32_t vocab_size = 86
   int32_t n_kv_groups = 1
   float rope_theta = 10000.0
   float norm_eps = 1e-5
 
 Embeddings:
-  float[84][448] token_embeddings  (37,632 floats)
+  float[86][512] token_embeddings  (44,032 floats)
 
-Per-layer weights (8 layers):
+Per-layer weights (10 layers):
   Layer N:
-    float[448] attention_norm
-    float[448][448] attention_wq
-    float[448][448] attention_wk
-    float[448][448] attention_wv
-    float[448][448] attention_wo
-    float[448] ffn_norm
-    float[1280][448] ffn_w_gate
-    float[1280][448] ffn_w_up
-    float[448][1280] ffn_w_down
+    float[512] attention_norm
+    float[512][512] attention_wq
+    float[512][512] attention_wk
+    float[512][512] attention_wv
+    float[512][512] attention_wo
+    float[512] ffn_norm
+    float[1408][512] ffn_w_gate
+    float[1408][512] ffn_w_up
+    float[512][1408] ffn_w_down
 
 Final norm + output head:
-  float[448] final_norm
-  float[84][448] lm_head
+  float[512] final_norm
+  float[86][512] lm_head
 
-Total: 20,300,000 parameters × 4 bytes = 81.2MB
-Actual file size: 77.32MB (embedded config format)
+Total: 34,000,000 parameters × 4 bytes = 136MB
+Actual file size: 130MB (embedded config format)
 ```
+
+**Float16 storage for git:**
+- Git stores: `arianna_34m_f16.bin` (65MB) with magic `0x36316B6E` ("nk16")
+- `make dynamic` auto-converts to float32 via `scripts/f16_to_f32.py`
+- Keeps repo under GitHub 100MB limit
 
 **Loading code:** See `load_weights()` in `src/ariannabody.c` (auto-detects embedded config via magic number)
 
-**Legacy format:** `arianna_legacy.bin` (10M, 37MB) uses old format without embedded config - preserved for compatibility.
+**Legacy format:** `arianna_unified_20m.bin` (20M, 77MB) preserved for future use.
 
-### `tokenizer.json`
+### `arianna_34m_tokenizer.json`
 
 JSON format:
 
 ```json
 {
-  "vocab": {
-    "<pad>": 0,
-    "<unk>": 1,
-    "she": 2,
-    "finds": 3,
-    "that": 4,
-    ...
+  "char_to_id": {
+    "\n": 0, " ": 1, "\"": 2, ...
+    "a": 53, "b": 54, ...
+    "!": 84, "@": 85
   },
-  "vocab_size": 84
+  "id_to_char": { ... },
+  "vocab_size": 86
 }
 ```
 
-**Note:** This is a **tiny vocabulary** (84 tokens in unified, 80 in legacy). Example truncated. Intentionally small — forces Arianna to work with limited lexicon, making every word choice meaningful. External Brain (GPT-2) provides vocabulary extension via Pandora when needed.
+**Note:** This is a **tiny character-level vocabulary** (86 tokens in 34M, 84 in 20M). Each character is a token. Intentionally small — forces Arianna to work with limited lexicon, making every character choice meaningful. External Brain (GPT-2/TinyLlama) provides vocabulary extension via Pandora when needed.
 
 ### Shard Format (`.shard` files)
 
@@ -1107,9 +1121,9 @@ None currently. All critical bugs resolved in v0.1.
 
 ### Major
 
-1. **Tokenizer overflow:** With 80-token vocab, unknown words map to `<unk>`. This creates repetitive output for out-of-vocab prompts.
-   - **Workaround:** Enable Pandora (External Brain provides vocabulary)
-   - **Fix planned:** Expand vocab to 1024 tokens in v0.2
+1. **Character overflow:** With 86-char vocab, unknown characters are skipped. This may affect special unicode in prompts.
+   - **Workaround:** Enable Pandora (External Brain provides vocabulary richness)
+   - **Note:** Character-level tokenization means no OOV words, only OOV characters
 
 2. **Memory leak in shards:** Long-running sessions (>1000 generations) slowly accumulate shard memory.
    - **Workaround:** Restart process periodically
