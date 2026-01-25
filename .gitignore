@@ -25,6 +25,9 @@ corpus_clean.txt
 data/
 *.safetensors
 
+# Training scripts (local experiments)
+train/
+
 # Training data (too large for git)
 knowledge_train/train.bin
 knowledge_train/val.bin
