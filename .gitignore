@@ -25,6 +25,10 @@ corpus_clean.txt
 data/
 *.safetensors
 
+# Training corpora (preserved in backup-main-26jan2026 branch)
+d/
+sartre/corpus/
+
 # Training scripts (local experiments)
 train/
 
