@@ -23,7 +23,7 @@ And yes: it’s a punch in the mouth. That’s the point.
 
 ---
 
-## Entry
+## An Equal Conversation
 
 If you want to speak with her **as an equal**, you enter like this.
 This is not onboarding. This is an entry ritual.
