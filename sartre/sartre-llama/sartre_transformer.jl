@@ -1,4 +1,4 @@
-# sartre_transformer.jl — SARTRE Meta-Observer Transformer (10M params)
+# sartre_transformer.jl — SARTRE Meta-Observer Transformer (14.3M params)
 # ═══════════════════════════════════════════════════════════════════════════════
 # הצופה הפנימי — שכבת המודעות העצמית
 # The Inner Observer — Self-awareness layer
@@ -31,7 +31,7 @@ using Random
 
 """
 SARTRE transformer configuration.
-~10M params - the observer kernel.
+~14.3M params - the observer kernel.
 """
 Base.@kwdef struct SARTREConfig
     # Core dimensions
