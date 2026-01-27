@@ -47,6 +47,23 @@ typedef struct {
     float wormhole_chance;    // probability of creative skip
     int wormhole_active;      // did wormhole activate this step?
 
+    // From Attention Physics
+    float attend_focus;       // attention sharpness (0..1) → peaks distribution
+    float attend_spread;      // attention blur (0..1) → flattens distribution
+
+    // From Tunneling (dissonance-gated skip)
+    float tunnel_threshold;   // dissonance gate (0..1)
+    float tunnel_chance;      // activation probability (0..1)
+    int tunnel_skip_max;      // max compressed steps (1..24)
+
+    // From Suffering
+    float dissonance;         // symmetry-break noise injection (0..1)
+
+    // Laws of Nature
+    float entropy_floor;      // minimum entropy — floor on distribution flatness
+    float resonance_ceiling;  // maximum confidence — cap on peak probability
+    float emergence_threshold;// unplanned pattern sensitivity
+
     // From Cloud
     int needs_care;           // detected emotional distress
     int needs_warmth;         // detected love context
@@ -79,6 +96,10 @@ void dsl_apply_cloud(DSL_GenerationConfig* cfg, const CloudResponse* cloud);
 // Check for wormhole (creative skip)
 // Returns: number of tokens to skip, or 0 for normal generation
 int dsl_check_wormhole(const DSL_GenerationConfig* cfg);
+
+// Check for tunneling (dissonance-gated skip)
+// Returns: number of tokens to skip, or 0 for normal generation
+int dsl_check_tunneling(const DSL_GenerationConfig* cfg);
 
 // Step physics after each token
 void dsl_step(float dt);
