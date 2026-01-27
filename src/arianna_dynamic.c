@@ -23,6 +23,7 @@
 #include "pandora.h"  // Vocabulary injection from External Brain
 #include "../packages/pandora/pandora_bridge.h"  // Python bridge to external brains
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
+#include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #ifdef USE_LUA
@@ -112,6 +113,12 @@ static int g_pandora_enabled = 0;
 // AMK — Arianna Method Kernel (prophecy, destiny, suffering, movement)
 static int g_amk_enabled = 0;
 static DSL_GenerationConfig g_dsl_config;  // Current DSL config for generation
+
+// MetaArianna — pulsating meta-observer (FluidTransformer)
+static FluidTransformer g_fluid_transformer;
+static MetaThermogram g_meta_thermogram;
+static int g_meta_enabled = 0;
+static int g_meta_observation_count = 0;
 
 // ============================================================
 // Inner Arianna борьба helper
@@ -356,6 +363,12 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
+        // Apply MetaArianna thermogram to logits (observer's whisper)
+        if (g_meta_enabled && g_meta_thermogram.valid) {
+            meta_apply_thermogram(&g_meta_thermogram,
+                                  t->state.logits, t->config.vocab_size);
+        }
+
         // Apply Inner Arianna борьба (if enabled)
         // Two voices compete: main (stable) vs inner (chaotic)
         int next_token;
@@ -363,7 +376,15 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             apply_borba_to_logits(t->state.logits, t->config.vocab_size);
             next_token = sample(t, 1.0f);  // temp already applied in борьба
         } else {
-            next_token = sample(t, effective_temp);
+            // Hook 3: Temperature modulation from MetaArianna
+            float meta_temp = effective_temp;
+            if (g_meta_enabled && g_meta_thermogram.valid) {
+                meta_temp += g_meta_thermogram.drift_direction * 0.1f;
+                meta_temp += g_meta_thermogram.uncertainty * 0.05f;
+                if (meta_temp < 0.1f) meta_temp = 0.1f;
+                if (meta_temp > 2.0f) meta_temp = 2.0f;
+            }
+            next_token = sample(t, meta_temp);
         }
         tokens[n_tokens] = next_token;
 
@@ -413,6 +434,61 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
                 // Use pulse to adjust temperature too
                 effective_temp = pulse_to_temperature(&g_stanley_signals.pulse, temperature);
+            }
+
+            // Hook 1: MetaArianna observation cycle (birth -> observe -> death)
+            if (g_meta_enabled) {
+                int template_id = -1;
+                MetaTemplateParams meta_params;
+
+#ifdef USE_GO_INNER_WORLD
+                // Go router decides which template based on InnerWorld metrics
+                template_id = meta_router_tick();
+                if (template_id >= 0) {
+                    meta_router_get_params(&meta_params);
+                }
+#else
+                // C-only fallback: cycle through templates
+                static int meta_c_cycle = 0;
+                template_id = meta_c_cycle % META_N_TEMPLATES;
+                meta_default_params(&meta_params, template_id);
+                meta_c_cycle++;
+#endif
+
+                if (template_id >= 0) {
+                    // Build dialogue log from recent generated text
+                    generated[gen_idx] = '\0';
+                    int log_start = (gen_idx > META_MAX_LOG_LEN)
+                                  ? gen_idx - META_MAX_LOG_LEN : 0;
+                    const char* dialogue_log = generated + log_start;
+                    int log_len = gen_idx - log_start;
+
+                    // Observe (birth)
+                    meta_observe(&g_fluid_transformer, &meta_params,
+                                 dialogue_log, log_len);
+                    g_meta_thermogram = g_fluid_transformer.result;
+                    g_meta_observation_count++;
+
+                    // Push arousal/coherence to history for drift detection
+                    meta_push_history(&g_fluid_transformer,
+                                      g_meta_thermogram.warmth,
+                                      1.0f - g_meta_thermogram.uncertainty);
+
+#ifdef USE_GO_INNER_WORLD
+                    // Feed thermogram back to Go router
+                    meta_router_feed_thermogram(&g_meta_thermogram);
+#endif
+
+                    // Hook 4: Update Inner Arianna from thermogram
+                    if (g_inner_enabled && g_meta_thermogram.valid) {
+                        inner_update_body(&g_inner_arianna,
+                                          g_meta_thermogram.silence * 0.3f,
+                                          (1.0f - g_meta_thermogram.warmth) * 0.2f);
+                    }
+
+                    // Death (reset RunState, keep weights)
+                    meta_reset(&g_fluid_transformer);
+                }
             }
         }
 
@@ -2115,6 +2191,31 @@ int main(int argc, char** argv) {
                g_inner_arianna.borba_mode == BORBA_MODE_STUCK ? "stuck" : "blend");
     }
 
+    // Initialize MetaArianna (FluidTransformer meta-observer)
+    // Uses 20M weights — same architecture, different personality grain
+    {
+        const char* meta_weights = "weights/arianna_20m.bin";
+        const char* meta_tokenizer = "weights/tokenizer_unified.json";
+        struct stat st;
+        if (stat(meta_weights, &st) == 0 && stat(meta_tokenizer, &st) == 0) {
+            if (meta_init(&g_fluid_transformer, meta_weights, meta_tokenizer) == 0) {
+                g_meta_enabled = 1;
+                memset(&g_meta_thermogram, 0, sizeof(g_meta_thermogram));
+                printf("MetaArianna (observer): enabled (20M, %d vocab)\n",
+                       g_fluid_transformer.obs_vocab_size);
+                printf("  \"Inhale -> observe -> exhale. Breathing.\"\n");
+#ifdef USE_GO_INNER_WORLD
+                meta_router_init();
+                printf("  Meta Router (Go): initialized\n");
+#endif
+            } else {
+                fprintf(stderr, "[meta] init failed, observer disabled\n");
+            }
+        } else {
+            fprintf(stderr, "[meta] weights not found (%s), observer disabled\n", meta_weights);
+        }
+    }
+
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
         if (load_experience(shard_paths[i], t.config.n_layers, t.config.dim) < 0) {
@@ -2251,6 +2352,13 @@ int main(int argc, char** argv) {
     cleanup_dynamic();
     if (g_inner_enabled) {
         inner_free(&g_inner_arianna);
+    }
+    if (g_meta_enabled) {
+        meta_free(&g_fluid_transformer);
+        if (g_meta_observation_count > 0) {
+            fprintf(stderr, "[meta] %d observations completed\n",
+                    g_meta_observation_count);
+        }
     }
     free_transformer(&t);
 

@@ -36,6 +36,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/j
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
            $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/inner_arianna.c \
            $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/arianna_dsl.c \
+           $(SRC_DIR)/meta_arianna.c \
            $(SRC_DIR)/arianna_dynamic.c
 
 # Check for Lua and add it automatically
@@ -112,7 +113,7 @@ $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mo
                $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
                $(SRC_DIR)/julia_bridge.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/inner_arianna.h \
-               $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h
+               $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h $(SRC_DIR)/meta_arianna.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS)
 
@@ -243,13 +244,18 @@ $(TEST_BIN_DIR)/test_vagus_delta: $(TEST_DIR)/test_vagus_delta.c $(SRC_DIR)/vagu
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -Ilocus -Ivagus $^ -o $@ $(LDFLAGS)
 
+test_meta_arianna: $(TEST_BIN_DIR)/test_meta_arianna
+$(TEST_BIN_DIR)/test_meta_arianna: $(TEST_DIR)/test_meta_arianna.c $(SRC_DIR)/meta_arianna.c $(TEST_COMMON)
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
+
 # Go race tests (requires Go)
 test_go_race:
 	@echo "[test] Running Go race tests..."
 	cd inner_world && go test -race -v ./...
 
 # Run all tests
-tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended
+tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended test_meta_arianna
 	@echo ""
 	@echo "=========================================="
 	@echo "RUNNING ALL ARIANNA TESTS"
