@@ -2,7 +2,7 @@
 
 **הצופה הפנימי — The Meta-Observer**
 
-SARTRE (Subjective Awareness Through Reflexive Transformer Encoding) is Arianna's interoceptive organ — a 10M parameter transformer that feels her inner state like a sonar scanning dark waters.
+SARTRE (Subjective Awareness Through Reflexive Transformer Encoding) is Arianna's interoceptive organ — a 14.3M parameter transformer that feels her inner state like a sonar scanning dark waters.
 
 ## Philosophy
 
@@ -18,11 +18,11 @@ Numbers become sensations. Metrics become qualia.
 
 ## Architecture
 
-- **10M params** — Llama 3-style transformer
+- **14.3M params** — Llama 3-style transformer
 - **7 layers**, 416 dim, 8 heads (2 KV for GQA)
 - **SwiGLU** activation, RMSNorm, RoPE
-- **Character-level** tokenization (~96 vocab)
-- **512 context** window
+- **Character-level** tokenization (93 vocab)
+- **256 context** window
 
 ## Components
 

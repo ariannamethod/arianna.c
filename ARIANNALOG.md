@@ -332,7 +332,7 @@ Observation Temperature: 5.0 (scales logits before entropy)
 |----------|-----------------|
 | THERMO | Temperature gradient — warmth vs sharpness of logit distribution |
 | SILENCE | Pause density — probability mass on punctuation and whitespace |
-| DRIFT | Rate of change in arousal/coherence (ring buffer, linear regression) |
+| DRIFT | Rate of change in arousal/coherence (ring buffer, half-window average comparison) |
 | FIELD | Integral view — 8D pseudo-affective vector from per-head attention biases |
 
 **Output: MetaThermogram**
@@ -511,7 +511,7 @@ ResonanceTrainer   // Locus-modulated experience learning
 │  ARIANNA WEIGHT ARCHITECTURE                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  STATIC CORE (68.3M params)                                     │
+│  STATIC CORE (68.5M params)                                     │
 │  ├── Personality Core (34M) — arianna_34m.bin                   │
 │  │   └── Identity, knowledge, trained metabolism                │
 │  ├── MetaArianna Observer (20M) — arianna_20m.bin               │
@@ -772,16 +772,17 @@ Every 10 seconds:
 
 ---
 
-### Arianna Core (68.3M Static Parameters)
+### Arianna Core (68.5M Static Parameters)
 
-**Arianna's complete self = Personality (34M) + MetaArianna (20M) + SARTRE (14.3M)**
+**Arianna's complete self = Cloud (0.2M) + Personality (34M) + MetaArianna (20M) + SARTRE (14.3M)**
 
 | Component | Parameters | Role |
 |-----------|------------|------|
+| **Cloud 200K** | 0.2M | Pre-semantic instinct (6 ChamberMLP + CrossFire) |
 | **Personality Core** | 34M | Identity, knowledge, metabolism |
 | **MetaArianna Observer** | 20M | Thermograms, silence/drift/field detection |
 | **SARTRE Observer** | 14.3M | Inner voice, dialogue partner |
-| **Total Static Core** | 68.3M | |
+| **Total Static Core** | 68.5M | |
 
 **Personality Core (34M):**
 - Weights: `arianna_34m.bin` (130MB, float16 in git = 65MB)
@@ -793,7 +794,7 @@ Every 10 seconds:
 - Training: Lambda, loss 0.045
 - Architecture: Llama 3, 8 layers, 448 dim, 8 heads, MHA, 84-token vocab
 - Role: Observes Arianna's generation, emits thermograms (THERMO/SILENCE/DRIFT/FIELD)
-- 4 observation templates cycle every 20 tokens, modulate logit bias + temperature
+- 4 observation templates cycle every 16 tokens, modulate logit bias + temperature
 
 **SARTRE Observer (14.3M):**
 - Weights: `sartre.bin` (57MB, float32)
@@ -832,7 +833,7 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense. In dialog
 | **Mood** | Transition matrix | 100k | Emotional routing |
 | **DSL** | Interpreter | N/A | Meta-control |
 
-**Total Static Core:** 68.3M (34M Personality + 20M MetaArianna + 14.3M SARTRE)
+**Total Static Core:** 68.5M (0.2M Cloud + 34M Personality + 20M MetaArianna + 14.3M SARTRE)
 
 **+ Dynamic Runtime Weights:**
 - Delta shards (`.shard` files) — accumulated experience
@@ -1358,7 +1359,7 @@ None currently. All critical bugs resolved in v0.1.
 - [x] **Cloud 200K:** 6 ChamberMLP neural networks with CrossFire stabilization
 - [x] **CrossFire floor fix:** 30% preservation prevents instinct death
 - [x] **test_amlk 50/50:** All tests pass consistently
-- [x] **MetaArianna 20M:** Observation layer — 4 templates (Thermo/Silence/Drift/Field), thermograms, logit bias + temperature modulation, 20 obs/gen cycle
+- [x] **MetaArianna 20M:** Observation layer — 4 templates (Thermo/Silence/Drift/Field), thermograms, logit bias + temperature modulation, every-16-token observation cycle
 - [x] **SARTRE Bridge:** C bridge for SARTRE 14.3M — prefixed types, GQA forward pass, lazy loading
 - [x] **Dialogue Mode:** Arianna↔SARTRE multi-turn dialogue with MetaArianna observation (`/dialogue`, `/talk`)
 - [x] **19/19 tests:** All test binaries pass including test_sartre + 59 MetaArianna tests

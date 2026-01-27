@@ -290,16 +290,18 @@ static void meta_forward(FluidTransformer* ft, int token, int pos) {
         memcpy(s->key_cache + kv_off, s->k, kv_dim * sizeof(float));
         memcpy(s->value_cache + kv_off, s->v, kv_dim * sizeof(float));
 
-        /* Multi-head attention with per-head biases */
+        /* Multi-head attention with per-head output scaling.
+         * Template biases scale each head's contribution (louder/quieter),
+         * NOT added to attention scores (softmax is shift-invariant). */
         memset(s->xb, 0, dim * sizeof(float));
 
         for (int h = 0; h < c->n_heads; h++) {
             float* qh = s->q + h * c->head_dim;
             float* atth = s->att + h * c->max_seq_len;
             int kv_h = h / c->n_kv_groups;
-            float bias = (h < 8) ? tp->attention_biases[h] : 0.0f;
+            float head_scale = (h < 8) ? (1.0f + tp->attention_biases[h]) : 1.0f;
 
-            /* Attention scores + template bias */
+            /* Attention scores (standard scaled dot-product) */
             float scale = 1.0f / sqrtf((float)c->head_dim);
             for (int ts = 0; ts <= pos; ts++) {
                 float* kh = s->key_cache
@@ -309,18 +311,18 @@ static void meta_forward(FluidTransformer* ft, int token, int pos) {
                 for (int i = 0; i < c->head_dim; i++) {
                     score += qh[i] * kh[i];
                 }
-                atth[ts] = score * scale + bias;
+                atth[ts] = score * scale;
             }
 
             softmax(atth, pos + 1);
 
-            /* Weighted sum of values */
+            /* Weighted sum of values, scaled by template bias */
             float* xbh = s->xb + h * c->head_dim;
             for (int ts = 0; ts <= pos; ts++) {
                 float* vh = s->value_cache
                           + layer * c->max_seq_len * kv_dim
                           + ts * kv_dim + kv_h * c->head_dim;
-                float a = atth[ts];
+                float a = atth[ts] * head_scale;
                 for (int i = 0; i < c->head_dim; i++) {
                     xbh[i] += a * vh[i];
                 }
@@ -378,7 +380,8 @@ float meta_compute_entropy(const float* logits, int vocab_size) {
     }
 
     float sum = 0.0f;
-    float probs[256]; /* vocab_size <= 128, safe */
+    float probs[META_MAX_VOCAB]; /* bounded by META_MAX_VOCAB */
+    if (vocab_size > META_MAX_VOCAB) vocab_size = META_MAX_VOCAB;
     for (int i = 0; i < vocab_size; i++) {
         probs[i] = expf(logits[i] - max_val);
         sum += probs[i];
@@ -552,10 +555,13 @@ void meta_observe(FluidTransformer* ft,
     /* Apply observation temperature to get meaningful thermogram.
      * Char-level model is too peaked on raw logits — MetaArianna
      * needs to "squint" to see distribution shapes, not raw peaks.
-     * Scale logits by 1/META_OBSERVE_TEMP before computing entropy. */
-    float scaled_logits[256]; /* vocab_size <= 128 */
+     * Base temp META_OBSERVE_TEMP, modulated by template's temperature param. */
+    float obs_temp = META_OBSERVE_TEMP * params->temperature;
+    if (obs_temp < 0.1f) obs_temp = 0.1f; /* safety clamp */
+    float scaled_logits[META_MAX_VOCAB];
+    if (vs > META_MAX_VOCAB) vs = META_MAX_VOCAB;
     for (int i = 0; i < vs; i++) {
-        scaled_logits[i] = logits[i] / META_OBSERVE_TEMP;
+        scaled_logits[i] = logits[i] / obs_temp;
     }
 
     ft->result.warmth      = meta_compute_entropy(scaled_logits, vs);

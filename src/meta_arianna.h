@@ -40,6 +40,8 @@
 /* Observation temperature: higher = observer "squints" to see pattern shapes,
  * not raw peaks. Needed because char-level model is too peaked on raw logits */
 #define META_OBSERVE_TEMP        5.0f
+/* Max vocab size for stack-allocated probability arrays */
+#define META_MAX_VOCAB           256
 
 /* ============================================================
  * MetaThermogram — output of observation
@@ -65,8 +67,8 @@ typedef struct {
     int   template_type;           /* META_TEMPLATE_* */
     float attention_biases[8];     /* per-head modifiers */
     float layer_focus[8];          /* per-layer strength [0,1] */
-    float temperature;             /* observer sampling temperature */
-    int   delta_target;            /* 0=Q, 1=K, 2=V, 3=all */
+    float temperature;             /* observation temperature multiplier (applied to META_OBSERVE_TEMP) */
+    int   delta_target;            /* 0=Q, 1=K, 2=V, 3=all — reserved for future delta routing */
 } MetaTemplateParams;
 
 /* ============================================================

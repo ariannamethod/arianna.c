@@ -88,6 +88,8 @@ static void sartre_apply_rope(float* q, float* k, float* rope_cos, float* rope_s
  * Memory Allocation
  * ============================================================================ */
 
+static void sartre_free_run_state(SartreRunState* s);
+
 static int sartre_malloc_run_state(SartreRunState* s, SartreConfig* c) {
     int kv_dim = c->n_kv_heads * c->head_dim;
 
@@ -114,6 +116,7 @@ static int sartre_malloc_run_state(SartreRunState* s, SartreConfig* c) {
         !s->q || !s->k || !s->v || !s->att ||
         !s->key_cache || !s->value_cache ||
         !s->rope_cos || !s->rope_sin || !s->logits) {
+        sartre_free_run_state(s);
         return -1;
     }
 
@@ -145,14 +148,17 @@ static void sartre_free_run_state(SartreRunState* s) {
  * Weight Loading
  * ============================================================================ */
 
-static void sartre_map_weights(SartreWeights* w, SartreConfig* c, float* ptr) {
+static int sartre_map_weights(SartreWeights* w, SartreConfig* c, float* ptr) {
     int kv_dim = c->n_kv_heads * c->head_dim;
 
-    /* Token embeddings (direct pointer — first in file) */
-    w->tok_emb = ptr;
-    ptr += c->vocab_size * c->dim;
+    /* Token embeddings — copy from blob (blob freed after mapping) */
+    int emb_size = c->vocab_size * c->dim;
+    w->tok_emb = calloc(emb_size, sizeof(float));
+    if (!w->tok_emb) return -1;
+    memcpy(w->tok_emb, ptr, emb_size * sizeof(float));
+    ptr += emb_size;
 
-    /* Per-layer: calloc + memcpy (sartre.c original approach) */
+    /* Per-layer weights: calloc + memcpy from interleaved blob */
     w->attn_norm = calloc(c->n_layers * c->dim, sizeof(float));
     w->wq       = calloc(c->n_layers * c->dim * c->dim, sizeof(float));
     w->wk       = calloc(c->n_layers * c->dim * kv_dim, sizeof(float));
@@ -162,6 +168,11 @@ static void sartre_map_weights(SartreWeights* w, SartreConfig* c, float* ptr) {
     w->w_gate   = calloc(c->n_layers * c->dim * c->hidden_dim, sizeof(float));
     w->w_up     = calloc(c->n_layers * c->dim * c->hidden_dim, sizeof(float));
     w->w_down   = calloc(c->n_layers * c->hidden_dim * c->dim, sizeof(float));
+
+    if (!w->attn_norm || !w->wq || !w->wk || !w->wv || !w->wo ||
+        !w->ffn_norm || !w->w_gate || !w->w_up || !w->w_down) {
+        return -1;
+    }
 
     for (int l = 0; l < c->n_layers; l++) {
         memcpy(w->attn_norm + l * c->dim, ptr, c->dim * sizeof(float));
@@ -192,15 +203,19 @@ static void sartre_map_weights(SartreWeights* w, SartreConfig* c, float* ptr) {
         ptr += c->hidden_dim * c->dim;
     }
 
-    /* Final norm + lm_head (direct pointers into weight blob) */
-    w->final_norm = ptr;
+    /* Final norm + lm_head — copy (blob freed after mapping) */
+    w->final_norm = calloc(c->dim, sizeof(float));
+    w->lm_head    = calloc(c->vocab_size * c->dim, sizeof(float));
+    if (!w->final_norm || !w->lm_head) return -1;
+    memcpy(w->final_norm, ptr, c->dim * sizeof(float));
     ptr += c->dim;
+    memcpy(w->lm_head, ptr, c->vocab_size * c->dim * sizeof(float));
 
-    w->lm_head = ptr;
+    return 0;
 }
 
 static void sartre_free_weights(SartreWeights* w) {
-    /* Only free the calloc'd per-layer arrays, not direct pointers */
+    free(w->tok_emb);
     free(w->attn_norm);
     free(w->wq);
     free(w->wk);
@@ -210,6 +225,8 @@ static void sartre_free_weights(SartreWeights* w) {
     free(w->w_gate);
     free(w->w_up);
     free(w->w_down);
+    free(w->final_norm);
+    free(w->lm_head);
 }
 
 /* ============================================================================
@@ -558,8 +575,16 @@ int sartre_transformer_init(SartreTransformer* st,
     }
     fclose(f);
 
-    /* Map weights */
-    sartre_map_weights(&st->weights, &st->config, st->weight_data);
+    /* Map weights (copies into per-type arrays, then blob is freed) */
+    if (sartre_map_weights(&st->weights, &st->config, st->weight_data) != 0) {
+        fprintf(stderr, "[sartre] failed to map weights (OOM)\n");
+        free(st->weight_data);
+        st->weight_data = NULL;
+        return -1;
+    }
+    /* Free blob — all weights now in own allocations, no duplication */
+    free(st->weight_data);
+    st->weight_data = NULL;
 
     /* Allocate run state */
     if (sartre_malloc_run_state(&st->state, &st->config) != 0) {
@@ -582,7 +607,7 @@ void sartre_transformer_free(SartreTransformer* st) {
 
     sartre_free_run_state(&st->state);
     sartre_free_weights(&st->weights);
-    free(st->weight_data);
+    /* weight_data already freed after mapping (no duplication) */
 
     st->weight_data = NULL;
     st->initialized = 0;
