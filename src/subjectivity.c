@@ -520,9 +520,10 @@ int load_identity_from_origin(ExtendedIdentity* id, const char* path) {
         fprintf(stderr, "Invalid origin path\n");
         return 0;
     }
-    // Warn about path traversal attempts (still allow for flexibility)
+    // Reject path traversal attempts
     if (strstr(path, "..") != NULL) {
-        fprintf(stderr, "[Warning] Origin path contains '..': %s\n", path);
+        fprintf(stderr, "[Subjectivity] Rejected path with '..': %s\n", path);
+        return 0;
     }
 
     FILE* f = fopen(path, "r");
@@ -535,6 +536,12 @@ int load_identity_from_origin(ExtendedIdentity* id, const char* path) {
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
     fseek(f, 0, SEEK_SET);
+
+    if (size < 0 || size > 10 * 1024 * 1024) {
+        fprintf(stderr, "[Subjectivity] Invalid file size: %ld\n", size);
+        fclose(f);
+        return 0;
+    }
 
     char* text = malloc(size + 1);
     if (!text) {

@@ -21,12 +21,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for local development
-# SECURITY NOTE: In production, replace "*" with specific origins
-# e.g., allow_origins=["https://yourdomain.com"]
+# CORS: defaults to localhost only; set ARIANNA_CORS_ORIGINS for other origins
+cors_origins = os.environ.get("ARIANNA_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Configure for production deployment
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -238,9 +237,12 @@ async def generate(request: GenerateRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    
-    print("Starting arianna.c API server...")
-    print("API docs available at: http://localhost:8000/docs")
+
+    host = os.environ.get("ARIANNA_HOST", "127.0.0.1")
+    port = int(os.environ.get("ARIANNA_PORT", "8000"))
+
+    print(f"Starting arianna.c API server on {host}:{port}...")
+    print(f"API docs available at: http://{host}:{port}/docs")
     print("Web interface: Open index.html in a browser")
-    
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    uvicorn.run(app, host=host, port=port)

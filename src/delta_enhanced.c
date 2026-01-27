@@ -190,6 +190,13 @@ void init_contrastive_forces(ContrastiveForces* cf, int dim) {
 
     cf->identity_dir = (float*)calloc(dim, sizeof(float));
     cf->anti_id_dir = (float*)calloc(dim, sizeof(float));
+    if (!cf->identity_dir || !cf->anti_id_dir) {
+        fprintf(stderr, "[ContrastiveForces] calloc failed — OOM\n");
+        free(cf->identity_dir);
+        free(cf->anti_id_dir);
+        cf->identity_dir = NULL;
+        cf->anti_id_dir = NULL;
+    }
     cf->dim = dim;
     cf->initialized = 0;
 }
@@ -285,6 +292,13 @@ void init_crystallization(CrystallizationState* cs, int dim) {
 
     cs->crystal_A = (float*)calloc(DELTA_RANK * dim, sizeof(float));
     cs->crystal_B = (float*)calloc(DELTA_RANK * dim, sizeof(float));
+    if (!cs->crystal_A || !cs->crystal_B) {
+        fprintf(stderr, "[Crystallization] calloc failed — OOM\n");
+        free(cs->crystal_A);
+        free(cs->crystal_B);
+        cs->crystal_A = NULL;
+        cs->crystal_B = NULL;
+    }
 }
 
 void free_crystallization(CrystallizationState* cs) {
