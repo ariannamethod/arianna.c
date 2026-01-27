@@ -257,7 +257,7 @@ test_go_race:
 	cd inner_world && go test -race -v ./...
 
 # Run all tests
-tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended test_meta_arianna
+tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended test_meta_arianna sartre
 	@echo ""
 	@echo "=========================================="
 	@echo "RUNNING ALL ARIANNA TESTS"
