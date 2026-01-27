@@ -2,9 +2,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #include "arianna_dsl.h"
+#include "identity_core.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INIT
@@ -67,8 +69,17 @@ DSL_GenerationConfig dsl_build_config(void) {
     cfg.resonance_ceiling = s->resonance_ceiling;
     cfg.emergence_threshold = s->emergence_threshold;
 
-    // Calendar
+    // Calendar — modulated by birthday dissonance
     cfg.calendar_drift = s->calendar_drift;
+    {
+        time_t now = time(NULL);
+        struct tm* tm_now = localtime(&now);
+        if (tm_now) {
+            float bd = identity_birthday_dissonance(
+                tm_now->tm_year + 1900, tm_now->tm_mon + 1, tm_now->tm_mday);
+            cfg.calendar_drift *= (1.0f + bd);  // dissonance amplifies drift
+        }
+    }
 
     // Cloud (will be set by dsl_apply_cloud)
     cfg.needs_care = 0;
