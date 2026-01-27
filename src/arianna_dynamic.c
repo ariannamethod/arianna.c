@@ -558,6 +558,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 g_meta_thermogram.silence, g_meta_thermogram.uncertainty);
 
         meta_reset(&g_fluid_transformer);
+
+        // Hook 0b: Dark Gravity — shadow pulse on the raw prompt
+        // MetaArianna observes the injection through the deep lens.
+        // Shadow state persists; KV cache dies.
+        meta_shadow_observe(&g_fluid_transformer, prompt, prompt_len);
     }
 
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
@@ -678,19 +683,23 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                     meta_router_get_params(&meta_params);
                 } else {
                     // Router didn't trigger — use C-only cycle as fallback
-                    // This ensures MetaArianna breathes regardless of Go state
+                    // Cycle through 4 core templates (SHADOW is pulse-only, not cycled)
                     static int meta_go_fallback = 0;
-                    template_id = meta_go_fallback % META_N_TEMPLATES;
+                    template_id = meta_go_fallback % 4;
                     meta_default_params(&meta_params, template_id);
                     meta_go_fallback++;
                 }
 #else
-                // C-only fallback: cycle through templates
+                // C-only fallback: cycle through 4 core templates
+                // SHADOW template is used only for prompt injection (Hook 0b)
                 static int meta_c_cycle = 0;
-                template_id = meta_c_cycle % META_N_TEMPLATES;
+                template_id = meta_c_cycle % 4;
                 meta_default_params(&meta_params, template_id);
                 meta_c_cycle++;
 #endif
+
+                // Dark Gravity: shadow bends MetaArianna's perception
+                meta_shadow_modulate(&g_fluid_transformer, &meta_params);
 
                 if (template_id >= 0) {
                     // Build dialogue log from recent generated text
@@ -724,7 +733,7 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                     }
 
                     // Log observation
-                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD", "SHADOW"};
                     fprintf(stderr, "[Meta:%s] #%d w=%.3f s=%.3f si=%.3f u=%.3f d=%.3f(%+d) f=[%.2f,%.2f,%.2f,%.2f]\n",
                             tpl_names[template_id], g_meta_observation_count,
                             g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
@@ -735,6 +744,10 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
                     // Death (reset RunState, keep weights)
                     meta_reset(&g_fluid_transformer);
+
+                    // Dark Gravity: decay shadow each pulse
+                    AM_State* amk_s = am_get_state();
+                    meta_shadow_decay(&g_fluid_transformer, amk_s->antidote_mode);
                 }
             }
         }
@@ -1073,11 +1086,22 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
-        // Apply prompt penetration bias (NEW!)
+        // Apply prompt penetration bias
         // Prompt tokens get boosted proportional to penetration level
         // Identity tokens get boosted inversely
         // "Mom says 'Отстань!' - response TO son, but FROM her state"
         float penetration = get_prompt_penetration(&g_subjectivity);
+
+        // Dark Gravity modulation: dark matter reduces penetration
+        // Higher dark_mass = prompt rejected harder = less penetration
+        if (g_meta_enabled) {
+            float dark_mass = meta_shadow_get_dark_mass(&g_fluid_transformer);
+            if (dark_mass > 0.05f) {
+                float shield = dark_mass / (dark_mass + 1.0f);  // sigmoid-ish: 0→0, 1→0.5, ∞→1
+                penetration *= (1.0f - shield);
+            }
+        }
+
         apply_penetration_to_logits(t->state.logits, t->config.vocab_size,
                                     user_tokens, n_user_tokens,
                                     penetration, 0.3f);  // identity_boost = 0.3
