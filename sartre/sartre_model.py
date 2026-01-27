@@ -13,7 +13,7 @@ Architecture:
 - SwiGLU activation
 - RMSNorm
 
-Canonical spec: 10M params, 7 layers, 416 dim, 93-token vocab
+Canonical spec: 14.3M params, 7 layers, 416 dim, 93-token vocab
 
 This file contains:
 1. Model configuration (SartreConfig)
@@ -37,14 +37,14 @@ class SartreConfig:
     """
     Configuration for SARTRE model.
 
-    The metaobserver: 10M params watching the inner world.
+    The metaobserver: 14.3M params watching the inner world.
     """
     dim: int = 416           # Embedding dimension
     n_layers: int = 7        # Number of transformer layers
     n_heads: int = 8         # Number of attention heads
     n_kv_heads: int = 2      # Number of KV heads (GQA)
     vocab_size: int = 93     # Character-level vocab
-    max_seq_len: int = 512   # Maximum sequence length
+    max_seq_len: int = 256   # Maximum sequence length
     norm_eps: float = 1e-5   # RMSNorm epsilon
     rope_theta: float = 10000.0  # RoPE base frequency
     

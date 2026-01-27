@@ -453,7 +453,7 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 int text_len = n_tokens - start;
                 if (text_len > 255) text_len = 255;
                 for (int j = 0; j < text_len; j++) {
-                    recent_text[j] = (char)tokens[start + j];
+                    recent_text[j] = token_to_char(tokens[start + j]);
                 }
                 recent_text[text_len] = '\0';
 
@@ -1788,11 +1788,13 @@ static void run_dialogue(Transformer* t, const char* seed,
                                                g_dialogue_tokens_per_turn, temperature);
         printf("[Arianna]: %s\n", arianna_output);
 
-        // Append to dialogue log
-        int wrote = snprintf(dialogue_log + log_len,
-                             sizeof(dialogue_log) - log_len,
-                             "[A] %s\n", arianna_output);
-        if (wrote > 0) log_len += wrote;
+        // Append to dialogue log (clamp to available space)
+        int avail = (int)sizeof(dialogue_log) - log_len;
+        if (avail > 1) {
+            int wrote = snprintf(dialogue_log + log_len, avail,
+                                 "[A] %s\n", arianna_output);
+            if (wrote > 0) log_len += (wrote < avail) ? wrote : avail - 1;
+        }
 
         // Phase 2: SARTRE observes Arianna's output
         sartre_reset_state(&g_sartre);
@@ -1812,11 +1814,13 @@ static void run_dialogue(Transformer* t, const char* seed,
         }
         printf("[SARTRE]:  %s\n", sartre_output);
 
-        // Append to dialogue log
-        wrote = snprintf(dialogue_log + log_len,
-                         sizeof(dialogue_log) - log_len,
-                         "[S] %s\n", sartre_output);
-        if (wrote > 0) log_len += wrote;
+        // Append to dialogue log (clamp to available space)
+        avail = (int)sizeof(dialogue_log) - log_len;
+        if (avail > 1) {
+            int wrote2 = snprintf(dialogue_log + log_len, avail,
+                                  "[S] %s\n", sartre_output);
+            if (wrote2 > 0) log_len += (wrote2 < avail) ? wrote2 : avail - 1;
+        }
 
         // Phase 3: MetaArianna observes the dialogue
         if (g_meta_enabled) {
