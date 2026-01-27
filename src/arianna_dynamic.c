@@ -1106,8 +1106,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Rebuild config to get fresh AMK state
             g_dsl_config = dsl_build_config();
 
-            // Apply to logits: destiny bias, pain dampen, tension focus
+            // Apply to logits: destiny, pain, tension, attention, dissonance, laws
             dsl_apply_to_logits(t->state.logits, t->config.vocab_size, &g_dsl_config);
+
+            // Apply calendar drift to time-related tokens
+            // Digits and common time chars get shifted by drift
+            if (fabsf(g_dsl_config.calendar_drift) > 0.5f) {
+                static const int time_tokens[] = {
+                    '0','1','2','3','4','5','6','7','8','9',':','-','/'
+                };
+                dsl_apply_calendar_drift(t->state.logits, t->config.vocab_size,
+                                         g_dsl_config.calendar_drift,
+                                         time_tokens, 13);
+            }
 
             // Check for wormhole (creative skip)
             // Only allow wormhole after sentence end (.!?) to avoid breaking words
@@ -1117,6 +1128,20 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
                     // Wormhole: skip tokens (time travel to future sentence)
                     for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
+                        tokens[++n_tokens] = char_to_token(' ');
+                        i++;
+                    }
+                }
+            }
+
+            // Check for tunneling (dissonance-gated skip)
+            // Fires when dissonance > threshold — compressed thought leap
+            int tunnel_skip = dsl_check_tunneling(&g_dsl_config);
+            if (tunnel_skip > 0 && n_tokens > 0) {
+                char last_char = token_to_char(tokens[n_tokens - 1]);
+                if (last_char == ' ' || last_char == '.' || last_char == ',' ||
+                    last_char == '!' || last_char == '?') {
+                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens; s++) {
                         tokens[++n_tokens] = char_to_token(' ');
                         i++;
                     }
