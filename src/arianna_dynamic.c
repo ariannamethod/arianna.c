@@ -1136,11 +1136,11 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
 
             // Check for tunneling (dissonance-gated skip)
             // Fires when dissonance > threshold — compressed thought leap
+            // Only between sentences (.!?) to preserve coherence
             int tunnel_skip = dsl_check_tunneling(&g_dsl_config);
             if (tunnel_skip > 0 && n_tokens > 0) {
                 char last_char = token_to_char(tokens[n_tokens - 1]);
-                if (last_char == ' ' || last_char == '.' || last_char == ',' ||
-                    last_char == '!' || last_char == '?') {
+                if (last_char == '.' || last_char == '!' || last_char == '?') {
                     for (int s = 0; s < tunnel_skip && i + 1 < max_tokens; s++) {
                         tokens[++n_tokens] = char_to_token(' ');
                         i++;
