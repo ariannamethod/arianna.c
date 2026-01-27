@@ -350,6 +350,37 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         generated[gen_idx++] = prompt[i];
     }
 
+    // Hook 0: MetaArianna first breath — observe the prompt before generation
+    if (g_meta_enabled) {
+        MetaTemplateParams first_params;
+        meta_default_params(&first_params, META_TEMPLATE_THERMOGRAPH);
+
+        generated[gen_idx] = '\0';
+        meta_observe(&g_fluid_transformer, &first_params, generated, gen_idx);
+        g_meta_thermogram = g_fluid_transformer.result;
+        g_meta_observation_count++;
+
+        meta_push_history(&g_fluid_transformer,
+                          g_meta_thermogram.warmth,
+                          g_meta_thermogram.silence);
+
+#ifdef USE_GO_INNER_WORLD
+        meta_router_feed_thermogram(&g_meta_thermogram);
+#endif
+
+        if (g_inner_enabled && g_meta_thermogram.valid) {
+            inner_update_body(&g_inner_arianna,
+                              g_meta_thermogram.silence * 0.3f,
+                              (1.0f - g_meta_thermogram.warmth) * 0.2f);
+        }
+
+        fprintf(stderr, "[Meta:THERMO] first breath: w=%.3f s=%.3f si=%.3f u=%.3f\n",
+                g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                g_meta_thermogram.silence, g_meta_thermogram.uncertainty);
+
+        meta_reset(&g_fluid_transformer);
+    }
+
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
         // Apply guided attention bias to logits
         if (g_guided_enabled) {
@@ -446,6 +477,13 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 template_id = meta_router_tick();
                 if (template_id >= 0) {
                     meta_router_get_params(&meta_params);
+                } else {
+                    // Router didn't trigger — use C-only cycle as fallback
+                    // This ensures MetaArianna breathes regardless of Go state
+                    static int meta_go_fallback = 0;
+                    template_id = meta_go_fallback % META_N_TEMPLATES;
+                    meta_default_params(&meta_params, template_id);
+                    meta_go_fallback++;
                 }
 #else
                 // C-only fallback: cycle through templates
@@ -485,6 +523,16 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                                           g_meta_thermogram.silence * 0.3f,
                                           (1.0f - g_meta_thermogram.warmth) * 0.2f);
                     }
+
+                    // Log observation
+                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+                    fprintf(stderr, "[Meta:%s] #%d w=%.3f s=%.3f si=%.3f u=%.3f d=%.3f(%+d) f=[%.2f,%.2f,%.2f,%.2f]\n",
+                            tpl_names[template_id], g_meta_observation_count,
+                            g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                            g_meta_thermogram.silence, g_meta_thermogram.uncertainty,
+                            g_meta_thermogram.drift_rate, g_meta_thermogram.drift_direction,
+                            g_meta_thermogram.field_vector[0], g_meta_thermogram.field_vector[1],
+                            g_meta_thermogram.field_vector[2], g_meta_thermogram.field_vector[3]);
 
                     // Death (reset RunState, keep weights)
                     meta_reset(&g_fluid_transformer);
