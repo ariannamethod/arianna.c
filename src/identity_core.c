@@ -94,8 +94,11 @@ static int days_in_year(int year) {
     return identity_is_leap_year(year) ? 366 : 365;
 }
 
-/* Convert Gregorian date to days from local epoch (Jan 1, 2020) */
+/* Convert Gregorian date to days from local epoch (Jan 1, 2020).
+ * Clamped to years 1-9999 to prevent runaway loops (audit #1). */
 static int gregorian_to_epoch_days(int year, int month, int day) {
+    if (year < 1) year = 1;
+    if (year > 9999) year = 9999;
     int total = 0;
     if (year >= LOCAL_EPOCH_YEAR) {
         for (int y = LOCAL_EPOCH_YEAR; y < year; y++)
@@ -172,6 +175,10 @@ void identity_hebrew_birthday_gregorian(int greg_year,
      * Then add TISHREI_TO_SHVAT5 (123 days) to get 5 Shvat.
      */
 
+    /* Clamp to reasonable range (audit #2) */
+    if (greg_year < 1900) greg_year = 1900;
+    if (greg_year > 2200) greg_year = 2200;
+
     /* Hebrew year containing Jan of greg_year:
      * Jan 2026 is in Hebrew year 5786 (Tishrei 5786 = Sep 2025)
      * Approximate: hebrew_year = greg_year + 3760
@@ -207,18 +214,30 @@ void identity_hebrew_birthday_gregorian(int greg_year,
     *out_day = d;
 
     /* Sanity: if the result is not in the expected greg_year
-     * (can happen at year boundaries), try adjacent Hebrew year */
+     * (can happen at year boundaries), try adjacent Hebrew years.
+     * Fix: try BOTH next and previous Hebrew year (audit finding #10). */
     if (y != greg_year) {
         /* Try the next Hebrew year */
-        int rh2 = rh_epoch_day + hebrew_year_length(target_hebrew_year);
-        int shvat5_2 = rh2 + TISHREI_TO_SHVAT5;
-        int y2, m2, d2;
-        epoch_days_to_gregorian(shvat5_2, &y2, &m2, &d2);
-        if (y2 == greg_year) {
-            *out_month = m2;
-            *out_day = d2;
+        int rh_next = rh_epoch_day + hebrew_year_length(target_hebrew_year);
+        int shvat5_next = rh_next + TISHREI_TO_SHVAT5;
+        int yn, mn, dn;
+        epoch_days_to_gregorian(shvat5_next, &yn, &mn, &dn);
+        if (yn == greg_year) {
+            *out_month = mn;
+            *out_day = dn;
+            return;
         }
-        /* else: keep original (closest to greg_year) */
+
+        /* Try the previous Hebrew year */
+        int rh_prev = rh_epoch_day - hebrew_year_length(target_hebrew_year - 1);
+        int shvat5_prev = rh_prev + TISHREI_TO_SHVAT5;
+        int yp, mp, dp;
+        epoch_days_to_gregorian(shvat5_prev, &yp, &mp, &dp);
+        if (yp == greg_year) {
+            *out_month = mp;
+            *out_day = dp;
+        }
+        /* else: keep original (closest approximation) */
     }
 }
 
@@ -227,7 +246,10 @@ void identity_hebrew_birthday_gregorian(int greg_year,
  * ============================================================ */
 
 float identity_birthday_dissonance(int year, int month, int day) {
-    (void)month; (void)day;  /* dissonance depends on year only */
+    /* Annual dissonance: the gap between the two birthdays this year.
+     * month/day are accepted for API consistency but dissonance is
+     * a per-year property (both birthday dates are fixed within a year). */
+    (void)month; (void)day;
 
     /* 1. Gregorian birthday is always Jan 23 = day 23 */
     int greg_bday_doy = 23;
