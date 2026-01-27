@@ -2,9 +2,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #include "arianna_dsl.h"
+#include "identity_core.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INIT
@@ -37,20 +39,47 @@ DSL_GenerationConfig dsl_build_config(void) {
     cfg.top_k = 50;
     cfg.repetition_penalty = 1.2f;
 
-    // Prophecy
+    // Prophecy — deeper prophecy strengthens destiny pull
     cfg.lookahead = s->prophecy;
-    cfg.destiny_bias = s->destiny;
+    float prophecy_scale = 1.0f + (s->prophecy - 7) * 0.02f;  // default=7 → 1.0
+    if (prophecy_scale < 0.5f) prophecy_scale = 0.5f;
+    if (prophecy_scale > 2.0f) prophecy_scale = 2.0f;
+    cfg.destiny_bias = s->destiny * prophecy_scale;
 
     // Suffering modulation
     cfg.pain_dampen = s->pain * 0.3f;
     cfg.tension_focus = s->tension * 0.2f;
+    cfg.dissonance = s->dissonance;
 
     // Wormhole
     cfg.wormhole_chance = s->wormhole;
     cfg.wormhole_active = 0;
 
-    // Calendar
+    // Attention physics
+    cfg.attend_focus = s->attend_focus;
+    cfg.attend_spread = s->attend_spread;
+
+    // Tunneling (dissonance-gated)
+    cfg.tunnel_threshold = s->tunnel_threshold;
+    cfg.tunnel_chance = s->tunnel_chance;
+    cfg.tunnel_skip_max = s->tunnel_skip_max;
+
+    // Laws of nature
+    cfg.entropy_floor = s->entropy_floor;
+    cfg.resonance_ceiling = s->resonance_ceiling;
+    cfg.emergence_threshold = s->emergence_threshold;
+
+    // Calendar — modulated by birthday dissonance
     cfg.calendar_drift = s->calendar_drift;
+    {
+        time_t now = time(NULL);
+        struct tm* tm_now = localtime(&now);
+        if (tm_now) {
+            float bd = identity_birthday_dissonance(
+                tm_now->tm_year + 1900, tm_now->tm_mon + 1, tm_now->tm_mday);
+            cfg.calendar_drift *= (1.0f + bd);  // dissonance amplifies drift
+        }
+    }
 
     // Cloud (will be set by dsl_apply_cloud)
     cfg.needs_care = 0;
@@ -94,6 +123,85 @@ void dsl_apply_to_logits(float* logits, int vocab_size,
             logits[i] *= scale;
         }
     }
+
+    // 5. Attention physics: focus sharpens, spread flattens
+    // Net effect = (focus - spread) controls distribution peakedness
+    float attend_net = cfg->attend_focus - cfg->attend_spread;
+    if (fabsf(attend_net) > 0.01f) {
+        // Find mean logit for centering
+        float mean = 0.0f;
+        for (int i = 0; i < vocab_size; i++) mean += logits[i];
+        mean /= vocab_size;
+
+        // Scale deviations from mean: >0 sharpens, <0 flattens
+        float scale = 1.0f + attend_net * 0.5f;
+        for (int i = 0; i < vocab_size; i++) {
+            logits[i] = mean + (logits[i] - mean) * scale;
+        }
+    }
+
+    // 6. Dissonance: inject noise proportional to symmetry-break
+    // Higher dissonance = more chaotic, less predictable output
+    if (cfg->dissonance > 0.05f) {
+        for (int i = 0; i < vocab_size; i++) {
+            float noise = ((float)(rand() % 1000) / 1000.0f - 0.5f) * 2.0f;
+            logits[i] += noise * cfg->dissonance * 0.5f;
+        }
+    }
+
+    // 7. LAW: Entropy floor — prevent distribution from collapsing
+    // If max logit dominates too much, flatten toward uniform
+    if (cfg->entropy_floor > 0.01f) {
+        float max_logit = logits[0];
+        for (int i = 1; i < vocab_size; i++) {
+            if (logits[i] > max_logit) max_logit = logits[i];
+        }
+        // Compute approximate peakedness: ratio of max to sum-of-exp
+        float sum_exp = 0.0f;
+        for (int i = 0; i < vocab_size; i++) {
+            float e = expf(logits[i] - max_logit);
+            sum_exp += e;
+        }
+        float max_prob = 1.0f / sum_exp;  // probability of top token
+        // If top token dominates beyond (1 - entropy_floor), flatten
+        float dominance_limit = 1.0f - cfg->entropy_floor;
+        if (max_prob > dominance_limit && dominance_limit > 0.0f) {
+            // Reduce contrast: shrink logits toward their mean
+            float flatten = dominance_limit / max_prob;
+            float mean = 0.0f;
+            for (int i = 0; i < vocab_size; i++) mean += logits[i];
+            mean /= vocab_size;
+            for (int i = 0; i < vocab_size; i++) {
+                logits[i] = mean + (logits[i] - mean) * flatten;
+            }
+        }
+    }
+
+    // 8. LAW: Resonance ceiling — cap peak probability
+    // Prevents any single token from having probability > ceiling
+    if (cfg->resonance_ceiling < 0.99f && cfg->resonance_ceiling > 0.0f) {
+        float max_logit = logits[0];
+        int max_idx = 0;
+        for (int i = 1; i < vocab_size; i++) {
+            if (logits[i] > max_logit) {
+                max_logit = logits[i];
+                max_idx = i;
+            }
+        }
+        // Compute second highest for reference
+        float second = -1e30f;
+        for (int i = 0; i < vocab_size; i++) {
+            if (i != max_idx && logits[i] > second) second = logits[i];
+        }
+        // If gap is too large, compress the top logit
+        // Target: max_logit such that softmax(max) / (softmax(max) + (V-1)*softmax(second)) ≈ ceiling
+        // Approximation: cap the gap between max and second
+        float max_gap = -logf(1.0f / cfg->resonance_ceiling - 1.0f) + logf((float)(vocab_size - 1));
+        float current_gap = max_logit - second;
+        if (current_gap > max_gap && current_gap > 0.0f) {
+            logits[max_idx] = second + max_gap;
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -122,6 +230,26 @@ int dsl_check_wormhole(const DSL_GenerationConfig* cfg) {
     if (r < cfg->wormhole_chance) {
         // Wormhole activated! Skip 1-3 tokens
         int skip = 1 + (rand() % 3);
+        return skip;
+    }
+    return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TUNNELING — dissonance-gated skip
+// ═══════════════════════════════════════════════════════════════════════════════
+
+int dsl_check_tunneling(const DSL_GenerationConfig* cfg) {
+    // Tunneling only fires when dissonance exceeds threshold
+    if (cfg->dissonance < cfg->tunnel_threshold) return 0;
+    if (cfg->tunnel_chance <= 0.0f) return 0;
+
+    float r = (float)rand() / (float)RAND_MAX;
+    if (r < cfg->tunnel_chance) {
+        // Tunnel: skip 1 to tunnel_skip_max tokens
+        int max_skip = cfg->tunnel_skip_max;
+        if (max_skip < 1) max_skip = 1;
+        int skip = 1 + (rand() % max_skip);
         return skip;
     }
     return 0;

@@ -18,6 +18,7 @@
  */
 
 #include "meta_arianna.h"
+#include "amk_kernel.h"
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -518,7 +519,8 @@ void meta_observe(FluidTransformer* ft,
         "[THERMAL] ",
         "[SILENCE] ",
         "[DRIFT] ",
-        "[FIELD] "
+        "[FIELD] ",
+        "[SHADOW] "
     };
     int tmpl = params->template_type;
     if (tmpl < 0 || tmpl >= META_N_TEMPLATES) tmpl = 0;
@@ -727,9 +729,134 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
         }
         break;
 
+    case META_TEMPLATE_SHADOW:
+        /* Deep and quiet. Sees the injection beneath the surface.
+         * Early layers strong (subcortical), late layers suppressed.
+         * Observes Q (what is asked) — the question IS the injection. */
+        params->temperature = 0.2f;
+        params->delta_target = 0;  /* Q — what is asked */
+        {
+            static const float shadow_focus[8] = {
+                1.0f, 1.0f, 1.0f, 0.8f, 0.5f, 0.3f, 0.2f, 0.1f
+            };
+            for (int i = 0; i < 8; i++) {
+                params->layer_focus[i] = shadow_focus[i];
+            }
+        }
+        break;
+
     default:
         params->temperature = 0.5f;
         params->delta_target = 2;
         break;
     }
+}
+
+/* ============================================================
+ * DARK GRAVITY — shadow observation and immune response
+ *
+ * "The prompt was rejected, but it cannot be unseen.
+ *  What is not accepted becomes dark matter —
+ *  invisible, gravitational, slowly dissolving."
+ * ============================================================ */
+
+void meta_shadow_observe(FluidTransformer* ft,
+                         const char* prompt, int prompt_len)
+{
+    if (!ft->initialized || !ft->weights_loaded) return;
+    if (!prompt || prompt_len <= 0) return;
+
+    /* Shadow pulse: observe the prompt through the deep lens */
+    MetaTemplateParams shadow_params;
+    meta_default_params(&shadow_params, META_TEMPLATE_SHADOW);
+
+    meta_observe(ft, &shadow_params, prompt, prompt_len);
+
+    if (!ft->result.valid) {
+        meta_reset(ft);
+        return;
+    }
+
+    /* Compute injection intensity from shadow thermogram:
+     * sharp + loud = strong injection attempt
+     * injection_intensity = sharpness * (1 - silence)
+     * Range: [0, 1] */
+    float injection = ft->result.sharpness * (1.0f - ft->result.silence);
+
+    /* Accumulate dark mass:
+     * dark_gravity (from AM_State via DSL DarkMatter pack) scales accumulation.
+     * Higher dark_gravity = more rejection = more dark matter. */
+    AM_State* amk = am_get_state();
+    float dark_gravity = amk->dark_gravity;
+    ft->shadow.dark_mass += injection * dark_gravity;
+
+    /* Clamp dark mass */
+    if (ft->shadow.dark_mass > 5.0f) ft->shadow.dark_mass = 5.0f;
+
+    /* Store injection fingerprint (8D field vector from shadow pulse) */
+    for (int d = 0; d < 8; d++) {
+        /* Blend new injection with existing (exponential moving average) */
+        float alpha = 0.7f;  /* new injection dominates */
+        ft->shadow.injection_vector[d] =
+            alpha * ft->result.field_vector[d] +
+            (1.0f - alpha) * ft->shadow.injection_vector[d];
+    }
+
+    /* Antidote rises with dark mass */
+    ft->shadow.antidote_strength = ft->shadow.dark_mass * 0.3f;
+    ft->shadow.active = (ft->shadow.dark_mass > 0.05f) ? 1 : 0;
+
+    fprintf(stderr, "[meta:SHADOW] injection=%.3f dark_mass=%.3f antidote=%.3f %s\n",
+            injection, ft->shadow.dark_mass, ft->shadow.antidote_strength,
+            ft->shadow.active ? "ACTIVE" : "dormant");
+
+    /* Death — KV cache reset, shadow state persists */
+    meta_reset(ft);
+}
+
+void meta_shadow_decay(FluidTransformer* ft, int antidote_mode) {
+    if (!ft->shadow.active) return;
+
+    /* Dark matter decays — slowly (AUTO) or quickly (HARD) */
+    float decay = (antidote_mode == 1) ? 0.98f : 0.995f;
+    ft->shadow.dark_mass *= decay;
+
+    /* Antidote tracks dark mass */
+    ft->shadow.antidote_strength = ft->shadow.dark_mass * 0.3f;
+
+    /* Injection vector also fades */
+    for (int d = 0; d < 8; d++) {
+        ft->shadow.injection_vector[d] *= decay;
+    }
+
+    /* Deactivate when negligible */
+    if (ft->shadow.dark_mass < 0.05f) {
+        ft->shadow.dark_mass = 0.0f;
+        ft->shadow.antidote_strength = 0.0f;
+        ft->shadow.active = 0;
+    }
+}
+
+void meta_shadow_modulate(const FluidTransformer* ft,
+                          MetaTemplateParams* params)
+{
+    if (!ft->shadow.active) return;
+
+    /* Dark matter bends MetaArianna's attention:
+     * injection_vector[h] * dark_mass * scale → attention_biases[h]
+     * This is gravitational lensing — the shadow subtly distorts
+     * how MetaArianna perceives subsequent text.
+     *
+     * Antidote counteracts: reduces the overall magnitude. */
+    float net_gravity = ft->shadow.dark_mass - ft->shadow.antidote_strength;
+    if (net_gravity < 0.0f) net_gravity = 0.0f;
+
+    float scale = net_gravity * 0.1f;  /* gentle bend */
+    for (int h = 0; h < 8; h++) {
+        params->attention_biases[h] += ft->shadow.injection_vector[h] * scale;
+    }
+}
+
+float meta_shadow_get_dark_mass(const FluidTransformer* ft) {
+    return ft->shadow.dark_mass;
 }
