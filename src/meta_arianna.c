@@ -549,9 +549,18 @@ void meta_observe(FluidTransformer* ft,
     float* logits = s->logits;
     int vs = c->vocab_size;
 
-    ft->result.warmth      = meta_compute_entropy(logits, vs);
-    ft->result.sharpness   = meta_compute_kl_uniform(logits, vs);
-    ft->result.silence     = meta_compute_silence_prob(logits, vs,
+    /* Apply observation temperature to get meaningful thermogram.
+     * Char-level model is too peaked on raw logits — MetaArianna
+     * needs to "squint" to see distribution shapes, not raw peaks.
+     * Scale logits by 1/META_OBSERVE_TEMP before computing entropy. */
+    float scaled_logits[256]; /* vocab_size <= 128 */
+    for (int i = 0; i < vs; i++) {
+        scaled_logits[i] = logits[i] / META_OBSERVE_TEMP;
+    }
+
+    ft->result.warmth      = meta_compute_entropy(scaled_logits, vs);
+    ft->result.sharpness   = meta_compute_kl_uniform(scaled_logits, vs);
+    ft->result.silence     = meta_compute_silence_prob(scaled_logits, vs,
                                                        ft->obs_char_to_id);
     ft->result.uncertainty = ft->result.warmth; /* entropy IS uncertainty */
 

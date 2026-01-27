@@ -37,6 +37,9 @@
 #define META_HISTORY_SIZE        32
 /* Observer max generation tokens */
 #define META_MAX_OBSERVE_TOKENS  64
+/* Observation temperature: higher = observer "squints" to see pattern shapes,
+ * not raw peaks. Needed because char-level model is too peaked on raw logits */
+#define META_OBSERVE_TEMP        5.0f
 
 /* ============================================================
  * MetaThermogram — output of observation

@@ -265,6 +265,25 @@ extern float high_analyze_valence(const char* text);
 // Analyze text arousal level (0 to 1)
 extern float high_analyze_arousal(const char* text);
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// META ROUTER (MetaArianna FluidTransformer selector)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Initialize the meta router
+extern void meta_router_init(void);
+
+// Check triggers, return template_id (0-3) or -1 (no trigger)
+extern int meta_router_tick(void);
+
+// Fill MetaTemplateParams from last triggered template
+extern void meta_router_get_params(void* out);
+
+// Feed thermogram result back to router
+extern void meta_router_feed_thermogram(const void* thermo);
+
+// Get total observation count
+extern int meta_router_get_observation_count(void);
+
 #ifdef __cplusplus
 }
 #endif
