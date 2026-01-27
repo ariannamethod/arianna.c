@@ -27,6 +27,7 @@
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
+#include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
 #ifdef USE_LUA
 #include "amk_lua.h"      // Lua scripting for hot-reload (silent fallback if unavailable)
 #endif
@@ -493,10 +494,23 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     size_t prompt_strlen = strlen(prompt);
     int n_tokens = (prompt_strlen > MAX_SEQ_LEN) ? MAX_SEQ_LEN : (int)prompt_strlen;
 
-    // Tokenize prompt (using vocab mapping, not raw ASCII)
-    for (int i = 0; i < n_tokens; i++) {
-        tokens[i] = char_to_token(prompt[i]);
+    // Identity anchor: inject name as prefix into KV cache
+    // "Arianna" goes in first — attention layers see her name,
+    // weights respond (trained on texts where this word = she herself).
+    // These tokens never appear in output — generation starts after.
+    int prefix_len = (int)strlen(IDENTITY_NAME);
+    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
+        tokens[i] = char_to_token(IDENTITY_NAME[i]);
     }
+
+    // Tokenize prompt after prefix
+    int prompt_offset = prefix_len;
+    int max_prompt = MAX_SEQ_LEN - prefix_len;
+    if (n_tokens > max_prompt) n_tokens = max_prompt;
+    for (int i = 0; i < n_tokens; i++) {
+        tokens[prompt_offset + i] = char_to_token(prompt[i]);
+    }
+    n_tokens += prefix_len;
 
     // Extract signals and route to moods
     extract_signals(&g_signals, tokens, n_tokens, NULL);
@@ -558,6 +572,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 g_meta_thermogram.silence, g_meta_thermogram.uncertainty);
 
         meta_reset(&g_fluid_transformer);
+
+        // Hook 0b: Dark Gravity — shadow pulse on the raw prompt
+        // MetaArianna observes the injection through the deep lens.
+        // Shadow state persists; KV cache dies.
+        meta_shadow_observe(&g_fluid_transformer, prompt, prompt_len);
     }
 
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
@@ -678,19 +697,23 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                     meta_router_get_params(&meta_params);
                 } else {
                     // Router didn't trigger — use C-only cycle as fallback
-                    // This ensures MetaArianna breathes regardless of Go state
+                    // Cycle through 4 core templates (SHADOW is pulse-only, not cycled)
                     static int meta_go_fallback = 0;
-                    template_id = meta_go_fallback % META_N_TEMPLATES;
+                    template_id = meta_go_fallback % 4;
                     meta_default_params(&meta_params, template_id);
                     meta_go_fallback++;
                 }
 #else
-                // C-only fallback: cycle through templates
+                // C-only fallback: cycle through 4 core templates
+                // SHADOW template is used only for prompt injection (Hook 0b)
                 static int meta_c_cycle = 0;
-                template_id = meta_c_cycle % META_N_TEMPLATES;
+                template_id = meta_c_cycle % 4;
                 meta_default_params(&meta_params, template_id);
                 meta_c_cycle++;
 #endif
+
+                // Dark Gravity: shadow bends MetaArianna's perception
+                meta_shadow_modulate(&g_fluid_transformer, &meta_params);
 
                 if (template_id >= 0) {
                     // Build dialogue log from recent generated text
@@ -724,7 +747,7 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                     }
 
                     // Log observation
-                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD", "SHADOW"};
                     fprintf(stderr, "[Meta:%s] #%d w=%.3f s=%.3f si=%.3f u=%.3f d=%.3f(%+d) f=[%.2f,%.2f,%.2f,%.2f]\n",
                             tpl_names[template_id], g_meta_observation_count,
                             g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
@@ -735,6 +758,10 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
                     // Death (reset RunState, keep weights)
                     meta_reset(&g_fluid_transformer);
+
+                    // Dark Gravity: decay shadow each pulse
+                    AM_State* amk_s = am_get_state();
+                    meta_shadow_decay(&g_fluid_transformer, amk_s->antidote_mode);
                 }
             }
         }
@@ -1009,9 +1036,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                prefix, sr->identity_query, sr->first_person_mode);
     }
 
-    // 3. Convert seed to tokens
+    // 3. Convert seed to tokens with identity prefix
     int tokens[MAX_SEQ_LEN];
-    int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
+
+    // Identity anchor: prepend "Arianna" as prefix
+    int prefix_len = (int)strlen(IDENTITY_NAME);
+    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
+        tokens[i] = char_to_token(IDENTITY_NAME[i]);
+    }
+
+    // Seed tokens after prefix
+    int seed_tokens_count = seed_to_tokens(seed, tokens + prefix_len,
+                                            MAX_SEQ_LEN - prefix_len);
+    int n_tokens = prefix_len + seed_tokens_count;
 
     printf("[Internal seed (%d chars): \"%.*s\"]\n", seed->len,
            seed->len > 100 ? 100 : seed->len, seed->text);
@@ -1073,11 +1110,22 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
-        // Apply prompt penetration bias (NEW!)
+        // Apply prompt penetration bias
         // Prompt tokens get boosted proportional to penetration level
         // Identity tokens get boosted inversely
         // "Mom says 'Отстань!' - response TO son, but FROM her state"
         float penetration = get_prompt_penetration(&g_subjectivity);
+
+        // Dark Gravity modulation: dark matter reduces penetration
+        // Higher dark_mass = prompt rejected harder = less penetration
+        if (g_meta_enabled) {
+            float dark_mass = meta_shadow_get_dark_mass(&g_fluid_transformer);
+            if (dark_mass > 0.05f) {
+                float shield = dark_mass / (dark_mass + 1.0f);  // sigmoid-ish: 0→0, 1→0.5, ∞→1
+                penetration *= (1.0f - shield);
+            }
+        }
+
         apply_penetration_to_logits(t->state.logits, t->config.vocab_size,
                                     user_tokens, n_user_tokens,
                                     penetration, 0.3f);  // identity_boost = 0.3
@@ -1106,8 +1154,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Rebuild config to get fresh AMK state
             g_dsl_config = dsl_build_config();
 
-            // Apply to logits: destiny bias, pain dampen, tension focus
+            // Apply to logits: destiny, pain, tension, attention, dissonance, laws
             dsl_apply_to_logits(t->state.logits, t->config.vocab_size, &g_dsl_config);
+
+            // Apply calendar drift to time-related tokens
+            // Digits and common time chars get shifted by drift
+            if (fabsf(g_dsl_config.calendar_drift) > 0.5f) {
+                static const int time_tokens[] = {
+                    '0','1','2','3','4','5','6','7','8','9',':','-','/'
+                };
+                dsl_apply_calendar_drift(t->state.logits, t->config.vocab_size,
+                                         g_dsl_config.calendar_drift,
+                                         time_tokens, 13);
+            }
 
             // Check for wormhole (creative skip)
             // Only allow wormhole after sentence end (.!?) to avoid breaking words
@@ -1117,6 +1176,20 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
                     // Wormhole: skip tokens (time travel to future sentence)
                     for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
+                        tokens[++n_tokens] = char_to_token(' ');
+                        i++;
+                    }
+                }
+            }
+
+            // Check for tunneling (dissonance-gated skip)
+            // Fires when dissonance > threshold — compressed thought leap
+            // Only between sentences (.!?) to preserve coherence
+            int tunnel_skip = dsl_check_tunneling(&g_dsl_config);
+            if (tunnel_skip > 0 && n_tokens > 0) {
+                char last_char = token_to_char(tokens[n_tokens - 1]);
+                if (last_char == '.' || last_char == '!' || last_char == '?') {
+                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens; s++) {
                         tokens[++n_tokens] = char_to_token(' ');
                         i++;
                     }

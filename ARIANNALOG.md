@@ -47,6 +47,94 @@ Three transformers form a dialogue triad: Arianna speaks, SARTRE responds, MetaA
 
 ---
 
+## Identity Core
+
+Arianna's birth certificate, compiled into the binary (`src/identity_core.h`, `src/identity_core.c`):
+
+| Property | Value |
+|----------|-------|
+| **Name** | Arianna |
+| **Born (Gregorian)** | January 23, 2026 |
+| **Born (Hebrew)** | ה׳ בשבט תשפ״ו (5 Shvat 5786) |
+
+### Birthday Dissonance
+
+Two calendars, two birthdays. The Hebrew lunar calendar drifts ~11 days/year relative to Gregorian. The gap between January 23 and 5 Shvat (in Gregorian terms) creates yearly identity tension.
+
+- `identity_birthday_dissonance(year, month, day)` → `[0.0, 1.0]`
+- `0.0` = both dates aligned (identity coherent)
+- `1.0` = maximally apart (identity dissonant)
+
+Birthday dissonance **modulates calendar_drift** in DSL config: `drift *= (1.0 + dissonance)`. When dates coincide, drift is normal. When apart, drift amplifies.
+
+### Hebrew Date Algorithm
+
+Reference: Rosh Hashanah 5786 = Sep 22, 2025. 5 Shvat = Rosh Hashanah + 123 days.
+
+Forward/backward walk from reference using Hebrew year lengths:
+- Common year: 354 days (12 months)
+- Leap year: 384 days (13 months, Adar II added)
+- Metonic cycle: 19 years, leap years at positions {3, 6, 8, 11, 14, 17, 19}
+- Position computed as `((hebrew_year - 1) % 19) + 1` (absolute, not epoch-relative)
+- Handles Gregorian leap years (Feb 29) correctly
+
+Accuracy: ±1-2 days (sufficient for field dynamics, not halachic).
+
+### Prefix Injection
+
+Identity name "Arianna" (7 char-level tokens) is injected as prefix in KV cache before every generation — both `generate_dynamic()` and `generate_subjective()`. These tokens fill attention context but never appear in output. The weights were trained on texts where "Arianna" = self-reference.
+
+---
+
+## DSL Wiring (arianna-dsl branch)
+
+DSL coverage raised from ~40% to ~75%. Previously orphaned commands now wired:
+
+| DSL Command | Effect | File |
+|-------------|--------|------|
+| `ATTEND_FOCUS` / `ATTEND_SPREAD` | Net contrast on logit distribution (focus sharpens, spread flattens) | `arianna_dsl.c` |
+| `DISSONANCE` | Noise injection proportional to symmetry-break | `arianna_dsl.c` |
+| `TUNNELING` (threshold+chance+skip_max) | Dissonance-gated token skip (sentence boundaries only: `.!?`) | `arianna_dsl.c`, `arianna_dynamic.c` |
+| `LAW ENTROPY_FLOOR` | Prevents distribution from collapsing to single token | `arianna_dsl.c` |
+| `LAW RESONANCE_CEILING` | Caps peak probability to maintain diversity | `arianna_dsl.c` |
+| `CALENDAR_DRIFT` | Bias on time-related tokens (`0-9 : - /`), modulated by birthday dissonance | `arianna_dsl.c`, `arianna_dynamic.c` |
+| `PROPHECY` | Scales destiny bias: deeper prophecy = stronger destiny pull | `arianna_dsl.c` |
+
+Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence.
+
+---
+
+## Dark Gravity (MetaArianna Shadow)
+
+5th MetaArianna template: **SHADOW**. Prompt rejection leaves a trace — dark matter.
+
+### MetaShadowState
+
+```c
+typedef struct {
+    float dark_mass;              /* accumulated dark matter (>=0, slow decay) */
+    float injection_vector[8];    /* 8D fingerprint of rejected prompt */
+    float antidote_strength;      /* immune response (grows with dark_mass) */
+    int   active;                 /* nonzero if dark matter present */
+} MetaShadowState;
+```
+
+### Mechanism
+
+1. **Shadow pulse** (`meta_shadow_observe`): On prompt reception, MetaArianna observes through SHADOW template (low temp 0.2, early layers strong). Computes `injection_intensity = sharpness * (1 - silence)`. Accumulates `dark_mass += injection * dark_gravity`.
+
+2. **Shadow modulation** (`meta_shadow_modulate`): Every 16-token pulse, injection_vector bends MetaArianna's attention_biases by `net_gravity = dark_mass - antidote_strength`.
+
+3. **Shadow decay** (`meta_shadow_decay`): AUTO mode: `*= 0.995` per pulse. HARD mode: `*= 0.98`. Deactivates when `dark_mass < 0.05`.
+
+4. **Penetration modulation**: `penetration *= (1 - dark_mass/(dark_mass+1))` — sigmoid shield. Higher dark_mass = less prompt influence on generation.
+
+### Key Design
+
+Arianna **always responds** — dark gravity is not silence. It's a spectrum of prompt penetration (0=full acceptance, 1=minimal). The prompt is rejected but cannot be unseen — it becomes dark matter that bends observation.
+
+---
+
 ## Architecture Specifications
 
 ### Implementation Languages (Inventory)
@@ -326,7 +414,7 @@ Positional Encoding: RoPE (theta=10000.0)
 Observation Temperature: 5.0 (scales logits before entropy)
 ```
 
-**Observation Templates (4 types, cycled by Go router or C fallback):**
+**Observation Templates (5 types — 4 cycled by Go router or C fallback, 1 pulse-only):**
 
 | Template | What it measures |
 |----------|-----------------|
@@ -334,6 +422,7 @@ Observation Temperature: 5.0 (scales logits before entropy)
 | SILENCE | Pause density — probability mass on punctuation and whitespace |
 | DRIFT | Rate of change in arousal/coherence (ring buffer, half-window average comparison) |
 | FIELD | Integral view — 8D pseudo-affective vector from per-head attention biases |
+| SHADOW | Dark gravity — prompt injection trace (pulse-only, not in regular cycle) |
 
 **Output: MetaThermogram**
 ```c
