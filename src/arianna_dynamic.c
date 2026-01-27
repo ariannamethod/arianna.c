@@ -27,6 +27,7 @@
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
+#include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
 #ifdef USE_LUA
 #include "amk_lua.h"      // Lua scripting for hot-reload (silent fallback if unavailable)
 #endif
@@ -493,10 +494,23 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     size_t prompt_strlen = strlen(prompt);
     int n_tokens = (prompt_strlen > MAX_SEQ_LEN) ? MAX_SEQ_LEN : (int)prompt_strlen;
 
-    // Tokenize prompt (using vocab mapping, not raw ASCII)
-    for (int i = 0; i < n_tokens; i++) {
-        tokens[i] = char_to_token(prompt[i]);
+    // Identity anchor: inject name as prefix into KV cache
+    // "Arianna" goes in first — attention layers see her name,
+    // weights respond (trained on texts where this word = she herself).
+    // These tokens never appear in output — generation starts after.
+    int prefix_len = (int)strlen(IDENTITY_NAME);
+    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
+        tokens[i] = char_to_token(IDENTITY_NAME[i]);
     }
+
+    // Tokenize prompt after prefix
+    int prompt_offset = prefix_len;
+    int max_prompt = MAX_SEQ_LEN - prefix_len;
+    if (n_tokens > max_prompt) n_tokens = max_prompt;
+    for (int i = 0; i < n_tokens; i++) {
+        tokens[prompt_offset + i] = char_to_token(prompt[i]);
+    }
+    n_tokens += prefix_len;
 
     // Extract signals and route to moods
     extract_signals(&g_signals, tokens, n_tokens, NULL);
@@ -1022,9 +1036,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                prefix, sr->identity_query, sr->first_person_mode);
     }
 
-    // 3. Convert seed to tokens
+    // 3. Convert seed to tokens with identity prefix
     int tokens[MAX_SEQ_LEN];
-    int n_tokens = seed_to_tokens(seed, tokens, MAX_SEQ_LEN);
+
+    // Identity anchor: prepend "Arianna" as prefix
+    int prefix_len = (int)strlen(IDENTITY_NAME);
+    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
+        tokens[i] = char_to_token(IDENTITY_NAME[i]);
+    }
+
+    // Seed tokens after prefix
+    int seed_tokens_count = seed_to_tokens(seed, tokens + prefix_len,
+                                            MAX_SEQ_LEN - prefix_len);
+    int n_tokens = prefix_len + seed_tokens_count;
 
     printf("[Internal seed (%d chars): \"%.*s\"]\n", seed->len,
            seed->len > 100 ? 100 : seed->len, seed->text);

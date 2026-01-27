@@ -36,6 +36,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/j
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
            $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/inner_arianna.c \
            $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/arianna_dsl.c \
+           $(SRC_DIR)/identity_core.c \
            $(SRC_DIR)/meta_arianna.c \
            sartre/sartre_bridge.c \
            $(SRC_DIR)/arianna_dynamic.c
