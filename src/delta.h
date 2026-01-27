@@ -129,6 +129,7 @@ void free_shard(ExperienceShard* shard);
 void init_delta_bank(DeltaBank* bank);
 void free_delta_bank(DeltaBank* bank);
 int add_shard(DeltaBank* bank, const char* path, int n_layers, int dim);
+int delta_bank_has_shard(DeltaBank* bank, const char* name);
 
 // ============================================================
 // Microtraining - online learning (notorch style from lang/lora.c)

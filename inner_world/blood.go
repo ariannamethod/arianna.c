@@ -380,7 +380,7 @@ void %s_respond(const char* text, float* valence, float* arousal) {
     }
 }
 
-// Apply emotional modulation to logits
+// Apply emotional modulation to logits (named version)
 void %s_modulate_logits(float* logits, int vocab_size, float strength) {
     // Emotional state affects token probabilities
     float mod = BASE_VALENCE * strength;
@@ -390,11 +390,17 @@ void %s_modulate_logits(float* logits, int vocab_size, float strength) {
         logits[i] *= (1.0f + mod * 0.1f);
     }
 }
+
+// Generic entry point — always discoverable via dlsym("modulate_logits")
+void modulate_logits(float* logits, int vocab_size, float valence, float arousal) {
+    float strength = (valence >= 0.0f ? valence : -valence) * arousal;
+    %s_modulate_logits(logits, vocab_size, strength);
+}
 `, tmpl.Name, tmpl.Valence, tmpl.Arousal, time.Now().Format(time.RFC3339),
 		tmpl.Valence, tmpl.Arousal,
 		tmpl.Name, keywordCode,
 		tmpl.Name, tmpl.Name,
-		tmpl.Name)
+		tmpl.Name, tmpl.Name)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

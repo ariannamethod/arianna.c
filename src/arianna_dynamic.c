@@ -33,6 +33,13 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <dlfcn.h>
+#include <signal.h>
+#include <spawn.h>
+#include <dirent.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 // Go inner_world integration (optional, compile with -DUSE_GO_INNER_WORLD)
 #ifdef USE_GO_INNER_WORLD
@@ -126,6 +133,149 @@ static SartreTransformer g_sartre;
 static int g_sartre_loaded = 0;
 static int g_dialogue_max_turns = 5;
 static int g_dialogue_tokens_per_turn = 80;
+
+// ============================================================
+// Blood Kernel — dynamically compiled emotional modulation
+// "C is the blood of the system, direct control over iron"
+// ============================================================
+#ifdef USE_GO_INNER_WORLD
+typedef struct {
+    void* handle;                    // dlopen handle
+    void (*modulate_logits)(float* logits, int vocab_size, float valence, float arousal);
+    char emotion_name[32];
+    float valence;
+    float arousal;
+    uint64_t loaded_at;              // timestamp
+} BloodKernel;
+
+static BloodKernel g_blood_kernel = {0};
+
+static void blood_load_kernel(const char* path, const char* emotion, float val, float ar) {
+    if (g_blood_kernel.handle) {
+        dlclose(g_blood_kernel.handle);
+        g_blood_kernel.handle = NULL;
+        g_blood_kernel.modulate_logits = NULL;
+    }
+    g_blood_kernel.handle = dlopen(path, RTLD_NOW);
+    if (!g_blood_kernel.handle) {
+        fprintf(stderr, "[blood] dlopen failed: %s\n", dlerror());
+        return;
+    }
+    // Clear any previous error
+    dlerror();
+    g_blood_kernel.modulate_logits =
+        (void (*)(float*, int, float, float))dlsym(g_blood_kernel.handle, "modulate_logits");
+    if (!g_blood_kernel.modulate_logits) {
+        fprintf(stderr, "[blood] dlsym(modulate_logits) failed: %s\n", dlerror());
+        dlclose(g_blood_kernel.handle);
+        g_blood_kernel.handle = NULL;
+        return;
+    }
+    strncpy(g_blood_kernel.emotion_name, emotion, sizeof(g_blood_kernel.emotion_name) - 1);
+    g_blood_kernel.emotion_name[sizeof(g_blood_kernel.emotion_name) - 1] = '\0';
+    g_blood_kernel.valence = val;
+    g_blood_kernel.arousal = ar;
+    g_blood_kernel.loaded_at = (uint64_t)time(NULL);
+    fprintf(stderr, "[blood] Kernel loaded: %s (v=%.2f a=%.2f)\n", emotion, val, ar);
+}
+
+static void blood_free_kernel(void) {
+    if (g_blood_kernel.handle) {
+        dlclose(g_blood_kernel.handle);
+        g_blood_kernel.handle = NULL;
+        g_blood_kernel.modulate_logits = NULL;
+    }
+}
+
+static int blood_should_compile(void) {
+    InnerWorldSnapshot snap;
+    inner_world_get_snapshot(&snap);
+    return (snap.trauma_level > 0.5f) ||
+           (snap.arousal > 0.65f) ||
+           (snap.drift_speed > 0.2f) ||
+           (snap.coherence < 0.35f) ||
+           (snap.prophecy_debt > 0.5f);
+}
+#endif
+
+// ============================================================
+// Dream Loop — background memory consolidation daemon
+// ============================================================
+static pid_t g_dream_pid = 0;
+static int g_dream_auto = 1;  // auto-start by default
+
+static void dream_start(void) {
+    if (g_dream_pid > 0) {
+        // Check if still running
+        if (kill(g_dream_pid, 0) == 0) {
+            printf("[dream] Already running (pid %d)\n", g_dream_pid);
+            return;
+        }
+        g_dream_pid = 0;  // Was dead
+    }
+
+    // Use posix_spawn (safer than fork on macOS with dylibs)
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    // Redirect stdout to /dev/null, keep stderr for errors
+    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+
+    char* argv[] = {"python3", "-m", "limpha.dream",
+                    "--shard-dir", "shards/limpha/", NULL};
+    extern char **environ;
+
+    int err = posix_spawnp(&g_dream_pid, "python3", &actions, NULL, argv, environ);
+    posix_spawn_file_actions_destroy(&actions);
+
+    if (err != 0) {
+        fprintf(stderr, "[dream] Failed to spawn: %s\n", strerror(err));
+        g_dream_pid = 0;
+        return;
+    }
+    printf("[dream] Started (pid %d)\n", g_dream_pid);
+}
+
+static void dream_stop(void) {
+    if (g_dream_pid > 0) {
+        kill(g_dream_pid, SIGTERM);
+        int status;
+        waitpid(g_dream_pid, &status, 0);
+        printf("[dream] Stopped (pid %d)\n", g_dream_pid);
+        g_dream_pid = 0;
+    }
+}
+
+// Periodic shard scan — loads new .vsh files from dream daemon
+static time_t g_last_shard_scan = 0;
+#define SHARD_SCAN_INTERVAL 60  // seconds
+
+static void scan_new_shards(int n_layers, int dim) {
+    time_t now = time(NULL);
+    if (now - g_last_shard_scan < SHARD_SCAN_INTERVAL) return;
+    g_last_shard_scan = now;
+
+    DIR* dir = opendir("shards/limpha");
+    if (!dir) return;
+
+    struct dirent* entry;
+    while ((entry = readdir(dir))) {
+        // Only .vsh files, skip .tmp (atomic write in progress)
+        if (!strstr(entry->d_name, ".vsh") || strstr(entry->d_name, ".tmp"))
+            continue;
+
+        char path[256];
+        snprintf(path, sizeof(path), "shards/limpha/%s", entry->d_name);
+
+        // Check if already loaded (by name match in delta bank)
+        if (!delta_bank_has_shard(&g_delta_bank, entry->d_name)) {
+            int ok = add_shard(&g_delta_bank, path, n_layers, dim);
+            if (ok == 0) {
+                printf("[dream] Loaded new shard: %s\n", entry->d_name);
+            }
+        }
+    }
+    closedir(dir);
+}
 
 // ============================================================
 // Inner Arianna борьба helper
@@ -314,8 +464,13 @@ void forward_dynamic(Transformer* t, int* tokens, int n_tokens, int pos) {
 // ============================================================
 
 void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temperature) {
+    // Scan for new dream shards (throttled to every 60 seconds)
+    if (g_delta_enabled) {
+        scan_new_shards(t->config.n_layers, t->config.dim);
+    }
+
     // Reset KV cache
-    
+
 
     int tokens[MAX_SEQ_LEN];
     size_t prompt_strlen = strlen(prompt);
@@ -406,6 +561,26 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             meta_apply_thermogram(&g_meta_thermogram,
                                   t->state.logits, t->config.vocab_size);
         }
+
+        // Apply Blood kernel emotional modulation (compiled C at runtime)
+#ifdef USE_GO_INNER_WORLD
+        if (g_blood_kernel.modulate_logits) {
+            g_blood_kernel.modulate_logits(t->state.logits, t->config.vocab_size,
+                                           g_blood_kernel.valence, g_blood_kernel.arousal);
+        }
+        // Re-compile blood kernel every 32 tokens if state warrants it
+        if (n_tokens > 0 && n_tokens % 32 == 0 && blood_should_compile()) {
+            char dominant[32];
+            inner_world_get_dominant_emotion(dominant, sizeof(dominant));
+            InnerWorldSnapshot snap;
+            inner_world_get_snapshot(&snap);
+            char* kp = blood_compile_emotion(dominant, snap.valence, snap.arousal);
+            if (kp) {
+                blood_load_kernel(kp, dominant, snap.valence, snap.arousal);
+                free(kp);
+            }
+        }
+#endif
 
         // Apply Inner Arianna борьба (if enabled)
         // Two voices compete: main (stable) vs inner (chaotic)
@@ -635,8 +810,8 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // 0b+. BLOOD: Compile emotional kernel on strong emotion
     // "C is the blood of the system, direct control over iron"
     // ═══════════════════════════════════════════════════════════════════
-    if (input_cloud.primary_strength > 0.7f) {
-        // Strong emotion detected - compile a kernel for it
+    if (input_cloud.primary_strength > 0.7f || blood_should_compile()) {
+        // Strong emotion or inner state threshold → compile kernel
         float valence = (input_cloud.chambers[CLOUD_CHAMBER_LOVE] +
                         input_cloud.chambers[CLOUD_CHAMBER_FLOW]) -
                        (input_cloud.chambers[CLOUD_CHAMBER_FEAR] +
@@ -644,13 +819,14 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                         input_cloud.chambers[CLOUD_CHAMBER_VOID]);
         float arousal = input_cloud.primary_strength;
 
+        const char* emotion_name =
+            input_cloud.primary_chamber ? input_cloud.primary_chamber : "emotion";
+
         char* kernel_path = blood_compile_emotion(
-            input_cloud.primary_chamber ? input_cloud.primary_chamber : "emotion",
-            valence, arousal);
+            (char*)emotion_name, valence, arousal);
 
         if (kernel_path) {
-            // Kernel compiled - could load and use here
-            // For now just note it was compiled (silent operation)
+            blood_load_kernel(kernel_path, emotion_name, valence, arousal);
             free(kernel_path);
         }
     }
@@ -1619,6 +1795,14 @@ void cleanup_dynamic(void) {
     if (g_julia_enabled) {
         julia_shutdown();
     }
+
+    // Free Blood kernel
+#ifdef USE_GO_INNER_WORLD
+    blood_free_kernel();
+#endif
+
+    // Stop Dream daemon
+    dream_stop();
 }
 
 // ============================================================
@@ -1725,6 +1909,14 @@ static int dialogue_generate_arianna(Transformer* t, const char* seed,
             meta_apply_thermogram(&g_meta_thermogram,
                                   t->state.logits, t->config.vocab_size);
         }
+
+        // Blood kernel emotional modulation (CLI path)
+#ifdef USE_GO_INNER_WORLD
+        if (g_blood_kernel.modulate_logits) {
+            g_blood_kernel.modulate_logits(t->state.logits, t->config.vocab_size,
+                                           g_blood_kernel.valence, g_blood_kernel.arousal);
+        }
+#endif
 
         int next = sample(t, effective_temp);
         tokens[n_tokens] = next;
@@ -1889,6 +2081,11 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
     printf("type 'self' to see SelfSense signals\n");
     printf("\n");
 
+    // Auto-start dream daemon if enabled
+    if (g_dream_auto) {
+        dream_start();
+    }
+
     while (1) {
         printf("> ");
         fflush(stdout);
@@ -1992,6 +2189,47 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             } else {
                 printf("SARTRE: not loaded (use /dialogue to activate)\n");
             }
+            continue;
+        }
+
+        // /dream — Dream loop daemon control
+        if (strcmp(input, "/dream") == 0) {
+            if (g_dream_pid > 0 && kill(g_dream_pid, 0) == 0) {
+                printf("[dream] Running (pid %d), shards loaded: %d\n",
+                       g_dream_pid, g_delta_bank.n_shards);
+            } else {
+                g_dream_pid = 0;
+                printf("[dream] Not running. Use /dream on to start.\n");
+            }
+            printf("[dream] Auto-start: %s\n", g_dream_auto ? "ON" : "OFF");
+            continue;
+        }
+        if (strcmp(input, "/dream on") == 0) {
+            dream_start();
+            continue;
+        }
+        if (strcmp(input, "/dream off") == 0) {
+            dream_stop();
+            g_dream_auto = 0;
+            printf("[dream] Auto-start disabled\n");
+            continue;
+        }
+
+        // /blood — Blood kernel status
+        if (strcmp(input, "/blood") == 0) {
+#ifdef USE_GO_INNER_WORLD
+            if (g_blood_kernel.handle) {
+                printf("[blood] Kernel loaded: %s (v=%.2f, a=%.2f)\n",
+                       g_blood_kernel.emotion_name,
+                       g_blood_kernel.valence, g_blood_kernel.arousal);
+                printf("[blood] Loaded at: %llu\n",
+                       (unsigned long long)g_blood_kernel.loaded_at);
+            } else {
+                printf("[blood] No kernel loaded (triggers on strong emotion)\n");
+            }
+#else
+            printf("[blood] Requires USE_GO_INNER_WORLD\n");
+#endif
             continue;
         }
 
@@ -2117,6 +2355,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  /talk <seed>          - Alias for /dialogue\n");
             printf("  /dialogue-turns <N>   - Set turns per dialogue (1-20)\n");
             printf("  /sartre               - Show SARTRE status\n");
+            printf("  /dream                - Dream daemon status\n");
+            printf("  /dream on|off         - Start/stop dream daemon\n");
+            printf("  /blood                - Blood kernel status\n");
             printf("\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
