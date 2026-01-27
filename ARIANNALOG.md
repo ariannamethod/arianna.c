@@ -414,7 +414,7 @@ Positional Encoding: RoPE (theta=10000.0)
 Observation Temperature: 5.0 (scales logits before entropy)
 ```
 
-**Observation Templates (4 types, cycled by Go router or C fallback):**
+**Observation Templates (5 types — 4 cycled by Go router or C fallback, 1 pulse-only):**
 
 | Template | What it measures |
 |----------|-----------------|
@@ -422,6 +422,7 @@ Observation Temperature: 5.0 (scales logits before entropy)
 | SILENCE | Pause density — probability mass on punctuation and whitespace |
 | DRIFT | Rate of change in arousal/coherence (ring buffer, half-window average comparison) |
 | FIELD | Integral view — 8D pseudo-affective vector from per-head attention biases |
+| SHADOW | Dark gravity — prompt injection trace (pulse-only, not in regular cycle) |
 
 **Output: MetaThermogram**
 ```c
