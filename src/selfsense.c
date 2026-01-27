@@ -33,6 +33,25 @@ void init_selfsense(SelfSense* ss, int dim) {
     ss->mlp.w2 = (float*)calloc(SELFSENSE_OUTPUT_DIM * SELFSENSE_HIDDEN_DIM, sizeof(float));
     ss->mlp.b2 = (float*)calloc(SELFSENSE_OUTPUT_DIM, sizeof(float));
 
+    // Allocate identity embeddings
+    ss->identity.identity_embedding = (float*)calloc(dim, sizeof(float));
+    ss->identity.warmth_direction = (float*)calloc(dim, sizeof(float));
+    ss->identity.cold_direction = (float*)calloc(dim, sizeof(float));
+
+    // Verify all allocations succeeded
+    if (!ss->mlp.w1 || !ss->mlp.b1 || !ss->mlp.w2 || !ss->mlp.b2 ||
+        !ss->identity.identity_embedding || !ss->identity.warmth_direction ||
+        !ss->identity.cold_direction) {
+        fprintf(stderr, "[SelfSense] calloc failed — OOM\n");
+        free(ss->mlp.w1); free(ss->mlp.b1);
+        free(ss->mlp.w2); free(ss->mlp.b2);
+        free(ss->identity.identity_embedding);
+        free(ss->identity.warmth_direction);
+        free(ss->identity.cold_direction);
+        memset(ss, 0, sizeof(SelfSense));
+        return;
+    }
+
     // Xavier initialization
     for (int i = 0; i < SELFSENSE_HIDDEN_DIM * dim; i++) {
         ss->mlp.w1[i] = xavier_init(dim, SELFSENSE_HIDDEN_DIM);
@@ -56,10 +75,6 @@ void init_selfsense(SelfSense* ss, int dim) {
         ss->state.ema_signals[i] = 0.5f;
     }
 
-    // Allocate identity embeddings
-    ss->identity.identity_embedding = (float*)calloc(dim, sizeof(float));
-    ss->identity.warmth_direction = (float*)calloc(dim, sizeof(float));
-    ss->identity.cold_direction = (float*)calloc(dim, sizeof(float));
     ss->identity.initialized = 0;
 
     // Learning params
@@ -498,6 +513,11 @@ int load_selfsense(SelfSense* ss, const char* path) {
     if (fread(&dim, sizeof(int), 1, f) != 1) {
         fclose(f);
         return 0;
+    }
+
+    // Free old allocations if reinitializing
+    if (ss->initialized) {
+        free_selfsense(ss);
     }
 
     // Initialize with correct dim

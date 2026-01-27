@@ -72,7 +72,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus weights-f32
+.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus weights-f32 debug
 
 all: $(TARGET)
 
@@ -139,6 +139,12 @@ $(TARGET_LUA): $(SRCS_DYN) $(SRCS_LUA) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $
                $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h $(SRC_DIR)/amk_lua.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(LUA_CFLAGS) -DUSE_LUA -I$(SRC_DIR) $(SRCS_DYN) $(SRCS_LUA) -o $(TARGET_LUA) $(LDFLAGS) $(LUA_LDFLAGS)
+
+# Debug build with sanitizers (AddressSanitizer + UndefinedBehaviorSanitizer)
+CFLAGS_DEBUG = -O0 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra
+debug: weights-f32
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS_DEBUG) $(DYN_CFLAGS) -I$(SRC_DIR) -Isartre $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS) -fsanitize=address,undefined
 
 clean:
 	rm -rf $(BIN_DIR)/*

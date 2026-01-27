@@ -30,6 +30,9 @@ import (
 	"time"
 )
 
+// cloudVerbose gates debug prints in hot paths (set via ARIANNA_CLOUD_VERBOSE=1)
+var cloudVerbose = os.Getenv("ARIANNA_CLOUD_VERBOSE") == "1"
+
 // ═══════════════════════════════════════════════════════════════════════════
 // EMOTION ANCHORS — 100 words in 6 chambers
 // ═══════════════════════════════════════════════════════════════════════════
@@ -336,16 +339,17 @@ func ComputeResonance(text string) []float32 {
 		}
 	}
 
-	// Debug: show non-zero resonances
-	nonZero := 0
-	for i, r := range resonances {
-		if r > 0 {
-			fmt.Printf("[cloud] resonance[%d]=%s = %.1f\n", i, anchors[i], r)
-			nonZero++
+	if cloudVerbose {
+		nonZero := 0
+		for i, r := range resonances {
+			if r > 0 {
+				fmt.Printf("[cloud] resonance[%d]=%s = %.1f\n", i, anchors[i], r)
+				nonZero++
+			}
 		}
-	}
-	if nonZero == 0 {
-		fmt.Printf("[cloud] no resonances detected for: %s\n", text[:min(len(text), 50)])
+		if nonZero == 0 {
+			fmt.Printf("[cloud] no resonances detected for: %s\n", text[:min(len(text), 50)])
+		}
 	}
 
 	return resonances
@@ -372,6 +376,23 @@ func NewCrossFireSystem(seed int64) *CrossFireSystem {
 	return cfs
 }
 
+// applyFloor preserves at least 50% of initial activation per chamber.
+// If initial > 0.2, preserve at least 0.35 (to pass detection thresholds).
+func applyFloor(activations []float32, initialActivations []float32) map[string]float32 {
+	result := make(map[string]float32)
+	for i, name := range CHAMBER_NAMES {
+		floor := initialActivations[i] * 0.5
+		if initialActivations[i] > 0.2 {
+			floor = max32(floor, 0.35)
+		}
+		if activations[i] < floor {
+			activations[i] = floor
+		}
+		result[name] = activations[i]
+	}
+	return result
+}
+
 func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[string]float32, int) {
 	cfs.mu.RLock()
 	defer cfs.mu.RUnlock()
@@ -390,9 +411,10 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 	wg.Wait()
 	copy(initialActivations, activations)
 
-	// Debug: initial activations before crossfire
-	fmt.Printf("[cloud] initial activations: FEAR=%.3f LOVE=%.3f RAGE=%.3f VOID=%.3f FLOW=%.3f COMPLEX=%.3f\n",
-		activations[0], activations[1], activations[2], activations[3], activations[4], activations[5])
+	if cloudVerbose {
+		fmt.Printf("[cloud] initial activations: FEAR=%.3f LOVE=%.3f RAGE=%.3f VOID=%.3f FLOW=%.3f COMPLEX=%.3f\n",
+			activations[0], activations[1], activations[2], activations[3], activations[4], activations[5])
+	}
 
 	// Cross-fire loop
 	threshold := float32(0.01)
@@ -434,44 +456,11 @@ func (cfs *CrossFireSystem) Stabilize(resonances []float32, maxIter int) (map[st
 		copy(activations, newActivations)
 
 		if delta < threshold {
-			// Apply floor: preserve at least 50% of initial activation
-			// This prevents CrossFire from completely killing LOVE/FLOW
-			result := make(map[string]float32)
-			for i, name := range CHAMBER_NAMES {
-				floor := initialActivations[i] * 0.5
-
-				// Special case: if chamber detected something significant (> 0.2 initial),
-				// preserve at least 0.35 to pass thresholds
-				if initialActivations[i] > 0.2 {
-					floor = max32(floor, 0.35)
-				}
-
-				if activations[i] < floor {
-					activations[i] = floor
-				}
-				result[name] = activations[i]
-			}
-			return result, iter + 1
+			return applyFloor(activations, initialActivations), iter + 1
 		}
 	}
 
-	// Apply floor to final result as well
-	result := make(map[string]float32)
-	for i, name := range CHAMBER_NAMES {
-		floor := initialActivations[i] * 0.5
-
-		// Special case: if chamber detected something significant (> 0.2 initial),
-		// preserve at least 0.35 to pass thresholds
-		if initialActivations[i] > 0.2 {
-			floor = max32(floor, 0.35)
-		}
-
-		if activations[i] < floor {
-			activations[i] = floor
-		}
-		result[name] = activations[i]
-	}
-	return result, maxIter
+	return applyFloor(activations, initialActivations), maxIter
 }
 
 func (cfs *CrossFireSystem) ParamCount() int {
@@ -604,8 +593,7 @@ func (c *Cloud) Ping(text string) *CloudResponse {
 
 // Internal sync processing
 func (c *Cloud) processSync(text string) *CloudResponse {
-	// Debug: show what text we're processing
-	if len(text) > 0 {
+	if cloudVerbose && len(text) > 0 {
 		fmt.Printf("[cloud] processing: %s\n", text[:min(len(text), 60)])
 	}
 
@@ -732,14 +720,8 @@ func LoadCloud(weightsDir string) (*Cloud, error) {
 		c.CrossFire.Chambers[strings.ToUpper(name)] = chamber
 	}
 
-	// Flow and Complex always random (not in original haze)
-	c.CrossFire.Chambers["FLOW"] = NewRandomChamber(4)
-	c.CrossFire.Chambers["COMPLEX"] = NewRandomChamber(5)
-
 	// Load observer (TODO: implement actual loading from observer.bin)
-	_ = filepath.Join(weightsDir, "observer.bin") // suppress unused warning
 	c.Observer = NewRandomObserver(100)
-	fmt.Printf("[cloud] observer loaded (random init for now)\n")
 
 	fmt.Printf("[cloud] loaded from %s\n", weightsDir)
 	fmt.Printf("[cloud] total params: %d\n", c.ParamCount())
@@ -753,6 +735,7 @@ func LoadCloud(weightsDir string) (*Cloud, error) {
 
 var globalCloud *Cloud
 var lastResponse *CloudResponse
+var lastResponseMu sync.RWMutex
 
 //export cloud_init
 func cloud_init(weightsDir *C.char) C.int {
@@ -785,13 +768,18 @@ func cloud_preprocess(text *C.char) C.int {
 	for {
 		select {
 		case result := <-responseChan:
+			lastResponseMu.Lock()
 			lastResponse = result
+			lastResponseMu.Unlock()
 			return C.int(result.Iterations)
 		case <-timeout:
 			// Timeout — fallback to sync
 			fmt.Println("[cloud] async timeout, using sync fallback")
-			lastResponse = globalCloud.processSync(goText)
-			return C.int(lastResponse.Iterations)
+			resp := globalCloud.processSync(goText)
+			lastResponseMu.Lock()
+			lastResponse = resp
+			lastResponseMu.Unlock()
+			return C.int(resp.Iterations)
 		default:
 			// Yield to allow async goroutine to process
 			runtime.Gosched()
@@ -801,6 +789,8 @@ func cloud_preprocess(text *C.char) C.int {
 
 //export cloud_get_temperature_bias
 func cloud_get_temperature_bias() C.float {
+	lastResponseMu.RLock()
+	defer lastResponseMu.RUnlock()
 	if lastResponse == nil {
 		return 0.0
 	}
@@ -809,6 +799,8 @@ func cloud_get_temperature_bias() C.float {
 
 //export cloud_get_primary
 func cloud_get_primary() *C.char {
+	lastResponseMu.RLock()
+	defer lastResponseMu.RUnlock()
 	if lastResponse == nil {
 		return C.CString("")
 	}
@@ -817,6 +809,8 @@ func cloud_get_primary() *C.char {
 
 //export cloud_get_secondary
 func cloud_get_secondary() *C.char {
+	lastResponseMu.RLock()
+	defer lastResponseMu.RUnlock()
 	if lastResponse == nil {
 		return C.CString("")
 	}
@@ -825,6 +819,8 @@ func cloud_get_secondary() *C.char {
 
 //export cloud_get_chamber
 func cloud_get_chamber(name *C.char) C.float {
+	lastResponseMu.RLock()
+	defer lastResponseMu.RUnlock()
 	if lastResponse == nil {
 		return 0.0
 	}
@@ -839,7 +835,9 @@ func cloud_ping(text *C.char) *C.char {
 	}
 
 	response := globalCloud.Ping(C.GoString(text))
+	lastResponseMu.Lock()
 	lastResponse = response
+	lastResponseMu.Unlock()
 
 	// Return primary|secondary|iterations|temp_bias|FEAR:0.5,LOVE:0.3,...
 	result := fmt.Sprintf("%s|%s|%d|%.3f|",
