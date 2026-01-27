@@ -151,26 +151,27 @@ typedef struct {
 static BloodKernel g_blood_kernel = {0};
 
 static void blood_load_kernel(const char* path, const char* emotion, float val, float ar) {
+    // Load new kernel BEFORE closing old one (keep old if new fails)
+    void* new_handle = dlopen(path, RTLD_NOW);
+    if (!new_handle) {
+        fprintf(stderr, "[blood] dlopen failed: %s (keeping old kernel)\n", dlerror());
+        return;
+    }
+    dlerror();  // clear
+    void (*new_fn)(float*, int, float, float) =
+        (void (*)(float*, int, float, float))dlsym(new_handle, "modulate_logits");
+    if (!new_fn) {
+        fprintf(stderr, "[blood] dlsym failed: %s (keeping old kernel)\n", dlerror());
+        dlclose(new_handle);
+        return;
+    }
+
+    // New kernel is good — close old one
     if (g_blood_kernel.handle) {
         dlclose(g_blood_kernel.handle);
-        g_blood_kernel.handle = NULL;
-        g_blood_kernel.modulate_logits = NULL;
     }
-    g_blood_kernel.handle = dlopen(path, RTLD_NOW);
-    if (!g_blood_kernel.handle) {
-        fprintf(stderr, "[blood] dlopen failed: %s\n", dlerror());
-        return;
-    }
-    // Clear any previous error
-    dlerror();
-    g_blood_kernel.modulate_logits =
-        (void (*)(float*, int, float, float))dlsym(g_blood_kernel.handle, "modulate_logits");
-    if (!g_blood_kernel.modulate_logits) {
-        fprintf(stderr, "[blood] dlsym(modulate_logits) failed: %s\n", dlerror());
-        dlclose(g_blood_kernel.handle);
-        g_blood_kernel.handle = NULL;
-        return;
-    }
+    g_blood_kernel.handle = new_handle;
+    g_blood_kernel.modulate_logits = new_fn;
     strncpy(g_blood_kernel.emotion_name, emotion, sizeof(g_blood_kernel.emotion_name) - 1);
     g_blood_kernel.emotion_name[sizeof(g_blood_kernel.emotion_name) - 1] = '\0';
     g_blood_kernel.valence = val;
@@ -204,14 +205,21 @@ static int blood_should_compile(void) {
 static pid_t g_dream_pid = 0;
 static int g_dream_auto = 1;  // auto-start by default
 
+// Check if dream daemon is alive (reap zombie if dead)
+static int dream_is_alive(void) {
+    if (g_dream_pid <= 0) return 0;
+    int status;
+    pid_t result = waitpid(g_dream_pid, &status, WNOHANG);
+    if (result == 0) return 1;  // Still running
+    // Child exited or was killed — reap it
+    g_dream_pid = 0;
+    return 0;
+}
+
 static void dream_start(void) {
-    if (g_dream_pid > 0) {
-        // Check if still running
-        if (kill(g_dream_pid, 0) == 0) {
-            printf("[dream] Already running (pid %d)\n", g_dream_pid);
-            return;
-        }
-        g_dream_pid = 0;  // Was dead
+    if (dream_is_alive()) {
+        printf("[dream] Already running (pid %d)\n", g_dream_pid);
+        return;
     }
 
     // Use posix_spawn (safer than fork on macOS with dylibs)
@@ -263,8 +271,17 @@ static void scan_new_shards(int n_layers, int dim) {
         if (!strstr(entry->d_name, ".vsh") || strstr(entry->d_name, ".tmp"))
             continue;
 
+        // Reject filenames with path traversal
+        if (strchr(entry->d_name, '/') || strstr(entry->d_name, ".."))
+            continue;
+
         char path[256];
         snprintf(path, sizeof(path), "shards/limpha/%s", entry->d_name);
+
+        // Reject symlinks and non-regular files
+        struct stat st;
+        if (lstat(path, &st) != 0 || !S_ISREG(st.st_mode))
+            continue;
 
         // Check if already loaded (by name match in delta bank)
         if (!delta_bank_has_shard(&g_delta_bank, entry->d_name)) {
@@ -2194,11 +2211,10 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
         // /dream — Dream loop daemon control
         if (strcmp(input, "/dream") == 0) {
-            if (g_dream_pid > 0 && kill(g_dream_pid, 0) == 0) {
+            if (dream_is_alive()) {
                 printf("[dream] Running (pid %d), shards loaded: %d\n",
                        g_dream_pid, g_delta_bank.n_shards);
             } else {
-                g_dream_pid = 0;
                 printf("[dream] Not running. Use /dream on to start.\n");
             }
             printf("[dream] Auto-start: %s\n", g_dream_auto ? "ON" : "OFF");

@@ -85,6 +85,34 @@ typedef struct {
 
 #line 1 "cgo-generated-wrapper"
 
+#line 22 "meta_router.go"
+
+#include <stdlib.h>
+
+// MetaTemplateParams — must match src/meta_arianna.h
+typedef struct {
+    int   template_type;
+    float attention_biases[8];
+    float layer_focus[8];
+    float temperature;
+    int   delta_target;
+} MetaTemplateParams;
+
+// MetaThermogram — must match src/meta_arianna.h
+typedef struct {
+    float warmth;
+    float sharpness;
+    float silence;
+    float uncertainty;
+    float drift_rate;
+    int   drift_direction;
+    float field_vector[8];
+    int   valid;
+    int   template_used;
+} MetaThermogram;
+
+#line 1 "cgo-generated-wrapper"
+
 
 /* End of preamble from import "C" comments.  */
 
@@ -208,6 +236,11 @@ extern float high_predictive_surprise(char* expected, char* actual);
 extern float high_resonance_coupling(float valence, float arousal, float entropy, char* text, float schumann);
 extern float high_text_rhythm_avg(char* text);
 extern float high_text_rhythm_variance(char* text);
+extern void meta_router_init(void);
+extern int meta_router_tick(void);
+extern void meta_router_get_params(MetaTemplateParams* out);
+extern void meta_router_feed_thermogram(MetaThermogram* thermo);
+extern int meta_router_get_observation_count(void);
 
 #ifdef __cplusplus
 }
