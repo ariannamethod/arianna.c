@@ -37,6 +37,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/j
            $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/inner_arianna.c \
            $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/arianna_dsl.c \
            $(SRC_DIR)/meta_arianna.c \
+           sartre/sartre_bridge.c \
            $(SRC_DIR)/arianna_dynamic.c
 
 # Check for Lua and add it automatically
@@ -113,9 +114,10 @@ $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mo
                $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
                $(SRC_DIR)/julia_bridge.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/inner_arianna.h \
-               $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h $(SRC_DIR)/meta_arianna.h
+               $(SRC_DIR)/amk_kernel.h $(SRC_DIR)/arianna_dsl.h $(SRC_DIR)/meta_arianna.h \
+               sartre/sartre_bridge.h
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS)
+	$(CC) $(CFLAGS) $(DYN_CFLAGS) -I$(SRC_DIR) -Isartre $(SRCS_DYN) -o $(TARGET_DYN) $(LDFLAGS) $(DYN_LDFLAGS)
 
 # Full version with Go inner_world (C + Go hybrid)
 $(TARGET_FULL): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
@@ -123,7 +125,7 @@ $(TARGET_FULL): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/m
                 $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
                 $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -DUSE_GO_INNER_WORLD -I$(SRC_DIR) $(SRCS_DYN) -o $(TARGET_FULL) $(LDFLAGS) $(GO_LDFLAGS)
+	$(CC) $(CFLAGS) -DUSE_GO_INNER_WORLD -I$(SRC_DIR) -Isartre $(SRCS_DYN) -o $(TARGET_FULL) $(LDFLAGS) $(GO_LDFLAGS)
 	@cp $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT) $(BIN_DIR)/
 ifeq ($(PLATFORM),macos)
 	@install_name_tool -change libinner_world.dylib @loader_path/libinner_world.dylib $(TARGET_FULL)

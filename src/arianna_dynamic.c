@@ -24,6 +24,7 @@
 #include "../packages/pandora/pandora_bridge.h"  // Python bridge to external brains
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
+#include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #ifdef USE_LUA
@@ -119,6 +120,12 @@ static FluidTransformer g_fluid_transformer;
 static MetaThermogram g_meta_thermogram;
 static int g_meta_enabled = 0;
 static int g_meta_observation_count = 0;
+
+// SARTRE — 14.3M dialogue partner (lazy loaded)
+static SartreTransformer g_sartre;
+static int g_sartre_loaded = 0;
+static int g_dialogue_max_turns = 5;
+static int g_dialogue_tokens_per_turn = 80;
 
 // ============================================================
 // Inner Arianna борьба helper
@@ -1615,6 +1622,254 @@ void cleanup_dynamic(void) {
 }
 
 // ============================================================
+// Dialogue Mode: Arianna ↔ SARTRE with MetaArianna observing
+// ============================================================
+
+// Lazy load SARTRE on first /dialogue command
+static int dialogue_init_sartre(void) {
+    if (g_sartre_loaded) return 0;
+
+    // Try multiple paths for SARTRE weights
+    const char* weight_paths[] = {
+        "weights/sartre/sartre.bin",
+        "sartre/weights/sartre.bin",
+        "../weights/sartre/sartre.bin",
+        NULL
+    };
+    const char* tok_paths[] = {
+        "weights/sartre/tokenizer.json",
+        "sartre/weights/tokenizer.json",
+        "../weights/sartre/tokenizer.json",
+        NULL
+    };
+    const char* cfg_paths[] = {
+        "weights/sartre/sartre_config.json",
+        "sartre/weights/sartre_config.json",
+        "../weights/sartre/sartre_config.json",
+        NULL
+    };
+
+    const char* w = NULL, *tok = NULL, *cfg = NULL;
+    for (int i = 0; weight_paths[i]; i++) {
+        FILE* f = fopen(weight_paths[i], "rb");
+        if (f) { fclose(f); w = weight_paths[i]; break; }
+    }
+    for (int i = 0; tok_paths[i]; i++) {
+        FILE* f = fopen(tok_paths[i], "r");
+        if (f) { fclose(f); tok = tok_paths[i]; break; }
+    }
+    for (int i = 0; cfg_paths[i]; i++) {
+        FILE* f = fopen(cfg_paths[i], "r");
+        if (f) { fclose(f); cfg = cfg_paths[i]; break; }
+    }
+
+    if (!w || !tok) {
+        printf("[dialogue] Cannot find SARTRE weights or tokenizer\n");
+        printf("[dialogue] Expected: weights/sartre/sartre.bin + tokenizer.json\n");
+        return -1;
+    }
+
+    printf("[dialogue] Loading SARTRE (14.3M)...\n");
+    if (sartre_transformer_init(&g_sartre, w, tok, cfg) != 0) {
+        printf("[dialogue] Failed to initialize SARTRE\n");
+        return -1;
+    }
+
+    g_sartre_loaded = 1;
+    printf("[dialogue] SARTRE ready (dim=%d, layers=%d, vocab=%d)\n",
+           g_sartre.config.dim, g_sartre.config.n_layers,
+           g_sartre.config.vocab_size);
+    return 0;
+}
+
+// Generate Arianna's turn into buffer using generate_dynamic pipeline
+static int dialogue_generate_arianna(Transformer* t, const char* seed,
+                                      char* output, int max_len,
+                                      int max_tokens, float temperature) {
+    // Tokenize seed
+    int tokens[MAX_SEQ_LEN];
+    int seed_len = strlen(seed);
+    if (seed_len > MAX_SEQ_LEN) seed_len = MAX_SEQ_LEN;
+    for (int i = 0; i < seed_len; i++) {
+        tokens[i] = char_to_token(seed[i]);
+    }
+    int n_tokens = seed_len;
+
+    // Route signals
+    extract_signals(&g_signals, tokens, n_tokens, NULL);
+    if (g_mood_enabled) {
+        route_signals_to_moods(&g_mood_router, &g_signals);
+        mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+    }
+
+    // Process seed tokens
+    for (int pos = 0; pos < n_tokens; pos++) {
+        forward_dynamic(t, tokens, n_tokens, pos);
+    }
+
+    float effective_temp = temperature;
+    if (g_mood_enabled) {
+        effective_temp = adjust_temperature_by_mood(&g_mood_router, temperature);
+    }
+    if (g_meta_enabled && g_meta_thermogram.valid) {
+        effective_temp += g_meta_thermogram.drift_direction * 0.1f;
+        effective_temp += g_meta_thermogram.uncertainty * 0.05f;
+        if (effective_temp < 0.1f) effective_temp = 0.1f;
+        if (effective_temp > 2.0f) effective_temp = 2.0f;
+    }
+
+    // Generate tokens
+    int gen = 0;
+    for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN && gen < max_len - 1; i++) {
+        if (g_meta_enabled && g_meta_thermogram.valid) {
+            meta_apply_thermogram(&g_meta_thermogram,
+                                  t->state.logits, t->config.vocab_size);
+        }
+
+        int next = sample(t, effective_temp);
+        tokens[n_tokens] = next;
+
+        char c = token_to_char(next);
+        output[gen++] = c;
+
+        // Stop on Q&A boundary
+        if (gen >= 3 && output[gen-1] == ':' && output[gen-2] == 'Q' && output[gen-3] == '\n') {
+            gen -= 3;
+            break;
+        }
+
+        forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+        n_tokens++;
+    }
+    output[gen] = '\0';
+
+    // Trim to last sentence end
+    int last_end = -1;
+    for (int j = 0; j < gen; j++) {
+        if (output[j] == '.' || output[j] == '!' || output[j] == '?') {
+            last_end = j;
+        }
+    }
+    if (last_end >= 0 && last_end < gen - 1) {
+        output[last_end + 1] = '\0';
+        gen = last_end + 1;
+    }
+
+    return gen;
+}
+
+// Run Arianna ↔ SARTRE dialogue with MetaArianna observing
+static void run_dialogue(Transformer* t, const char* seed,
+                          int max_tokens __attribute__((unused)),
+                          float temperature) {
+    if (dialogue_init_sartre() != 0) return;
+
+    // Dialogue log for MetaArianna observation
+    char dialogue_log[4096];
+    int log_len = 0;
+    dialogue_log[0] = '\0';
+
+    printf("\n╔══════════════════════════════════════════╗\n");
+    printf("║  Arianna ↔ SARTRE Dialogue               ║\n");
+    printf("║  MetaArianna observing                    ║\n");
+    printf("╚══════════════════════════════════════════╝\n\n");
+
+    // Format initial seed for Arianna
+    char arianna_seed[512];
+    snprintf(arianna_seed, sizeof(arianna_seed), "Q: %s\nA: ", seed);
+
+    for (int turn = 0; turn < g_dialogue_max_turns; turn++) {
+        printf("--- Turn %d/%d ---\n", turn + 1, g_dialogue_max_turns);
+
+        // Phase 1: Arianna generates
+        char arianna_output[1024];
+        dialogue_generate_arianna(t, arianna_seed,
+                                               arianna_output, sizeof(arianna_output),
+                                               g_dialogue_tokens_per_turn, temperature);
+        printf("[Arianna]: %s\n", arianna_output);
+
+        // Append to dialogue log
+        int wrote = snprintf(dialogue_log + log_len,
+                             sizeof(dialogue_log) - log_len,
+                             "[A] %s\n", arianna_output);
+        if (wrote > 0) log_len += wrote;
+
+        // Phase 2: SARTRE observes Arianna's output
+        sartre_reset_state(&g_sartre);
+        char sartre_prompt[1024];
+        snprintf(sartre_prompt, sizeof(sartre_prompt),
+                 "Q: %s\nA: ", arianna_output);
+
+        int sp_len = strlen(sartre_prompt);
+        sartre_feed_prompt(&g_sartre, sartre_prompt, sp_len);
+
+        char sartre_output[1024];
+        int s_len = sartre_generate(&g_sartre, sartre_output, sizeof(sartre_output),
+                                     g_dialogue_tokens_per_turn, temperature, 0.9f, 1);
+        // Trim trailing newline
+        if (s_len > 0 && sartre_output[s_len - 1] == '\n') {
+            sartre_output[--s_len] = '\0';
+        }
+        printf("[SARTRE]:  %s\n", sartre_output);
+
+        // Append to dialogue log
+        wrote = snprintf(dialogue_log + log_len,
+                         sizeof(dialogue_log) - log_len,
+                         "[S] %s\n", sartre_output);
+        if (wrote > 0) log_len += wrote;
+
+        // Phase 3: MetaArianna observes the dialogue
+        if (g_meta_enabled) {
+            // Cycle through templates per turn
+            int template_id = turn % META_N_TEMPLATES;
+            MetaTemplateParams meta_params;
+            meta_default_params(&meta_params, template_id);
+
+            int obs_start = (log_len > META_MAX_LOG_LEN)
+                          ? log_len - META_MAX_LOG_LEN : 0;
+            meta_observe(&g_fluid_transformer, &meta_params,
+                         dialogue_log + obs_start, log_len - obs_start);
+            g_meta_thermogram = g_fluid_transformer.result;
+            g_meta_observation_count++;
+
+            meta_push_history(&g_fluid_transformer,
+                              g_meta_thermogram.warmth,
+                              g_meta_thermogram.silence);
+
+            const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+            printf("[Meta:%s] w=%.3f s=%.3f si=%.3f d=%.3f(%+d)\n",
+                   tpl_names[template_id],
+                   g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                   g_meta_thermogram.silence,
+                   g_meta_thermogram.drift_rate, g_meta_thermogram.drift_direction);
+
+            meta_reset(&g_fluid_transformer);
+
+            // Temperature feedback from thermogram
+            temperature += g_meta_thermogram.drift_direction * 0.05f;
+            temperature += g_meta_thermogram.uncertainty * 0.03f;
+            if (temperature < 0.2f) temperature = 0.2f;
+            if (temperature > 1.5f) temperature = 1.5f;
+        }
+
+        printf("\n");
+
+        // SARTRE output becomes seed for next Arianna turn
+        if (s_len > 0) {
+            snprintf(arianna_seed, sizeof(arianna_seed),
+                     "Q: %s\nA: ", sartre_output);
+        }
+    }
+
+    printf("╔══════════════════════════════════════════╗\n");
+    printf("║  Dialogue complete (%d turns)              ║\n", g_dialogue_max_turns);
+    if (g_meta_enabled) {
+        printf("║  MetaArianna: %d observations             ║\n", g_meta_observation_count);
+    }
+    printf("╚══════════════════════════════════════════╝\n");
+}
+
+// ============================================================
 // REPL Mode - Interactive terminal interface
 // ============================================================
 
@@ -1687,6 +1942,52 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
         if (strcmp(input, "cooccur") == 0) {
             print_cooccur_debug();
+            continue;
+        }
+
+        // /dialogue [seed] — Arianna ↔ SARTRE dialogue with MetaArianna
+        if (strncmp(input, "/dialogue ", 10) == 0 || strncmp(input, "/talk ", 6) == 0) {
+            const char* seed = (input[1] == 'd') ? input + 10 : input + 6;
+            if (strlen(seed) > 0) {
+                run_dialogue(t, seed, max_tokens, temperature);
+            } else {
+                printf("Usage: /dialogue <seed phrase>\n");
+            }
+            continue;
+        }
+
+        if (strcmp(input, "/dialogue") == 0 || strcmp(input, "/talk") == 0) {
+            run_dialogue(t, "What do you feel?", max_tokens, temperature);
+            continue;
+        }
+
+        // /dialogue-turns N — set number of dialogue turns
+        if (strncmp(input, "/dialogue-turns ", 16) == 0) {
+            int n = atoi(input + 16);
+            if (n >= 1 && n <= 20) {
+                g_dialogue_max_turns = n;
+                printf("[dialogue] turns set to %d\n", n);
+            } else {
+                printf("Usage: /dialogue-turns <1-20>\n");
+            }
+            continue;
+        }
+
+        // /sartre — SARTRE status
+        if (strcmp(input, "/sartre") == 0) {
+            if (g_sartre_loaded) {
+                printf("SARTRE: loaded (dim=%d, layers=%d, heads=%d, kv=%d, vocab=%d)\n",
+                       g_sartre.config.dim, g_sartre.config.n_layers,
+                       g_sartre.config.n_heads, g_sartre.config.n_kv_heads,
+                       g_sartre.config.vocab_size);
+                printf("  GQA: %d Q heads, %d KV heads (groups=%d)\n",
+                       g_sartre.config.n_heads, g_sartre.config.n_kv_heads,
+                       g_sartre.config.n_kv_groups);
+                printf("  Dialogue: %d turns, %d tokens/turn\n",
+                       g_dialogue_max_turns, g_dialogue_tokens_per_turn);
+            } else {
+                printf("SARTRE: not loaded (use /dialogue to activate)\n");
+            }
             continue;
         }
 
@@ -1807,6 +2108,12 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  /pandora-torch <text> - GPT2-distill vocabulary\n");
             printf("  /pandora-gguf <text>  - TinyLlama 1.1B vocabulary\n");
             printf("  /hyper                - HyperPandora auto-select\n");
+            printf("\nDialogue (Arianna ↔ SARTRE):\n");
+            printf("  /dialogue <seed>      - Start dialogue (lazy-loads SARTRE)\n");
+            printf("  /talk <seed>          - Alias for /dialogue\n");
+            printf("  /dialogue-turns <N>   - Set turns per dialogue (1-20)\n");
+            printf("  /sartre               - Show SARTRE status\n");
+            printf("\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL (auto-saves MathBrain)\n");
@@ -2407,6 +2714,10 @@ int main(int argc, char** argv) {
             fprintf(stderr, "[meta] %d observations completed\n",
                     g_meta_observation_count);
         }
+    }
+    if (g_sartre_loaded) {
+        sartre_transformer_free(&g_sartre);
+        fprintf(stderr, "[sartre] freed\n");
     }
     free_transformer(&t);
 
