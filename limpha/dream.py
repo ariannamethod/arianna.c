@@ -497,6 +497,60 @@ async def test_dream_loop():
     print("=" * 60)
 
 
+async def run_daemon(shard_dir: str = 'shards/limpha',
+                     db_dir: str = 'limpha',
+                     vagus_shm: Optional[str] = None):
+    """Run dream daemon (called from arianna_dynamic via posix_spawn)."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[dream] %(asctime)s %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    logger = logging.getLogger('dream.daemon')
+    logger.info("Dream daemon starting (shard_dir=%s)", shard_dir)
+
+    from pathlib import Path
+    Path(shard_dir).mkdir(parents=True, exist_ok=True)
+
+    system = await create_dream_system(
+        db_dir=db_dir,
+        shard_dir=shard_dir,
+        vagus_shm_path=vagus_shm,
+    )
+
+    dream = system['dream']
+    try:
+        logger.info("Dream loop running. Ctrl+C to stop.")
+        await dream.start()
+        # Keep running until killed
+        while True:
+            await asyncio.sleep(60)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Dream daemon shutting down")
+    finally:
+        await close_dream_system(system)
+        logger.info("Dream daemon stopped")
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(test_dream_loop())
+    import argparse
+    parser = argparse.ArgumentParser(description='LIMPHA Dream Daemon')
+    parser.add_argument('--shard-dir', default='shards/limpha/',
+                        help='Directory for graduated shards')
+    parser.add_argument('--db-dir', default='limpha',
+                        help='Directory for LIMPHA databases')
+    parser.add_argument('--vagus-shm', default=None,
+                        help='Path to vagus shared memory')
+    parser.add_argument('--test', action='store_true',
+                        help='Run test instead of daemon')
+    args = parser.parse_args()
+
+    if args.test:
+        logging.basicConfig(level=logging.INFO)
+        asyncio.run(test_dream_loop())
+    else:
+        asyncio.run(run_daemon(
+            shard_dir=args.shard_dir,
+            db_dir=args.db_dir,
+            vagus_shm=args.vagus_shm,
+        ))

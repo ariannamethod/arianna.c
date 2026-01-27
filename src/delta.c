@@ -355,6 +355,16 @@ int add_shard(DeltaBank* bank, const char* path, int n_layers, int dim) {
     return idx;
 }
 
+// Check if a shard with given name is already loaded
+int delta_bank_has_shard(DeltaBank* bank, const char* name) {
+    for (int i = 0; i < bank->n_shards; i++) {
+        if (strncmp(bank->shards[i].name, name, sizeof(bank->shards[i].name)) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 // ============================================================
 // Microtrainer - Hebbian online learning
 // ============================================================

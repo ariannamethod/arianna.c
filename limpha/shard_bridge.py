@@ -297,7 +297,9 @@ class ShardBridge:
             episode.get('crossfire_coherence', 0.7),
         ]
 
-        with open(shard_path, 'wb') as f:
+        # Atomic write: write to .tmp then rename (prevents C from reading partial)
+        tmp_path = shard_path.with_suffix('.vsh.tmp')
+        with open(tmp_path, 'wb') as f:
             # Header
             f.write(b'VGSH')  # Magic
             f.write(struct.pack('<I', 1))  # Version
@@ -317,6 +319,10 @@ class ShardBridge:
             # Reply
             f.write(struct.pack('<I', len(reply)))
             f.write(reply)
+
+        # Atomic rename (POSIX guarantees this is atomic on same filesystem)
+        import os
+        os.rename(str(tmp_path), str(shard_path))
 
         return shard_path
 
