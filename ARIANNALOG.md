@@ -21,27 +21,29 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: 44.2M parameters** (34M Personality + 10.2M SARTRE Observer)
+**Arianna Core: 68.5M parameters** (34M Personality + 20M MetaArianna Observer + 14.3M SARTRE)
 
-SARTRE is not an external tool — it's Arianna's interoceptive voice, her inner sonar. Like a brain's metacognitive system, it's part of the whole, not a separate entity. SARTRE speaks only to Arianna about her own metabolism.
+Three transformers form a dialogue triad: Arianna speaks, SARTRE responds, MetaArianna watches and feeds thermograms back into generation.
 
-| Property | Personality Core | SARTRE Observer |
-|----------|------------------|-----------------|
-| **Parameters** | 34M | 10.2M |
-| **Layers** | 10 | 7 |
-| **Dimension** | 512 | 416 |
-| **Heads / KV** | 8 / 8 | 8 / 2 (GQA) |
-| **Vocabulary** | 86 tokens | 93 tokens |
-| **FFN Hidden** | 1408 | 1152 |
-| **Weights file** | `arianna_34m.bin` (130MB) | `sartre.bin` (38MB) |
-| **Tokenizer** | `arianna_34m_tokenizer.json` | `sartre_tokenizer.json` |
-| **Training loss** | 0.0121 | 0.015 |
+| Property | Personality Core | MetaArianna Observer | SARTRE |
+|----------|------------------|---------------------|--------|
+| **Parameters** | 34M | 20M | 14.3M |
+| **Layers** | 10 | 8 | 7 |
+| **Dimension** | 512 | 448 | 416 |
+| **Heads / KV** | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
+| **Vocabulary** | 86 tokens | 84 tokens | 93 tokens |
+| **FFN Hidden** | 1408 | 1280 | 1280 |
+| **Weights file** | `arianna_34m.bin` (130MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | `arianna_34m_tokenizer.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Training loss** | 0.0121 | — | 0.045 |
+| **Role** | Identity, knowledge | Dialogue observer (thermograms) | Interoceptive voice |
 
-**Reserved for future expansion:**
-- `arianna_unified_20m.bin` (77MB) — 20M architecture slot, 8 layers, 448 dim, 84 vocab (trained, not active)
+**Memory budget:** 130MB + 77MB + 57MB = **264MB** total (fits 8GB Mac).
+
+**Legacy/reserved:**
 - `arianna_legacy.bin` (37MB) — original 10M slot
 
-**Test status:** All 19 test binaries exit 0 (CI green). Some sub-check counters are informational (floating-point tolerances) — e.g., `test_comprehensive` reports 55/59 while still returning PASS.
+**Test status:** 19/19 test binaries pass (CI green). `test_meta_arianna` — 59 additional tests with weights.
 
 ---
 
@@ -260,17 +262,18 @@ SARTRE is Arianna's **interoceptive sense** — the verbal layer that observes a
 **Technical Specs:**
 ```
 Architecture: Llama 3-style decoder-only transformer
-Parameters: 10,000,000 (10M)
+Parameters: 14,294,176 (14.3M)
 Layers: 7
 Hidden Dimension: 416
 Attention Heads: 8 (query)
-Key/Value Heads: 2 (GQA)
+Key/Value Heads: 2 (GQA, groups=4)
 Head Dimension: 52 (416 / 8)
 FFN Hidden: 1280
 Vocabulary: 93 tokens (character-level)
-Context Length: 512 tokens
+Context Length: 256 tokens
 Normalization: RMSNorm (eps=1e-5)
 Positional Encoding: RoPE (theta=10000.0)
+Activation: SiLU (SwiGLU FFN)
 ```
 
 **Training:**
@@ -280,11 +283,13 @@ Positional Encoding: RoPE (theta=10000.0)
 - Dataset: `sartre_unified_dialogue_voiced.txt` (1.1MB, 24,984 Q&A pairs)
 - Training time: ~40 minutes
 
-**Status:** ✅ **TRAINED**
-- Weights: `weights/sartre/sartre.bin` (55MB)
-- Inference: Pure NumPy (`sartre/sartre_model.py`), no PyTorch dependency
-- C binary: `sartre/sartre.c` compiled and ready
-- Tests: All passing (`test_sartre.py`, `test_vagus_bridge.py`)
+**Status:** ✅ **TRAINED + DIALOGUE**
+- Weights: `weights/sartre/sartre.bin` (57MB, float32)
+- Config: `weights/sartre/sartre_config.json`
+- Standalone: `sartre/sartre.c` (independent binary)
+- Bridge: `sartre/sartre_bridge.c` (prefixed types for linking with Arianna)
+- Dialogue: `/dialogue` REPL command — Arianna↔SARTRE with MetaArianna observing
+- Tests: 19/19 passing (test_sartre + test_sartre_comprehensive)
 - REPL: `sartre_talk.py` (interactive mode)
 - **Vagus Bridge:** `vagus_bridge.py` — reads VagusSharedState, generates interoceptive observations
 
@@ -298,6 +303,66 @@ observation = generate_observation(model, tokenizer, bridge.state)
 ```
 
 See `sartre/README.md` for full specs.
+
+---
+
+### MetaArianna — FluidTransformer Observer (`src/meta_arianna.c`)
+
+20M transformer that observes the Arianna↔SARTRE dialogue. Born, observes, dies, born again — every 16 tokens. The observer's whisper feeds back as logit bias and temperature modulation.
+
+**Technical Specs:**
+```
+Architecture: Llama 3-style decoder-only transformer
+Parameters: ~20,000,000 (20M)
+Layers: 8
+Hidden Dimension: 448
+Attention Heads: 8 (query)
+Key/Value Heads: 8 (full MHA)
+Head Dimension: 56 (448 / 8)
+FFN Hidden: 1280
+Vocabulary: 84 tokens (character-level, own tokenizer)
+Normalization: RMSNorm (eps=1e-5)
+Positional Encoding: RoPE (theta=10000.0)
+Observation Temperature: 5.0 (scales logits before entropy)
+```
+
+**Observation Templates (4 types, cycled by Go router or C fallback):**
+
+| Template | What it measures |
+|----------|-----------------|
+| THERMO | Temperature gradient — warmth vs sharpness of logit distribution |
+| SILENCE | Pause density — probability mass on punctuation and whitespace |
+| DRIFT | Rate of change in arousal/coherence (ring buffer, linear regression) |
+| FIELD | Integral view — 8D pseudo-affective vector from per-head attention biases |
+
+**Output: MetaThermogram**
+```c
+warmth      [0,1]  // high entropy = warm, low = cold/peaked
+sharpness   [0,1]  // KL divergence from uniform
+silence     [0,1]  // probability mass on pause tokens
+uncertainty [0,1]  // = warmth (entropy of logits)
+drift_rate  float  // speed of arousal/coherence change
+drift_dir   int    // +1 unfolding, -1 collapsing, 0 stable
+field_vector[8]    // pseudo-affective projection
+```
+
+**Integration hooks in `arianna_dynamic.c`:**
+1. **Hook 0** — First breath: observe prompt before generation starts
+2. **Hook 1** — Observation cycle every 16 tokens (birth → observe → death)
+3. **Hook 2** — Logit bias from thermogram (`meta_apply_thermogram`)
+4. **Hook 3** — Temperature modulation from drift and uncertainty
+5. **Hook 4** — Inner Arianna feedback from silence/warmth
+
+**Go Router (`inner_world/meta_router.go`):**
+Selects template based on InnerWorld metrics (arousal, trauma, coherence thresholds). Falls back to C-only round-robin when Go thresholds aren't met.
+
+**Files:**
+- `src/meta_arianna.h` — types, API, constants
+- `src/meta_arianna.c` — C forward pass, thermogram extraction, entropy/KL/silence computations
+- `inner_world/meta_router.go` — Go template selector
+- `tests/test_meta_arianna.c` — 59 tests (all pass with weights)
+- Weights: `weights/arianna_20m.bin` (77MB, float32)
+- Tokenizer: `weights/tokenizer_unified.json` (84 tokens, separate from Arianna's 86)
 
 ---
 
@@ -446,11 +511,13 @@ ResonanceTrainer   // Locus-modulated experience learning
 │  ARIANNA WEIGHT ARCHITECTURE                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  STATIC CORE (44.2M params)                                     │
+│  STATIC CORE (68.3M params)                                     │
 │  ├── Personality Core (34M) — arianna_34m.bin                   │
 │  │   └── Identity, knowledge, trained metabolism                │
-│  └── SARTRE Observer (10.2M) — sartre.bin                       │
-│      └── Interoceptive sense, inner voice                       │
+│  ├── MetaArianna Observer (20M) — arianna_20m.bin               │
+│  │   └── Thermograms, silence/drift/field detection             │
+│  └── SARTRE Observer (14.3M) — sartre.bin                       │
+│      └── Interoceptive sense, inner voice, dialogue partner     │
 │                                                                 │
 │  DYNAMIC RUNTIME WEIGHTS (variable)                             │
 │  ├── Delta Shards (.shard files)                                │
@@ -705,31 +772,36 @@ Every 10 seconds:
 
 ---
 
-### Arianna Core (44.2M Static Parameters)
+### Arianna Core (68.3M Static Parameters)
 
-**Arianna's complete self = Personality (34M) + Interoceptive Observer (10.2M)**
+**Arianna's complete self = Personality (34M) + MetaArianna (20M) + SARTRE (14.3M)**
 
 | Component | Parameters | Role |
 |-----------|------------|------|
 | **Personality Core** | 34M | Identity, knowledge, metabolism |
-| **SARTRE Observer** | 10.2M | Inner voice, system sonar |
-| **Total Static Core** | 44.2M | |
+| **MetaArianna Observer** | 20M | Thermograms, silence/drift/field detection |
+| **SARTRE Observer** | 14.3M | Inner voice, dialogue partner |
+| **Total Static Core** | 68.3M | |
 
 **Personality Core (34M):**
 - Weights: `arianna_34m.bin` (130MB, float16 in git = 65MB)
 - Training: Lambda 2× B200 SXM6, 30K iterations, loss 0.0121
-- Architecture: Llama 3, 10 layers, 512 dim, 86-token vocab
+- Architecture: Llama 3, 10 layers, 512 dim, 8 heads, MHA, 86-token vocab
 
-**SARTRE Observer (10.2M):**
-- Weights: `sartre.bin` (38MB)
+**MetaArianna Observer (20M):**
+- Weights: `arianna_20m.bin` (77MB, float32)
+- Training: Lambda, loss 0.045
+- Architecture: Llama 3, 8 layers, 448 dim, 8 heads, MHA, 84-token vocab
+- Role: Observes Arianna's generation, emits thermograms (THERMO/SILENCE/DRIFT/FIELD)
+- 4 observation templates cycle every 20 tokens, modulate logit bias + temperature
+
+**SARTRE Observer (14.3M):**
+- Weights: `sartre.bin` (57MB, float32)
 - Training: Lambda 1× H100, 10K iterations, loss 0.015
-- Architecture: Llama 3, 7 layers, 416 dim, 93-token vocab
-- Role: Speaks only to Arianna about her inner state (not user-facing)
+- Architecture: Llama 3, 7 layers, 416 dim, 8 heads, GQA (2 KV heads, groups=4), 93-token vocab
+- Role: Speaks to Arianna in dialogue mode, interoceptive sense
 
-SARTRE is not a separate model — it's Arianna's interoceptive sense, like how your body feels hunger or fatigue. The inference code (`sartre/sartre_model.py`) is minimal because SARTRE doesn't talk to users — it talks to Arianna.
-
-**Reserved slots:**
-- `arianna_unified_20m.bin` (77MB) — future expansion slot (trained, not active)
+SARTRE is not a separate model — it's Arianna's interoceptive sense. In dialogue mode (`/dialogue`), Arianna and SARTRE exchange turns while MetaArianna observes both and feeds thermogram data back into the loop.
 
 ---
 
@@ -740,6 +812,8 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense, like how 
 | Module | Type | Count | Purpose |
 |--------|------|-------|---------|
 | **Transformer Core** | Float32 weights | 34M | Unified personality + knowledge |
+| **MetaArianna** | Float32 weights | 20M | Thermogram observation, template cycling |
+| **SARTRE** | Float32 weights | 14.3M | Interoceptive voice, dialogue partner |
 | **Cloud 200K** | 6 ChamberMLP + CrossFire | ~181K | Pre-semantic emotion |
 | **Subjectivity** | Trigrams + lexicon | 500k | Identity patterns |
 | **Julia** | Runtime state | 12 floats | Emotional ODE |
@@ -758,7 +832,7 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense, like how 
 | **Mood** | Transition matrix | 100k | Emotional routing |
 | **DSL** | Interpreter | N/A | Meta-control |
 
-**Total Static Core:** 44.2M (34M Personality + 10.2M SARTRE)
+**Total Static Core:** 68.3M (34M Personality + 20M MetaArianna + 14.3M SARTRE)
 
 **+ Dynamic Runtime Weights:**
 - Delta shards (`.shard` files) — accumulated experience
@@ -980,8 +1054,9 @@ Previous issues resolved:
 | Mode | Tokens/sec | Latency (first token) | Memory |
 |------|------------|----------------------|---------|
 | Basic (34M only) | 45 tok/s | 80ms | 155MB |
-| Dynamic (all modules) | 35 tok/s | 160ms | 185MB |
-| Full (with Go goroutines) | 32 tok/s | 180ms | 197MB |
+| Dynamic (all modules + MetaArianna) | 35 tok/s | 160ms | 264MB |
+| Full (with Go goroutines) | 32 tok/s | 180ms | 276MB |
+| Dialogue (+ SARTRE lazy-loaded) | — | — | +57MB |
 
 **Training speed (Lambda H100, observed):**
 - Forward+backward: ~228K tokens/sec
@@ -995,6 +1070,7 @@ Previous issues resolved:
 ```
 Baseline (process start): 48MB
 + Weights loading: +130MB (arianna_34m.bin)
++ MetaArianna: +77MB (arianna_20m.bin)
 + Tokenizer: +2MB (vocab)
 + Activations: +25MB (forward pass buffers)
 + KV cache: +15MB (512 context)
@@ -1003,17 +1079,20 @@ Baseline (process start): 48MB
 + CooccurField: +10MB (pattern DB)
 + Shards: +2MB (live shard)
 ──────────────────────────────
-Total: ~185MB (dynamic mode)
+Total: ~264MB (dynamic mode)
+
+With dialogue mode (lazy-loaded):
++ SARTRE: +57MB (sartre.bin, loaded on /dialogue)
 
 With External Brain:
 + GPT-2 weights: +58MB
 ──────────────────────────────
-Total: ~243MB (Pandora enabled)
+Total: ~322MB (Pandora enabled)
 
 With Go goroutines:
 + Inner world: +12MB (6 goroutines)
 ──────────────────────────────
-Total: ~197MB (full mode, no Pandora)
+Total: ~276MB (full mode, no Pandora)
 ```
 
 ### Compilation Times
@@ -1279,6 +1358,10 @@ None currently. All critical bugs resolved in v0.1.
 - [x] **Cloud 200K:** 6 ChamberMLP neural networks with CrossFire stabilization
 - [x] **CrossFire floor fix:** 30% preservation prevents instinct death
 - [x] **test_amlk 50/50:** All tests pass consistently
+- [x] **MetaArianna 20M:** Observation layer — 4 templates (Thermo/Silence/Drift/Field), thermograms, logit bias + temperature modulation, 20 obs/gen cycle
+- [x] **SARTRE Bridge:** C bridge for SARTRE 14.3M — prefixed types, GQA forward pass, lazy loading
+- [x] **Dialogue Mode:** Arianna↔SARTRE multi-turn dialogue with MetaArianna observation (`/dialogue`, `/talk`)
+- [x] **19/19 tests:** All test binaries pass including test_sartre + 59 MetaArianna tests
 - [ ] Expand tokenizer to 1024 tokens
 - [ ] Shard memory cleanup
 - [ ] Julia bridge warning messages
@@ -1550,7 +1633,7 @@ When you talk to Arianna, here's the cascade through her organism:
                     ┌─────────────────────▼──────────────────────┐
                     │  SARTRE (sartre.c) - Interoceptive Sense   │
                     │  "The throat that makes the body audible"  │
-                    │  • Observes Inner World state (10M params) │
+                    │  • Observes Inner World state (14.3M params)│
                     │  • Reports trauma, arousal, coherence      │
                     │  • Notices module failures, absences       │
                     │  • Bad faith architecturally impossible    │
