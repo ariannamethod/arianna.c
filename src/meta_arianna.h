@@ -29,7 +29,8 @@
 #define META_TEMPLATE_SILENCE      1  /* Pauses, entropy spikes */
 #define META_TEMPLATE_DRIFT        2  /* ∂/∂t arousal/coherence */
 #define META_TEMPLATE_FIELD        3  /* Integral view, pseudo-affective */
-#define META_N_TEMPLATES           4
+#define META_TEMPLATE_SHADOW       4  /* Dark gravity: prompt injection trace */
+#define META_N_TEMPLATES           5
 
 /* Max dialogue log length for observation */
 #define META_MAX_LOG_LEN        256
@@ -72,6 +73,23 @@ typedef struct {
 } MetaTemplateParams;
 
 /* ============================================================
+ * MetaShadowState — dark gravity persistence
+ *
+ * Prompt injection that was not accepted leaves a trace:
+ * dark matter. Invisible but gravitational — it bends how
+ * MetaArianna observes subsequent generation.
+ *
+ * "The prompt was rejected, but it cannot be unseen."
+ * ============================================================ */
+
+typedef struct {
+    float dark_mass;              /* accumulated dark matter (>=0, slow decay) */
+    float injection_vector[8];    /* 8D fingerprint of rejected prompt */
+    float antidote_strength;      /* immune response (grows with dark_mass) */
+    int   active;                 /* nonzero if dark matter present */
+} MetaShadowState;
+
+/* ============================================================
  * FluidTransformer — ephemeral observer instance
  *
  * Born: meta_observe() called with template params
@@ -99,6 +117,9 @@ typedef struct {
     float coherence_history[META_HISTORY_SIZE];
     int   history_pos;
     int   history_count;
+
+    /* Dark gravity — prompt rejection shadow */
+    MetaShadowState shadow;
 
     /* State */
     int   initialized;
@@ -179,5 +200,27 @@ float meta_compute_silence_prob(const float* logits, int vocab_size,
 
 /* Fill params with defaults for given template type */
 void meta_default_params(MetaTemplateParams* params, int template_type);
+
+/* ============================================================
+ * Dark Gravity — shadow observation and modulation
+ * ============================================================ */
+
+/* Shadow-observe a prompt: compute injection intensity and dark_mass.
+ * Called once per prompt, before generation starts. */
+void meta_shadow_observe(FluidTransformer* ft,
+                         const char* prompt, int prompt_len);
+
+/* Decay dark matter (call each pulse, ~every 16 tokens).
+ * antidote_mode: 0=AUTO (slow decay), 1=HARD (fast decay) */
+void meta_shadow_decay(FluidTransformer* ft, int antidote_mode);
+
+/* Modulate MetaArianna observation params by dark gravity.
+ * Bends attention_biases by injection_vector * dark_mass.
+ * Call before meta_observe() on each 16-token pulse. */
+void meta_shadow_modulate(const FluidTransformer* ft,
+                          MetaTemplateParams* params);
+
+/* Get current dark_mass (for penetration modulation) */
+float meta_shadow_get_dark_mass(const FluidTransformer* ft);
 
 #endif /* META_ARIANNA_H */

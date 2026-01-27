@@ -253,7 +253,7 @@ $(TEST_BIN_DIR)/test_vagus_delta: $(TEST_DIR)/test_vagus_delta.c $(SRC_DIR)/vagu
 	$(CC) $(CFLAGS) -I$(SRC_DIR) -Ilocus -Ivagus $^ -o $@ $(LDFLAGS)
 
 test_meta_arianna: $(TEST_BIN_DIR)/test_meta_arianna
-$(TEST_BIN_DIR)/test_meta_arianna: $(TEST_DIR)/test_meta_arianna.c $(SRC_DIR)/meta_arianna.c $(TEST_COMMON)
+$(TEST_BIN_DIR)/test_meta_arianna: $(TEST_DIR)/test_meta_arianna.c $(SRC_DIR)/meta_arianna.c $(SRC_DIR)/amk_kernel.c $(SRC_DIR)/schumann.c $(TEST_COMMON)
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
