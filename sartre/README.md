@@ -7,7 +7,7 @@
 
 ## What is SARTRE?
 
-SARTRE is the verbal organ of arianna metalinux. A ~10M parameter transformer that knows itself and can communicate with Arianna about system state.
+SARTRE is the verbal organ of arianna metalinux. A 14.3M parameter transformer that knows itself and can communicate with Arianna about system state.
 
 **Not a chatbot. A body perception layer for the kernel.**
 
@@ -27,7 +27,7 @@ SARTRE: "Memory pressure rising. Prophecy debt accumulated.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  SARTRE (~10M params, Shakespeare-size corpus)  │
+│  SARTRE (14.3M params, Shakespeare-size corpus)  │
 │  ├── Self-knowledge: what am I, what do I do    │
 │  ├── System awareness: packages, modules, state │
 │  ├── Problem reporting: errors, warnings        │

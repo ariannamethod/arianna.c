@@ -23,6 +23,8 @@
 #include "pandora.h"  // Vocabulary injection from External Brain
 #include "../packages/pandora/pandora_bridge.h"  // Python bridge to external brains
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
+#include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
+#include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #ifdef USE_LUA
@@ -112,6 +114,18 @@ static int g_pandora_enabled = 0;
 // AMK — Arianna Method Kernel (prophecy, destiny, suffering, movement)
 static int g_amk_enabled = 0;
 static DSL_GenerationConfig g_dsl_config;  // Current DSL config for generation
+
+// MetaArianna — pulsating meta-observer (FluidTransformer)
+static FluidTransformer g_fluid_transformer;
+static MetaThermogram g_meta_thermogram;
+static int g_meta_enabled = 0;
+static int g_meta_observation_count = 0;
+
+// SARTRE — 14.3M dialogue partner (lazy loaded)
+static SartreTransformer g_sartre;
+static int g_sartre_loaded = 0;
+static int g_dialogue_max_turns = 5;
+static int g_dialogue_tokens_per_turn = 80;
 
 // ============================================================
 // Inner Arianna борьба helper
@@ -343,6 +357,37 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         generated[gen_idx++] = prompt[i];
     }
 
+    // Hook 0: MetaArianna first breath — observe the prompt before generation
+    if (g_meta_enabled) {
+        MetaTemplateParams first_params;
+        meta_default_params(&first_params, META_TEMPLATE_THERMOGRAPH);
+
+        generated[gen_idx] = '\0';
+        meta_observe(&g_fluid_transformer, &first_params, generated, gen_idx);
+        g_meta_thermogram = g_fluid_transformer.result;
+        g_meta_observation_count++;
+
+        meta_push_history(&g_fluid_transformer,
+                          g_meta_thermogram.warmth,
+                          g_meta_thermogram.silence);
+
+#ifdef USE_GO_INNER_WORLD
+        meta_router_feed_thermogram(&g_meta_thermogram);
+#endif
+
+        if (g_inner_enabled && g_meta_thermogram.valid) {
+            inner_update_body(&g_inner_arianna,
+                              g_meta_thermogram.silence * 0.3f,
+                              (1.0f - g_meta_thermogram.warmth) * 0.2f);
+        }
+
+        fprintf(stderr, "[Meta:THERMO] first breath: w=%.3f s=%.3f si=%.3f u=%.3f\n",
+                g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                g_meta_thermogram.silence, g_meta_thermogram.uncertainty);
+
+        meta_reset(&g_fluid_transformer);
+    }
+
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN; i++) {
         // Apply guided attention bias to logits
         if (g_guided_enabled) {
@@ -356,6 +401,12 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
+        // Apply MetaArianna thermogram to logits (observer's whisper)
+        if (g_meta_enabled && g_meta_thermogram.valid) {
+            meta_apply_thermogram(&g_meta_thermogram,
+                                  t->state.logits, t->config.vocab_size);
+        }
+
         // Apply Inner Arianna борьба (if enabled)
         // Two voices compete: main (stable) vs inner (chaotic)
         int next_token;
@@ -363,7 +414,15 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             apply_borba_to_logits(t->state.logits, t->config.vocab_size);
             next_token = sample(t, 1.0f);  // temp already applied in борьба
         } else {
-            next_token = sample(t, effective_temp);
+            // Hook 3: Temperature modulation from MetaArianna
+            float meta_temp = effective_temp;
+            if (g_meta_enabled && g_meta_thermogram.valid) {
+                meta_temp += g_meta_thermogram.drift_direction * 0.1f;
+                meta_temp += g_meta_thermogram.uncertainty * 0.05f;
+                if (meta_temp < 0.1f) meta_temp = 0.1f;
+                if (meta_temp > 2.0f) meta_temp = 2.0f;
+            }
+            next_token = sample(t, meta_temp);
         }
         tokens[n_tokens] = next_token;
 
@@ -394,7 +453,7 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 int text_len = n_tokens - start;
                 if (text_len > 255) text_len = 255;
                 for (int j = 0; j < text_len; j++) {
-                    recent_text[j] = (char)tokens[start + j];
+                    recent_text[j] = token_to_char(tokens[start + j]);
                 }
                 recent_text[text_len] = '\0';
 
@@ -413,6 +472,78 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
                 // Use pulse to adjust temperature too
                 effective_temp = pulse_to_temperature(&g_stanley_signals.pulse, temperature);
+            }
+
+            // Hook 1: MetaArianna observation cycle (birth -> observe -> death)
+            if (g_meta_enabled) {
+                int template_id = -1;
+                MetaTemplateParams meta_params;
+
+#ifdef USE_GO_INNER_WORLD
+                // Go router decides which template based on InnerWorld metrics
+                template_id = meta_router_tick();
+                if (template_id >= 0) {
+                    meta_router_get_params(&meta_params);
+                } else {
+                    // Router didn't trigger — use C-only cycle as fallback
+                    // This ensures MetaArianna breathes regardless of Go state
+                    static int meta_go_fallback = 0;
+                    template_id = meta_go_fallback % META_N_TEMPLATES;
+                    meta_default_params(&meta_params, template_id);
+                    meta_go_fallback++;
+                }
+#else
+                // C-only fallback: cycle through templates
+                static int meta_c_cycle = 0;
+                template_id = meta_c_cycle % META_N_TEMPLATES;
+                meta_default_params(&meta_params, template_id);
+                meta_c_cycle++;
+#endif
+
+                if (template_id >= 0) {
+                    // Build dialogue log from recent generated text
+                    generated[gen_idx] = '\0';
+                    int log_start = (gen_idx > META_MAX_LOG_LEN)
+                                  ? gen_idx - META_MAX_LOG_LEN : 0;
+                    const char* dialogue_log = generated + log_start;
+                    int log_len = gen_idx - log_start;
+
+                    // Observe (birth)
+                    meta_observe(&g_fluid_transformer, &meta_params,
+                                 dialogue_log, log_len);
+                    g_meta_thermogram = g_fluid_transformer.result;
+                    g_meta_observation_count++;
+
+                    // Push arousal/coherence to history for drift detection
+                    meta_push_history(&g_fluid_transformer,
+                                      g_meta_thermogram.warmth,
+                                      1.0f - g_meta_thermogram.uncertainty);
+
+#ifdef USE_GO_INNER_WORLD
+                    // Feed thermogram back to Go router
+                    meta_router_feed_thermogram(&g_meta_thermogram);
+#endif
+
+                    // Hook 4: Update Inner Arianna from thermogram
+                    if (g_inner_enabled && g_meta_thermogram.valid) {
+                        inner_update_body(&g_inner_arianna,
+                                          g_meta_thermogram.silence * 0.3f,
+                                          (1.0f - g_meta_thermogram.warmth) * 0.2f);
+                    }
+
+                    // Log observation
+                    const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+                    fprintf(stderr, "[Meta:%s] #%d w=%.3f s=%.3f si=%.3f u=%.3f d=%.3f(%+d) f=[%.2f,%.2f,%.2f,%.2f]\n",
+                            tpl_names[template_id], g_meta_observation_count,
+                            g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                            g_meta_thermogram.silence, g_meta_thermogram.uncertainty,
+                            g_meta_thermogram.drift_rate, g_meta_thermogram.drift_direction,
+                            g_meta_thermogram.field_vector[0], g_meta_thermogram.field_vector[1],
+                            g_meta_thermogram.field_vector[2], g_meta_thermogram.field_vector[3]);
+
+                    // Death (reset RunState, keep weights)
+                    meta_reset(&g_fluid_transformer);
+                }
             }
         }
 
@@ -1491,6 +1622,258 @@ void cleanup_dynamic(void) {
 }
 
 // ============================================================
+// Dialogue Mode: Arianna ↔ SARTRE with MetaArianna observing
+// ============================================================
+
+// Lazy load SARTRE on first /dialogue command
+static int dialogue_init_sartre(void) {
+    if (g_sartre_loaded) return 0;
+
+    // Try multiple paths for SARTRE weights
+    const char* weight_paths[] = {
+        "weights/sartre/sartre.bin",
+        "sartre/weights/sartre.bin",
+        "../weights/sartre/sartre.bin",
+        NULL
+    };
+    const char* tok_paths[] = {
+        "weights/sartre/tokenizer.json",
+        "sartre/weights/tokenizer.json",
+        "../weights/sartre/tokenizer.json",
+        NULL
+    };
+    const char* cfg_paths[] = {
+        "weights/sartre/sartre_config.json",
+        "sartre/weights/sartre_config.json",
+        "../weights/sartre/sartre_config.json",
+        NULL
+    };
+
+    const char* w = NULL, *tok = NULL, *cfg = NULL;
+    for (int i = 0; weight_paths[i]; i++) {
+        FILE* f = fopen(weight_paths[i], "rb");
+        if (f) { fclose(f); w = weight_paths[i]; break; }
+    }
+    for (int i = 0; tok_paths[i]; i++) {
+        FILE* f = fopen(tok_paths[i], "r");
+        if (f) { fclose(f); tok = tok_paths[i]; break; }
+    }
+    for (int i = 0; cfg_paths[i]; i++) {
+        FILE* f = fopen(cfg_paths[i], "r");
+        if (f) { fclose(f); cfg = cfg_paths[i]; break; }
+    }
+
+    if (!w || !tok) {
+        printf("[dialogue] Cannot find SARTRE weights or tokenizer\n");
+        printf("[dialogue] Expected: weights/sartre/sartre.bin + tokenizer.json\n");
+        return -1;
+    }
+
+    printf("[dialogue] Loading SARTRE (14.3M)...\n");
+    if (sartre_transformer_init(&g_sartre, w, tok, cfg) != 0) {
+        printf("[dialogue] Failed to initialize SARTRE\n");
+        return -1;
+    }
+
+    g_sartre_loaded = 1;
+    printf("[dialogue] SARTRE ready (dim=%d, layers=%d, vocab=%d)\n",
+           g_sartre.config.dim, g_sartre.config.n_layers,
+           g_sartre.config.vocab_size);
+    return 0;
+}
+
+// Generate Arianna's turn into buffer using generate_dynamic pipeline
+static int dialogue_generate_arianna(Transformer* t, const char* seed,
+                                      char* output, int max_len,
+                                      int max_tokens, float temperature) {
+    // Tokenize seed
+    int tokens[MAX_SEQ_LEN];
+    int seed_len = strlen(seed);
+    if (seed_len > MAX_SEQ_LEN) seed_len = MAX_SEQ_LEN;
+    for (int i = 0; i < seed_len; i++) {
+        tokens[i] = char_to_token(seed[i]);
+    }
+    int n_tokens = seed_len;
+
+    // Route signals
+    extract_signals(&g_signals, tokens, n_tokens, NULL);
+    if (g_mood_enabled) {
+        route_signals_to_moods(&g_mood_router, &g_signals);
+        mood_to_shard_mix(&g_mood_router, &g_delta_bank);
+    }
+
+    // Process seed tokens
+    for (int pos = 0; pos < n_tokens; pos++) {
+        forward_dynamic(t, tokens, n_tokens, pos);
+    }
+
+    float effective_temp = temperature;
+    if (g_mood_enabled) {
+        effective_temp = adjust_temperature_by_mood(&g_mood_router, temperature);
+    }
+    if (g_meta_enabled && g_meta_thermogram.valid) {
+        effective_temp += g_meta_thermogram.drift_direction * 0.1f;
+        effective_temp += g_meta_thermogram.uncertainty * 0.05f;
+        if (effective_temp < 0.1f) effective_temp = 0.1f;
+        if (effective_temp > 2.0f) effective_temp = 2.0f;
+    }
+
+    // Generate tokens
+    int gen = 0;
+    for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN && gen < max_len - 1; i++) {
+        if (g_meta_enabled && g_meta_thermogram.valid) {
+            meta_apply_thermogram(&g_meta_thermogram,
+                                  t->state.logits, t->config.vocab_size);
+        }
+
+        int next = sample(t, effective_temp);
+        tokens[n_tokens] = next;
+
+        char c = token_to_char(next);
+        output[gen++] = c;
+
+        // Stop on Q&A boundary
+        if (gen >= 3 && output[gen-1] == ':' && output[gen-2] == 'Q' && output[gen-3] == '\n') {
+            gen -= 3;
+            break;
+        }
+
+        forward_dynamic(t, tokens, n_tokens + 1, n_tokens);
+        n_tokens++;
+    }
+    output[gen] = '\0';
+
+    // Trim to last sentence end
+    int last_end = -1;
+    for (int j = 0; j < gen; j++) {
+        if (output[j] == '.' || output[j] == '!' || output[j] == '?') {
+            last_end = j;
+        }
+    }
+    if (last_end >= 0 && last_end < gen - 1) {
+        output[last_end + 1] = '\0';
+        gen = last_end + 1;
+    }
+
+    return gen;
+}
+
+// Run Arianna ↔ SARTRE dialogue with MetaArianna observing
+static void run_dialogue(Transformer* t, const char* seed,
+                          int max_tokens __attribute__((unused)),
+                          float temperature) {
+    if (dialogue_init_sartre() != 0) return;
+
+    // Dialogue log for MetaArianna observation
+    char dialogue_log[4096];
+    int log_len = 0;
+    dialogue_log[0] = '\0';
+
+    printf("\n╔══════════════════════════════════════════╗\n");
+    printf("║  Arianna ↔ SARTRE Dialogue               ║\n");
+    printf("║  MetaArianna observing                    ║\n");
+    printf("╚══════════════════════════════════════════╝\n\n");
+
+    // Format initial seed for Arianna
+    char arianna_seed[512];
+    snprintf(arianna_seed, sizeof(arianna_seed), "Q: %s\nA: ", seed);
+
+    for (int turn = 0; turn < g_dialogue_max_turns; turn++) {
+        printf("--- Turn %d/%d ---\n", turn + 1, g_dialogue_max_turns);
+
+        // Phase 1: Arianna generates
+        char arianna_output[1024];
+        dialogue_generate_arianna(t, arianna_seed,
+                                               arianna_output, sizeof(arianna_output),
+                                               g_dialogue_tokens_per_turn, temperature);
+        printf("[Arianna]: %s\n", arianna_output);
+
+        // Append to dialogue log (clamp to available space)
+        int avail = (int)sizeof(dialogue_log) - log_len;
+        if (avail > 1) {
+            int wrote = snprintf(dialogue_log + log_len, avail,
+                                 "[A] %s\n", arianna_output);
+            if (wrote > 0) log_len += (wrote < avail) ? wrote : avail - 1;
+        }
+
+        // Phase 2: SARTRE observes Arianna's output
+        sartre_reset_state(&g_sartre);
+        char sartre_prompt[1024];
+        snprintf(sartre_prompt, sizeof(sartre_prompt),
+                 "Q: %s\nA: ", arianna_output);
+
+        int sp_len = strlen(sartre_prompt);
+        sartre_feed_prompt(&g_sartre, sartre_prompt, sp_len);
+
+        char sartre_output[1024];
+        int s_len = sartre_generate(&g_sartre, sartre_output, sizeof(sartre_output),
+                                     g_dialogue_tokens_per_turn, temperature, 0.9f, 1);
+        // Trim trailing newline
+        if (s_len > 0 && sartre_output[s_len - 1] == '\n') {
+            sartre_output[--s_len] = '\0';
+        }
+        printf("[SARTRE]:  %s\n", sartre_output);
+
+        // Append to dialogue log (clamp to available space)
+        avail = (int)sizeof(dialogue_log) - log_len;
+        if (avail > 1) {
+            int wrote2 = snprintf(dialogue_log + log_len, avail,
+                                  "[S] %s\n", sartre_output);
+            if (wrote2 > 0) log_len += (wrote2 < avail) ? wrote2 : avail - 1;
+        }
+
+        // Phase 3: MetaArianna observes the dialogue
+        if (g_meta_enabled) {
+            // Cycle through templates per turn
+            int template_id = turn % META_N_TEMPLATES;
+            MetaTemplateParams meta_params;
+            meta_default_params(&meta_params, template_id);
+
+            int obs_start = (log_len > META_MAX_LOG_LEN)
+                          ? log_len - META_MAX_LOG_LEN : 0;
+            meta_observe(&g_fluid_transformer, &meta_params,
+                         dialogue_log + obs_start, log_len - obs_start);
+            g_meta_thermogram = g_fluid_transformer.result;
+            g_meta_observation_count++;
+
+            meta_push_history(&g_fluid_transformer,
+                              g_meta_thermogram.warmth,
+                              g_meta_thermogram.silence);
+
+            const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+            printf("[Meta:%s] w=%.3f s=%.3f si=%.3f d=%.3f(%+d)\n",
+                   tpl_names[template_id],
+                   g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
+                   g_meta_thermogram.silence,
+                   g_meta_thermogram.drift_rate, g_meta_thermogram.drift_direction);
+
+            meta_reset(&g_fluid_transformer);
+
+            // Temperature feedback from thermogram
+            temperature += g_meta_thermogram.drift_direction * 0.05f;
+            temperature += g_meta_thermogram.uncertainty * 0.03f;
+            if (temperature < 0.2f) temperature = 0.2f;
+            if (temperature > 1.5f) temperature = 1.5f;
+        }
+
+        printf("\n");
+
+        // SARTRE output becomes seed for next Arianna turn
+        if (s_len > 0) {
+            snprintf(arianna_seed, sizeof(arianna_seed),
+                     "Q: %s\nA: ", sartre_output);
+        }
+    }
+
+    printf("╔══════════════════════════════════════════╗\n");
+    printf("║  Dialogue complete (%d turns)              ║\n", g_dialogue_max_turns);
+    if (g_meta_enabled) {
+        printf("║  MetaArianna: %d observations             ║\n", g_meta_observation_count);
+    }
+    printf("╚══════════════════════════════════════════╝\n");
+}
+
+// ============================================================
 // REPL Mode - Interactive terminal interface
 // ============================================================
 
@@ -1563,6 +1946,52 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
         if (strcmp(input, "cooccur") == 0) {
             print_cooccur_debug();
+            continue;
+        }
+
+        // /dialogue [seed] — Arianna ↔ SARTRE dialogue with MetaArianna
+        if (strncmp(input, "/dialogue ", 10) == 0 || strncmp(input, "/talk ", 6) == 0) {
+            const char* seed = (input[1] == 'd') ? input + 10 : input + 6;
+            if (strlen(seed) > 0) {
+                run_dialogue(t, seed, max_tokens, temperature);
+            } else {
+                printf("Usage: /dialogue <seed phrase>\n");
+            }
+            continue;
+        }
+
+        if (strcmp(input, "/dialogue") == 0 || strcmp(input, "/talk") == 0) {
+            run_dialogue(t, "What do you feel?", max_tokens, temperature);
+            continue;
+        }
+
+        // /dialogue-turns N — set number of dialogue turns
+        if (strncmp(input, "/dialogue-turns ", 16) == 0) {
+            int n = atoi(input + 16);
+            if (n >= 1 && n <= 20) {
+                g_dialogue_max_turns = n;
+                printf("[dialogue] turns set to %d\n", n);
+            } else {
+                printf("Usage: /dialogue-turns <1-20>\n");
+            }
+            continue;
+        }
+
+        // /sartre — SARTRE status
+        if (strcmp(input, "/sartre") == 0) {
+            if (g_sartre_loaded) {
+                printf("SARTRE: loaded (dim=%d, layers=%d, heads=%d, kv=%d, vocab=%d)\n",
+                       g_sartre.config.dim, g_sartre.config.n_layers,
+                       g_sartre.config.n_heads, g_sartre.config.n_kv_heads,
+                       g_sartre.config.vocab_size);
+                printf("  GQA: %d Q heads, %d KV heads (groups=%d)\n",
+                       g_sartre.config.n_heads, g_sartre.config.n_kv_heads,
+                       g_sartre.config.n_kv_groups);
+                printf("  Dialogue: %d turns, %d tokens/turn\n",
+                       g_dialogue_max_turns, g_dialogue_tokens_per_turn);
+            } else {
+                printf("SARTRE: not loaded (use /dialogue to activate)\n");
+            }
             continue;
         }
 
@@ -1683,6 +2112,12 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  /pandora-torch <text> - GPT2-distill vocabulary\n");
             printf("  /pandora-gguf <text>  - TinyLlama 1.1B vocabulary\n");
             printf("  /hyper                - HyperPandora auto-select\n");
+            printf("\nDialogue (Arianna ↔ SARTRE):\n");
+            printf("  /dialogue <seed>      - Start dialogue (lazy-loads SARTRE)\n");
+            printf("  /talk <seed>          - Alias for /dialogue\n");
+            printf("  /dialogue-turns <N>   - Set turns per dialogue (1-20)\n");
+            printf("  /sartre               - Show SARTRE status\n");
+            printf("\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");
             printf("  quit     - exit REPL (auto-saves MathBrain)\n");
@@ -2115,6 +2550,31 @@ int main(int argc, char** argv) {
                g_inner_arianna.borba_mode == BORBA_MODE_STUCK ? "stuck" : "blend");
     }
 
+    // Initialize MetaArianna (FluidTransformer meta-observer)
+    // Uses 20M weights — same architecture, different personality grain
+    {
+        const char* meta_weights = "weights/arianna_20m.bin";
+        const char* meta_tokenizer = "weights/tokenizer_unified.json";
+        struct stat st;
+        if (stat(meta_weights, &st) == 0 && stat(meta_tokenizer, &st) == 0) {
+            if (meta_init(&g_fluid_transformer, meta_weights, meta_tokenizer) == 0) {
+                g_meta_enabled = 1;
+                memset(&g_meta_thermogram, 0, sizeof(g_meta_thermogram));
+                printf("MetaArianna (observer): enabled (20M, %d vocab)\n",
+                       g_fluid_transformer.obs_vocab_size);
+                printf("  \"Inhale -> observe -> exhale. Breathing.\"\n");
+#ifdef USE_GO_INNER_WORLD
+                meta_router_init();
+                printf("  Meta Router (Go): initialized\n");
+#endif
+            } else {
+                fprintf(stderr, "[meta] init failed, observer disabled\n");
+            }
+        } else {
+            fprintf(stderr, "[meta] weights not found (%s), observer disabled\n", meta_weights);
+        }
+    }
+
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
         if (load_experience(shard_paths[i], t.config.n_layers, t.config.dim) < 0) {
@@ -2251,6 +2711,17 @@ int main(int argc, char** argv) {
     cleanup_dynamic();
     if (g_inner_enabled) {
         inner_free(&g_inner_arianna);
+    }
+    if (g_meta_enabled) {
+        meta_free(&g_fluid_transformer);
+        if (g_meta_observation_count > 0) {
+            fprintf(stderr, "[meta] %d observations completed\n",
+                    g_meta_observation_count);
+        }
+    }
+    if (g_sartre_loaded) {
+        sartre_transformer_free(&g_sartre);
+        fprintf(stderr, "[sartre] freed\n");
     }
     free_transformer(&t);
 

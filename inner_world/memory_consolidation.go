@@ -434,9 +434,4 @@ func countOverlap(a, b []string) int {
 	return count
 }
 
-func min32(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
+// min32 defined in types.go

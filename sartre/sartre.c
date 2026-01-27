@@ -641,7 +641,7 @@ void print_usage(char* prog) {
 }
 
 int main(int argc, char** argv) {
-    // SARTRE config (10M params, 7 layers, 416 dim)
+    // SARTRE config (14.3M params, 7 layers, 416 dim)
     Config config = {
         .dim = 416,
         .n_layers = 7,
