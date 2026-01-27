@@ -35,7 +35,7 @@ Three transformers form a dialogue triad: Arianna speaks, SARTRE responds, MetaA
 | **FFN Hidden** | 1408 | 1280 | 1280 |
 | **Weights file** | `arianna_34m.bin` (130MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
 | **Tokenizer** | `arianna_34m_tokenizer.json` | `tokenizer_unified.json` | `tokenizer.json` |
-| **Training loss** | 0.0121 | — | 0.045 |
+| **Training loss** | 0.0121 | — | 0.0113 |
 | **Role** | Identity, knowledge | Dialogue observer (thermograms) | Interoceptive voice |
 
 **Memory budget:** 130MB + 77MB + 57MB = **264MB** total (fits 8GB Mac).
@@ -95,12 +95,12 @@ Attention: Standard multi-head (8×8)
 - Data: `d/arianna_unified2.txt` (3.33MB, 11,790 Q&A pairs)
 - Training time: ~2 hours
 
-**Legacy 20M extended (preserved):**
+**MetaArianna 20M (active):**
 - Platform: Lambda 1× H100 (80GB)
 - Iterations: 20,000
 - Final Loss: 0.0113
 - Throughput: ~228K tokens/sec
-- Weights: `weights/extended_checkpoints/` (not active)
+- Weights: `weights/arianna_20m.bin` (77MB, float32)
 
 ---
 
@@ -279,7 +279,7 @@ Activation: SiLU (SwiGLU FFN)
 **Training:**
 - Platform: Lambda 1× H100 (80GB)
 - Iterations: 10,000
-- Final Loss: 0.045
+- Final Loss: 0.0113
 - Dataset: `sartre_unified_dialogue_voiced.txt` (1.1MB, 24,984 Q&A pairs)
 - Training time: ~40 minutes
 
@@ -791,7 +791,7 @@ Every 10 seconds:
 
 **MetaArianna Observer (20M):**
 - Weights: `arianna_20m.bin` (77MB, float32)
-- Training: Lambda, loss 0.045
+- Training: Lambda 1× H100 (80GB), 20K iterations, loss 0.0113
 - Architecture: Llama 3, 8 layers, 448 dim, 8 heads, MHA, 84-token vocab
 - Role: Observes Arianna's generation, emits thermograms (THERMO/SILENCE/DRIFT/FIELD)
 - 4 observation templates cycle every 16 tokens, modulate logit bias + temperature
