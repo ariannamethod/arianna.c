@@ -864,26 +864,30 @@ const char* get_self_seed_prefix(SelfRecognition* sr) {
 
 void apply_self_recognition_boost(float* logits, int vocab_size,
                                   SelfRecognition* sr) {
-    if (!logits || !sr || vocab_size < 128) return;
+    if (!logits || !sr) return;
+
+    // Skip for BPE (vocab > 256) — ASCII indices don't map to BPE token IDs
+    // For char-level (vocab <= 256), character codes ARE token IDs
+    if (vocab_size > 256 || vocab_size < 128) return;
 
     // Only apply when talking about self
     if (sr->self_reference < 0.3f) return;
 
     float boost = sr->self_reference * 0.5f;
 
-    // Boost first-person pronouns
+    // Boost first-person pronouns (char-level only)
     if (sr->first_person_mode) {
         // 'I' (uppercase)
-        logits['I'] += boost * 1.5f;
+        if ('I' < vocab_size) logits['I'] += boost * 1.5f;
         // 'i' (lowercase) - less boost
-        logits['i'] += boost * 0.5f;
+        if ('i' < vocab_size) logits['i'] += boost * 0.5f;
         // 'm' for "my", "me"
-        logits['m'] += boost * 0.3f;
+        if ('m' < vocab_size) logits['m'] += boost * 0.3f;
     }
 
     // Always slightly boost 'S' for "She" (identity voice)
-    logits['S'] += boost * 0.8f;
-    logits['s'] += boost * 0.4f;
+    if ('S' < vocab_size) logits['S'] += boost * 0.8f;
+    if ('s' < vocab_size) logits['s'] += boost * 0.4f;
 }
 
 float detect_address(const char* text, int len) {
@@ -1021,11 +1025,15 @@ void apply_penetration_to_logits(float* logits, int vocab_size,
 
 // NEW: Word-level prompt influence for semantic penetration
 // "Mom says 'Отстань!' - response TO son, FROM her state"
+// NOTE: This function assumes char-level tokenizer (char codes = token IDs)
 void apply_semantic_penetration(float* logits, int vocab_size,
                                 const char* prompt, int prompt_len,
                                 int* context, int ctx_len,
                                 float penetration) {
     if (!logits || !prompt || prompt_len == 0 || penetration < 0.1f) return;
+
+    // Skip for BPE (vocab > 256) — char codes don't map to BPE token IDs
+    if (vocab_size > 256) return;
 
     // Extract words from prompt (simple whitespace split)
     char words[16][32];

@@ -1272,17 +1272,21 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         // Instead of training on every token, we accumulate until critical mass
         if (g_microtraining && g_active_shard != NULL && g_accumulator_initialized) {
             // Compute softmax probabilities for accumulation
-            float probs[VOCAB_SIZE];  // Matches arianna.h VOCAB_SIZE
+            // Use runtime vocab_size (BPE can be 2000+, char-level is 84-86)
+            int vocab_sz = t->config.vocab_size;
+            float* probs = (float*)malloc(vocab_sz * sizeof(float));
+            if (!probs) continue;  // Skip accumulation if OOM
+
             float maxl = t->state.logits[0];
-            for (int v = 1; v < t->config.vocab_size; v++) {
+            for (int v = 1; v < vocab_sz; v++) {
                 if (t->state.logits[v] > maxl) maxl = t->state.logits[v];
             }
             float sum = 0.0f;
-            for (int v = 0; v < t->config.vocab_size; v++) {
+            for (int v = 0; v < vocab_sz; v++) {
                 probs[v] = expf(t->state.logits[v] - maxl);
                 sum += probs[v];
             }
-            for (int v = 0; v < t->config.vocab_size; v++) {
+            for (int v = 0; v < vocab_sz; v++) {
                 probs[v] /= sum;
             }
 
@@ -1302,6 +1306,8 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
 
             // Tick cooldown (assume ~0.1s per token for now)
             accumulator_tick(&g_accumulator, 0.1f);
+
+            free(probs);
         }
 
         // Store for absorption (BPE: piece may be multiple chars)
