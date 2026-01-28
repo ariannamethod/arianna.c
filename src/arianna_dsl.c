@@ -95,6 +95,8 @@ DSL_GenerationConfig dsl_build_config(void) {
 
 void dsl_apply_to_logits(float* logits, int vocab_size,
                          const DSL_GenerationConfig* cfg) {
+    if (vocab_size <= 0) return;
+
     // 1. Apply destiny bias
     if (cfg->destiny_bias > 0.01f) {
         dsl_apply_destiny(logits, vocab_size, cfg->destiny_bias);
@@ -118,7 +120,9 @@ void dsl_apply_to_logits(float* logits, int vocab_size,
 
     // 4. Apply emotion temperature bias
     if (fabsf(cfg->emotion_temp_bias) > 0.01f) {
-        float scale = 1.0f / (1.0f + cfg->emotion_temp_bias);
+        float denom = 1.0f + cfg->emotion_temp_bias;
+        if (fabsf(denom) < 1e-6f) denom = 1e-6f;  // prevent div-by-zero
+        float scale = 1.0f / denom;
         for (int i = 0; i < vocab_size; i++) {
             logits[i] *= scale;
         }

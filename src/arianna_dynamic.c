@@ -637,6 +637,14 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         }
         tokens[n_tokens] = next_token;
 
+        // Prophecy debt: choosing improbable paths costs destiny
+        if (g_amk_enabled && next_token >= 0 && next_token < t->config.vocab_size) {
+            float debt_delta = dsl_compute_prophecy_debt(
+                t->state.logits, next_token, t->config.vocab_size);
+            AM_State* amk = am_get_state();
+            amk->debt += debt_delta;
+        }
+
         // Add to buffer instead of putchar
         char c = token_to_char(next_token);
         if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
@@ -1175,10 +1183,11 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                 char last_char = token_to_char(tokens[n_tokens - 1]);
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
                     // Wormhole: skip tokens (time travel to future sentence)
-                    for (int s = 0; s < skip && i + 1 < max_tokens; s++) {
+                    for (int s = 0; s < skip && i + 1 < max_tokens && n_tokens + 1 < MAX_SEQ_LEN; s++) {
                         tokens[++n_tokens] = char_to_token(' ');
                         i++;
                     }
+                    g_dsl_config.wormhole_active = 1;
                 }
             }
 
@@ -1189,7 +1198,7 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             if (tunnel_skip > 0 && n_tokens > 0) {
                 char last_char = token_to_char(tokens[n_tokens - 1]);
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
-                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens; s++) {
+                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens && n_tokens + 1 < MAX_SEQ_LEN; s++) {
                         tokens[++n_tokens] = char_to_token(' ');
                         i++;
                     }
@@ -1211,10 +1220,19 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         tokens[n_tokens] = next_token;
         char c = token_to_char(next_token);
 
-        // Go inner_world: accumulate prophecy debt and check wormhole
+        // Prophecy debt: choosing improbable paths costs destiny
+        // Feeds AM_State.debt which decays via am_step() and modulates field physics
+        if (g_amk_enabled && next_token >= 0 && next_token < t->config.vocab_size) {
+            float debt_delta = dsl_compute_prophecy_debt(
+                t->state.logits, next_token, t->config.vocab_size);
+            AM_State* amk = am_get_state();
+            amk->debt += debt_delta;
+        }
+
+        // Go inner_world: additional prophecy debt + wormhole check
 #ifdef USE_GO_INNER_WORLD
         {
-            // Get token probability for prophecy debt calculation
+            // Get token probability for Go-side prophecy debt
             float max_logit = t->state.logits[0];
             for (int v = 1; v < t->config.vocab_size; v++) {
                 if (t->state.logits[v] > max_logit) max_logit = t->state.logits[v];
