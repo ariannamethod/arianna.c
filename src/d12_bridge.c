@@ -299,8 +299,12 @@ static int d12_bigram_hash(int curr, int prev, int bigram_vocab) {
  * State allocation
  * ============================================================ */
 
-static void d12_alloc_state(NanoRunState* s, const NanoConfig* c) {
+static void d12_free_state(NanoRunState* s);  // Forward declaration
+
+static int d12_alloc_state(NanoRunState* s, const NanoConfig* c) {
     int n = c->n_embd, kv = c->kv_dim, hd = c->head_dim;
+    memset(s, 0, sizeof(NanoRunState));
+
     s->x         = calloc(n, sizeof(float));
     s->x0        = calloc(n, sizeof(float));
     s->x0_bigram = calloc(n, sizeof(float));
@@ -318,9 +322,17 @@ static void d12_alloc_state(NanoRunState* s, const NanoConfig* c) {
     int half = hd / 2;
     s->cos_cache = calloc((size_t)c->seq_len * half, sizeof(float));
     s->sin_cache = calloc((size_t)c->seq_len * half, sizeof(float));
-    if (!s->logits || !s->key_cache || !s->value_cache) {
-        fprintf(stderr, "[d12_bridge] Failed to allocate buffers\n");
+
+    // SECURITY: Check ALL allocations
+    if (!s->x || !s->x0 || !s->x0_bigram || !s->xn ||
+        !s->q || !s->k || !s->v || !s->att || !s->y_att || !s->hb ||
+        !s->logits || !s->key_cache || !s->value_cache ||
+        !s->cos_cache || !s->sin_cache) {
+        fprintf(stderr, "[d12_bridge] OOM: failed to allocate buffers\n");
+        d12_free_state(s);
+        return -1;
     }
+    return 0;
 }
 
 static void d12_free_state(NanoRunState* s) {
@@ -491,7 +503,11 @@ static int d12_load_model(NanoModel* m, const char* path) {
         printf("[d12_bridge] Loaded %.1f MB from %s\n", file_size/1024.0/1024.0, path);
     }
 
-    d12_alloc_state(&m->state, c);
+    if (d12_alloc_state(&m->state, c) != 0) {
+        munmap(data, file_size);
+        close(fd);
+        return -1;
+    }
     d12_precompute_rope(&m->state, c);
     return 0;
 }

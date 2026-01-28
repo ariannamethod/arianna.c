@@ -123,6 +123,13 @@ int bpe_load(BPETokenizer* tok, const char* json_path) {
         if (*pos == ':') pos++;
         while (*pos && (*pos == ' ' || *pos == '\t')) pos++;
 
+        // SECURITY: Validate ID bounds before accessing pieces array
+        if (id < 0 || id >= BPE_MAX_VOCAB) {
+            // Skip invalid token ID to prevent out-of-bounds write
+            while (*pos && *pos != ',' && *pos != '}') pos++;
+            continue;
+        }
+
         // Parse piece
         if (*pos == '"') {
             pos++;

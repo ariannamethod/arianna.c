@@ -126,9 +126,9 @@ typedef struct {
 // Function Declarations
 // ============================================================
 
-// Memory management
-void malloc_weights(Transformer* t);
-void malloc_run_state(Transformer* t);
+// Memory management (return 0 on success, -1 on OOM)
+int malloc_weights(Transformer* t);
+int malloc_run_state(Transformer* t);
 void free_transformer(Transformer* t);
 
 // Core operations (Llama 3 style)

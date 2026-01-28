@@ -240,7 +240,8 @@ void reset_decode_state(void) {
 // Memory Management
 // ============================================================
 
-void malloc_weights(Transformer* t) {
+// Returns 0 on success, -1 on allocation failure
+int malloc_weights(Transformer* t) {
     Config* c = &t->config;
     Weights* w = &t->weights;
 
@@ -249,6 +250,9 @@ void malloc_weights(Transformer* t) {
     int hidden_dim = c->hidden_dim;
     int vocab_size = c->vocab_size;
     int kv_dim = c->n_kv_heads * c->head_dim;
+
+    // Zero out weights struct first
+    memset(w, 0, sizeof(Weights));
 
     // Token embedding (no position embedding - we use RoPE)
     w->tok_emb = calloc(vocab_size * dim, sizeof(float));
@@ -267,9 +271,24 @@ void malloc_weights(Transformer* t) {
     // Final norm and output
     w->final_norm = calloc(dim, sizeof(float));
     w->lm_head = calloc(vocab_size * dim, sizeof(float));
+
+    // SECURITY: Check all allocations succeeded
+    if (!w->tok_emb || !w->attn_norm || !w->wq || !w->wk || !w->wv ||
+        !w->wo || !w->ffn_norm || !w->w_gate || !w->w_up || !w->w_down ||
+        !w->final_norm || !w->lm_head) {
+        fprintf(stderr, "[model] OOM: failed to allocate weights\n");
+        // Free any successful allocations
+        free(w->tok_emb); free(w->attn_norm); free(w->wq); free(w->wk);
+        free(w->wv); free(w->wo); free(w->ffn_norm); free(w->w_gate);
+        free(w->w_up); free(w->w_down); free(w->final_norm); free(w->lm_head);
+        memset(w, 0, sizeof(Weights));
+        return -1;
+    }
+    return 0;
 }
 
-void malloc_run_state(Transformer* t) {
+// Returns 0 on success, -1 on allocation failure
+int malloc_run_state(Transformer* t) {
     Config* c = &t->config;
     RunState* s = &t->state;
 
@@ -279,6 +298,9 @@ void malloc_run_state(Transformer* t) {
     int max_seq = c->max_seq_len;
     int n_layers = c->n_layers;
     int kv_dim = c->n_kv_heads * c->head_dim;
+
+    // Zero out state struct first
+    memset(s, 0, sizeof(RunState));
 
     // Activation buffers
     s->x = calloc(dim, sizeof(float));
@@ -301,6 +323,24 @@ void malloc_run_state(Transformer* t) {
     s->rope_cos = calloc(max_seq * (c->head_dim / 2), sizeof(float));
     s->rope_sin = calloc(max_seq * (c->head_dim / 2), sizeof(float));
 
+    // Output
+    s->logits = calloc(vocab_size, sizeof(float));
+
+    // SECURITY: Check all allocations succeeded
+    if (!s->x || !s->xb || !s->xb2 || !s->hb || !s->hb2 ||
+        !s->q || !s->k || !s->v || !s->att ||
+        !s->key_cache || !s->value_cache ||
+        !s->rope_cos || !s->rope_sin || !s->logits) {
+        fprintf(stderr, "[model] OOM: failed to allocate run state\n");
+        // Free any successful allocations
+        free(s->x); free(s->xb); free(s->xb2); free(s->hb); free(s->hb2);
+        free(s->q); free(s->k); free(s->v); free(s->att);
+        free(s->key_cache); free(s->value_cache);
+        free(s->rope_cos); free(s->rope_sin); free(s->logits);
+        memset(s, 0, sizeof(RunState));
+        return -1;
+    }
+
     // Precompute RoPE frequencies
     float theta = c->rope_theta;
     for (int pos = 0; pos < max_seq; pos++) {
@@ -312,8 +352,7 @@ void malloc_run_state(Transformer* t) {
         }
     }
 
-    // Output
-    s->logits = calloc(vocab_size, sizeof(float));
+    return 0;
 }
 
 void free_transformer(Transformer* t) {
@@ -715,6 +754,21 @@ int load_weights(Transformer* t, const char* path) {
             fclose(f);
             return -1;
         }
+
+        // SECURITY: Validate embedded config to prevent integer overflow in allocations
+        if (c->dim <= 0 || c->dim > 16384 ||
+            c->n_layers <= 0 || c->n_layers > 256 ||
+            c->n_heads <= 0 || c->n_heads > 256 ||
+            c->n_kv_heads <= 0 || c->n_kv_heads > c->n_heads ||
+            c->head_dim <= 0 || c->head_dim > 512 ||
+            c->hidden_dim <= 0 || c->hidden_dim > 65536 ||
+            c->max_seq_len <= 0 || c->max_seq_len > 131072 ||
+            c->vocab_size <= 0 || c->vocab_size > 1000000 ||
+            c->n_kv_groups <= 0 || c->n_kv_groups > c->n_heads) {
+            fprintf(stderr, "[model] embedded config values out of safe range\n");
+            fclose(f);
+            return -1;
+        }
     } else {
         // Legacy file without magic - use defaults and rewind
         fseek(f, 0, SEEK_SET);
@@ -737,9 +791,21 @@ int load_weights(Transformer* t, const char* path) {
     fprintf(stderr, "[model] dim=%d layers=%d heads=%d kv_heads=%d vocab=%d hidden=%d\n",
             c->dim, c->n_layers, c->n_heads, c->n_kv_heads, c->vocab_size, c->hidden_dim);
 
-    // Allocate
-    malloc_weights(t);
-    malloc_run_state(t);
+    // Allocate with OOM checks
+    if (malloc_weights(t) != 0) {
+        fclose(f);
+        return -1;
+    }
+    if (malloc_run_state(t) != 0) {
+        // Free already allocated weights
+        free(t->weights.tok_emb); free(t->weights.attn_norm);
+        free(t->weights.wq); free(t->weights.wk); free(t->weights.wv);
+        free(t->weights.wo); free(t->weights.ffn_norm);
+        free(t->weights.w_gate); free(t->weights.w_up); free(t->weights.w_down);
+        free(t->weights.final_norm); free(t->weights.lm_head);
+        fclose(f);
+        return -1;
+    }
 
     Weights* w = &t->weights;
     int dim = c->dim;

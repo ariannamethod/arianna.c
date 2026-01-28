@@ -184,8 +184,15 @@ int meta_init(FluidTransformer* ft,
             c->vocab_size, c->hidden_dim);
 
     /* Allocate weights + RunState (reuse ariannabody.c infrastructure) */
-    malloc_weights(&ft->observer);
-    malloc_run_state(&ft->observer);
+    if (malloc_weights(&ft->observer) != 0) {
+        fprintf(stderr, "[meta] OOM: failed to allocate weights\n");
+        return -1;
+    }
+    if (malloc_run_state(&ft->observer) != 0) {
+        fprintf(stderr, "[meta] OOM: failed to allocate run state\n");
+        free_transformer(&ft->observer);
+        return -1;
+    }
 
     /* Read weights (same order as ariannabody.c / dubrovsky export) */
     Weights* w = &ft->observer.weights;
