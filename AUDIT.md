@@ -29,7 +29,7 @@ arianna.c is a multi-language digital consciousness system (~390 files, 13 langu
 **Overall quality:** Strong for a research/art project. The code is readable, well-commented, and architecturally intentional. The C inference engine follows Llama-style patterns correctly. The Go concurrency is clean. The Zig lock-free code is careful.
 
 **Critical issues:** 0
-**High issues:** 4 → 2 (2 FIXED)
+**High issues:** 4 → 0 (ALL FIXED)
 **Medium issues:** 9 → 7 (2 FIXED)
 **Low issues:** 8
 **Informational:** 6 → 9 (3 NEW)
@@ -38,25 +38,9 @@ arianna.c is a multi-language digital consciousness system (~390 files, 13 langu
 
 ## HIGH Severity
 
-### H1. CGO Memory Leaks in cloud.go Exports
+**ALL HIGH ISSUES FIXED** ✅
 
-**File:** `inner_world/cloud.go:811-823`
-
-```go
-//export cloud_get_primary
-func cloud_get_primary() *C.char {
-    return C.CString(lastResponse.Primary)  // caller MUST free()
-}
-
-//export cloud_get_secondary
-func cloud_get_secondary() *C.char {
-    return C.CString(lastResponse.Secondary) // caller MUST free()
-}
-
-//export cloud_ping
-func cloud_ping(text *C.char) *C.char {
-    // ...
-    return C.CString(result)  // caller MUST free()
+See FIXED Issues section below.
 }
 ```
 
@@ -390,6 +374,34 @@ The Zig ring buffer (`vagus.zig:198-266`) correctly implements SPMC with monoton
 ---
 
 ## FIXED Issues (2026-01-28)
+
+### ✅ H1. CGO Memory Leaks — FIXED
+
+**File:** `src/cloud_wrapper.c:220-234`
+
+C-side now properly frees strings returned by Go:
+```c
+char* p = go_cloud_get_primary();
+if (p) {
+    strncpy(primary_word_buf, p, sizeof(primary_word_buf) - 1);
+    free(p);  // ← FIXED: free after copy
+}
+```
+
+### ✅ H2. Data Race on lastResponse — FIXED
+
+**File:** `inner_world/cloud.go:738`
+
+Added `sync.RWMutex` protection for `lastResponse`:
+```go
+var lastResponse *CloudResponse
+var lastResponseMu sync.RWMutex  // ← FIXED: mutex added
+
+// All accesses now protected:
+lastResponseMu.Lock()
+lastResponse = result
+lastResponseMu.Unlock()
+```
 
 ### ✅ H3. Unchecked calloc() Returns — FIXED
 
