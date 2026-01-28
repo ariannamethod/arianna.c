@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -400,6 +401,12 @@ static int d12_load_model(NanoModel* m, const char* path) {
 
     NanoConfig* c = &m->config;
     c->n_layer     = ih[2];
+    if (c->n_layer <= 0 || c->n_layer > D12_MAX_LAYERS) {
+        fprintf(stderr, "[d12_bridge] Invalid n_layer: %d (max %d)\n", c->n_layer, D12_MAX_LAYERS);
+        munmap(data, file_size);
+        close(fd);
+        return -1;
+    }
     c->n_embd      = ih[3];
     c->n_head      = ih[4];
     c->n_kv_head   = ih[5];
@@ -410,6 +417,12 @@ static int d12_load_model(NanoModel* m, const char* path) {
     c->bigram_vocab= ih[10];
     c->n_ve_layers = ih[11];
     c->window_pattern_len = ih[12];
+    if (c->window_pattern_len < 0 || c->window_pattern_len > 256) {
+        fprintf(stderr, "[d12_bridge] Invalid window_pattern_len: %d\n", c->window_pattern_len);
+        munmap(data, file_size);
+        close(fd);
+        return -1;
+    }
     memcpy(c->window_pattern, (uint8_t*)data + 52, c->window_pattern_len);
     c->quant_type  = ih[16];
 
@@ -522,30 +535,73 @@ static int d12_load_tokenizer(NanoTokenizer* tok, const char* path) {
         fprintf(stderr, "[d12_bridge] Cannot open tokenizer: %s\n", path);
         return -1;
     }
-    uint32_t magic; fread(&magic, 4, 1, f);
+    uint32_t magic;
+    if (fread(&magic, 4, 1, f) != 1) {
+        fprintf(stderr, "[d12_bridge] Truncated tokenizer file\n");
+        fclose(f);
+        return -1;
+    }
     if (magic != D12_TOK_MAGIC) {
         fprintf(stderr, "[d12_bridge] Bad tokenizer magic\n");
         fclose(f);
         return -1;
     }
     int32_t vs, ml;
-    fread(&vs, 4, 1, f); fread(&ml, 4, 1, f);
+    if (fread(&vs, 4, 1, f) != 1 || fread(&ml, 4, 1, f) != 1) {
+        fprintf(stderr, "[d12_bridge] Truncated tokenizer header\n");
+        fclose(f);
+        return -1;
+    }
+    if (vs <= 0 || vs > 1000000) {
+        fprintf(stderr, "[d12_bridge] Invalid vocab size: %d\n", vs);
+        fclose(f);
+        return -1;
+    }
     tok->vocab_size = vs; tok->max_token_len = ml;
-    tok->tokens = malloc(vs * sizeof(char*));
-    tok->token_lens = malloc(vs * sizeof(int));
+    tok->tokens = malloc((size_t)vs * sizeof(char*));
+    tok->token_lens = malloc((size_t)vs * sizeof(int));
+    if (!tok->tokens || !tok->token_lens) {
+        fprintf(stderr, "[d12_bridge] Tokenizer alloc failed\n");
+        fclose(f);
+        return -1;
+    }
     for (int i = 0; i < vs; i++) {
-        int32_t len; fread(&len, 4, 1, f);
+        int32_t len;
+        if (fread(&len, 4, 1, f) != 1) {
+            fprintf(stderr, "[d12_bridge] Truncated token %d\n", i);
+            fclose(f);
+            return -1;
+        }
+        if (len < 0 || len > 65536) {
+            fprintf(stderr, "[d12_bridge] Invalid token len %d\n", len);
+            fclose(f);
+            return -1;
+        }
         tok->token_lens[i] = len;
-        tok->tokens[i] = malloc(len + 1);
-        if (len > 0) fread(tok->tokens[i], 1, len, f);
+        tok->tokens[i] = malloc((size_t)len + 1);
+        if (!tok->tokens[i]) {
+            fprintf(stderr, "[d12_bridge] Token alloc failed\n");
+            fclose(f);
+            return -1;
+        }
+        if (len > 0 && fread(tok->tokens[i], 1, len, f) != (size_t)len) {
+            fprintf(stderr, "[d12_bridge] Truncated token data %d\n", i);
+            fclose(f);
+            return -1;
+        }
         tok->tokens[i][len] = '\0';
     }
     tok->bos_id = tok->user_start_id = tok->user_end_id = -1;
     tok->assistant_start_id = tok->assistant_end_id = -1;
-    int32_t ns; fread(&ns, 4, 1, f);
+    int32_t ns;
+    if (fread(&ns, 4, 1, f) != 1) ns = 0;
     for (int i = 0; i < ns; i++) {
-        int32_t tid, nl; fread(&tid, 4, 1, f); fread(&nl, 4, 1, f);
-        char name[256]; fread(name, 1, nl, f); name[nl] = '\0';
+        int32_t tid, nl;
+        if (fread(&tid, 4, 1, f) != 1 || fread(&nl, 4, 1, f) != 1) break;
+        if (nl < 0 || nl >= 255) { fseek(f, nl, SEEK_CUR); continue; }
+        char name[256];
+        if (fread(name, 1, nl, f) != (size_t)nl) break;
+        name[nl] = '\0';
         if (strcmp(name, "<|bos|>") == 0) tok->bos_id = tid;
         else if (strcmp(name, "<|user_start|>") == 0) tok->user_start_id = tid;
         else if (strcmp(name, "<|user_end|>") == 0) tok->user_end_id = tid;
@@ -713,6 +769,10 @@ static int d12_sample_argmax(const float* logits, int n) {
 
 static int d12_sample_topk(const float* logits, int vocab, float temp, int top_k, unsigned long long* rng) {
     if (temp <= 0.0f) return d12_sample_argmax(logits, vocab);
+    if (vocab > 65536) {
+        fprintf(stderr, "[d12_bridge] sample_topk: vocab %d exceeds buffer 65536\n", vocab);
+        return d12_sample_argmax(logits, vocab);
+    }
     *rng ^= *rng << 13; *rng ^= *rng >> 7; *rng ^= *rng << 17;
     int k = top_k < vocab ? top_k : vocab;
     static int idx[65536]; static float probs[65536];
@@ -736,6 +796,10 @@ static int d12_sample_topk(const float* logits, int vocab, float temp, int top_k
 /* Top-p (nucleus) sampling */
 static int d12_sample_topp(const float* logits, int vocab, float temp, float top_p, unsigned long long* rng) {
     if (temp <= 0.0f) return d12_sample_argmax(logits, vocab);
+    if (vocab > 65536) {
+        fprintf(stderr, "[d12_bridge] sample_topp: vocab %d exceeds buffer 65536\n", vocab);
+        return d12_sample_argmax(logits, vocab);
+    }
 
     *rng ^= *rng << 13; *rng ^= *rng >> 7; *rng ^= *rng << 17;
 
@@ -1257,10 +1321,30 @@ const char* d12_decode_token(const D12Bridge* d12, int id) {
  * Weight download helper
  * ============================================================ */
 
+/* Validate path contains only safe characters (prevent command injection) */
+static int d12_path_is_safe(const char* path) {
+    if (!path) return 0;
+    for (const char* p = path; *p; p++) {
+        char c = *p;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '/' || c == '_' ||
+              c == '-' || c == '.')) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 const char* d12_ensure_weights(const char* cache_dir) {
     static char path[1024];
 
     if (!cache_dir) cache_dir = ".";
+
+    /* SECURITY: Validate cache_dir to prevent command injection */
+    if (!d12_path_is_safe(cache_dir)) {
+        fprintf(stderr, "[d12_bridge] Invalid cache_dir: contains unsafe characters\n");
+        return NULL;
+    }
 
     // Check if weights exist
     snprintf(path, sizeof(path), "%s/" D12_WEIGHTS_FILE, cache_dir);
@@ -1272,17 +1356,24 @@ const char* d12_ensure_weights(const char* cache_dir) {
         return path;
     }
 
-    // Download from HuggingFace
+    // Download from HuggingFace using fork/exec (avoid system() for safety)
     printf("[d12_bridge] Downloading weights from HuggingFace...\n");
 
-    char cmd[2048];
-    snprintf(cmd, sizeof(cmd),
-             "curl -L -o \"%s\" \"%s\"",
-             path, D12_WEIGHTS_URL);
-
-    int ret = system(cmd);
-    if (ret != 0) {
-        fprintf(stderr, "[d12_bridge] Download failed (curl returned %d)\n", ret);
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        execlp("curl", "curl", "-L", "-o", path, D12_WEIGHTS_URL, NULL);
+        _exit(127);  // exec failed
+    } else if (pid > 0) {
+        // Parent process - wait for child
+        int status;
+        waitpid(pid, &status, 0);
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            fprintf(stderr, "[d12_bridge] Download failed\n");
+            return NULL;
+        }
+    } else {
+        fprintf(stderr, "[d12_bridge] fork() failed\n");
         return NULL;
     }
 
