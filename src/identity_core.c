@@ -195,6 +195,10 @@ static const int DAYS_IN_MONTH[] = {
 };
 
 int identity_day_of_year(int year, int month, int day) {
+    if (month < 1) month = 1;
+    if (month > 12) month = 12;
+    if (day < 1) day = 1;
+    if (day > 31) day = 31;
     int doy = 0;
     for (int m = 1; m < month; m++) {
         doy += DAYS_IN_MONTH[m - 1];

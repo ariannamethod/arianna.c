@@ -396,7 +396,7 @@ arianna.c/
 │   ├── arianna_dynamic.c         # Full pipeline with all modules
 │   ├── ariannabody.c             # 34M unified personality transformer
 │   ├── cloud_wrapper.c           # Pre-semantic emotion bridge (→ Go)
-│   ├── subjectivity.c            # Identity core (origin.txt)
+│   ├── subjectivity.c            # Subjective generation (no-seed-from-prompt, identity pull)
 │   ├── inner_arianna.c           # MetaVoice борьба
 │   ├── amk_kernel.c              # Prophecy physics (AMK)
 │   ├── pandora.c                 # Vocabulary extraction (n-gram storage)
