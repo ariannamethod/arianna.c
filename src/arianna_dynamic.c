@@ -553,6 +553,8 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
         generated[gen_idx] = '\0';
         meta_observe(&g_fluid_transformer, &first_params, generated, gen_idx);
+        meta_tick(&g_fluid_transformer);  // Lifecycle: increment counter
+        meta_check_rebirth(&g_fluid_transformer);  // Lifecycle: rebirth after 60 tokens
         g_meta_thermogram = g_fluid_transformer.result;
         g_meta_observation_count++;
 
@@ -595,11 +597,9 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                        tokens + ctx_start, n_tokens - ctx_start, g_cooccur_alpha);
         }
 
-        // Apply MetaArianna thermogram to logits (observer's whisper)
-        if (g_meta_enabled && g_meta_thermogram.valid) {
-            meta_apply_thermogram(&g_meta_thermogram,
-                                  t->state.logits, t->config.vocab_size);
-        }
+        // MetaArianna thermogram влияет через feedback loop (meta_router_feed_thermogram)
+        // НЕ напрямую на logits — она наблюдатель, не говорит!
+        // Thermogram → InnerWorld → AMK field → следующая генерация
 
         // Apply Blood kernel emotional modulation (compiled C at runtime)
 #ifdef USE_GO_INNER_WORLD
@@ -736,9 +736,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                     const char* dialogue_log = generated + log_start;
                     int log_len = gen_idx - log_start;
 
-                    // Observe (birth)
+                    // Observe (birth) + lifecycle tick
                     meta_observe(&g_fluid_transformer, &meta_params,
                                  dialogue_log, log_len);
+                    meta_tick(&g_fluid_transformer);
+                    meta_check_rebirth(&g_fluid_transformer);
                     g_meta_thermogram = g_fluid_transformer.result;
                     g_meta_observation_count++;
 
@@ -2037,10 +2039,8 @@ static int dialogue_generate_arianna(Transformer* t, const char* seed,
     reset_decode_state();
 
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN && gen < max_len - 1; i++) {
-        if (g_meta_enabled && g_meta_thermogram.valid) {
-            meta_apply_thermogram(&g_meta_thermogram,
-                                  t->state.logits, t->config.vocab_size);
-        }
+        // MetaArianna: feedback loop only (не прямые logits)
+        // Thermogram влияет через meta_router → InnerWorld → next step
 
         // Blood kernel emotional modulation (CLI path)
 #ifdef USE_GO_INNER_WORLD
@@ -2161,6 +2161,8 @@ static void run_dialogue(Transformer* t, const char* seed,
                           ? log_len - META_MAX_LOG_LEN : 0;
             meta_observe(&g_fluid_transformer, &meta_params,
                          dialogue_log + obs_start, log_len - obs_start);
+            meta_tick(&g_fluid_transformer);
+            meta_check_rebirth(&g_fluid_transformer);
             g_meta_thermogram = g_fluid_transformer.result;
             g_meta_observation_count++;
 
@@ -2403,18 +2405,19 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             // Forward pass to get logits, extract entropy/direction
             d12_update_from_arianna(&g_d12, t, prompt);
 
-            // 4. MetaArianna thermogram (reflection)
+            // 4. MetaArianna thermogram (reflection) — feedback loop only
             if (g_meta_enabled) {
-                // First observe current state
                 MetaTemplateParams meta_params;
                 meta_default_params(&meta_params, META_TEMPLATE_THERMOGRAPH);
                 meta_observe(&g_fluid_transformer, &meta_params, prompt, prompt_len);
+                meta_tick(&g_fluid_transformer);
+                meta_check_rebirth(&g_fluid_transformer);  // Lifecycle: auto-rebirth after 60 tokens
                 g_meta_thermogram = g_fluid_transformer.result;
 
+                // Thermogram → feedback loop (d12_update_from_meta влияет на СЛЕДУЮЩИЙ шаг)
                 if (g_meta_thermogram.valid) {
                     d12_update_from_meta(&g_d12, &g_meta_thermogram);
                 }
-                meta_reset(&g_fluid_transformer);
             }
 
             // 5. AMK/DSL state (prophecy, destiny, suffering)
@@ -3078,7 +3081,7 @@ int main(int argc, char** argv) {
     }
 
     // Initialize Tongue (D12 135M) — MAIN VOICE for external reasoning
-    // Tongue receives prompt and generates response; Soul/MetaArianna/SARTRE modulate its logits
+    // Tongue generates; Soul/SARTRE modulate logits; MetaArianna observes (feedback loop only)
     {
         const char* d12_weights = d12_ensure_weights("tongue/weights");
         if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/tokenizer_40pct.tok") == 0) {

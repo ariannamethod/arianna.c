@@ -975,17 +975,18 @@ void d12_update_from_arianna(D12Bridge* d12, const Transformer* arianna, const c
 
 /* Update modulation from Cloud instinct */
 void d12_update_from_cloud(D12Bridge* d12, const CloudResponse* cloud) {
-    if (!d12 || !d12->initialized) return;
+    if (!d12 || !d12->initialized || !cloud) return;
 
-    // CloudResponse contains warmth/tension/primary_strength
-    // (defined in cloud_wrapper.c)
-    if (cloud) {
-        // Safe access - CloudResponse is opaque, but we know its layout
-        // For now, use sensible defaults
-        d12->mod.cloud_warmth = 0.5f;
-        d12->mod.cloud_tension = 0.3f;
-        d12->mod.cloud_primary_strength = 0.7f;
-    }
+    /* Extract real emotional data from Cloud chambers:
+     * chambers[0] = FEAR,  chambers[1] = LOVE,  chambers[2] = RAGE
+     * chambers[3] = VOID,  chambers[4] = FLOW,  chambers[5] = COMPLEX
+     *
+     * warmth = LOVE chamber activation
+     * tension = (FEAR + RAGE) / 2
+     * primary_strength = from CloudResponse */
+    d12->mod.cloud_warmth = cloud->chambers[1];  /* LOVE */
+    d12->mod.cloud_tension = (cloud->chambers[0] + cloud->chambers[2]) * 0.5f;  /* (FEAR+RAGE)/2 */
+    d12->mod.cloud_primary_strength = cloud->primary_strength;
 }
 
 /* Update modulation from MetaArianna thermogram */
