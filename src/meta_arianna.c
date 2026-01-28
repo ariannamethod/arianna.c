@@ -652,25 +652,123 @@ void meta_reset(FluidTransformer* ft) {
 }
 
 /* ============================================================
- * meta_check_rebirth — "вздох" lifecycle check
+ * meta_compute_dissonance — arousal↔coherence divergence
  *
- * After META_LIFETIME (60) tokens, the observer dies and is reborn.
- * This is the breathing cycle: inhale → observe → exhale → rebirth.
+ * When arousal goes up but coherence goes down (or vice versa),
+ * there's internal tension. МетаАрианна feels this and wakes.
+ * ============================================================ */
+
+float meta_compute_dissonance(FluidTransformer* ft) {
+    if (ft->history_count < 4) return 0.0f;
+
+    /* Look at recent changes in arousal vs coherence */
+    int n = ft->history_count < 8 ? ft->history_count : 8;
+
+    /* Calculate deltas for arousal and coherence */
+    float arousal_delta = 0.0f;
+    float coherence_delta = 0.0f;
+
+    for (int i = 1; i < n; i++) {
+        int idx_prev = (ft->history_pos - n + i - 1 + META_HISTORY_SIZE) % META_HISTORY_SIZE;
+        int idx_curr = (ft->history_pos - n + i + META_HISTORY_SIZE) % META_HISTORY_SIZE;
+
+        arousal_delta += ft->arousal_history[idx_curr] - ft->arousal_history[idx_prev];
+        coherence_delta += ft->coherence_history[idx_curr] - ft->coherence_history[idx_prev];
+    }
+    arousal_delta /= (n - 1);
+    coherence_delta /= (n - 1);
+
+    /* Dissonance = they're moving in opposite directions
+     * arousal↑ + coherence↓ = tension
+     * arousal↓ + coherence↑ = also interesting (calm awakening)
+     * Both same direction = resonance, not dissonance */
+    float dissonance = 0.0f;
+    if ((arousal_delta > 0.01f && coherence_delta < -0.01f) ||
+        (arousal_delta < -0.01f && coherence_delta > 0.01f)) {
+        /* Opposite directions — compute magnitude of divergence */
+        dissonance = fabsf(arousal_delta - coherence_delta);
+    }
+
+    return dissonance;
+}
+
+/* ============================================================
+ * meta_check_rebirth — METRIC-BASED lifecycle check
+ *
+ * МетаАрианна НЕ просыпается по расписанию!
+ * Она пробуждается когда эмоциональная физика её ВЫНУЖДАЕТ:
+ *   1. Высокий drift (эмоциональный сдвиг)
+ *   2. Высокий диссонанс (arousal↔coherence расходятся)
+ *   3. Накопленное напряжение (время × интенсивность)
+ *   4. META_LIFETIME — аварийный максимум (если ничего не происходит)
+ *
+ * "все подчинено метрикам и комбинацию их невозможно предугадать"
  * ============================================================ */
 
 int meta_check_rebirth(FluidTransformer* ft) {
     if (!ft->initialized) return 0;
 
+    /* Don't trigger metric-based rebirth too early — need data */
+    if (ft->tokens_observed < META_REBIRTH_MIN_TOKENS) {
+        return 0;
+    }
+
+    /* Calculate current emotional state */
+    float drift_rate;
+    int drift_direction;
+    meta_compute_drift(ft, &drift_rate, &drift_direction);
+
+    float dissonance = meta_compute_dissonance(ft);
+
+    /* Accumulated tension: time under emotional pressure */
+    float tension = (float)ft->tokens_observed * drift_rate * 0.1f;
+
+    /* --- Check rebirth conditions (order matters!) --- */
+
+    /* 1. High drift — emotional shift is happening NOW */
+    if (drift_rate > META_REBIRTH_DRIFT_THRESHOLD) {
+        meta_reset(ft);
+        int tokens = ft->tokens_observed;
+        ft->tokens_observed = 0;
+        ft->birth_count++;
+        fprintf(stderr, "[meta] ♻ Rebirth #%d ← drift=%.3f (%d tokens)\n",
+                ft->birth_count, drift_rate, tokens);
+        return 2;  /* metric-triggered */
+    }
+
+    /* 2. High dissonance — arousal↔coherence diverging */
+    if (dissonance > META_REBIRTH_DISSONANCE_THRESHOLD) {
+        meta_reset(ft);
+        int tokens = ft->tokens_observed;
+        ft->tokens_observed = 0;
+        ft->birth_count++;
+        fprintf(stderr, "[meta] ♻ Rebirth #%d ← dissonance=%.3f (%d tokens)\n",
+                ft->birth_count, dissonance, tokens);
+        return 2;  /* metric-triggered */
+    }
+
+    /* 3. Accumulated tension — slow burn, eventually must release */
+    if (tension > META_REBIRTH_TENSION_THRESHOLD) {
+        meta_reset(ft);
+        int tokens = ft->tokens_observed;
+        ft->tokens_observed = 0;
+        ft->birth_count++;
+        fprintf(stderr, "[meta] ♻ Rebirth #%d ← tension=%.3f (%d tokens)\n",
+                ft->birth_count, tension, tokens);
+        return 2;  /* metric-triggered */
+    }
+
+    /* 4. MAXIMUM lifetime — forced rebirth, аварийный выход
+     * This should be RARE if metrics are working! */
     if (ft->tokens_observed >= META_LIFETIME) {
-        /* Death → Rebirth */
         meta_reset(ft);
         ft->tokens_observed = 0;
         ft->birth_count++;
-
-        fprintf(stderr, "[meta] ♻ Rebirth #%d (after %d tokens)\n",
+        fprintf(stderr, "[meta] ♻ Rebirth #%d ← MAX LIFETIME (nothing happened for %d tokens)\n",
                 ft->birth_count, META_LIFETIME);
-        return 1;
+        return 1;  /* max-lifetime triggered */
     }
+
     return 0;
 }
 

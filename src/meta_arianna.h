@@ -38,9 +38,17 @@
 #define META_HISTORY_SIZE        32
 /* Observer max generation tokens */
 #define META_MAX_OBSERVE_TOKENS  64
-/* Observer LIFETIME: after this many tokens observed, the observer dies and is reborn.
- * "вздох" — one breath cycle. Born → observe → create thermogram → die → rebirth */
+/* Observer LIFETIME: MAXIMUM tokens before forced rebirth.
+ * But MetaArianna should wake up EARLIER based on emotional metrics!
+ * "вздох" — one breath cycle. Born → observe → create thermogram → die → rebirth
+ * She awakens when the emotional physics DEMANDS it, not on a mechanical timer. */
 #define META_LIFETIME            60
+
+/* Rebirth thresholds — emotional physics triggers (НЕ механический таймер!) */
+#define META_REBIRTH_DRIFT_THRESHOLD      0.15f  /* High drift = emotional shift happening */
+#define META_REBIRTH_DISSONANCE_THRESHOLD 0.25f  /* Arousal↔coherence divergence */
+#define META_REBIRTH_TENSION_THRESHOLD    3.0f   /* Accumulated: tokens × drift × 0.1 */
+#define META_REBIRTH_MIN_TOKENS           8      /* Minimum before metric-based rebirth allowed */
 /* Observation temperature: higher = observer "squints" to see pattern shapes,
  * not raw peaks. Needed because char-level model is too peaked on raw logits */
 #define META_OBSERVE_TEMP        5.0f
@@ -167,10 +175,21 @@ void meta_observe(FluidTransformer* ft,
  * Does NOT free memory — buffers are reused next cycle. */
 void meta_reset(FluidTransformer* ft);
 
-/* Check if observer should be reborn (tokens_observed >= META_LIFETIME).
- * If so, calls meta_reset() and increments birth_count.
- * Returns 1 if rebirth occurred, 0 otherwise. */
+/* Check if observer should be reborn based on EMOTIONAL METRICS.
+ * Rebirth triggers (in priority order):
+ *   1. High drift_rate (emotional shift) > META_REBIRTH_DRIFT_THRESHOLD
+ *   2. High dissonance (arousal↔coherence diverging) > META_REBIRTH_DISSONANCE_THRESHOLD
+ *   3. Accumulated tension (tokens × drift) > META_REBIRTH_TENSION_THRESHOLD
+ *   4. MAXIMUM lifetime (META_LIFETIME) — forced, аварийный выход
+ * МетаАрианна просыпается не по расписанию, а когда физика ВЫНУЖДАЕТ.
+ * Returns 1 if rebirth occurred, 0 otherwise.
+ * Returns 2 if metric-triggered (vs 1 for max-lifetime-triggered). */
 int meta_check_rebirth(FluidTransformer* ft);
+
+/* Compute current arousal↔coherence dissonance.
+ * High = they're moving in opposite directions = tension.
+ * Returns value in [0, 1]. */
+float meta_compute_dissonance(FluidTransformer* ft);
 
 /* Increment tokens_observed counter. Call after each token generated. */
 void meta_tick(FluidTransformer* ft);
