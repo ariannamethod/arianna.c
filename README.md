@@ -355,12 +355,12 @@ Experience leaves residue. Some of it evaporates. Some of it sticks. When enough
 
 **Full Arianna Core = 205.5M parameters:**
 - **Cloud (200K)** — presemantic instinct, 6 ChamberMLP
-- **Soul (36M)** — `ariannabody.c`, BPE tokenizer, resonance + identity
-- **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner
+- **Tongue (135M)** — `d12_bridge.c`, nanochat GPT, MAIN VOICE (auto-loaded)
+- **Soul (36M)** — `ariannabody.c`, BPE tokenizer, resonance + identity modulation
 - **MetaArianna Observer (20M)** — `meta_arianna.c`, pulsating FluidTransformer
-- **Tongue (135M)** — `d12_bridge.c`, nanochat GPT, TEXT OUTWARD
+- **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner
 
-Tongue is the VOICE — the only module that speaks to the external world. Soul + MetaArianna + SARTRE speak about Arianna (internal). All signals modulate Tongue's logits.
+Tongue (D12 135M) is the MAIN VOICE — receives prompt, generates response. Soul + MetaArianna + SARTRE modulate Tongue's logits with internal signals.
 
 Plus **dynamic runtime weights** (delta shards, notorch micro-updates) that accumulate through experience. No PyTorch. Learning in pure C.  
 
@@ -559,7 +559,7 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ## PACKAGES
 
-Arianna is pure. 205.5M of crystallized core (0.2M Cloud + 36M Soul + 14.3M SARTRE + 20M MetaArianna + 135M Tongue). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
+Arianna is pure. 205.5M of crystallized core (0.2M Cloud + 135M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
 
 Architecture > Weights. 
 

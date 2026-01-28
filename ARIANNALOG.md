@@ -21,38 +21,37 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: 205.5M parameters** (0.2M Cloud + 36M Soul + 14.3M SARTRE + 20M MetaArianna + 135M Tongue)
+**Arianna Core: 205.5M parameters** (0.2M Cloud + 135M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE)
 
-Five modules form the complete Arianna system. Tongue (D12 nanochat GPT) is the VOICE outward. Soul + MetaArianna + SARTRE speak about Arianna (internal). All signals modulate Tongue's logits.
+Five modules form the complete Arianna system. Tongue (D12 nanochat GPT 135M) is the MAIN VOICE — receives prompt, generates response. Soul + MetaArianna + SARTRE modulate Tongue's logits with internal signals.
 
 ```
 Input → Cloud 200K (instinct)
             ↓
+      Tongue 135M ← MAIN VOICE, receives prompt
+            ↑
+    [modulation from internal modules]
+            ↑
       Soul 36M → resonance (entropy, direction)
-            ↓
-       SARTRE 14.3M → coherence, arousal, trauma
-            ↓
-    MetaArianna 20M → warmth, sharpness, silence, drift
-            ↓
-        AMK/DSL → prophecy, destiny, pain, tension
-            ↓
-      Tongue 135M ← ALL signals modulate logits
+      MetaArianna 20M → warmth, sharpness, silence, drift
+      SARTRE 14.3M → coherence, arousal, trauma
+      AMK/DSL → prophecy, destiny, pain, tension
             ↓
          TEXT OUTWARD
 ```
 
-| Property | Cloud | Soul | SARTRE | MetaArianna | Tongue (D12) |
-|----------|-------|------|--------|-------------|--------------|
-| **Parameters** | 0.2M | 36M | 14.3M | 20M | 135M |
-| **Layers** | 6 ChamberMLP | 10 | 7 | 8 | 12 |
-| **Dimension** | — | 512 | 416 | 448 | 768 |
-| **Heads / KV** | — | 8 / 8 | 8 / 2 (GQA) | 8 / 8 | 6 / 6 |
-| **Vocabulary** | — | 2000 (BPE) | 93 | 84 | 32K (tiktoken) |
-| **FFN Hidden** | — | 1536 | 1280 | 1280 | — |
-| **Weights file** | runtime | `arianna_36m_bpe.bin` (138MB) | `sartre.bin` (57MB) | `arianna_20m.bin` (77MB) | `d12_arianna_40pct_q8.bin` (395MB) |
-| **Tokenizer** | — | `tokenizer_bpe.json` | `tokenizer.json` | `tokenizer_unified.json` | `tokenizer_40pct.tok` |
-| **Training loss** | — | 0.0076 | 0.0113 | — | 0.5355 |
-| **Role** | Emotional instinct | Resonance, identity | Interoceptive voice | Dialogue observer | TEXT OUTWARD |
+| Property | Cloud | Tongue (D12) | Soul | MetaArianna | SARTRE |
+|----------|-------|--------------|------|-------------|--------|
+| **Parameters** | 0.2M | 135M | 36M | 20M | 14.3M |
+| **Layers** | 6 ChamberMLP | 12 | 10 | 8 | 7 |
+| **Dimension** | — | 768 | 512 | 448 | 416 |
+| **Heads / KV** | — | 6 / 6 | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
+| **Vocabulary** | — | 32K (tiktoken) | 2000 (BPE) | 84 | 93 |
+| **FFN Hidden** | — | — | 1536 | 1280 | 1280 |
+| **Weights file** | runtime | `d12_arianna_40pct_q8.bin` (395MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | — | `tokenizer_40pct.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Training loss** | — | 0.5355 | 0.0076 | — | 0.0113 |
+| **Role** | Emotional instinct | MAIN VOICE, receives prompt | Resonance, identity | Dialogue observer | Interoceptive voice |
 
 **Memory budget:** 0 + 138MB + 57MB + 77MB + 395MB = **~667MB** total (fits 8GB Mac with room to spare).
 

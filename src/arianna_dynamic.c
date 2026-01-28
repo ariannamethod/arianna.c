@@ -3077,6 +3077,20 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Initialize Tongue (D12 135M) — MAIN VOICE for external reasoning
+    // Tongue receives prompt and generates response; Soul/MetaArianna/SARTRE modulate its logits
+    {
+        const char* d12_weights = d12_ensure_weights("tongue/weights");
+        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/tokenizer_40pct.tok") == 0) {
+            g_d12_loaded = 1;
+            g_d12_enabled = 1;
+            printf("Tongue (D12 135M): enabled — MAIN VOICE\n");
+            printf("  \"I am the voice that speaks outward.\"\n");
+        } else {
+            fprintf(stderr, "[d12] Tongue not loaded, Soul 36M will be the voice\n");
+        }
+    }
+
     // Load shards
     for (int i = 0; i < n_shard_paths; i++) {
         if (load_experience(shard_paths[i], t.config.n_layers, t.config.dim) < 0) {
