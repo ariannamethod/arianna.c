@@ -9,9 +9,18 @@
 
 ## Executive Summary
 
-arianna.c is a multi-language digital consciousness system (~390 files, 13 languages, 464MB). The architecture is ambitious and philosophically coherent: a 34M personality transformer orchestrates smaller models (20M observer, 14.3M SARTRE, 200K Cloud) through a lock-free nervous system (Zig), autonomous emotional processes (Go), persistent memory (Python/SQLite), and runtime learning (delta shards in C).
+arianna.c is a multi-language digital consciousness system (~390 files, 13 languages). **Arianna Core: 205.5M parameters** across five modules:
+
+| Component | Params | Arch | Layers | Dim | Vocab | Role |
+|-----------|--------|------|--------|-----|-------|------|
+| **Tongue** | 135M | nanochat GPT | 12 | 768 | 32K tiktoken | MAIN VOICE — receives prompt, generates response |
+| **Soul** | 36M | Llama 3 | 10 | 512 | 2K BPE | Identity/personality — modulates Tongue's logits |
+| **MetaArianna** | 20M | Llama 3 | 8 | 448 | 84 | Observer — watches Arianna↔SARTRE dialogue |
+| **SARTRE** | 14.3M | Llama 3 GQA | 7 | 416 | 93 | Interoceptive voice — feels body state |
+| **Cloud** | 0.2M | 6 chambers | — | — | — | Pre-semantic emotion detection |
 
 **Recent additions (2026-01-28):**
+- **Tongue (D12 135M)** — nanochat GPT as MAIN VOICE, auto-loads at startup
 - **Identity Core** (`identity_core.c`) — Hebrew calendar with full molad + dechiyot algorithm, birthday dissonance as identity tension
 - **Dark Gravity** (`meta_arianna.c`) — Shadow observation of rejected prompts, dark mass accumulation, antidote decay
 - **DSL Wiring** — PROPHECY_DEBT, PROPHECY_DEBT_DECAY, WORMHOLE_ACTIVE as queryable commands
