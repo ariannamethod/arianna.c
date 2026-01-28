@@ -105,17 +105,19 @@ DSL coverage raised from ~40% to ~75%. Previously orphaned commands now wired:
 | `LAW RESONANCE_CEILING` | Caps peak probability to maintain diversity | `arianna_dsl.c` |
 | `CALENDAR_DRIFT` | Bias on time-related tokens (`0-9 : - /`), modulated by birthday dissonance | `arianna_dsl.c`, `arianna_dynamic.c` |
 | `PROPHECY` | Scales destiny bias: deeper prophecy = stronger destiny pull | `arianna_dsl.c` |
+| `PROPHECY_DEBT` | Direct set of prophecy debt accumulator (0..100) | `amk_kernel.c` |
+| `PROPHECY_DEBT_DECAY` | Standalone: set debt decay rate per step (0.9..0.9999). Alias for `LAW DEBT_DECAY` | `amk_kernel.c` |
 
 Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence. Note: `TUNNELING` in DSL is parsed as three separate operators: `TUNNEL_THRESHOLD`, `TUNNEL_CHANCE`, `TUNNEL_SKIP_MAX`.
 
-### Runtime Metrics (not DSL-parseable, computed in generation loop)
+### Runtime Metrics (computed in generation loop, queryable via AM_State)
 
 | Metric | Mechanism | File |
 |--------|-----------|------|
-| `prophecy_debt` | Accumulates on improbable token choices via `dsl_compute_prophecy_debt()`, feeds `AM_State.debt`, wired in both `generate_dynamic()` and `generate_subjective()` | `arianna_dsl.c`, `arianna_dynamic.c` |
-| `wormhole_active` | Flag set when non-linear jump fires (wormhole threshold exceeded), persists until next `dsl_build_config()` rebuild (every 16 tokens) | `arianna_dynamic.c` |
+| `prophecy_debt` | Accumulates on improbable token choices via `dsl_compute_prophecy_debt()`, feeds `AM_State.debt`. Also settable via `PROPHECY_DEBT` DSL command. Wired in both `generate_dynamic()` and `generate_subjective()` | `arianna_dsl.c`, `arianna_dynamic.c`, `amk_kernel.c` |
+| `wormhole_active` | Flag in `AM_State.wormhole_active`, set when wormhole fires, reset on `dsl_build_config()`. Queryable via `am_get_wormhole_active()` and `am_copy_state()` slot 21 | `arianna_dynamic.c`, `amk_kernel.h` |
 
-Prophecy debt decays via `am_step()` and modulates field physics.
+Prophecy debt decays via `am_step()` using `debt_decay` rate (configurable via `PROPHECY_DEBT_DECAY` or `LAW DEBT_DECAY`).
 
 ---
 
