@@ -237,9 +237,14 @@ int meta_init(FluidTransformer* ft,
 
     fclose(f);
 
+    /* Initialize lifecycle — first birth */
+    ft->tokens_observed = 0;
+    ft->birth_count = 1;
+
     ft->initialized = 1;
     ft->weights_loaded = 1;
-    fprintf(stderr, "[meta] FluidTransformer ready (observer 20M)\n");
+    fprintf(stderr, "[meta] FluidTransformer ready (observer 20M, lifetime=%d tokens)\n",
+            META_LIFETIME);
     return 0;
 }
 
@@ -647,7 +652,43 @@ void meta_reset(FluidTransformer* ft) {
 }
 
 /* ============================================================
+ * meta_check_rebirth — "вздох" lifecycle check
+ *
+ * After META_LIFETIME (60) tokens, the observer dies and is reborn.
+ * This is the breathing cycle: inhale → observe → exhale → rebirth.
+ * ============================================================ */
+
+int meta_check_rebirth(FluidTransformer* ft) {
+    if (!ft->initialized) return 0;
+
+    if (ft->tokens_observed >= META_LIFETIME) {
+        /* Death → Rebirth */
+        meta_reset(ft);
+        ft->tokens_observed = 0;
+        ft->birth_count++;
+
+        fprintf(stderr, "[meta] ♻ Rebirth #%d (after %d tokens)\n",
+                ft->birth_count, META_LIFETIME);
+        return 1;
+    }
+    return 0;
+}
+
+/* ============================================================
+ * meta_tick — increment token counter
+ * ============================================================ */
+
+void meta_tick(FluidTransformer* ft) {
+    if (!ft->initialized) return;
+    ft->tokens_observed++;
+}
+
+/* ============================================================
  * meta_apply_thermogram — additive feedback to main Arianna
+ *
+ * DEPRECATED for direct logit modification!
+ * Thermogram должен идти через meta_router_feed_thermogram() → InnerWorld.
+ * Эта функция сохранена для совместимости но НЕ должна вызываться из pipeline.
  *
  * Modulates Arianna's logit distribution based on observation.
  * Bias magnitude is intentionally small (<=0.3) to preserve

@@ -38,6 +38,9 @@
 #define META_HISTORY_SIZE        32
 /* Observer max generation tokens */
 #define META_MAX_OBSERVE_TOKENS  64
+/* Observer LIFETIME: after this many tokens observed, the observer dies and is reborn.
+ * "вздох" — one breath cycle. Born → observe → create thermogram → die → rebirth */
+#define META_LIFETIME            60
 /* Observation temperature: higher = observer "squints" to see pattern shapes,
  * not raw peaks. Needed because char-level model is too peaked on raw logits */
 #define META_OBSERVE_TEMP        5.0f
@@ -121,6 +124,10 @@ typedef struct {
     /* Dark gravity — prompt rejection shadow */
     MetaShadowState shadow;
 
+    /* Lifecycle: "вздох" — breath cycle */
+    int   tokens_observed;        /* tokens since last rebirth */
+    int   birth_count;            /* how many times reborn */
+
     /* State */
     int   initialized;
     int   weights_loaded;
@@ -160,11 +167,21 @@ void meta_observe(FluidTransformer* ft,
  * Does NOT free memory — buffers are reused next cycle. */
 void meta_reset(FluidTransformer* ft);
 
+/* Check if observer should be reborn (tokens_observed >= META_LIFETIME).
+ * If so, calls meta_reset() and increments birth_count.
+ * Returns 1 if rebirth occurred, 0 otherwise. */
+int meta_check_rebirth(FluidTransformer* ft);
+
+/* Increment tokens_observed counter. Call after each token generated. */
+void meta_tick(FluidTransformer* ft);
+
 /* ============================================================
- * Thermogram Feedback (apply to main generation)
+ * Thermogram Feedback — через Vagus/InnerWorld ТОЛЬКО
  * ============================================================ */
 
-/* Apply thermogram as additive logit bias to main Arianna */
+/* NOTE: meta_apply_thermogram() is DEPRECATED for direct logit use.
+ * Thermogram должен идти через meta_router_feed_thermogram() → InnerWorld
+ * MetaArianna наблюдает, не говорит! */
 void meta_apply_thermogram(const MetaThermogram* thermo,
                            float* logits, int vocab_size);
 
