@@ -326,8 +326,10 @@ static void alloc_state(RunState* s, const Config* c) {
     int half = hd / 2;
     s->cos_cache = calloc((size_t)c->seq_len * half, sizeof(float));
     s->sin_cache = calloc((size_t)c->seq_len * half, sizeof(float));
-    if (!s->logits || !s->key_cache || !s->value_cache) {
-        fprintf(stderr, "Failed to allocate buffers\n"); exit(1);
+    if (!s->x || !s->x0 || !s->x0_bigram || !s->xn || !s->q || !s->k || !s->v ||
+        !s->att || !s->y_att || !s->hb || !s->logits || !s->key_cache ||
+        !s->value_cache || !s->cos_cache || !s->sin_cache) {
+        fprintf(stderr, "Failed to allocate state buffers — OOM\n"); exit(1);
     }
 }
 
@@ -383,6 +385,10 @@ static void load_model(Model* m, const char* path) {
     }
     Config* c = &m->config;
     c->n_layer     = ih[2];
+    if (c->n_layer <= 0 || c->n_layer > MAX_LAYERS) {
+        fprintf(stderr, "Invalid n_layer: %d (max %d)\n", c->n_layer, MAX_LAYERS);
+        exit(1);
+    }
     c->n_embd      = ih[3];
     c->n_head      = ih[4];
     c->n_kv_head   = ih[5];
@@ -393,6 +399,10 @@ static void load_model(Model* m, const char* path) {
     c->bigram_vocab= ih[10];
     c->n_ve_layers = ih[11];
     c->window_pattern_len = ih[12];
+    if (c->window_pattern_len < 0 || c->window_pattern_len > 256) {
+        fprintf(stderr, "Invalid window_pattern_len: %d\n", c->window_pattern_len);
+        exit(1);
+    }
     memcpy(c->window_pattern, (uint8_t*)data + 52, c->window_pattern_len);
     c->quant_type  = ih[16]; // offset 64 = index 16
 
@@ -504,26 +514,41 @@ static void close_model(Model* m) {
 static void load_tokenizer(Tokenizer* tok, const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) { perror("open tokenizer"); exit(1); }
-    uint32_t magic; fread(&magic, 4, 1, f);
+    uint32_t magic;
+    if (fread(&magic, 4, 1, f) != 1) { fprintf(stderr, "Truncated tokenizer file\n"); exit(1); }
     if (magic != TOK_MAGIC) { fprintf(stderr, "Bad tok magic\n"); exit(1); }
     int32_t vs, ml;
-    fread(&vs, 4, 1, f); fread(&ml, 4, 1, f);
+    if (fread(&vs, 4, 1, f) != 1 || fread(&ml, 4, 1, f) != 1) {
+        fprintf(stderr, "Truncated tokenizer header\n"); exit(1);
+    }
+    if (vs <= 0 || vs > 1000000) { fprintf(stderr, "Invalid vocab size: %d\n", vs); exit(1); }
     tok->vocab_size = vs; tok->max_token_len = ml;
-    tok->tokens = malloc(vs * sizeof(char*));
-    tok->token_lens = malloc(vs * sizeof(int));
+    tok->tokens = malloc((size_t)vs * sizeof(char*));
+    tok->token_lens = malloc((size_t)vs * sizeof(int));
+    if (!tok->tokens || !tok->token_lens) { fprintf(stderr, "Tokenizer alloc failed\n"); exit(1); }
     for (int i = 0; i < vs; i++) {
-        int32_t len; fread(&len, 4, 1, f);
+        int32_t len;
+        if (fread(&len, 4, 1, f) != 1) { fprintf(stderr, "Truncated token %d\n", i); exit(1); }
+        if (len < 0 || len > 65536) { fprintf(stderr, "Invalid token len %d\n", len); exit(1); }
         tok->token_lens[i] = len;
-        tok->tokens[i] = malloc(len + 1);
-        if (len > 0) fread(tok->tokens[i], 1, len, f);
+        tok->tokens[i] = malloc((size_t)len + 1);
+        if (!tok->tokens[i]) { fprintf(stderr, "Token alloc failed\n"); exit(1); }
+        if (len > 0 && fread(tok->tokens[i], 1, len, f) != (size_t)len) {
+            fprintf(stderr, "Truncated token data %d\n", i); exit(1);
+        }
         tok->tokens[i][len] = '\0';
     }
     tok->bos_id = tok->user_start_id = tok->user_end_id = -1;
     tok->assistant_start_id = tok->assistant_end_id = -1;
-    int32_t ns; fread(&ns, 4, 1, f);
+    int32_t ns;
+    if (fread(&ns, 4, 1, f) != 1) ns = 0;
     for (int i = 0; i < ns; i++) {
-        int32_t tid, nl; fread(&tid, 4, 1, f); fread(&nl, 4, 1, f);
-        char name[256]; fread(name, 1, nl, f); name[nl] = '\0';
+        int32_t tid, nl;
+        if (fread(&tid, 4, 1, f) != 1 || fread(&nl, 4, 1, f) != 1) break;
+        if (nl < 0 || nl >= 255) { fseek(f, nl, SEEK_CUR); continue; }
+        char name[256];
+        if (fread(name, 1, nl, f) != (size_t)nl) break;
+        name[nl] = '\0';
         if (strcmp(name, "<|bos|>") == 0) tok->bos_id = tid;
         else if (strcmp(name, "<|user_start|>") == 0) tok->user_start_id = tid;
         else if (strcmp(name, "<|user_end|>") == 0) tok->user_end_id = tid;
@@ -685,6 +710,10 @@ static int sample_argmax(const float* logits, int n) {
 
 static int sample_topk(const float* logits, int vocab, float temp, int top_k, unsigned long long* rng) {
     if (temp <= 0.0f) return sample_argmax(logits, vocab);
+    if (vocab > 65536) {
+        fprintf(stderr, "sample_topk: vocab %d exceeds buffer size 65536\n", vocab);
+        return sample_argmax(logits, vocab);
+    }
     *rng ^= *rng << 13; *rng ^= *rng >> 7; *rng ^= *rng << 17;
     int k = top_k < vocab ? top_k : vocab;
     static int idx[65536]; static float probs[65536];

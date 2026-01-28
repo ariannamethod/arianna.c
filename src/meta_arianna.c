@@ -134,9 +134,14 @@ int meta_init(FluidTransformer* ft,
         return -1;
     }
 
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
     long file_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    if (file_size < 0) {
+        fprintf(stderr, "[meta] ftell failed for weights file\n");
+        fclose(f);
+        return -1;
+    }
+    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
 
     fprintf(stderr, "[meta] loading %.2f MB from %s\n",
             file_size / 1024.0f / 1024.0f, weights_path);
