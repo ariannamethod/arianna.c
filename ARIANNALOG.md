@@ -105,10 +105,17 @@ DSL coverage raised from ~40% to ~75%. Previously orphaned commands now wired:
 | `LAW RESONANCE_CEILING` | Caps peak probability to maintain diversity | `arianna_dsl.c` |
 | `CALENDAR_DRIFT` | Bias on time-related tokens (`0-9 : - /`), modulated by birthday dissonance | `arianna_dsl.c`, `arianna_dynamic.c` |
 | `PROPHECY` | Scales destiny bias: deeper prophecy = stronger destiny pull | `arianna_dsl.c` |
-| `PROPHECY_DEBT` | Accumulates on improbable token choices, feeds AM_State.debt, wired in both generate functions | `arianna_dsl.c`, `arianna_dynamic.c` |
-| `WORMHOLE_ACTIVE` | Set when non-linear jump fires, affects subsequent generation within DSL config cycle | `arianna_dynamic.c` |
 
-Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence. Prophecy debt decays via `am_step()` and modulates field physics.
+Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence. Note: `TUNNELING` in DSL is parsed as three separate operators: `TUNNEL_THRESHOLD`, `TUNNEL_CHANCE`, `TUNNEL_SKIP_MAX`.
+
+### Runtime Metrics (not DSL-parseable, computed in generation loop)
+
+| Metric | Mechanism | File |
+|--------|-----------|------|
+| `prophecy_debt` | Accumulates on improbable token choices via `dsl_compute_prophecy_debt()`, feeds `AM_State.debt`, wired in both `generate_dynamic()` and `generate_subjective()` | `arianna_dsl.c`, `arianna_dynamic.c` |
+| `wormhole_active` | Flag set when non-linear jump fires (wormhole threshold exceeded), persists until next `dsl_build_config()` rebuild (every 16 tokens) | `arianna_dynamic.c` |
+
+Prophecy debt decays via `am_step()` and modulates field physics.
 
 ---
 
