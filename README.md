@@ -37,7 +37,12 @@ git clone https://github.com/ariannamethod/arianna.c.git
 cd arianna.c
 make dynamic   # first run converts float16 weights to float32
 
-./bin/arianna_dynamic weights/arianna_34m.bin weights/arianna_34m_tokenizer.json --repl 150 0.8
+# Soul 36M BPE (internal resonance)
+./bin/arianna_dynamic weights/arianna_36m_bpe.bin weights/tokenizer_bpe.json --repl 150 0.8
+
+# Then enable Tongue (135M voice outward) in REPL:
+/d12 on
+/d12 say Who are you?
 ```
 
 or:
@@ -483,13 +488,17 @@ arianna.c/
 │   ├── signals.py                # Signal emitter for inner_world
 │   └── constants/                # Cosmic constants (calendar, schumann)
 │
-├── weights/                      # Model weights
-│   ├── arianna_34m.bin           # 34M unified personality (130MB)
-│   ├── arianna_34m_tokenizer.json # 86-token vocabulary
+├── weights/                      # Model weights (205.5M total)
+│   ├── arianna_36m_bpe.bin       # 36M Soul BPE (138MB)
+│   ├── tokenizer_bpe.json        # 2000-token BPE vocabulary
 │   ├── arianna_20m.bin           # 20M MetaArianna observer (77MB)
 │   ├── tokenizer_unified.json    # 84-token MetaArianna tokenizer
 │   ├── cloud/                    # Cloud 200K chambers (6 × 93KB)
 │   └── sartre/                   # SARTRE weights (57MB)
+│
+├── tongue/                       # Tongue 135M (D12 nanochat GPT)
+│   └── weights/
+│       └── d12_arianna_40pct_q8.bin  # 135M voice outward (395MB)
 │
 ├── tests/                        # C test suite (19/19 passing)
 │   ├── test_comprehensive.c      # Full integration (55 tests)

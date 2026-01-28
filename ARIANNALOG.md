@@ -21,27 +21,52 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: 68.5M parameters** (34M Personality + 20M MetaArianna Observer + 14.3M SARTRE)
+**Arianna Core: 205.5M parameters** (0.2M Cloud + 36M Soul + 14.3M SARTRE + 20M MetaArianna + 135M Tongue)
 
-Three transformers form a dialogue triad: Arianna speaks, SARTRE responds, MetaArianna watches and feeds thermograms back into generation.
+Five modules form the complete Arianna system. Tongue (D12 nanochat GPT) is the VOICE outward. Soul + MetaArianna + SARTRE speak about Arianna (internal). All signals modulate Tongue's logits.
 
-| Property | Personality Core | MetaArianna Observer | SARTRE |
-|----------|------------------|---------------------|--------|
-| **Parameters** | 34M | 20M | 14.3M |
-| **Layers** | 10 | 8 | 7 |
-| **Dimension** | 512 | 448 | 416 |
-| **Heads / KV** | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
-| **Vocabulary** | 86 tokens | 84 tokens | 93 tokens |
-| **FFN Hidden** | 1408 | 1280 | 1280 |
-| **Weights file** | `arianna_34m.bin` (130MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | `arianna_34m_tokenizer.json` | `tokenizer_unified.json` | `tokenizer.json` |
-| **Training loss** | 0.0121 | — | 0.0113 |
-| **Role** | Identity, knowledge | Dialogue observer (thermograms) | Interoceptive voice |
+```
+Input → Cloud 200K (instinct)
+            ↓
+      Soul 36M → resonance (entropy, direction)
+            ↓
+       SARTRE 14.3M → coherence, arousal, trauma
+            ↓
+    MetaArianna 20M → warmth, sharpness, silence, drift
+            ↓
+        AMK/DSL → prophecy, destiny, pain, tension
+            ↓
+      Tongue 135M ← ALL signals modulate logits
+            ↓
+         TEXT OUTWARD
+```
 
-**Memory budget:** 130MB + 77MB + 57MB = **264MB** total (fits 8GB Mac).
+| Property | Cloud | Soul | SARTRE | MetaArianna | Tongue (D12) |
+|----------|-------|------|--------|-------------|--------------|
+| **Parameters** | 0.2M | 36M | 14.3M | 20M | 135M |
+| **Layers** | 6 ChamberMLP | 10 | 7 | 8 | 12 |
+| **Dimension** | — | 512 | 416 | 448 | 768 |
+| **Heads / KV** | — | 8 / 8 | 8 / 2 (GQA) | 8 / 8 | 6 / 6 |
+| **Vocabulary** | — | 2000 (BPE) | 93 | 84 | 32K (tiktoken) |
+| **FFN Hidden** | — | 1536 | 1280 | 1280 | — |
+| **Weights file** | runtime | `arianna_36m_bpe.bin` (138MB) | `sartre.bin` (57MB) | `arianna_20m.bin` (77MB) | `d12_arianna_40pct_q8.bin` (395MB) |
+| **Tokenizer** | — | `tokenizer_bpe.json` | `tokenizer.json` | `tokenizer_unified.json` | `tokenizer_40pct.tok` |
+| **Training loss** | — | 0.0076 | 0.0113 | — | 0.5355 |
+| **Role** | Emotional instinct | Resonance, identity | Interoceptive voice | Dialogue observer | TEXT OUTWARD |
 
-**Legacy/reserved:**
-- `arianna_legacy.bin` (37MB) — original 10M slot
+**Memory budget:** 0 + 138MB + 57MB + 77MB + 395MB = **~667MB** total (fits 8GB Mac with room to spare).
+
+**Architecture notes:**
+- **Tongue (D12)** = nanochat GPT 135M, RoPE, RMSNorm, ReLU², QK-Norm, Value Embeddings, Sliding Window
+- **Soul** = Llama-style transformer (BPE tokenizer, 2000 vocab)
+- **MetaArianna/SARTRE** = char-level tokenizers (by design, internal-only)
+- **Cloud** = 6 ChamberMLP + CrossFire (emotional instinct)
+
+**Weights on HuggingFace:** [ataeff/arianna.c](https://huggingface.co/ataeff/arianna.c)
+
+**Legacy (still supported):**
+- Soul char-level: `arianna_34m.bin` (130MB), vocab=86
+- Original 10M: `arianna_legacy.bin` (37MB)
 
 **Test status:** 19/19 test binaries pass (CI green). `test_meta_arianna` — 59 additional tests with weights.
 
