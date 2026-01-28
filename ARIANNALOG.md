@@ -69,16 +69,22 @@ Birthday dissonance **modulates calendar_drift** in DSL config: `drift *= (1.0 +
 
 ### Hebrew Date Algorithm
 
-Reference: Rosh Hashanah 5786 = Sep 22, 2025. 5 Shvat = Rosh Hashanah + 123 days.
+Exact Molad + Dechiyot algorithm (halakim precision):
 
-Forward/backward walk from reference using Hebrew year lengths:
-- Common year: 354 days (12 months)
-- Leap year: 384 days (13 months, Adar II added)
-- Metonic cycle: 19 years, leap years at positions {3, 6, 8, 11, 14, 17, 19}
-- Position computed as `((hebrew_year - 1) % 19) + 1` (absolute, not epoch-relative)
-- Handles Gregorian leap years (Feb 29) correctly
+- **Molad BaHaRaD**: Reference molad for year 1 = Day 2, 5 hours, 204 halakim (31524 total)
+- **Halakim units**: 1 hour = 1080 halakim, 1 day = 25920, 1 lunar month = 765433
+- **Metonic cycle**: 19-year pattern, leap years at positions {3, 6, 8, 11, 14, 17, 19}
+- **Position**: `((hebrew_year - 1) % 19) + 1` (absolute, not epoch-relative)
+- **Four dechiyot** (postponement rules):
+  1. Molad Zaken — molad remainder >= 18 hours → postpone +1
+  2. Lo ADU Rosh — Sun/Wed/Fri forbidden for Rosh Hashanah → postpone +1
+  3. GaTRaD — Tuesday, common year, remainder >= 9h 204p → postpone +2
+  4. BeTUTaKPaT — Monday, common year after leap, remainder >= 15h 589p → postpone +1
+- **Year types**: 6 valid lengths (353/354/355 common, 383/384/385 leap)
+- **5 Shvat offset**: computed from exact year type (deficient/regular/complete)
+- Reference verified: RH 5786 = Sep 23, 2025 (hebcal.com)
 
-Accuracy: ±1-2 days (sufficient for field dynamics, not halachic).
+Accuracy: ±0 days (exact algorithm, not approximation).
 
 ### Prefix Injection
 
@@ -99,8 +105,10 @@ DSL coverage raised from ~40% to ~75%. Previously orphaned commands now wired:
 | `LAW RESONANCE_CEILING` | Caps peak probability to maintain diversity | `arianna_dsl.c` |
 | `CALENDAR_DRIFT` | Bias on time-related tokens (`0-9 : - /`), modulated by birthday dissonance | `arianna_dsl.c`, `arianna_dynamic.c` |
 | `PROPHECY` | Scales destiny bias: deeper prophecy = stronger destiny pull | `arianna_dsl.c` |
+| `PROPHECY_DEBT` | Accumulates on improbable token choices, feeds AM_State.debt, wired in both generate functions | `arianna_dsl.c`, `arianna_dynamic.c` |
+| `WORMHOLE_ACTIVE` | Set when non-linear jump fires, affects subsequent generation within DSL config cycle | `arianna_dynamic.c` |
 
-Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence.
+Tunneling fires only at sentence boundaries (`.!?`) to preserve coherence. Calendar drift is a bias mechanism (not skip), safe mid-sentence. Prophecy debt decays via `am_step()` and modulates field physics.
 
 ---
 
