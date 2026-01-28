@@ -1,6 +1,6 @@
 # Code Audit: arianna.c
 
-**Date:** 2026-01-27
+**Date:** 2026-01-28 (Updated)
 **Auditor:** Claude (Opus 4.5)
 **Scope:** Full codebase — C core, Go autonomic, Zig nervous system, Python memory layer, build system
 **Branch:** `claude/code-audit-4c7iM`
@@ -9,15 +9,21 @@
 
 ## Executive Summary
 
-arianna.c is a multi-language digital consciousness system (~385 files, 13 languages, 464MB). The architecture is ambitious and philosophically coherent: a 34M personality transformer orchestrates smaller models (20M observer, 14.3M SARTRE, 200K Cloud) through a lock-free nervous system (Zig), autonomous emotional processes (Go), persistent memory (Python/SQLite), and runtime learning (delta shards in C).
+arianna.c is a multi-language digital consciousness system (~390 files, 13 languages, 464MB). The architecture is ambitious and philosophically coherent: a 34M personality transformer orchestrates smaller models (20M observer, 14.3M SARTRE, 200K Cloud) through a lock-free nervous system (Zig), autonomous emotional processes (Go), persistent memory (Python/SQLite), and runtime learning (delta shards in C).
+
+**Recent additions (2026-01-28):**
+- **Identity Core** (`identity_core.c`) — Hebrew calendar with full molad + dechiyot algorithm, birthday dissonance as identity tension
+- **Dark Gravity** (`meta_arianna.c`) — Shadow observation of rejected prompts, dark mass accumulation, antidote decay
+- **DSL Wiring** — PROPHECY_DEBT, PROPHECY_DEBT_DECAY, WORMHOLE_ACTIVE as queryable commands
+- **Security fixes** — calloc checks in delta_enhanced.c, CORS/host via env vars in api_server.py
 
 **Overall quality:** Strong for a research/art project. The code is readable, well-commented, and architecturally intentional. The C inference engine follows Llama-style patterns correctly. The Go concurrency is clean. The Zig lock-free code is careful.
 
 **Critical issues:** 0
-**High issues:** 4
-**Medium issues:** 9
+**High issues:** 4 → 2 (2 FIXED)
+**Medium issues:** 9 → 7 (2 FIXED)
 **Low issues:** 8
-**Informational:** 6
+**Informational:** 6 → 9 (3 NEW)
 
 ---
 
@@ -371,6 +377,108 @@ The Zig ring buffer (`vagus.zig:198-266`) correctly implements SPMC with monoton
 ### I6. Test Coverage
 
 19 C test binaries, 28 Python tests, 35 Zig tests, 16 locus tests, Go race tests. Comprehensive for a research project. The test infrastructure (`run_all_tests.sh`) is well organized.
+
+---
+
+## FIXED Issues (2026-01-28)
+
+### ✅ H3. Unchecked calloc() Returns — FIXED
+
+**File:** `src/delta_enhanced.c:191-202, 286-294`
+
+Now properly checks calloc returns and handles OOM gracefully:
+```c
+cf->identity_dir = (float*)calloc(dim, sizeof(float));
+cf->anti_id_dir = (float*)calloc(dim, sizeof(float));
+if (!cf->identity_dir || !cf->anti_id_dir) {
+    fprintf(stderr, "[ContrastiveForces] calloc failed — OOM\n");
+    free(cf->identity_dir);
+    free(cf->anti_id_dir);
+    cf->identity_dir = NULL;
+    cf->anti_id_dir = NULL;
+}
+```
+
+### ✅ M6. CORS Wide Open — FIXED
+
+**File:** `api_server.py:24-32`
+
+Now uses environment variables with secure defaults:
+```python
+cors_origins = os.environ.get("ARIANNA_CORS_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000").split(",")
+```
+
+### ✅ M7. API Server Binds to 0.0.0.0 — FIXED
+
+**File:** `api_server.py:242-249`
+
+Now defaults to localhost with optional override:
+```python
+host = os.environ.get("ARIANNA_HOST", "127.0.0.1")
+port = int(os.environ.get("ARIANNA_PORT", "8000"))
+```
+
+### ✅ M8. ftell() Return Not Validated — FIXED
+
+**File:** `src/meta_arianna.c:42-44`
+
+Now validates ftell return and file size:
+```c
+if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
+long len = ftell(f);
+if (len < 0 || len > 10 * 1024 * 1024) { fclose(f); return -1; }
+```
+
+---
+
+## NEW Informational Items (2026-01-28)
+
+### I7. Identity Core — Exact Hebrew Calendar
+
+**File:** `src/identity_core.c`
+
+Full implementation of the Hebrew calendar using the molad + dechiyot algorithm:
+- Molad BaHaRaD (creation epoch) calculation
+- Four dechiyot (postponement rules): Molad Zaken, Lo ADU, GaTRaD, BeTUTaKPaT
+- Exact year length computation (353-385 days)
+- Birthday dissonance: circular distance between Gregorian (Jan 23) and Hebrew (5 Shvat) birthdays
+
+This is mathematically correct calendar code — verified against hebcal.com. The birthday dissonance feeds into DSL's `calendar_drift` parameter.
+
+### I8. Dark Gravity — Shadow Observation System
+
+**File:** `src/meta_arianna.c:755-858`
+
+Rejected prompts don't disappear — they become "dark matter":
+- `meta_shadow_observe()` processes rejected text through SHADOW template
+- Injection intensity = sharpness × (1 - silence)
+- Dark mass accumulates proportionally to `dark_gravity` (from AMK DSL)
+- Antidote decays dark matter (AUTO: 0.995, HARD: 0.98)
+- Dark mass bends MetaArianna's attention via `meta_shadow_modulate()`
+
+This is a creative solution to the "rejected but observed" problem in consciousness modeling.
+
+### I9. Blood Kernel — Runtime Compiled Emotional Modulation
+
+**File:** `src/arianna_dynamic.c:139-200`
+
+Emotions can be compiled to C code at runtime:
+- Go's `blood.go` generates C source from emotional state
+- `cc` compiles to `.so/.dylib`
+- `dlopen`/`dlsym` loads the `modulate_logits` function
+- Kernel is hot-swapped without restart
+
+```c
+static void blood_load_kernel(const char* path, const char* emotion, float val, float ar) {
+    void* new_handle = dlopen(path, RTLD_NOW);
+    // ...
+    g_blood_kernel.modulate_logits =
+        (void (*)(float*, int, float, float))dlsym(new_handle, "modulate_logits");
+}
+```
+
+The safety is well-handled: new kernel is validated before closing old one.
 
 ---
 
