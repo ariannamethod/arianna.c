@@ -1191,6 +1191,7 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                         i++;
                     }
                     g_dsl_config.wormhole_active = 1;
+                    am_get_state()->wormhole_active = 1;
                 }
             }
 

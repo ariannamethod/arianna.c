@@ -174,6 +174,9 @@ void am_init(void) {
   G.dark_gravity = 0.5f;
   G.antidote_mode = 0;
 
+  // wormhole state
+  G.wormhole_active = 0;
+
   // cosmic physics coupling (actual values come from schumann.c)
   G.cosmic_coherence_ref = 0.5f;
 }
@@ -287,6 +290,14 @@ int am_exec(const char* script) {
     }
     else if (!strcmp(t, "DISSONANCE")) {
       G.dissonance = clamp01(safe_atof(arg));
+    }
+
+    // PROPHECY DEBT — direct set/configure
+    else if (!strcmp(t, "PROPHECY_DEBT")) {
+      G.debt = clampf(safe_atof(arg), 0.0f, 100.0f);
+    }
+    else if (!strcmp(t, "PROPHECY_DEBT_DECAY")) {
+      G.debt_decay = clampf(safe_atof(arg), 0.9f, 0.9999f);
     }
 
     // MOVEMENT
@@ -539,8 +550,9 @@ int am_copy_state(float* out) {
 
   // Cosmic physics reference (index 20, actual state in schumann.c)
   out[20] = G.cosmic_coherence_ref;
-  // Slots 21-23 reserved for future use
-  out[21] = 0.0f;
+  // Extended slots
+  out[21] = (float)G.wormhole_active;
+  // Slots 22-23 reserved for future use
   out[22] = 0.0f;
   out[23] = 0.0f;
 

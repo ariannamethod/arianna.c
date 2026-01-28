@@ -91,6 +91,9 @@ typedef struct {
   float dark_gravity;
   int   antidote_mode;
 
+  // WORMHOLE STATE (queryable)
+  int wormhole_active;          // 1 if wormhole fired this step, 0 otherwise
+
   // Cosmic physics coupling (from schumann.c)
   float cosmic_coherence_ref;
 } AM_State;
@@ -163,6 +166,12 @@ static inline int am_should_tunnel(void) {
     // Simple probability check
     float r = (float)rand() / (float)RAND_MAX;
     return r < s->tunnel_chance;
+}
+
+// Check if wormhole fired this step
+static inline int am_get_wormhole_active(void) {
+    AM_State* s = am_get_state();
+    return s->wormhole_active;
 }
 
 // Apply pain/tension to logits (suppress extremes)

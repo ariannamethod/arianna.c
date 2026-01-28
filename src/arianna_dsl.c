@@ -54,6 +54,7 @@ DSL_GenerationConfig dsl_build_config(void) {
     // Wormhole
     cfg.wormhole_chance = s->wormhole;
     cfg.wormhole_active = 0;
+    s->wormhole_active = 0;  // reset kernel-level flag each step
 
     // Attention physics
     cfg.attend_focus = s->attend_focus;

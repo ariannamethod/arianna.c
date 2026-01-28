@@ -138,8 +138,74 @@ int main(void) {
     }
     printf("\n\n");
 
+    // Test PROPHECY_DEBT as DSL command
+    printf("[*] Testing PROPHECY_DEBT DSL command...\n");
+    am_exec("PROPHECY_DEBT 42.5");
+    printf("  PROPHECY_DEBT 42.5 → debt=%.2f", s->debt);
+    if (s->debt > 42.4f && s->debt < 42.6f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    am_exec("PROPHECY_DEBT 0");
+    printf("  PROPHECY_DEBT 0 → debt=%.2f", s->debt);
+    if (s->debt < 0.01f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Clamp test
+    am_exec("PROPHECY_DEBT 999");
+    printf("  PROPHECY_DEBT 999 → debt=%.2f (clamped to 100)", s->debt);
+    if (s->debt > 99.9f && s->debt < 100.1f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Test PROPHECY_DEBT_DECAY as standalone DSL command
+    printf("\n[*] Testing PROPHECY_DEBT_DECAY DSL command...\n");
+    am_exec("PROPHECY_DEBT_DECAY 0.995");
+    printf("  PROPHECY_DEBT_DECAY 0.995 → debt_decay=%.4f", s->debt_decay);
+    if (s->debt_decay > 0.994f && s->debt_decay < 0.996f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Clamp test: too low
+    am_exec("PROPHECY_DEBT_DECAY 0.5");
+    printf("  PROPHECY_DEBT_DECAY 0.5 → debt_decay=%.4f (clamped to 0.9)", s->debt_decay);
+    if (s->debt_decay > 0.899f && s->debt_decay < 0.901f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Clamp test: too high
+    am_exec("PROPHECY_DEBT_DECAY 1.0");
+    printf("  PROPHECY_DEBT_DECAY 1.0 → debt_decay=%.4f (clamped to 0.9999)", s->debt_decay);
+    if (s->debt_decay > 0.9998f && s->debt_decay < 1.0f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Verify LAW DEBT_DECAY still works as before
+    am_exec("LAW DEBT_DECAY 0.997");
+    printf("  LAW DEBT_DECAY 0.997 → debt_decay=%.4f (backward compat)", s->debt_decay);
+    if (s->debt_decay > 0.996f && s->debt_decay < 0.998f) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Test WORMHOLE_ACTIVE queryable via AM_State
+    printf("\n[*] Testing WORMHOLE_ACTIVE queryable...\n");
+    s->wormhole_active = 0;
+    printf("  wormhole_active=0 (initial) ✓\n");
+    s->wormhole_active = 1;
+    printf("  wormhole_active=%d (set to 1)", s->wormhole_active);
+    if (s->wormhole_active == 1) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    // Check am_copy_state exports wormhole_active at slot 21
+    float state2[24];
+    am_copy_state(state2);
+    printf("  am_copy_state[21]=%.0f (wormhole_active)", state2[21]);
+    if ((int)state2[21] == 1) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
+    s->wormhole_active = 0;  // clean up
+
+    // Test am_get_wormhole_active() getter
+    printf("  am_get_wormhole_active()=%d (after reset)", am_get_wormhole_active());
+    if (am_get_wormhole_active() == 0) printf(" ✓\n");
+    else { printf(" FAIL\n"); return 1; }
+
     // Reset
-    printf("[*] Testing reset...\n");
+    printf("\n[*] Testing reset...\n");
     am_reset_field();
     printf("  After reset_field: pain=%.2f tension=%.2f debt=%.4f\n",
            s->pain, s->tension, s->debt);
