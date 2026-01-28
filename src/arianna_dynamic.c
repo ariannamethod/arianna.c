@@ -723,7 +723,10 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
                 // Dark Gravity: shadow bends MetaArianna's perception
                 meta_shadow_modulate(&g_fluid_transformer, &meta_params);
 
-                if (template_id >= 0) {
+                // Clamp template_id to valid range
+                if (template_id < 0) template_id = 0;
+                if (template_id >= META_N_TEMPLATES) template_id %= META_N_TEMPLATES;
+                {
                     // Build dialogue log from recent generated text
                     generated[gen_idx] = '\0';
                     int log_start = (gen_idx > META_MAX_LOG_LEN)
@@ -1259,7 +1262,7 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         // Instead of training on every token, we accumulate until critical mass
         if (g_microtraining && g_active_shard != NULL && g_accumulator_initialized) {
             // Compute softmax probabilities for accumulation
-            float probs[256];  // Char-level vocab
+            float probs[VOCAB_SIZE];  // Matches arianna.h VOCAB_SIZE
             float maxl = t->state.logits[0];
             for (int v = 1; v < t->config.vocab_size; v++) {
                 if (t->state.logits[v] > maxl) maxl = t->state.logits[v];
@@ -2140,9 +2143,9 @@ static void run_dialogue(Transformer* t, const char* seed,
                               g_meta_thermogram.warmth,
                               g_meta_thermogram.silence);
 
-            const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD"};
+            const char* tpl_names[] = {"THERMO", "SILENCE", "DRIFT", "FIELD", "SHADOW"};
             printf("[Meta:%s] w=%.3f s=%.3f si=%.3f d=%.3f(%+d)\n",
-                   tpl_names[template_id],
+                   tpl_names[template_id % 5],
                    g_meta_thermogram.warmth, g_meta_thermogram.sharpness,
                    g_meta_thermogram.silence,
                    g_meta_thermogram.drift_rate, g_meta_thermogram.drift_direction);
