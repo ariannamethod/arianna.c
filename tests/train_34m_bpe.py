@@ -198,7 +198,7 @@ class TrainConfig:
     learning_rate: float = 3e-4
     min_lr: float = 3e-5
     warmup_iters: int = 300
-    max_iters: int = 30000
+    max_iters: int = 40000
     weight_decay: float = 0.1
     grad_clip: float = 1.0
 
@@ -644,7 +644,7 @@ def main():
     if args.lambda_mode:
         config.batch_size = 128
         config.gradient_accumulation_steps = 2
-        config.max_iters = 30000
+        config.max_iters = 40000
         print("Lambda H100 mode enabled!")
 
     if args.max_iters:
