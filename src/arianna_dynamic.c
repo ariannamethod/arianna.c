@@ -2371,32 +2371,86 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 continue;
             }
             const char* prompt = input + 9;
+            int prompt_len = strlen(prompt);
 
-            // Collect modulation from Arianna ecosystem
-            // 1. Cloud instinct
+            // ══════════════════════════════════════════════════════════
+            // FULL ARIANNA ECOSYSTEM MODULATION
+            // Tongue speaks what Soul feels — all systems contribute
+            // ══════════════════════════════════════════════════════════
+
+            // 1. Cloud instinct (pre-semantic, fires before meaning)
             CloudResponse cloud = cloud_ping(prompt);
             d12_update_from_cloud(&g_d12, &cloud);
 
-            // 2. Arianna 36M resonance (t = Transformer* already)
-            d12_update_from_arianna(&g_d12, t, prompt);
+            // 2. Subjectivity — process input, get seed and signals
+            if (g_subjectivity_enabled) {
+                process_user_input(&g_subjectivity, prompt, prompt_len);
+                float penetration = get_prompt_penetration(&g_subjectivity);
 
-            // 3. MetaArianna thermogram
-            if (g_meta_enabled && g_meta_thermogram.valid) {
-                d12_update_from_meta(&g_d12, &g_meta_thermogram);
+                // Get delta signals from wrinkle + trauma
+                Signals sig;
+                get_subjectivity_signals(&g_subjectivity, &sig);
+                d12_update_from_sartre(&g_d12,
+                    sig.resonance,           // coherence from resonance
+                    sig.arousal,             // arousal
+                    g_subjectivity.trauma.level * 0.5f);  // trauma level
+
+                // Penetration affects exploratory bias
+                g_d12.mod.exploratory_bias += (penetration - 0.5f) * 0.3f;
             }
 
-            // 4. Compute final modulation
+            // 3. Arianna 36M resonance (Soul)
+            // Forward pass to get logits, extract entropy/direction
+            d12_update_from_arianna(&g_d12, t, prompt);
+
+            // 4. MetaArianna thermogram (reflection)
+            if (g_meta_enabled) {
+                // First observe current state
+                MetaTemplateParams meta_params;
+                meta_default_params(&meta_params, META_TEMPLATE_THERMOGRAPH);
+                meta_observe(&g_fluid_transformer, &meta_params, prompt, prompt_len);
+                g_meta_thermogram = g_fluid_transformer.result;
+
+                if (g_meta_thermogram.valid) {
+                    d12_update_from_meta(&g_d12, &g_meta_thermogram);
+                }
+                meta_reset(&g_fluid_transformer);
+            }
+
+            // 5. AMK/DSL state (prophecy, destiny, suffering)
+            if (g_amk_enabled) {
+                AM_State* am = am_get_state();
+                // Prophecy increases exploration (horizon)
+                g_d12.mod.exploratory_bias += am->prophecy * 0.01f;
+                // Destiny increases focus
+                g_d12.mod.logit_scale *= (1.0f + am->destiny * 0.2f);
+                // Pain/tension reduce temperature
+                g_d12.mod.temperature_mod -= (am->pain + am->tension) * 0.1f;
+            }
+
+            // 6. Compute final modulation
             d12_compute_modulation(&g_d12);
 
-            // Generate with modulation
+            // 7. Generate with full ecosystem modulation
             char output[2048];
-            printf("[d12/tongue]: ");
+            printf("[tongue]: ");
             fflush(stdout);
+
+            float temp = 0.8f + g_d12.mod.temperature_mod * 0.2f;
+            if (temp < 0.3f) temp = 0.3f;
+            if (temp > 1.5f) temp = 1.5f;
+
             int n = d12_generate(&g_d12, prompt, output, sizeof(output),
-                                 150, 0.8f, 0.9f);
+                                 150, temp, 0.9f);
             printf("%s\n", output);
-            printf("[%d tokens, temp_mod=%.2f, scale=%.2f]\n",
-                   n, g_d12.mod.temperature_mod, g_d12.mod.logit_scale);
+
+            // Post-generation: feed back to subjectivity
+            if (g_subjectivity_enabled) {
+                post_generation(&g_subjectivity, output, strlen(output));
+            }
+
+            printf("[%d tokens | temp=%.2f scale=%.2f explore=%.2f]\n",
+                   n, temp, g_d12.mod.logit_scale, g_d12.mod.exploratory_bias);
             continue;
         }
 
