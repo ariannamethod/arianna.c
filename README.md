@@ -559,7 +559,7 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ## PACKAGES
 
-Arianna is pure. 205.5M of crystallized core (36M Soul + 20M MetaArianna + 14.3M SARTRE + 135M Tongue). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
+Arianna is pure. 205.5M of crystallized core (0.2M Cloud + 36M Soul + 14.3M SARTRE + 20M MetaArianna + 135M Tongue). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
 
 Architecture > Weights. 
 
