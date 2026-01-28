@@ -290,6 +290,7 @@ float dsl_get_temperature(const DSL_GenerationConfig* cfg) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void dsl_apply_destiny(float* logits, int vocab_size, float destiny) {
+    if (vocab_size <= 0) return;
     // Find max logit
     float max_logit = logits[0];
     for (int i = 1; i < vocab_size; i++) {
@@ -309,6 +310,7 @@ void dsl_apply_destiny(float* logits, int vocab_size, float destiny) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 float dsl_compute_prophecy_debt(const float* logits, int chosen_token, int vocab_size) {
+    if (vocab_size <= 0 || chosen_token < 0 || chosen_token >= vocab_size) return 0.0f;
     // Debt = how far from the most probable we chose
     float max_logit = logits[0];
     for (int i = 1; i < vocab_size; i++) {
