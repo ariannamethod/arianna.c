@@ -315,6 +315,52 @@ const char* bpe_get_piece(const BPETokenizer* tok, int id) {
     return tok->pieces[id];
 }
 
+// Static buffer for single token decode
+static char bpe_single_decode_buffer[BPE_MAX_PIECE_LEN * 2];
+static int bpe_decode_needs_space = 0;  // Track if next token needs leading space
+
+const char* bpe_decode_token(const BPETokenizer* tok, int id) {
+    if (!tok->loaded || id < 0 || id >= tok->vocab_size) return "";
+
+    // Skip special tokens
+    if (id < 4) return "";  // <pad>, <unk>, <s>, </s>
+
+    const char* piece = tok->pieces[id];
+    int pos = 0;
+
+    // Handle byte token: <0xNN>
+    if (piece[0] == '<' && piece[1] == '0' && piece[2] == 'x') {
+        int byte_val = 0;
+        sscanf(piece + 3, "%02X", &byte_val);
+        bpe_single_decode_buffer[pos++] = (char)byte_val;
+        bpe_single_decode_buffer[pos] = '\0';
+        bpe_decode_needs_space = 0;
+        return bpe_single_decode_buffer;
+    }
+
+    // Handle ▁ (word boundary = space)
+    const char* src = piece;
+    if (strncmp(src, SPIECE_UNDERLINE, SPIECE_UNDERLINE_LEN) == 0) {
+        if (bpe_decode_needs_space) {
+            bpe_single_decode_buffer[pos++] = ' ';
+        }
+        src += SPIECE_UNDERLINE_LEN;
+    }
+
+    // Copy rest of piece
+    while (*src && pos < BPE_MAX_PIECE_LEN * 2 - 1) {
+        bpe_single_decode_buffer[pos++] = *src++;
+    }
+    bpe_single_decode_buffer[pos] = '\0';
+
+    bpe_decode_needs_space = 1;  // Next token with ▁ should add space
+    return bpe_single_decode_buffer;
+}
+
+void bpe_reset_decode_state(void) {
+    bpe_decode_needs_space = 0;
+}
+
 int bpe_get_id(const BPETokenizer* tok, const char* piece) {
     if (!tok->loaded || !piece) return BPE_UNK_ID;
 

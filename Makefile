@@ -26,11 +26,11 @@ SRC_DIR = src
 BIN_DIR = bin
 
 # Basic version (Cloud wrapper + Go library)
-SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/main.c
+SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
 # Dynamic version with full pipeline (Cloud in Go via wrapper)
-SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/julia_bridge.c \
+SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/julia_bridge.c \
            $(SRC_DIR)/schumann.c $(SRC_DIR)/pandora.c packages/pandora/pandora_bridge.c $(SRC_DIR)/delta.c \
            $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c \
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
@@ -115,7 +115,7 @@ $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $(SRCS) -o $(TARGET) $(LDFLAGS)
 
-$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
+$(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/bpe_tokenizer.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
                $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
                $(SRC_DIR)/julia_bridge.h $(SRC_DIR)/delta_enhanced.h $(SRC_DIR)/inner_arianna.h \
@@ -162,7 +162,7 @@ TEST_DIR = tests
 TEST_BIN_DIR = $(BIN_DIR)
 
 # Common test dependencies
-TEST_COMMON = $(SRC_DIR)/ariannabody.c
+TEST_COMMON = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c
 
 # Individual tests
 test_cloud: $(TEST_BIN_DIR)/test_cloud

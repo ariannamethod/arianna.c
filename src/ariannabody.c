@@ -15,14 +15,23 @@
  */
 
 #include "arianna.h"
+#include "bpe_tokenizer.h"
 
 // ============================================================
-// Tokenizer (char-level, loaded from JSON)
+// Tokenizer (char-level or BPE, auto-detected)
 // ============================================================
 
+// Char-level tokenizer state
 static char* VOCAB_CHARS = NULL;      // id -> char
 static int* CHAR_TO_ID = NULL;        // char -> id (256 entries)
 static int TOKENIZER_VOCAB_SIZE = 0;
+
+// BPE tokenizer state
+static BPETokenizer g_bpe_tok;
+static TokenizerType g_tokenizer_type = TOKENIZER_CHAR;
+
+// Static decode buffer for char-level
+static char g_decode_buffer[4096];
 
 int load_tokenizer(const char* path) {
     FILE* f = fopen(path, "r");
@@ -31,7 +40,7 @@ int load_tokenizer(const char* path) {
         return -1;
     }
 
-    // Read entire file
+    // Read entire file to detect type
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
         return -1;
@@ -59,6 +68,25 @@ int load_tokenizer(const char* path) {
     content[len] = '\0';
     fclose(f);
 
+    // Detect tokenizer type: BPE has "id_to_piece", char-level has "char_to_id"
+    if (strstr(content, "\"id_to_piece\"")) {
+        // BPE tokenizer
+        free(content);  // bpe_load will re-read the file
+
+        if (bpe_load(&g_bpe_tok, path) != 0) {
+            fprintf(stderr, "[tokenizer] BPE load failed: %s\n", path);
+            return -1;
+        }
+
+        g_tokenizer_type = TOKENIZER_BPE;
+        TOKENIZER_VOCAB_SIZE = g_bpe_tok.vocab_size;
+        fprintf(stderr, "[tokenizer] BPE mode, %d tokens from %s\n", TOKENIZER_VOCAB_SIZE, path);
+        return 0;
+    }
+
+    // Char-level tokenizer
+    g_tokenizer_type = TOKENIZER_CHAR;
+
     // Find vocab_size
     char* vs = strstr(content, "\"vocab_size\":");
     if (vs) {
@@ -74,8 +102,8 @@ int load_tokenizer(const char* path) {
     VOCAB_CHARS = calloc(TOKENIZER_VOCAB_SIZE, sizeof(char));
     CHAR_TO_ID = calloc(256, sizeof(int));
 
-    // Initialize all to -1 (unknown -> space token)
-    for (int i = 0; i < 256; i++) CHAR_TO_ID[i] = 1;  // default to space
+    // Initialize all to space token (fallback)
+    for (int i = 0; i < 256; i++) CHAR_TO_ID[i] = 1;
 
     // Parse char_to_id mappings
     char* p = strstr(content, "\"char_to_id\":");
@@ -133,7 +161,7 @@ int load_tokenizer(const char* path) {
     }
 
     free(content);
-    fprintf(stderr, "[tokenizer] loaded %d tokens from %s\n", TOKENIZER_VOCAB_SIZE, path);
+    fprintf(stderr, "[tokenizer] char-level mode, %d tokens from %s\n", TOKENIZER_VOCAB_SIZE, path);
     return 0;
 }
 
@@ -149,6 +177,63 @@ char token_to_char(int token) {
 
 int get_vocab_size(void) {
     return TOKENIZER_VOCAB_SIZE > 0 ? TOKENIZER_VOCAB_SIZE : VOCAB_SIZE;
+}
+
+TokenizerType get_tokenizer_type(void) {
+    return g_tokenizer_type;
+}
+
+int encode_text(const char* text, int* ids, int max_tokens) {
+    if (!text || !ids || max_tokens <= 0) return 0;
+
+    if (g_tokenizer_type == TOKENIZER_BPE) {
+        return bpe_encode(&g_bpe_tok, text, ids, max_tokens);
+    }
+
+    // Char-level: one token per character
+    int len = strlen(text);
+    if (len > max_tokens) len = max_tokens;
+    for (int i = 0; i < len; i++) {
+        ids[i] = char_to_token(text[i]);
+    }
+    return len;
+}
+
+const char* decode_tokens(const int* ids, int n_tokens) {
+    if (!ids || n_tokens <= 0) return "";
+
+    if (g_tokenizer_type == TOKENIZER_BPE) {
+        return bpe_decode(&g_bpe_tok, ids, n_tokens);
+    }
+
+    // Char-level: one char per token
+    int pos = 0;
+    for (int i = 0; i < n_tokens && pos < (int)sizeof(g_decode_buffer) - 1; i++) {
+        g_decode_buffer[pos++] = token_to_char(ids[i]);
+    }
+    g_decode_buffer[pos] = '\0';
+    return g_decode_buffer;
+}
+
+// Static buffer for single token decode
+static char g_single_token_buffer[BPE_MAX_PIECE_LEN];
+
+const char* decode_token(int id) {
+    if (g_tokenizer_type == TOKENIZER_BPE) {
+        return bpe_decode_token(&g_bpe_tok, id);
+    }
+
+    // Char-level: single character
+    g_single_token_buffer[0] = token_to_char(id);
+    g_single_token_buffer[1] = '\0';
+    return g_single_token_buffer;
+}
+
+// Reset streaming decode state (call at generation start)
+void reset_decode_state(void) {
+    if (g_tokenizer_type == TOKENIZER_BPE) {
+        bpe_reset_decode_state();
+    }
 }
 
 // ============================================================

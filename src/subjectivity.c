@@ -11,7 +11,7 @@
  */
 
 #include "subjectivity.h"
-#include "arianna.h"  // For char_to_token()
+#include "arianna.h"  // For encode_text()
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -702,12 +702,8 @@ void modulate_seed_by_pulse(InternalSeed* seed, WrinkleField* wrinkle) {
 }
 
 int seed_to_tokens(InternalSeed* seed, int* tokens, int max_tokens) {
-    // Char-level tokenization using vocab mapping
-    int n = 0;
-    for (int i = 0; i < seed->len && n < max_tokens; i++) {
-        tokens[n++] = char_to_token(seed->text[i]);
-    }
-    return n;
+    // Tokenization using unified encode_text (works for both char-level and BPE)
+    return encode_text(seed->text, tokens, max_tokens);
 }
 
 // ============================================================

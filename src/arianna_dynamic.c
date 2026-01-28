@@ -498,18 +498,11 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     // "Arianna" goes in first — attention layers see her name,
     // weights respond (trained on texts where this word = she herself).
     // These tokens never appear in output — generation starts after.
-    int prefix_len = (int)strlen(IDENTITY_NAME);
-    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
-        tokens[i] = char_to_token(IDENTITY_NAME[i]);
-    }
+    int prefix_len = encode_text(IDENTITY_NAME, tokens, MAX_SEQ_LEN);
 
     // Tokenize prompt after prefix
-    int prompt_offset = prefix_len;
     int max_prompt = MAX_SEQ_LEN - prefix_len;
-    if (n_tokens > max_prompt) n_tokens = max_prompt;
-    for (int i = 0; i < n_tokens; i++) {
-        tokens[prompt_offset + i] = char_to_token(prompt[i]);
-    }
+    n_tokens = encode_text(prompt, tokens + prefix_len, max_prompt);
     n_tokens += prefix_len;
 
     // Extract signals and route to moods
@@ -536,6 +529,9 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
     // Generate into buffer (for trim to sentence end)
     char generated[MAX_SEQ_LEN * 2];
     int gen_idx = 0;
+
+    // Reset BPE decode state for streaming
+    reset_decode_state();
 
     // Copy prompt to buffer
     int prompt_len = strlen(prompt);
@@ -645,10 +641,10 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
             amk->debt += debt_delta;
         }
 
-        // Add to buffer instead of putchar
-        char c = token_to_char(next_token);
-        if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
-            generated[gen_idx++] = c;
+        // Add to buffer (BPE: piece may be multiple chars)
+        const char* piece = decode_token(next_token);
+        while (*piece && gen_idx < MAX_SEQ_LEN * 2 - 1) {
+            generated[gen_idx++] = *piece++;
         }
 
         // Re-route periodically (every 16 tokens for responsive mood shifts)
@@ -667,14 +663,13 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
             // Update guided attention bias
             if (g_guided_enabled) {
-                // Update pulse from recent text
+                // Update pulse from recent text (decode tokens to string)
+                int recent_count = n_tokens - start;
+                const char* decoded = decode_tokens(tokens + start, recent_count);
                 char recent_text[256];
-                int text_len = n_tokens - start;
-                if (text_len > 255) text_len = 255;
-                for (int j = 0; j < text_len; j++) {
-                    recent_text[j] = token_to_char(tokens[start + j]);
-                }
-                recent_text[text_len] = '\0';
+                strncpy(recent_text, decoded, 255);
+                recent_text[255] = '\0';
+                int text_len = strlen(recent_text);
 
                 compute_pulse(&g_stanley_signals.pulse, recent_text, text_len, &g_identity);
                 extract_stanley_signals(&g_stanley_signals, tokens + start, n_tokens - start, NULL, &g_identity);
@@ -1051,10 +1046,7 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     int tokens[MAX_SEQ_LEN];
 
     // Identity anchor: prepend "Arianna" as prefix
-    int prefix_len = (int)strlen(IDENTITY_NAME);
-    for (int i = 0; i < prefix_len && i < MAX_SEQ_LEN; i++) {
-        tokens[i] = char_to_token(IDENTITY_NAME[i]);
-    }
+    int prefix_len = encode_text(IDENTITY_NAME, tokens, MAX_SEQ_LEN);
 
     // Seed tokens after prefix
     int seed_tokens_count = seed_to_tokens(seed, tokens + prefix_len,
@@ -1104,6 +1096,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     // 8. Generate from internal state
     char generated[MAX_SEQ_LEN * 2];
     int gen_idx = 0;
+
+    // Reset BPE decode state for streaming
+    reset_decode_state();
 
     printf("\n--- Subjective Generation ---\n");
     printf("%.*s", seed->len, seed->text);
@@ -1183,11 +1178,18 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Only allow wormhole after sentence end (.!?) to avoid breaking words
             int skip = dsl_check_wormhole(&g_dsl_config);
             if (skip > 0 && n_tokens > 0) {
-                char last_char = token_to_char(tokens[n_tokens - 1]);
+                const char* last_piece = decode_token(tokens[n_tokens - 1]);
+                int plen = strlen(last_piece);
+                char last_char = plen > 0 ? last_piece[plen - 1] : 0;
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
                     // Wormhole: skip tokens (time travel to future sentence)
-                    for (int s = 0; s < skip && i + 1 < max_tokens && n_tokens + 1 < MAX_SEQ_LEN; s++) {
-                        tokens[++n_tokens] = char_to_token(' ');
+                    // For BPE: insert space via encode_text (single space)
+                    int space_ids[4];
+                    int n_space = encode_text(" ", space_ids, 4);
+                    for (int s = 0; s < skip && i + 1 < max_tokens && n_tokens + n_space < MAX_SEQ_LEN; s++) {
+                        for (int sp = 0; sp < n_space; sp++) {
+                            tokens[++n_tokens] = space_ids[sp];
+                        }
                         i++;
                     }
                     g_dsl_config.wormhole_active = 1;
@@ -1200,10 +1202,16 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Only between sentences (.!?) to preserve coherence
             int tunnel_skip = dsl_check_tunneling(&g_dsl_config);
             if (tunnel_skip > 0 && n_tokens > 0) {
-                char last_char = token_to_char(tokens[n_tokens - 1]);
+                const char* last_piece = decode_token(tokens[n_tokens - 1]);
+                int plen = strlen(last_piece);
+                char last_char = plen > 0 ? last_piece[plen - 1] : 0;
                 if (last_char == '.' || last_char == '!' || last_char == '?') {
-                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens && n_tokens + 1 < MAX_SEQ_LEN; s++) {
-                        tokens[++n_tokens] = char_to_token(' ');
+                    int space_ids[4];
+                    int n_space = encode_text(" ", space_ids, 4);
+                    for (int s = 0; s < tunnel_skip && i + 1 < max_tokens && n_tokens + n_space < MAX_SEQ_LEN; s++) {
+                        for (int sp = 0; sp < n_space; sp++) {
+                            tokens[++n_tokens] = space_ids[sp];
+                        }
                         i++;
                     }
                 }
@@ -1222,7 +1230,8 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             next_token = sample(t, final_temp);
         }
         tokens[n_tokens] = next_token;
-        char c = token_to_char(next_token);
+        const char* piece = decode_token(next_token);
+        int piece_len = strlen(piece);
 
         // Prophecy debt: choosing improbable paths costs destiny
         // Feeds AM_State.debt which decays via am_step() and modulates field physics
@@ -1251,7 +1260,7 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             // Only after sentence end to avoid breaking words
             int skip_count = inner_world_check_wormhole();
             if (skip_count > 0) {
-                char last_c = token_to_char(tokens[n_tokens]);
+                char last_c = piece_len > 0 ? piece[piece_len - 1] : 0;
                 if (last_c == '.' || last_c == '!' || last_c == '?') {
                     i += (skip_count - 1);
                 }
@@ -1295,9 +1304,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             accumulator_tick(&g_accumulator, 0.1f);
         }
 
-        // Store for absorption
-        if (gen_idx < MAX_SEQ_LEN * 2 - 1) {
-            generated[gen_idx++] = c;
+        // Store for absorption (BPE: piece may be multiple chars)
+        for (int pi = 0; pi < piece_len && gen_idx < MAX_SEQ_LEN * 2 - 1; pi++) {
+            generated[gen_idx++] = piece[pi];
         }
 
         // Re-route periodically (skip first iteration to avoid empty context)
@@ -1305,13 +1314,12 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
             int start = (n_tokens > 64) ? n_tokens - 64 : 0;
 
             // Convert recent tokens to text for wrinkle update
+            int recent_count = n_tokens - start;
+            const char* decoded = decode_tokens(tokens + start, recent_count);
             char recent_text[256];
-            int text_len = n_tokens - start;
-            if (text_len > 255) text_len = 255;
-            for (int j = 0; j < text_len; j++) {
-                recent_text[j] = token_to_char(tokens[start + j]);
-            }
-            recent_text[text_len] = '\0';
+            strncpy(recent_text, decoded, 255);
+            recent_text[255] = '\0';
+            int text_len = strlen(recent_text);
 
             // ═══════════════════════════════════════════════════════════════
             // CLOUD FEEDBACK LOOP
@@ -1984,12 +1992,7 @@ static int dialogue_generate_arianna(Transformer* t, const char* seed,
                                       int max_tokens, float temperature) {
     // Tokenize seed
     int tokens[MAX_SEQ_LEN];
-    int seed_len = strlen(seed);
-    if (seed_len > MAX_SEQ_LEN) seed_len = MAX_SEQ_LEN;
-    for (int i = 0; i < seed_len; i++) {
-        tokens[i] = char_to_token(seed[i]);
-    }
-    int n_tokens = seed_len;
+    int n_tokens = encode_text(seed, tokens, MAX_SEQ_LEN);
 
     // Route signals
     extract_signals(&g_signals, tokens, n_tokens, NULL);
@@ -2016,6 +2019,10 @@ static int dialogue_generate_arianna(Transformer* t, const char* seed,
 
     // Generate tokens
     int gen = 0;
+
+    // Reset BPE decode state for streaming
+    reset_decode_state();
+
     for (int i = 0; i < max_tokens && n_tokens < MAX_SEQ_LEN && gen < max_len - 1; i++) {
         if (g_meta_enabled && g_meta_thermogram.valid) {
             meta_apply_thermogram(&g_meta_thermogram,
@@ -2033,10 +2040,14 @@ static int dialogue_generate_arianna(Transformer* t, const char* seed,
         int next = sample(t, effective_temp);
         tokens[n_tokens] = next;
 
-        char c = token_to_char(next);
-        output[gen++] = c;
+        // Decode token to piece (BPE: may be multiple chars)
+        const char* piece = decode_token(next);
+        int piece_len = strlen(piece);
+        for (int pi = 0; pi < piece_len && gen < max_len - 1; pi++) {
+            output[gen++] = piece[pi];
+        }
 
-        // Stop on Q&A boundary
+        // Stop on Q&A boundary ("\nQ:")
         if (gen >= 3 && output[gen-1] == ':' && output[gen-2] == 'Q' && output[gen-3] == '\n') {
             gen -= 3;
             break;

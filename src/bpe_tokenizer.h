@@ -37,8 +37,15 @@ int bpe_encode(const BPETokenizer* tok, const char* text, int* ids, int max_toke
 // Returns pointer to static buffer (not thread-safe)
 const char* bpe_decode(const BPETokenizer* tok, const int* ids, int n_tokens);
 
-// Get piece for token ID
+// Get piece for token ID (raw, without ▁ conversion)
 const char* bpe_get_piece(const BPETokenizer* tok, int id);
+
+// Decode single token (converts ▁ → space, handles byte tokens)
+// For streaming generation - call bpe_reset_decode_state() at start
+const char* bpe_decode_token(const BPETokenizer* tok, int id);
+
+// Reset streaming decode state (call at generation start)
+void bpe_reset_decode_state(void);
 
 // Get ID for piece (or UNK if not found)
 int bpe_get_id(const BPETokenizer* tok, const char* piece);

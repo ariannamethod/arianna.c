@@ -151,9 +151,27 @@ void generate(Transformer* t, const char* prompt, int max_tokens, float temperat
 int load_weights(Transformer* t, const char* path);
 int load_tokenizer(const char* path);
 
-// Char tokenization
+// Char tokenization (legacy, use encode_text/decode_tokens for new code)
 int char_to_token(char c);
 char token_to_char(int token);
+
+// String-based tokenization (works for both char-level and BPE)
+// encode_text: text -> token IDs, returns number of tokens
+// decode_tokens: token IDs -> text (returns pointer to static buffer)
+// decode_token: single token -> piece string (for streaming generation)
+// reset_decode_state: call at start of generation to reset ▁ tracking
+int encode_text(const char* text, int* ids, int max_tokens);
+const char* decode_tokens(const int* ids, int n_tokens);
+const char* decode_token(int id);  // Returns piece for single token
+void reset_decode_state(void);     // Reset streaming decode state
+
+// Tokenizer type detection
+typedef enum {
+    TOKENIZER_CHAR = 0,  // char-level (vocab <= 256)
+    TOKENIZER_BPE = 1    // BPE (vocab > 256)
+} TokenizerType;
+
+TokenizerType get_tokenizer_type(void);
 
 // Vocab management
 int get_vocab_size(void);
