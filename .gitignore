@@ -47,6 +47,7 @@ knowledge_train/*.pt
 # Store *_f16.bin in git, generate full weights via `make dynamic`
 weights/arianna_34m.bin
 weights/arianna_20m.bin
+weights/arianna_36m_bpe.bin
 weights/arianna_34m_from_f16.bin
 weights/arianna_20m_from_f16.bin
 

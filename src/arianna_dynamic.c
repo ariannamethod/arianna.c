@@ -25,6 +25,7 @@
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
+#include "d12_bridge.h"    // D12 135M: the TONGUE (voice outward), Arianna is the SOUL
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
@@ -134,6 +135,12 @@ static SartreTransformer g_sartre;
 static int g_sartre_loaded = 0;
 static int g_dialogue_max_turns = 5;
 static int g_dialogue_tokens_per_turn = 80;
+
+// TONGUE (135M nanochat GPT) — the VOICE outward
+// Arianna 36M is the SOUL, Tongue speaks what she feels
+static D12Bridge g_d12;
+static int g_d12_loaded = 0;
+static int g_d12_enabled = 1;  // Tongue is the default voice (better speech)
 
 // ============================================================
 // Blood Kernel — dynamically compiled emotional modulation
@@ -2321,6 +2328,78 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
+        // /d12 — D12 (tongue) status and control
+        if (strcmp(input, "/d12") == 0) {
+            if (g_d12_loaded) {
+                printf("D12 (tongue): loaded, %s\n", g_d12_enabled ? "ACTIVE (voice)" : "standby");
+                printf("  Config: layers=%d, dim=%d, heads=%d, vocab=%d\n",
+                       g_d12.config.n_layer, g_d12.config.n_embd,
+                       g_d12.config.n_head, g_d12.config.vocab_size);
+                printf("  Modulation: temp_mod=%.2f, scale=%.2f, explore=%.2f\n",
+                       g_d12.mod.temperature_mod, g_d12.mod.logit_scale,
+                       g_d12.mod.exploratory_bias);
+            } else {
+                printf("D12 (tongue): not loaded. Use /d12 on to load.\n");
+            }
+            continue;
+        }
+        if (strcmp(input, "/d12 on") == 0 || strcmp(input, "/tongue") == 0) {
+            if (!g_d12_loaded) {
+                printf("[d12] Loading tongue (135M)...\n");
+                const char* weights = d12_ensure_weights("tongue/weights");
+                if (weights && d12_init(&g_d12, weights, "tongue/tokenizer_40pct.tok") == 0) {
+                    g_d12_loaded = 1;
+                    g_d12_enabled = 1;
+                    printf("[d12] Tongue ready. Arianna speaks through D12 now.\n");
+                } else {
+                    printf("[d12] Failed to load tongue.\n");
+                }
+            } else {
+                g_d12_enabled = 1;
+                printf("[d12] Tongue ACTIVE. Arianna speaks through D12.\n");
+            }
+            continue;
+        }
+        if (strcmp(input, "/d12 off") == 0) {
+            g_d12_enabled = 0;
+            printf("[d12] Tongue standby. Arianna speaks directly (36M).\n");
+            continue;
+        }
+        if (strncmp(input, "/d12 say ", 9) == 0) {
+            if (!g_d12_loaded) {
+                printf("[d12] Tongue not loaded. Use /d12 on first.\n");
+                continue;
+            }
+            const char* prompt = input + 9;
+
+            // Collect modulation from Arianna ecosystem
+            // 1. Cloud instinct
+            CloudResponse cloud = cloud_ping(prompt);
+            d12_update_from_cloud(&g_d12, &cloud);
+
+            // 2. Arianna 36M resonance (t = Transformer* already)
+            d12_update_from_arianna(&g_d12, t, prompt);
+
+            // 3. MetaArianna thermogram
+            if (g_meta_enabled && g_meta_thermogram.valid) {
+                d12_update_from_meta(&g_d12, &g_meta_thermogram);
+            }
+
+            // 4. Compute final modulation
+            d12_compute_modulation(&g_d12);
+
+            // Generate with modulation
+            char output[2048];
+            printf("[d12/tongue]: ");
+            fflush(stdout);
+            int n = d12_generate(&g_d12, prompt, output, sizeof(output),
+                                 150, 0.8f, 0.9f);
+            printf("%s\n", output);
+            printf("[%d tokens, temp_mod=%.2f, scale=%.2f]\n",
+                   n, g_d12.mod.temperature_mod, g_d12.mod.logit_scale);
+            continue;
+        }
+
         // /dream — Dream loop daemon control
         if (strcmp(input, "/dream") == 0) {
             if (dream_is_alive()) {
@@ -3091,6 +3170,10 @@ int main(int argc, char** argv) {
     if (g_sartre_loaded) {
         sartre_transformer_free(&g_sartre);
         fprintf(stderr, "[sartre] freed\n");
+    }
+    if (g_d12_loaded) {
+        d12_free(&g_d12);
+        fprintf(stderr, "[d12/tongue] freed\n");
     }
     free_transformer(&t);
 

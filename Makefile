@@ -39,6 +39,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/c
            $(SRC_DIR)/identity_core.c \
            $(SRC_DIR)/meta_arianna.c \
            sartre/sartre_bridge.c \
+           $(SRC_DIR)/d12_bridge.c \
            $(SRC_DIR)/arianna_dynamic.c
 
 # Check for Lua and add it automatically
@@ -354,3 +355,15 @@ locus-clean:
 
 .PHONY: locus test_locus locus-clean
 
+
+# D12 weights download
+D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/d12_arianna_40pct_q8.bin
+D12_WEIGHTS = tongue/weights/d12_arianna_40pct_q8.bin
+
+$(D12_WEIGHTS):
+	@mkdir -p tongue/weights
+	@echo "[d12] Downloading weights from HuggingFace..."
+	@curl -L -o $(D12_WEIGHTS) $(D12_WEIGHTS_URL)
+	@echo "[d12] Downloaded: $(D12_WEIGHTS)"
+
+d12-weights: $(D12_WEIGHTS)

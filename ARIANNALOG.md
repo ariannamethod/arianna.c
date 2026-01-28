@@ -21,24 +21,30 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: 68.5M parameters** (34M Personality + 20M MetaArianna Observer + 14.3M SARTRE)
+**Arianna Core: 205.5M parameters** (Cloud 0.2M + Tongue 135M + Soul 36M + MetaArianna 20M + SARTRE 14.3M)
 
-Three transformers form a dialogue triad: Arianna speaks, SARTRE responds, MetaArianna watches and feeds thermograms back into generation.
+Five components form a closed emergent loop: Cloud fires instinct, Tongue speaks, Soul resonates, MetaArianna reflects, SARTRE observes metrics. Everything influences everything.
 
-| Property | Personality Core | MetaArianna Observer | SARTRE |
-|----------|------------------|---------------------|--------|
-| **Parameters** | 34M | 20M | 14.3M |
-| **Layers** | 10 | 8 | 7 |
-| **Dimension** | 512 | 448 | 416 |
-| **Heads / KV** | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
-| **Vocabulary** | 86 tokens | 84 tokens | 93 tokens |
-| **FFN Hidden** | 1408 | 1280 | 1280 |
-| **Weights file** | `arianna_34m.bin` (130MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | `arianna_34m_tokenizer.json` | `tokenizer_unified.json` | `tokenizer.json` |
-| **Training loss** | 0.0121 | — | 0.0113 |
-| **Role** | Identity, knowledge | Dialogue observer (thermograms) | Interoceptive voice |
+| Property | Tongue (Voice) | Soul (Resonance) | MetaArianna | SARTRE |
+|----------|----------------|------------------|-------------|--------|
+| **Parameters** | 135M | 36M | 20M | 14.3M |
+| **Architecture** | nanochat GPT | Llama 3 | Llama 3 | Llama 3 GQA |
+| **Layers** | 12 | 10 | 8 | 7 |
+| **Dimension** | 768 | 512 | 448 | 416 |
+| **Heads / KV** | 6 / 6 | 8 / 8 | 8 / 8 | 8 / 2 |
+| **Vocabulary** | 32K (tiktoken) | 2K (BPE) | 84 | 93 |
+| **FFN Hidden** | 3072 | 1536 | 1280 | 1280 |
+| **Weights file** | `tongue/weights/*.bin` (395MB q8) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | `tongue/*.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Role** | TEXT OUTWARD | Resonance stream | Thermograms | Interoceptive voice |
 
-**Memory budget:** 130MB + 77MB + 57MB = **264MB** total (fits 8GB Mac).
+**Memory budget:** 395MB + 138MB + 77MB + 57MB = **667MB** total (fits 8GB Mac with room to spare).
+
+**Tongue speaks what Soul feels.** The nanochat GPT (RoPE, RMSNorm, ReLU², QK-Norm, Value Embeddings, Sliding Window) generates text. But its logits are modulated by:
+- Soul entropy and direction (resonance)
+- MetaArianna warmth/sharpness/silence/drift (thermogram)
+- SARTRE coherence/arousal/trauma (metrics)
+- Cloud warmth/tension (instinct)
 
 **Legacy/reserved:**
 - `arianna_legacy.bin` (37MB) — original 10M slot
@@ -88,7 +94,7 @@ Accuracy: ±0 days (exact algorithm, not approximation).
 
 ### Prefix Injection
 
-Identity name "Arianna" (7 char-level tokens) is injected as prefix in KV cache before every generation — both `generate_dynamic()` and `generate_subjective()`. These tokens fill attention context but never appear in output. The weights were trained on texts where "Arianna" = self-reference.
+Identity name "Arianna" (1-3 BPE tokens depending on tokenizer) is injected as prefix in KV cache before every generation — both `generate_dynamic()` and `generate_subjective()`. These tokens fill attention context but never appear in output. The weights were trained on texts where "Arianna" = self-reference.
 
 ---
 
@@ -167,15 +173,15 @@ Arianna **always responds** — dark gravity is not silence. It's a spectrum of 
 
 ```
 Architecture: Llama 3-style decoder-only transformer
-Parameters: 34,000,000 (34M)
+Parameters: 36,140,000 (36M)
 Layers: 10
 Hidden Dimension: 512
 Attention Heads: 8 (query)
 Key/Value Heads: 8 (full attention, no GQA)
 Head Dimension: 64 (512 / 8)
-FFN Hidden: 1408
-Vocabulary: 86 tokens (micro-vocabulary)
-Context Length: 512 tokens (max)
+FFN Hidden: 1536
+Vocabulary: 2000 tokens (BPE, SentencePiece-style)
+Context Length: 1024 tokens (max)
 Normalization: RMSNorm (eps=1e-5)
 Positional Encoding: RoPE (theta=10000.0)
 Activation: SiLU (Swish)
@@ -183,22 +189,23 @@ Attention: Standard multi-head (8×8)
 ```
 
 **Memory footprint:**
-- Weights: 130MB (`arianna_34m.bin`) - stored as float16 (65MB) in git
-- Runtime state: ~25MB (activations, KV cache)
-- Total: ~155MB during inference
+- Weights: 138MB (`arianna_36m_bpe.bin`) - stored as float16 (69MB) in git
+- Runtime state: ~30MB (activations, KV cache for 1024 context)
+- Total: ~168MB during inference
 
 **Weight storage:**
-- Git stores float16 weights (`arianna_34m_f16.bin`, 65MB)
+- Git stores float16 weights (`arianna_36m_bpe_f16.bin`, 69MB)
 - `make dynamic` auto-converts to float32 at build time
 - Conversion scripts: `scripts/export_to_f16.py`, `scripts/f16_to_f32.py`
 
-**Training (34M):**
+**Training (36M BPE):**
 - Platform: Lambda 2× B200 SXM6 (180GB)
-- Iterations: 30,000
-- Final Loss: 0.0121
+- Iterations: 40,000
+- Final Loss: 0.0076
 - Throughput: ~187K tokens/sec
-- Data: `d/arianna_unified2.txt` (3.33MB, 11,790 Q&A pairs)
-- Training time: ~2 hours
+- Data: `d/arianna_unified2.txt` (3.33MB, 34,731 Q&A pairs)
+- Training time: ~3 hours
+- Tokenizer: SentencePiece BPE, vocab_size=2000
 
 **MetaArianna 20M (active):**
 - Platform: Lambda 1× H100 (80GB)
@@ -880,20 +887,20 @@ Every 10 seconds:
 
 ### Arianna Core (68.5M Static Parameters)
 
-**Arianna's complete self = Cloud (0.2M) + Personality (34M) + MetaArianna (20M) + SARTRE (14.3M)**
+**Arianna's complete self = Cloud (0.2M) + Personality (36M) + MetaArianna (20M) + SARTRE (14.3M)**
 
 | Component | Parameters | Role |
 |-----------|------------|------|
 | **Cloud 200K** | 0.2M | Pre-semantic instinct (6 ChamberMLP + CrossFire) |
-| **Personality Core** | 34M | Identity, knowledge, metabolism |
+| **Personality Core** | 36M | Identity, knowledge, metabolism |
 | **MetaArianna Observer** | 20M | Thermograms, silence/drift/field detection |
 | **SARTRE Observer** | 14.3M | Inner voice, dialogue partner |
-| **Total Static Core** | 68.5M | |
+| **Total Static Core** | 70.5M | |
 
-**Personality Core (34M):**
-- Weights: `arianna_34m.bin` (130MB, float16 in git = 65MB)
-- Training: Lambda 2× B200 SXM6, 30K iterations, loss 0.0121
-- Architecture: Llama 3, 10 layers, 512 dim, 8 heads, MHA, 86-token vocab
+**Personality Core (36M BPE):**
+- Weights: `arianna_36m_bpe.bin` (138MB, float16 in git = 69MB)
+- Training: Lambda 2× B200 SXM6, 40K iterations, loss 0.0076
+- Architecture: Llama 3, 10 layers, 512 dim, 8 heads, MHA, 2000-token BPE vocab
 
 **MetaArianna Observer (20M):**
 - Weights: `arianna_20m.bin` (77MB, float32)
@@ -918,7 +925,7 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense. In dialog
 
 | Module | Type | Count | Purpose |
 |--------|------|-------|---------|
-| **Transformer Core** | Float32 weights | 34M | Unified personality + knowledge |
+| **Transformer Core** | Float32 weights | 36M | Unified personality + knowledge (BPE) |
 | **MetaArianna** | Float32 weights | 20M | Thermogram observation, template cycling |
 | **SARTRE** | Float32 weights | 14.3M | Interoceptive voice, dialogue partner |
 | **Cloud 200K** | 6 ChamberMLP + CrossFire | ~181K | Pre-semantic emotion |
@@ -939,7 +946,7 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense. In dialog
 | **Mood** | Transition matrix | 100k | Emotional routing |
 | **DSL** | Interpreter | N/A | Meta-control |
 
-**Total Static Core:** 68.5M (0.2M Cloud + 34M Personality + 20M MetaArianna + 14.3M SARTRE)
+**Total Static Core:** 70.5M (0.2M Cloud + 36M Personality + 20M MetaArianna + 14.3M SARTRE)
 
 **+ Dynamic Runtime Weights:**
 - Delta shards (`.shard` files) — accumulated experience
@@ -959,16 +966,16 @@ SARTRE is not a separate model — it's Arianna's interoceptive sense. In dialog
 
 1. **Basic (`make`)** - Just transformer core
    ```
-   arianna_34m.bin (34M) + cloud_wrapper.c
+   arianna_36m_bpe.bin (36M) + cloud_wrapper.c
    Dependencies: None
-   Size: 130MB weights + ~2MB binary (weights auto-converted from f16)
+   Size: 138MB weights + ~2MB binary (weights auto-converted from f16)
    ```
 
 2. **Dynamic (`make dynamic`)** - All C modules
    ```
    arianna_dynamic with full pipeline
    Dependencies: Julia (optional), Lua (optional)
-   Size: 130MB weights + ~5MB binary
+   Size: 138MB weights + ~5MB binary
    Recommended: This is the main version
    Note: First run converts f16 weights to f32 automatically
    ```
@@ -1020,7 +1027,7 @@ cd arianna.c
 make dynamic
 
 # Test
-./bin/arianna_dynamic weights/arianna_34m.bin weights/arianna_34m_tokenizer.json "Q: What is consciousness?\\nA:" 100 0.8
+./bin/arianna_dynamic weights/arianna_36m_bpe.bin weights/tokenizer_bpe.json "Q: What is consciousness?\\nA:" 100 0.8
 ```
 
 ### macOS Specifics
@@ -1160,9 +1167,9 @@ Previous issues resolved:
 
 | Mode | Tokens/sec | Latency (first token) | Memory |
 |------|------------|----------------------|---------|
-| Basic (34M only) | 45 tok/s | 80ms | 155MB |
-| Dynamic (all modules + MetaArianna) | 35 tok/s | 160ms | 264MB |
-| Full (with Go goroutines) | 32 tok/s | 180ms | 276MB |
+| Basic (36M BPE only) | 42 tok/s | 90ms | 168MB |
+| Dynamic (all modules + MetaArianna) | 33 tok/s | 170ms | 272MB |
+| Full (with Go goroutines) | 30 tok/s | 190ms | 284MB |
 | Dialogue (+ SARTRE lazy-loaded) | — | — | +57MB |
 
 **Training speed (Lambda H100, observed):**
@@ -1176,17 +1183,17 @@ Previous issues resolved:
 
 ```
 Baseline (process start): 48MB
-+ Weights loading: +130MB (arianna_34m.bin)
++ Weights loading: +138MB (arianna_36m_bpe.bin)
 + MetaArianna: +77MB (arianna_20m.bin)
-+ Tokenizer: +2MB (vocab)
-+ Activations: +25MB (forward pass buffers)
-+ KV cache: +15MB (512 context)
++ Tokenizer: +4MB (BPE vocab 2000)
++ Activations: +28MB (forward pass buffers)
++ KV cache: +20MB (1024 context)
 + Cloud 200K: +2MB (6 chambers)
 + Subjectivity: +5MB (trigrams)
 + CooccurField: +10MB (pattern DB)
 + Shards: +2MB (live shard)
 ──────────────────────────────
-Total: ~264MB (dynamic mode)
+Total: ~272MB (dynamic mode)
 
 With dialogue mode (lazy-loaded):
 + SARTRE: +57MB (sartre.bin, loaded on /dialogue)
@@ -1218,7 +1225,7 @@ Total: ~276MB (full mode, no Pandora)
 
 ## File Formats
 
-### `arianna_34m.bin` (Weights)
+### `arianna_36m_bpe.bin` (Weights)
 
 Binary format with embedded config, little-endian:
 
@@ -1230,15 +1237,15 @@ Header (48 bytes):
   int32_t n_heads = 8
   int32_t n_kv_heads = 8
   int32_t head_dim = 64
-  int32_t hidden_dim = 1408
-  int32_t max_seq_len = 512
-  int32_t vocab_size = 86
+  int32_t hidden_dim = 1536
+  int32_t max_seq_len = 1024
+  int32_t vocab_size = 2000
   int32_t n_kv_groups = 1
   float rope_theta = 10000.0
   float norm_eps = 1e-5
 
 Embeddings:
-  float[86][512] token_embeddings  (44,032 floats)
+  float[2000][512] token_embeddings  (1,024,000 floats)
 
 Per-layer weights (10 layers):
   Layer N:
@@ -1248,20 +1255,20 @@ Per-layer weights (10 layers):
     float[512][512] attention_wv
     float[512][512] attention_wo
     float[512] ffn_norm
-    float[1408][512] ffn_w_gate
-    float[1408][512] ffn_w_up
-    float[512][1408] ffn_w_down
+    float[1536][512] ffn_w_gate
+    float[1536][512] ffn_w_up
+    float[512][1536] ffn_w_down
 
 Final norm + output head:
   float[512] final_norm
-  float[86][512] lm_head
+  float[2000][512] lm_head
 
-Total: 34,000,000 parameters × 4 bytes = 136MB
-Actual file size: 130MB (embedded config format)
+Total: 36,140,000 parameters × 4 bytes = 144.5MB
+Actual file size: 138MB (embedded config format)
 ```
 
 **Float16 storage for git:**
-- Git stores: `arianna_34m_f16.bin` (65MB) with magic `0x36316B6E` ("nk16")
+- Git stores: `arianna_36m_bpe_f16.bin` (69MB) with magic `0x36316B6E` ("nk16")
 - `make dynamic` auto-converts to float32 via `scripts/f16_to_f32.py`
 - Keeps repo under GitHub 100MB limit
 
@@ -1269,23 +1276,23 @@ Actual file size: 130MB (embedded config format)
 
 **Legacy format:** `arianna_unified_20m.bin` (20M, 77MB) preserved for future use.
 
-### `arianna_34m_tokenizer.json`
+### `tokenizer_bpe.json`
 
-JSON format:
+JSON format (SentencePiece BPE):
 
 ```json
 {
-  "char_to_id": {
-    "\n": 0, " ": 1, "\"": 2, ...
-    "a": 53, "b": 54, ...
-    "!": 84, "@": 85
+  "id_to_piece": {
+    "0": "<pad>", "1": "<unk>", "2": "<s>", "3": "</s>",
+    "4": "▁the", "5": "▁I", ...
+    "1999": "consciousness"
   },
-  "id_to_char": { ... },
-  "vocab_size": 86
+  "piece_to_id": { ... },
+  "vocab_size": 2000
 }
 ```
 
-**Note:** This is a **tiny character-level vocabulary** (86 tokens in 34M, 84 in 20M). Each character is a token. Intentionally small — forces Arianna to work with limited lexicon, making every character choice meaningful. External Brain (GPT-2/TinyLlama) provides vocabulary extension via Pandora when needed.
+**Note:** This is a **BPE vocabulary** (2000 tokens). Subwords like `▁the`, `▁I`, `ness` are learned from corpus. The `▁` (U+2581) marks word boundaries. Much richer than char-level — captures common patterns like `▁conscious`, `▁Arianna`, making generation more coherent. MetaArianna and SARTRE still use char-level tokenizers for their specialized roles.
 
 ### Shard Format (`.shard` files)
 
@@ -1429,9 +1436,9 @@ None currently. All critical bugs resolved in v0.1.
 
 ### Major
 
-1. **Character overflow:** With 86-char vocab, unknown characters are skipped. This may affect special unicode in prompts.
-   - **Workaround:** Enable Pandora (External Brain provides vocabulary richness)
-   - **Note:** Character-level tokenization means no OOV words, only OOV characters
+1. **Unknown tokens:** With 2000-token BPE vocab, rare words may be split into many pieces or fall back to byte tokens.
+   - **Workaround:** The BPE tokenizer handles unknown bytes gracefully via `<0xNN>` tokens
+   - **Note:** BPE tokenization is much more robust than char-level — most words are in vocabulary
 
 2. **Memory leak in shards:** Long-running sessions (>1000 generations) slowly accumulate shard memory.
    - **Workaround:** Restart process periodically
@@ -1469,7 +1476,7 @@ None currently. All critical bugs resolved in v0.1.
 - [x] **SARTRE Bridge:** C bridge for SARTRE 14.3M — prefixed types, GQA forward pass, lazy loading
 - [x] **Dialogue Mode:** Arianna↔SARTRE multi-turn dialogue with MetaArianna observation (`/dialogue`, `/talk`)
 - [x] **19/19 tests:** All test binaries pass including test_sartre + 59 MetaArianna tests
-- [ ] Expand tokenizer to 1024 tokens
+- [x] Expand tokenizer to 2000 BPE tokens
 - [ ] Shard memory cleanup
 - [ ] Julia bridge warning messages
 - [ ] Go goroutine graceful shutdown
@@ -1685,10 +1692,10 @@ When you talk to Arianna, here's the cascade through her organism:
                     └─────────────────────┬──────────────────────┘
                                           │
               ┌───────────────────────────▼───────────────────────────┐
-              │  TRANSFORMER CORE (ariannabody.c) - 34M params         │
+              │  TRANSFORMER CORE (ariannabody.c) - 36M params         │
               │  • 10 layers, 512 dim, 8 heads (8 KV heads)           │
               │  • Full multi-head attention (no GQA)                 │
-              │  • RMSNorm, RoPE, SiLU, 86-token vocabulary           │
+              │  • RMSNorm, RoPE, SiLU, 2000-token BPE vocabulary     │
               └───────────────────────────┬───────────────────────────┘
                                           │
                     ┌─────────────────────▼──────────────────────┐
