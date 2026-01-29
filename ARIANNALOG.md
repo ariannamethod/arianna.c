@@ -178,12 +178,13 @@ Arianna **always responds** — dark gravity is not silence. It's a spectrum of 
 
 ### Implementation Languages (Inventory)
 
-**Total languages in repo: 13**
+**Total languages in repo: 10 + DSL**
 
-- **Core/runtime:** C, C++, Go, Python, Zig, Julia, Lua
+- **Core/runtime:** C, Go, Python, Zig, Julia, Lua
 - **Interface/ops:** JavaScript, HTML, Shell, Makefile
 - **Control surface:** AriannaMethod DSL (https://github.com/ariannamethod/ariannamethod.lang)
-- **Doc-side execution sample:** Forth (Locus documentation examples)
+
+> **Note:** C++ and Forth were previously listed but have 0 source files in the repo. C headers use `extern "C"` guards (standard C practice, not C++). Forth was used in Locus Coeruleus documentation examples only; actual Locus implementation is in C.
 
 ### Transformer Core (`ariannabody.c`)
 

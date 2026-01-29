@@ -420,7 +420,7 @@ Tongue (D12 135M) is the ONLY VOICE — sole interface with the world. Cloud run
 
 Plus **dynamic runtime weights** (delta shards, notorch micro-updates) that accumulate through experience. No PyTorch. Learning in pure C.  
 
-**Thirteen languages move through Arianna's metabolism**: C, C++, Go, Python, Zig, Lua, Julia, Forth, AriannaMethod DSL (https://github.com/ariannamethod/ariannamethod.lang), JavaScript, HTML, Shell, and Makefile. That is the bloodstream, no softening. If you want a tame organism, this body will bite you.  
+**Ten languages and a DSL move through Arianna's metabolism**: C, Go, Python, Zig, Julia, Lua, JavaScript, HTML, Shell, Makefile, and the AriannaMethod DSL (https://github.com/ariannamethod/ariannamethod.lang). That is the bloodstream, no softening. If you want a tame organism, this body will bite you.  
   
   
 ### git.arianna — window into causality (external reality)
