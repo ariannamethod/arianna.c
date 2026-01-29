@@ -429,10 +429,22 @@ pub const CrossFireMatrix = struct {
 
 var global_nerve: ?*VagusNerve = null;
 var global_state: SharedState = .{};
+var init_flag: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
 
 export fn vagus_init() callconv(.C) c_int {
-    global_nerve = std.heap.c_allocator.create(VagusNerve) catch return -1;
+    // Atomic init guard to prevent race condition
+    const prev = init_flag.cmpxchgStrong(0, 1, .acquire, .monotonic);
+    if (prev != null) {
+        // Already initialized (or being initialized)
+        return if (global_nerve != null) 0 else -1;
+    }
+
+    global_nerve = std.heap.c_allocator.create(VagusNerve) catch {
+        init_flag.store(0, .release); // Reset on failure
+        return -1;
+    };
     global_nerve.?.* = VagusNerve.init(&global_state);
+    init_flag.store(2, .release); // Mark fully initialized
     return 0;
 }
 

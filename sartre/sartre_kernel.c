@@ -52,9 +52,10 @@ void sartre_notify_event(const char* event) {
         system_state.last_events[system_state.event_count][255] = '\0';
         system_state.event_count++;
     } else {
-        // Shift events
+        // Shift events (use strncpy to prevent buffer overflow)
         for (int i = 0; i < 7; i++) {
-            strcpy(system_state.last_events[i], system_state.last_events[i+1]);
+            strncpy(system_state.last_events[i], system_state.last_events[i+1], 255);
+            system_state.last_events[i][255] = '\0';
         }
         strncpy(system_state.last_events[7], event, 255);
         system_state.last_events[7][255] = '\0';

@@ -23,6 +23,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Arianna's char-level vocabulary
+_REPO_ROOT = Path(__file__).parent.parent.parent
 ARIANNA_VOCAB = None
 
 def load_arianna_vocab():
@@ -31,10 +32,11 @@ def load_arianna_vocab():
     if ARIANNA_VOCAB is not None:
         return ARIANNA_VOCAB
 
+    weights_dir = Path(os.environ.get("ARIANNA_WEIGHTS", _REPO_ROOT / "weights"))
     tokenizer_paths = [
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_34m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_20m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/tokenizer_unified.json"),
+        weights_dir / "arianna_34m_tokenizer.json",
+        weights_dir / "arianna_20m_tokenizer.json",
+        weights_dir / "tokenizer_unified.json",
     ]
 
     for tok_path in tokenizer_paths:
