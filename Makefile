@@ -263,6 +263,12 @@ $(TEST_BIN_DIR)/test_meta_arianna: $(TEST_DIR)/test_meta_arianna.c $(SRC_DIR)/me
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
+# Larynx test (requires vagus library)
+test_larynx: vagus $(TEST_BIN_DIR)/test_larynx
+$(TEST_BIN_DIR)/test_larynx: $(TEST_DIR)/test_larynx.c $(SRC_DIR)/larynx.h
+	@mkdir -p $(TEST_BIN_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -I$(VAGUS_DIR) $(TEST_DIR)/test_larynx.c -L$(VAGUS_DIR)/zig-out/lib -lvagus -o $@ $(LDFLAGS) -Wl,-rpath,$(VAGUS_DIR)/zig-out/lib
+
 # Go race tests (requires Go)
 test_go_race:
 	@echo "[test] Running Go race tests..."
