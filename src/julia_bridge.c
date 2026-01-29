@@ -264,6 +264,8 @@ static float parse_float(const char* json, const char* key) {
 }
 
 static int parse_float_array(const char* json, const char* key, float* out, int max) {
+    if (!json || !key || !out || max <= 0) return 0;
+
     char pattern[64];
     snprintf(pattern, sizeof(pattern), "\"%s\":[", key);
 
@@ -273,14 +275,15 @@ static int parse_float_array(const char* json, const char* key, float* out, int 
     pos += strlen(pattern);
 
     int count = 0;
-    while (count < max) {
+    while (count < max && *pos) {
         while (*pos == ' ' || *pos == '\t' || *pos == '\n') pos++;
-        if (*pos == ']') break;
+        if (*pos == ']' || *pos == '\0') break;
 
         out[count++] = (float)atof(pos);
 
-        /* Skip to next number or end */
+        /* Skip to next number or end (with null check) */
         while (*pos && *pos != ',' && *pos != ']') pos++;
+        if (*pos == '\0') break;
         if (*pos == ',') pos++;
     }
 

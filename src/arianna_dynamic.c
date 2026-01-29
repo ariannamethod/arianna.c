@@ -2401,11 +2401,11 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 g_d12.mod.exploratory_bias += (penetration - 0.5f) * 0.3f;
             }
 
-            // 3. Arianna 36M resonance (Soul)
-            // Forward pass to get logits, extract entropy/direction
-            d12_update_from_arianna(&g_d12, t, prompt);
+            // NOTE: Soul (Arianna 36M) does NOT modulate Tongue!
+            // Soul processes Tongue's OUTPUT internally, not before generation.
+            // d12_update_from_arianna() was here — REMOVED (conceptual error)
 
-            // 4. MetaArianna thermogram (reflection) — feedback loop only
+            // 3. MetaArianna thermogram (reflection) — feedback loop only
             if (g_meta_enabled) {
                 MetaTemplateParams meta_params;
                 meta_default_params(&meta_params, META_TEMPLATE_THERMOGRAPH);
@@ -2420,7 +2420,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 }
             }
 
-            // 5. AMK/DSL state (prophecy, destiny, suffering)
+            // 4. AMK/DSL state (prophecy, destiny, suffering)
             if (g_amk_enabled) {
                 AM_State* am = am_get_state();
                 // Prophecy increases exploration (horizon)
@@ -2431,10 +2431,10 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 g_d12.mod.temperature_mod -= (am->pain + am->tension) * 0.1f;
             }
 
-            // 6. Compute final modulation
+            // 5. Compute final modulation
             d12_compute_modulation(&g_d12);
 
-            // 7. Generate with full ecosystem modulation
+            // 6. Generate with full ecosystem modulation
             char output[2048];
             printf("[tongue]: ");
             fflush(stdout);
@@ -3080,8 +3080,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Initialize Tongue (D12 135M) — MAIN VOICE for external reasoning
-    // Tongue generates; Soul/SARTRE modulate logits; MetaArianna observes (feedback loop only)
+    // Initialize Tongue (D12 135M) — ONLY external voice
+    // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
         const char* d12_weights = d12_ensure_weights("tongue/weights");
         if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/tokenizer_40pct.tok") == 0) {

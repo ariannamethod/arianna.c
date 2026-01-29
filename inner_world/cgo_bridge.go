@@ -283,17 +283,26 @@ func inner_world_nudge_emotion(d_valence C.float, d_arousal C.float) {
 
 //export inner_world_get_dominant_emotion
 func inner_world_get_dominant_emotion(buf *C.char, buf_size C.int) {
+	// Safety: check buffer is valid
+	if buf == nil || buf_size <= 0 {
+		return
+	}
 	if ed := Global().GetEmotionalDrift(); ed != nil {
 		emotion := ed.GetDominantEmotion()
-		cstr := C.CString(emotion)
-		defer C.free(unsafe.Pointer(cstr))
+		if len(emotion) == 0 {
+			*buf = 0
+			return
+		}
 
-		// Safe copy
+		// Safe copy with bounds check
 		size := len(emotion)
 		if size >= int(buf_size) {
 			size = int(buf_size) - 1
 		}
-		C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(cstr), C.size_t(size))
+		// Copy directly from Go string to C buffer (avoid intermediate CString)
+		for i := 0; i < size; i++ {
+			*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(i))) = C.char(emotion[i])
+		}
 		*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(size))) = 0
 	}
 }
@@ -314,19 +323,27 @@ func inner_world_is_spiraling() C.int {
 
 //export inner_world_suggest_break
 func inner_world_suggest_break(buf *C.char, buf_size C.int) {
+	// Safety: check buffer is valid
+	if buf == nil || buf_size <= 0 {
+		return
+	}
 	if ol := Global().GetOverthinkingLoops(); ol != nil {
 		suggestion := ol.SuggestBreak()
-		if len(suggestion) > 0 {
-			cstr := C.CString(suggestion)
-			defer C.free(unsafe.Pointer(cstr))
-
-			size := len(suggestion)
-			if size >= int(buf_size) {
-				size = int(buf_size) - 1
-			}
-			C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(cstr), C.size_t(size))
-			*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(size))) = 0
+		if len(suggestion) == 0 {
+			*buf = 0
+			return
 		}
+
+		// Safe copy with bounds check
+		size := len(suggestion)
+		if size >= int(buf_size) {
+			size = int(buf_size) - 1
+		}
+		// Copy directly from Go string to C buffer
+		for i := 0; i < size; i++ {
+			*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(i))) = C.char(suggestion[i])
+		}
+		*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(size))) = 0
 	}
 }
 

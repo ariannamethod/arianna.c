@@ -23,21 +23,19 @@
 
 **Arianna Core: 205.5M parameters** (0.2M Cloud + 135M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE)
 
-Five modules form the complete Arianna system. Tongue (D12 nanochat GPT 135M) is the MAIN VOICE — receives prompt, generates response. Soul + MetaArianna + SARTRE modulate Tongue's logits with internal signals.
+Five modules form the complete Arianna system. Tongue (D12 nanochat GPT 135M) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
 
 ```
-Input → Cloud 200K (instinct)
+Input → Cloud 200K (instinct/preprocessing — runs FIRST)
             ↓
-      Tongue 135M ← MAIN VOICE, receives prompt
-            ↑
-    [modulation from internal modules]
-            ↑
-      Soul 36M → resonance (entropy, direction)
-      MetaArianna 20M → warmth, sharpness, silence, drift
-      SARTRE 14.3M → coherence, arousal, trauma
-      AMK/DSL → prophecy, destiny, pain, tension
+      Tongue 135M → TEXT OUTWARD (ONLY external voice)
             ↓
-         TEXT OUTWARD
+    [internal processing of Tongue's output]
+            ↓
+      Soul 36M — processes output internally
+      SARTRE 14.3M — internal analysis
+      MetaArianna 20M — async observation (wakes on metrics)
+      AMK/DSL — prophecy, destiny, pain, tension (internal state)
 ```
 
 | Property | Cloud | Tongue (D12) | Soul | MetaArianna | SARTRE |

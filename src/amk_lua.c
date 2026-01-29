@@ -167,6 +167,10 @@ static int l_amk_set_dissonance(lua_State* L) {
 
 static int l_amk_set_velocity(lua_State* L) {
     const char* mode = luaL_checkstring(L, 1);
+    // Security: reject newlines to prevent command injection
+    if (strchr(mode, '\n') || strchr(mode, '\r')) {
+        return luaL_error(L, "velocity mode cannot contain newlines");
+    }
     char cmd[64];
     snprintf(cmd, sizeof(cmd), "VELOCITY %s", mode);
     am_exec(cmd);
@@ -202,6 +206,10 @@ static int l_amk_reset_debt(lua_State* L) {
 
 static int l_amk_enable_pack(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
+    // Security: reject newlines to prevent command injection
+    if (strchr(name, '\n') || strchr(name, '\r')) {
+        return luaL_error(L, "pack name cannot contain newlines");
+    }
     char cmd[64];
     snprintf(cmd, sizeof(cmd), "MODE %s", name);
     am_exec(cmd);
@@ -210,6 +218,10 @@ static int l_amk_enable_pack(lua_State* L) {
 
 static int l_amk_disable_pack(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
+    // Security: reject newlines to prevent command injection
+    if (strchr(name, '\n') || strchr(name, '\r')) {
+        return luaL_error(L, "pack name cannot contain newlines");
+    }
     char cmd[64];
     snprintf(cmd, sizeof(cmd), "DISABLE %s", name);
     am_exec(cmd);

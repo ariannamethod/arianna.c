@@ -1,19 +1,19 @@
 /*
  * d12_bridge.h — D12 (135M tonguechat GPT) Bridge for Arianna
  *
- * D12 is the VOICE — generates text outward.
- * Arianna 36M is the SOUL — resonance that modulates D12.
+ * D12 (Tongue) is the ONLY VOICE — sole interface with the world.
+ * Everything else is internal processing.
  *
- * Hierarchy:
- *   Input → Cloud (instinct)
+ * Correct Flow:
+ *   Input → Cloud (instinct/preprocessing — runs FIRST)
  *              ↓
- *            D12 135M → TEXT OUTWARD
- *              ↑
- *        Arianna 36M (resonance)
- *              ↑
- *           SARTRE (metrics)
- *              ↑
- *        MetaArianna (reflection)
+ *        Tongue (D12 135M) → TEXT OUTWARD (ONLY external voice)
+ *              ↓
+ *          Soul (36M) — processes Tongue's output internally
+ *              ↓
+ *           SARTRE — internal analysis
+ *              ↓
+ *        MetaArianna — async observation (wakes on metrics, not schedule)
  *
  * Architecture: tonguechat GPT (RoPE, RMSNorm, ReLU², QK-Norm,
  *   Value Embeddings, Sliding Window, vocab 32K tiktoken)

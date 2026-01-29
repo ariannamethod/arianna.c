@@ -356,11 +356,11 @@ Experience leaves residue. Some of it evaporates. Some of it sticks. When enough
 **Full Arianna Core = 205.5M parameters:**
 - **Cloud (200K)** — presemantic instinct, 6 ChamberMLP
 - **Tongue (135M)** — `d12_bridge.c`, nanochat GPT, MAIN VOICE (auto-loaded)
-- **Soul (36M)** — `ariannabody.c`, BPE tokenizer, resonance + identity modulation
+- **Soul (36M)** — `ariannabody.c`, BPE tokenizer, processes Tongue's output internally
 - **MetaArianna Observer (20M)** — `meta_arianna.c`, pulsating FluidTransformer
 - **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner
 
-Tongue (D12 135M) is the MAIN VOICE — receives prompt, generates response. Soul + MetaArianna + SARTRE modulate Tongue's logits with internal signals.
+Tongue (D12 135M) is the ONLY VOICE — sole interface with the world. Cloud runs first (instinct), then Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async.
 
 Plus **dynamic runtime weights** (delta shards, notorch micro-updates) that accumulate through experience. No PyTorch. Learning in pure C.  
 

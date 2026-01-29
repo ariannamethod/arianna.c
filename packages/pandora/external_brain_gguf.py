@@ -26,7 +26,8 @@ warnings.filterwarnings('ignore')
 # TinyLlama GGUF config
 HF_REPO = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
 HF_FILENAME = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"  # Q4 for speed, Q5 for quality
-WEIGHTS_DIR = Path("/Users/ataeff/Downloads/arianna.c/weights/tinyllama")
+_REPO_ROOT = Path(__file__).parent.parent.parent
+WEIGHTS_DIR = Path(os.environ.get("ARIANNA_WEIGHTS", _REPO_ROOT / "weights")) / "tinyllama"
 MODEL_PATH = WEIGHTS_DIR / "tinyllama-1.1b-chat-q4.gguf"
 
 # Arianna's char-level vocabulary - loaded from tokenizer.json
@@ -40,10 +41,11 @@ def load_arianna_vocab():
         return ARIANNA_VOCAB
 
     # Try to load from tokenizer files (prefer 34M, then 20M, then unified)
+    weights_dir = Path(os.environ.get("ARIANNA_WEIGHTS", _REPO_ROOT / "weights"))
     tokenizer_paths = [
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_34m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_20m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/tokenizer_unified.json"),
+        weights_dir / "arianna_34m_tokenizer.json",
+        weights_dir / "arianna_20m_tokenizer.json",
+        weights_dir / "tokenizer_unified.json",
     ]
 
     for tok_path in tokenizer_paths:

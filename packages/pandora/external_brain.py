@@ -19,11 +19,12 @@ os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 import warnings
 warnings.filterwarnings('ignore')
 
-# Path to GPT2-30M weights
-GPT2_30M_PATH = "/Users/ataeff/Downloads/arianna.c/weights/gpt2_30m"
+# Path to GPT2-30M weights (relative to repo root or env override)
+from pathlib import Path
+_REPO_ROOT = Path(__file__).parent.parent.parent
+GPT2_30M_PATH = os.environ.get("ARIANNA_GPT2_PATH", str(_REPO_ROOT / "weights" / "gpt2_30m"))
 
 # Arianna's char-level vocabulary - loaded from tokenizer.json
-from pathlib import Path
 ARIANNA_VOCAB = None
 
 def load_arianna_vocab():
@@ -32,10 +33,11 @@ def load_arianna_vocab():
     if ARIANNA_VOCAB is not None:
         return ARIANNA_VOCAB
 
+    weights_dir = Path(os.environ.get("ARIANNA_WEIGHTS", _REPO_ROOT / "weights"))
     tokenizer_paths = [
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_34m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/arianna_20m_tokenizer.json"),
-        Path("/Users/ataeff/Downloads/arianna.c/weights/tokenizer_unified.json"),
+        weights_dir / "arianna_34m_tokenizer.json",
+        weights_dir / "arianna_20m_tokenizer.json",
+        weights_dir / "tokenizer_unified.json",
     ]
 
     for tok_path in tokenizer_paths:
