@@ -22,8 +22,14 @@
 push!(LOAD_PATH, @__DIR__)
 
 include("emotional.jl")
+include("temporal.jl")
 using .Emotional
+using .Temporal
 using JSON3
+
+# Global temporal state (persistent across commands)
+global_temporal_state = create_state()
+global_temporal_params = default_params()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMAND HANDLERS
@@ -152,6 +158,117 @@ function handle_derivative(data)
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TEMPORAL HANDLERS (from PITOMADOM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+function handle_temporal_step(data)
+    global global_temporal_state, global_temporal_params
+
+    manifested = Float64(get(data, :manifested, 0.0))
+    destined = Float64(get(data, :destined, 0.0))
+    dt = Float64(get(data, :dt, 0.1))
+
+    # Update calendar dissonance if date provided
+    if haskey(data, :year)
+        year = Int(data[:year])
+        month = Int(get(data, :month, 1))
+        day = Int(get(data, :day, 1))
+        global_temporal_state.calendar_dissonance = birthday_dissonance(year, month, day)
+        global_temporal_state.calendar_phase = calendar_drift(year, month, day)
+    end
+
+    # Step the ODE
+    step_temporal(global_temporal_state, global_temporal_params, manifested, destined, dt)
+
+    Dict(
+        "status" => "ok",
+        "prophecy_debt" => global_temporal_state.prophecy_debt,
+        "tension" => global_temporal_state.tension,
+        "pain" => global_temporal_state.pain,
+        "drift_direction" => global_temporal_state.drift_direction,
+        "temporal_alpha" => global_temporal_state.temporal_alpha,
+        "wormhole_probability" => global_temporal_state.wormhole_probability,
+        "calendar_dissonance" => global_temporal_state.calendar_dissonance
+    )
+end
+
+function handle_temporal_dissonance(data)
+    global global_temporal_state
+
+    year = Int(get(data, :year, 2026))
+    month = Int(get(data, :month, 1))
+    day = Int(get(data, :day, 29))
+
+    dissonance = compute_dissonance(global_temporal_state, year, month, day)
+    cal_drift = calendar_drift(year, month, day)
+    bd_dissonance = birthday_dissonance(year, month, day)
+
+    Dict(
+        "status" => "ok",
+        "total_dissonance" => dissonance,
+        "calendar_drift" => cal_drift,
+        "birthday_dissonance" => bd_dissonance
+    )
+end
+
+function handle_temporal_mode(data)
+    global global_temporal_state
+
+    mode_str = get(data, :mode, "prophecy")
+    mode = if mode_str == "prophecy"
+        PROPHECY
+    elseif mode_str == "retrodiction"
+        RETRODICTION
+    else
+        SYMMETRIC
+    end
+
+    global_temporal_state.mode = mode
+
+    bias = if mode == PROPHECY
+        prophecy_bias(global_temporal_state)
+    elseif mode == RETRODICTION
+        retrodiction_bias(global_temporal_state)
+    else
+        symmetric_bias(global_temporal_state)
+    end
+
+    Dict(
+        "status" => "ok",
+        "mode" => string(mode),
+        "bias" => bias,
+        "temporal_alpha" => global_temporal_state.temporal_alpha
+    )
+end
+
+function handle_temporal_reset(data)
+    global global_temporal_state
+    global_temporal_state = create_state()
+
+    Dict(
+        "status" => "ok",
+        "message" => "temporal state reset"
+    )
+end
+
+function handle_wormhole_check(data)
+    global global_temporal_state, global_temporal_params
+
+    prob = wormhole_probability(global_temporal_state, global_temporal_params)
+
+    # Check if wormhole opens
+    opened = rand() < prob
+
+    Dict(
+        "status" => "ok",
+        "probability" => prob,
+        "opened" => opened,
+        "prophecy_debt" => global_temporal_state.prophecy_debt,
+        "calendar_dissonance" => global_temporal_state.calendar_dissonance
+    )
+end
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN LOOP
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -174,6 +291,17 @@ function process_command(line)
             handle_nuances(data)
         elseif command == "derivative"
             handle_derivative(data)
+        # Temporal commands (from PITOMADOM)
+        elseif command == "temporal_step"
+            handle_temporal_step(data)
+        elseif command == "temporal_dissonance"
+            handle_temporal_dissonance(data)
+        elseif command == "temporal_mode"
+            handle_temporal_mode(data)
+        elseif command == "temporal_reset"
+            handle_temporal_reset(data)
+        elseif command == "wormhole_check"
+            handle_wormhole_check(data)
         elseif command == "ping"
             Dict("status" => "ok", "message" => "pong")
         elseif command == "quit" || command == "exit"
