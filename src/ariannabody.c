@@ -16,6 +16,7 @@
 
 #include "arianna.h"
 #include "bpe_tokenizer.h"
+#include "larynx.h"  // Hybrid attention: α·RRPRAM + (1-α)·Content
 
 // ============================================================
 // Tokenizer (char-level or BPE, auto-detected)
@@ -537,8 +538,37 @@ void forward(Transformer* t, int token, int pos) {
             }
         }
 
-        // Output projection
+        // Output projection (content attention)
         matmul(s->xb2, s->xb, w->wo + layer * dim * dim, dim, dim);
+
+        // ═══ HYBRID ATTENTION: α·RRPRAM + (1-α)·Content ═══
+        // RRPRAM: structural pattern bias from Larynx
+        // Content: semantic attention (computed above)
+        {
+            float alpha = larynx_get_alpha();
+
+            // RRPRAM-lite: position-modulated pattern bias
+            // When alpha is high, structure matters more than semantics
+            // Pattern bias: slight boost to recent position patterns
+            if (alpha > 0.3f && layer > 0) {
+                float pattern_scale = (alpha - 0.3f) * 0.5f;  // 0 to 0.3 range
+                float entropy = larynx_get_entropy();
+
+                // High entropy = chaotic, boost pattern to stabilize
+                // Low entropy = predictable, trust content more
+                float entropy_boost = entropy * 0.1f;
+                pattern_scale += entropy_boost;
+
+                // Apply pattern modulation: slightly boost based on position
+                // This mimics RRPRAM's learned positional patterns
+                float pos_bias = 1.0f + pattern_scale * (0.5f + 0.5f * sinf((float)pos * 0.1f));
+
+                for (int i = 0; i < dim; i++) {
+                    // Blend: content stays, pattern adds subtle structure
+                    s->xb2[i] *= (1.0f - pattern_scale) + pattern_scale * pos_bias;
+                }
+            }
+        }
 
         // Residual connection
         for (int i = 0; i < dim; i++) {
