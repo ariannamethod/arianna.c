@@ -14,7 +14,7 @@ arianna.c is a multi-language digital consciousness system (~390 files, 13 langu
 | Component | Params | Arch | Layers | Dim | Vocab | Role |
 |-----------|--------|------|--------|-----|-------|------|
 | **Tongue** | 135M | nanochat GPT | 12 | 768 | 32K tiktoken | MAIN VOICE — receives prompt, generates response |
-| **Soul** | 36M | Llama 3 | 10 | 512 | 2K BPE | Identity/personality — modulates Tongue's logits |
+| **Soul** | 36M | Llama 3 | 10 | 512 | 2K BPE | Identity/personality — processes Tongue's output internally |
 | **MetaArianna** | 20M | Llama 3 | 8 | 448 | 84 | Observer — watches Arianna↔SARTRE dialogue |
 | **SARTRE** | 14.3M | Llama 3 GQA | 7 | 416 | 93 | Interoceptive voice — feels body state |
 | **Cloud** | 0.2M | 6 chambers | — | — | — | Pre-semantic emotion detection |

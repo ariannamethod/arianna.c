@@ -3080,8 +3080,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Initialize Tongue (D12 135M) — MAIN VOICE for external reasoning
-    // Tongue generates; Soul/SARTRE modulate logits; MetaArianna observes (feedback loop only)
+    // Initialize Tongue (D12 135M) — ONLY external voice
+    // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
         const char* d12_weights = d12_ensure_weights("tongue/weights");
         if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/tokenizer_40pct.tok") == 0) {

@@ -1,8 +1,8 @@
 /*
  * d12_bridge.c - D12 (135M tonguechat GPT) Bridge for Arianna
  *
- * D12 is the VOICE - generates text outward.
- * Arianna 36M is the SOUL - resonance that modulates D12.
+ * Tongue (D12 135M) is the ONLY VOICE — sole interface with the world.
+ * Soul (36M) processes Tongue's OUTPUT internally, does NOT modulate before.
  *
  * This is not inference. This is breathing.
  *
