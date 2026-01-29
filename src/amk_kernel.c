@@ -179,6 +179,26 @@ void am_init(void) {
 
   // cosmic physics coupling (actual values come from schumann.c)
   G.cosmic_coherence_ref = 0.5f;
+
+  // temporal symmetry defaults (from PITOMADOM)
+  G.temporal_mode = AM_TEMPORAL_PROPHECY;  // forward by default
+  G.temporal_alpha = 0.5f;                 // balanced past/future
+  G.rtl_mode = 0;                          // LTR by default
+
+  // expert weighting defaults (all balanced)
+  G.expert_structural = 0.25f;
+  G.expert_semantic = 0.25f;
+  G.expert_creative = 0.25f;
+  G.expert_precise = 0.25f;
+
+  // extended laws defaults
+  G.presence_fade = 0.95f;
+  G.attractor_drift = 0.01f;
+  G.calendar_phase = 0.0f;
+  G.wormhole_gate = 0.3f;
+
+  // resonance memory
+  G.presence_decay = 0.9f;
 }
 
 // enable/disable packs
@@ -349,6 +369,18 @@ int am_exec(const char* script) {
         else if (!strcmp(lawname, "EMERGENCE_THRESHOLD")) {
           G.emergence_threshold = clamp01(lawval);
         }
+        else if (!strcmp(lawname, "PRESENCE_FADE")) {
+          G.presence_fade = clampf(lawval, 0.5f, 0.999f);
+        }
+        else if (!strcmp(lawname, "ATTRACTOR_DRIFT")) {
+          G.attractor_drift = clampf(lawval, 0.0f, 0.1f);
+        }
+        else if (!strcmp(lawname, "CALENDAR_PHASE")) {
+          G.calendar_phase = clampf(lawval, 0.0f, 11.0f);
+        }
+        else if (!strcmp(lawname, "WORMHOLE_GATE")) {
+          G.wormhole_gate = clamp01(lawval);
+        }
         // unknown laws ignored (future-proof)
       }
     }
@@ -489,6 +521,57 @@ int am_exec(const char* script) {
     else if (!strcmp(t, "COSMIC_COHERENCE")) {
       // COSMIC_COHERENCE 0.8 — set reference coherence (for JS sync)
       G.cosmic_coherence_ref = clamp01(safe_atof(arg));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TEMPORAL SYMMETRY — from PITOMADOM (past ≡ future)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    else if (!strcmp(t, "TEMPORAL_MODE")) {
+      char mode[32] = {0}; strncpy(mode, arg, 31); upcase(mode);
+      if (!strcmp(mode, "PROPHECY")) G.temporal_mode = AM_TEMPORAL_PROPHECY;
+      else if (!strcmp(mode, "RETRODICTION")) G.temporal_mode = AM_TEMPORAL_RETRODICTION;
+      else if (!strcmp(mode, "SYMMETRIC")) G.temporal_mode = AM_TEMPORAL_SYMMETRIC;
+    }
+    else if (!strcmp(t, "TEMPORAL_ALPHA")) {
+      G.temporal_alpha = clamp01(safe_atof(arg));
+    }
+    else if (!strcmp(t, "RTL_MODE")) {
+      char mode[16] = {0}; strncpy(mode, arg, 15); upcase(mode);
+      G.rtl_mode = (!strcmp(mode, "ON") || !strcmp(mode, "1"));
+    }
+    else if (!strcmp(t, "PROPHECY_MODE")) {
+      // Alias: PROPHECY_MODE ON = TEMPORAL_MODE PROPHECY
+      G.temporal_mode = AM_TEMPORAL_PROPHECY;
+    }
+    else if (!strcmp(t, "RETRODICTION_MODE")) {
+      // Alias: RETRODICTION_MODE ON = TEMPORAL_MODE RETRODICTION
+      G.temporal_mode = AM_TEMPORAL_RETRODICTION;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // EXPERT WEIGHTING — multi-expert temperature blend
+    // ─────────────────────────────────────────────────────────────────────────
+
+    else if (!strcmp(t, "EXPERT_STRUCTURAL")) {
+      G.expert_structural = clamp01(safe_atof(arg));
+    }
+    else if (!strcmp(t, "EXPERT_SEMANTIC")) {
+      G.expert_semantic = clamp01(safe_atof(arg));
+    }
+    else if (!strcmp(t, "EXPERT_CREATIVE")) {
+      G.expert_creative = clamp01(safe_atof(arg));
+    }
+    else if (!strcmp(t, "EXPERT_PRECISE")) {
+      G.expert_precise = clamp01(safe_atof(arg));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RESONANCE MEMORY — presence and decay
+    // ─────────────────────────────────────────────────────────────────────────
+
+    else if (!strcmp(t, "PRESENCE_DECAY")) {
+      G.presence_decay = clamp01(safe_atof(arg));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

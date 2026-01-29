@@ -96,7 +96,32 @@ typedef struct {
 
   // Cosmic physics coupling (from schumann.c)
   float cosmic_coherence_ref;
+
+  // ═══ TEMPORAL SYMMETRY (from PITOMADOM) ═══
+  int   temporal_mode;          // 0=prophecy, 1=retrodiction, 2=symmetric
+  float temporal_alpha;         // 0=past focus, 1=future focus
+  int   rtl_mode;               // Hebrew right-to-left encoding
+
+  // ═══ EXPERT WEIGHTING ═══
+  float expert_structural;      // grammar-focused (temp 0.7)
+  float expert_semantic;        // meaning-focused (temp 0.9)
+  float expert_creative;        // exploratory (temp 1.2)
+  float expert_precise;         // conservative (temp 0.5)
+
+  // ═══ EXTENDED LAWS ═══
+  float presence_fade;          // token memory decay (default 0.95)
+  float attractor_drift;        // attractor shift speed (default 0.01)
+  float calendar_phase;         // 11-day conflict phase
+  float wormhole_gate;          // spacetime jump activation threshold
+
+  // ═══ RESONANCE MEMORY ═══
+  float presence_decay;         // how quickly presence fades (default 0.9)
 } AM_State;
+
+// Temporal modes
+#define AM_TEMPORAL_PROPHECY     0
+#define AM_TEMPORAL_RETRODICTION 1
+#define AM_TEMPORAL_SYMMETRIC    2
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // API
