@@ -776,3 +776,106 @@ test "crossfire coherence" {
     const coh2 = CrossFireMatrix.coherence(unbalanced);
     try std.testing.expect(coh2 < 0.5);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LARYNX TESTS — Tongue↔Soul bridge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+test "larynx ingest and history" {
+    var larynx = Larynx{};
+
+    // Ingest some tokens
+    larynx.ingestToken(10);
+    larynx.ingestToken(20);
+    larynx.ingestToken(30);
+
+    try std.testing.expectEqual(@as(usize, 3), larynx.history_count);
+    try std.testing.expectEqual(@as(u32, 3), larynx.total_tokens);
+
+    // Get recent tokens
+    var out: [10]u32 = undefined;
+    const n = larynx.getRecentTokens(&out);
+    try std.testing.expectEqual(@as(usize, 3), n);
+    try std.testing.expectEqual(@as(u32, 10), out[0]);
+    try std.testing.expectEqual(@as(u32, 20), out[1]);
+    try std.testing.expectEqual(@as(u32, 30), out[2]);
+}
+
+test "larynx entropy with repetition" {
+    var larynx = Larynx{};
+
+    // Feed repeating pattern: 1,2,1,2,1,2...
+    for (0..20) |i| {
+        const token: u32 = if (i % 2 == 0) 1 else 2;
+        larynx.ingestToken(token);
+    }
+
+    // Repetitive pattern should lower entropy
+    try std.testing.expect(larynx.entropy < 0.8);
+    try std.testing.expect(larynx.bigram_hits > 0);
+}
+
+test "larynx entropy with random tokens" {
+    var larynx = Larynx{};
+
+    // Feed "random" tokens (no repeats)
+    for (0..20) |i| {
+        larynx.ingestToken(@intCast(i * 7 + 13));
+    }
+
+    // No repetition = high entropy
+    try std.testing.expect(larynx.entropy > 0.5);
+    try std.testing.expectEqual(@as(u32, 0), larynx.bigram_hits);
+}
+
+test "larynx alpha computation" {
+    var larynx = Larynx{};
+    larynx.entropy = 0.5;
+
+    // Baseline alpha
+    const alpha1 = larynx.computeAlpha(0.0, 0.0);
+    try std.testing.expect(alpha1 >= 0.5);
+    try std.testing.expect(alpha1 <= 0.7);
+
+    // High debt → higher alpha (more pattern)
+    const alpha2 = larynx.computeAlpha(1.0, 0.0);
+    try std.testing.expect(alpha2 > alpha1);
+
+    // High dissonance → lower alpha (more semantic)
+    const alpha3 = larynx.computeAlpha(0.0, 1.0);
+    try std.testing.expect(alpha3 < alpha1);
+}
+
+test "larynx reset" {
+    var larynx = Larynx{};
+
+    // Fill with data
+    for (0..10) |i| {
+        larynx.ingestToken(@intCast(i));
+    }
+
+    // Reset
+    larynx.reset();
+
+    try std.testing.expectEqual(@as(usize, 0), larynx.history_count);
+    try std.testing.expectEqual(@as(u32, 0), larynx.total_tokens);
+    try std.testing.expectEqual(@as(u32, 0), larynx.bigram_hits);
+    try std.testing.expectEqual(@as(f32, 0.5), larynx.alpha);
+}
+
+test "larynx signal for soul" {
+    var larynx = Larynx{};
+    larynx.entropy = 0.7;
+    larynx.pattern_strength = 0.3;
+    larynx.trigram_coherence = 0.5;
+    larynx.alpha = 0.6;
+    larynx.history_count = 42;
+
+    const sig = larynx.getSignalForSoul();
+
+    try std.testing.expectEqual(@as(f32, 0.7), sig.entropy);
+    try std.testing.expectEqual(@as(f32, 0.3), sig.pattern_strength);
+    try std.testing.expectEqual(@as(f32, 0.5), sig.trigram_coherence);
+    try std.testing.expectEqual(@as(f32, 0.6), sig.alpha);
+    try std.testing.expectEqual(@as(usize, 42), sig.recent_tokens);
+}
