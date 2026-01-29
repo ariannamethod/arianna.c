@@ -388,10 +388,15 @@ func Global() *InnerWorld {
 // Init initializes and starts the global inner world
 func Init() {
 	Global().Start()
+	// Start signal receiver for git_arianna
+	StartSignalReceiver()
 }
 
 // Shutdown stops the global inner world
 func Shutdown() {
+	// Stop signal receiver first
+	StopSignalReceiver()
+
 	globalMu.Lock()
 	defer globalMu.Unlock()
 

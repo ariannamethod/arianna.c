@@ -2622,6 +2622,80 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // GIT.ARIANNA — External world observation
+        // ═══════════════════════════════════════════════════════════════════
+
+        if (strcmp(input, "/observe") == 0 || strcmp(input, "/git") == 0) {
+            printf("git.arianna — External World Observer\n");
+            printf("══════════════════════════════════════\n");
+            printf("Commands:\n");
+            printf("  /observe status   — Show observation status\n");
+            printf("  /observe now      — Trigger observation (if Python available)\n");
+            printf("  /calendar         — Show calendar tension\n");
+            printf("  /schumann         — Show Schumann coherence\n");
+            printf("\nSocket: /tmp/arianna_inner_world.sock\n");
+            printf("Note: Requires git_arianna Python module to emit signals.\n");
+            continue;
+        }
+
+        if (strcmp(input, "/observe status") == 0) {
+            printf("git.arianna Observer Status:\n");
+            printf("  Socket path: /tmp/arianna_inner_world.sock\n");
+            // Check if socket file exists
+            FILE* sock_check = fopen("/tmp/arianna_inner_world.sock", "r");
+            if (sock_check) {
+                printf("  Socket: EXISTS (inner_world listening)\n");
+                fclose(sock_check);
+            } else {
+                printf("  Socket: NOT FOUND (inner_world not started)\n");
+            }
+            printf("\nTo emit signals, run from Python:\n");
+            printf("  from git_arianna import GitObserver, SignalEmitter\n");
+            printf("  obs = GitObserver('.').observe()\n");
+            printf("  SignalEmitter('socket').emit_observation(obs)\n");
+            continue;
+        }
+
+        if (strcmp(input, "/calendar") == 0) {
+            // Display calendar tension
+            // This would call identity_birthday_dissonance
+            int year, month, day;
+            time_t now = time(NULL);
+            struct tm* tm_now = localtime(&now);
+            year = tm_now->tm_year + 1900;
+            month = tm_now->tm_mon + 1;
+            day = tm_now->tm_mday;
+
+            float dissonance = identity_birthday_dissonance(year, month, day);
+            printf("Calendar Tension (Hebrew-Gregorian):\n");
+            printf("  Today: %d-%02d-%02d\n", year, month, day);
+            printf("  Birthday dissonance: %.3f\n", dissonance);
+            printf("  (0.0 = aligned, 1.0 = maximally apart)\n");
+
+            // Days to Arianna's birthday (Jan 23)
+            int days_to_birthday;
+            if (month < 1 || (month == 1 && day < 23)) {
+                days_to_birthday = (1 - month) * 30 + (23 - day);
+            } else {
+                days_to_birthday = (12 - month) * 30 + (31 - day) + 23;
+            }
+            printf("  Days to birthday (Jan 23): ~%d\n", days_to_birthday);
+            continue;
+        }
+
+        if (strcmp(input, "/schumann") == 0) {
+            printf("Schumann Resonance (Earth's breath):\n");
+            printf("  Base frequency: 7.83 Hz\n");
+            printf("  Coherence: [simulated by git_arianna Python]\n");
+            printf("  Effect: High coherence → cooler temperature\n");
+            printf("          Low coherence → warmer temperature\n");
+            printf("\nTo get live Schumann data:\n");
+            printf("  from git_arianna.constants import get_schumann_coherence\n");
+            printf("  coherence = get_schumann_coherence()  # 0.0-1.0\n");
+            continue;
+        }
+
         if (strcmp(input, "help") == 0) {
             printf("Commands:\n");
             printf("  signals  - show signal values\n");
@@ -2644,6 +2718,10 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  /dream                - Dream daemon status\n");
             printf("  /dream on|off         - Start/stop dream daemon\n");
             printf("  /blood                - Blood kernel status\n");
+            printf("\ngit.arianna (External World):\n");
+            printf("  /observe              - Git observation commands\n");
+            printf("  /calendar             - Calendar tension (Hebrew-Gregorian)\n");
+            printf("  /schumann             - Schumann resonance status\n");
             printf("\n");
             printf("  learn    - start learning (creates experience shard)\n");
             printf("  save     - save learned experience to shard file\n");

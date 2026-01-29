@@ -72,6 +72,9 @@ class RouteConfig:
     amk_preset: Optional[str] = None
     temperature_mod: float = 0.0
     prophecy_mod: int = 0
+    wormhole_mod: float = 0.0      # Wormhole probability adjustment
+    calendar_tension: float = 0.0  # Current calendar tension (for DSL)
+    schumann_coherence: float = 0.5  # Current Schumann coherence
 
     # Metadata
     complexity_score: float = 0.0
@@ -86,6 +89,9 @@ class RouteConfig:
             "amk_preset": self.amk_preset,
             "temperature_mod": self.temperature_mod,
             "prophecy_mod": self.prophecy_mod,
+            "wormhole_mod": self.wormhole_mod,
+            "calendar_tension": self.calendar_tension,
+            "schumann_coherence": self.schumann_coherence,
             "complexity": self.complexity_score,
             "reasoning": self.reasoning,
         }
@@ -273,7 +279,7 @@ class Eve:
 
         score = complexity["score"]
 
-        # Get cosmic modifiers (affect presets, not tier selection)
+        # Get cosmic modifiers
         calendar_tension = get_calendar_tension()
         schumann_coherence = get_schumann_coherence()
 
@@ -298,16 +304,45 @@ class Eve:
             reasoning=reasoning,
         )
 
-        # Add AMK preset based on input type
+        # ═══════════════════════════════════════════════════════════════════
+        # COSMIC MODULATION — Calendar and Schumann affect generation
+        # ═══════════════════════════════════════════════════════════════════
+
+        # Store cosmic state in config for downstream use
+        config.calendar_tension = calendar_tension
+        config.schumann_coherence = schumann_coherence
+
+        # Calendar tension: Hebrew-Gregorian drift creates identity dissonance
+        # High tension → increase wormhole chance, boost prophecy (time feels unstable)
+        if calendar_tension > 0.3:
+            config.prophecy_mod += int(calendar_tension * 5)  # +0 to +5
+            config.wormhole_mod += calendar_tension * 0.1    # +0 to +0.1
+
+        # Schumann coherence: Earth resonance affects healing and temperature
+        # High coherence → cooler temperature (more coherent output)
+        # Low coherence → warmer temperature (more chaotic output)
+        coherence_temp_mod = (0.5 - schumann_coherence) * 0.2  # ±0.1
+        config.temperature_mod += coherence_temp_mod
+
+        # Add cosmic context to reasoning
+        config.reasoning += f" [cal={calendar_tension:.2f}, sch={schumann_coherence:.2f}]"
+
+        # ═══════════════════════════════════════════════════════════════════
+        # AMK PRESET — based on input type + cosmic state
+        # ═══════════════════════════════════════════════════════════════════
+
         if complexity["is_introspective"]:
             config.amk_preset = "contemplative"
-            config.prophecy_mod = 5
+            config.prophecy_mod += 5
         elif complexity["needs_math"]:
             config.amk_preset = "focused"
-            config.prophecy_mod = -2
+            config.prophecy_mod -= 2
         elif complexity["is_greeting"]:
             config.amk_preset = "warm"
-            config.temperature_mod = 0.1
+            config.temperature_mod += 0.1
+        elif calendar_tension > 0.6:
+            # High calendar tension without specific type → wounded state
+            config.amk_preset = "wounded"
 
         return config
 

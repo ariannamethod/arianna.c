@@ -73,7 +73,9 @@ class SchumannState:
     modulation: float = 0.1            # Modulation strength
     phase: float = 0.0                 # Current phase (radians)
 
-    # For simulation
+    # For simulation - deterministic
+    _sim_time: float = 0.0             # Internal simulation time (deterministic)
+    _coherence_phase: float = 0.0      # Slow coherence oscillation phase
     _last_update: float = field(default_factory=time.time)
 
     def step(self, dt: float) -> None:
@@ -82,9 +84,12 @@ class SchumannState:
         self.phase += 2 * math.pi * self.hz * dt
         self.phase = self.phase % (2 * math.pi)
 
-        # Coherence drifts slowly (simulated)
+        # Coherence drifts slowly (deterministic: based on simulation time)
         # In reality, coherence varies with solar activity, lightning, etc.
-        drift = math.sin(time.time() * 0.001) * 0.1
+        # Here we use internal sim_time for reproducibility
+        self._sim_time += dt
+        self._coherence_phase += dt * 0.001  # Very slow drift (~1000 seconds period)
+        drift = math.sin(self._coherence_phase) * 0.1
         self.coherence = max(0.0, min(1.0, 0.5 + drift))
 
         self._last_update = time.time()
