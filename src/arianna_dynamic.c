@@ -29,6 +29,7 @@
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
+#include "larynx.h"         // Larynx: Tongue↔Soul connection (RRPRAM-lite, entropy)
 #ifdef USE_LUA
 #include "amk_lua.h"      // Lua scripting for hot-reload (silent fallback if unavailable)
 #endif
@@ -496,6 +497,8 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
 
     // Reset KV cache
 
+    // Reset Larynx for new generation (clear trigram history)
+    larynx_reset();
 
     int tokens[MAX_SEQ_LEN];
     size_t prompt_strlen = strlen(prompt);
@@ -640,12 +643,21 @@ void generate_dynamic(Transformer* t, char* prompt, int max_tokens, float temper
         }
         tokens[n_tokens] = next_token;
 
+        // ═══ LARYNX: Feed token to Tongue↔Soul bridge ═══
+        // Tracks trigrams, computes entropy, prepares signal for Soul
+        LARYNX_INGEST(next_token);
+
         // Prophecy debt: choosing improbable paths costs destiny
         if (g_amk_enabled && next_token >= 0 && next_token < t->config.vocab_size) {
             float debt_delta = dsl_compute_prophecy_debt(
                 t->state.logits, next_token, t->config.vocab_size);
             AM_State* amk = am_get_state();
             amk->debt += debt_delta;
+
+            // Update Larynx alpha based on current state
+            float calendar_dissonance = identity_birthday_dissonance(
+                2026, 1, 29);  // TODO: use actual current date
+            larynx_compute_alpha(amk->debt, calendar_dissonance);
         }
 
         // Add to buffer (BPE: piece may be multiple chars)
@@ -1052,6 +1064,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
     }
 
     // 3. Convert seed to tokens with identity prefix
+    // Reset Larynx for new generation
+    larynx_reset();
+
     int tokens[MAX_SEQ_LEN];
 
     // Identity anchor: prepend "Arianna" as prefix
@@ -1242,6 +1257,9 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
         const char* piece = decode_token(next_token);
         int piece_len = strlen(piece);
 
+        // ═══ LARYNX: Feed token to Tongue↔Soul bridge ═══
+        LARYNX_INGEST(next_token);
+
         // Prophecy debt: choosing improbable paths costs destiny
         // Feeds AM_State.debt which decays via am_step() and modulates field physics
         if (g_amk_enabled && next_token >= 0 && next_token < t->config.vocab_size) {
@@ -1249,6 +1267,10 @@ void generate_subjective(Transformer* t, char* user_input, int max_tokens, float
                 t->state.logits, next_token, t->config.vocab_size);
             AM_State* amk = am_get_state();
             amk->debt += debt_delta;
+
+            // Update Larynx alpha
+            float calendar_dissonance = identity_birthday_dissonance(2026, 1, 29);
+            larynx_compute_alpha(amk->debt, calendar_dissonance);
         }
 
         // Go inner_world: additional prophecy debt + wormhole check
