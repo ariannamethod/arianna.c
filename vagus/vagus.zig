@@ -424,6 +424,222 @@ pub const CrossFireMatrix = struct {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// LARYNX — The Tongue↔Soul Connection
+// ═══════════════════════════════════════════════════════════════════════════════
+// הגרון — מחבר בין הלשון לנשמה
+// The larynx: where thought becomes voice, where voice becomes identity.
+//
+// Tongue (135M) → LARYNX → Soul (36M)
+//
+// Functions:
+// - RRPRAM-lite: Pattern recognition on Tongue output
+// - Trigram tracking: N-gram statistics without training
+// - Entropy measurement: How predictable is the output?
+// - Hybrid signal: blend of pattern + semantic for Soul
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub const Larynx = struct {
+    const Self = @This();
+    const TRIGRAM_BUFFER_SIZE = 64;
+    const PATTERN_DIM = 32;
+
+    // Trigram history buffer (last N tokens from Tongue)
+    token_history: [TRIGRAM_BUFFER_SIZE]u32 = [_]u32{0} ** TRIGRAM_BUFFER_SIZE,
+    history_pos: usize = 0,
+    history_count: usize = 0,
+
+    // RRPRAM-lite: learned pattern weights (initialized from corpus stats)
+    // In production, load from weights file. Here: identity matrix start.
+    pattern_weights: [PATTERN_DIM][PATTERN_DIM]f32 = blk: {
+        var m: [PATTERN_DIM][PATTERN_DIM]f32 = undefined;
+        for (0..PATTERN_DIM) |i| {
+            for (0..PATTERN_DIM) |j| {
+                m[i][j] = if (i == j) 1.0 else 0.0;
+            }
+        }
+        break :blk m;
+    },
+
+    // Current metrics
+    entropy: f32 = 0.5,
+    pattern_strength: f32 = 0.5,
+    trigram_coherence: f32 = 0.5,
+
+    // Bigram/trigram counts for online learning (simplified)
+    bigram_hits: u32 = 0,
+    trigram_hits: u32 = 0,
+    total_tokens: u32 = 0,
+
+    // Alpha blend factor (dynamic: pattern vs semantic)
+    alpha: f32 = 0.5,
+
+    /// Add token from Tongue output
+    pub fn ingestToken(self: *Self, token: u32) void {
+        // Store in circular buffer
+        self.token_history[self.history_pos] = token;
+        self.history_pos = (self.history_pos + 1) % TRIGRAM_BUFFER_SIZE;
+        if (self.history_count < TRIGRAM_BUFFER_SIZE) {
+            self.history_count += 1;
+        }
+        self.total_tokens += 1;
+
+        // Update n-gram statistics
+        if (self.history_count >= 2) {
+            self.updateBigramStats();
+        }
+        if (self.history_count >= 3) {
+            self.updateTrigramStats();
+        }
+
+        // Recompute metrics
+        self.computeMetrics();
+    }
+
+    /// Get last N tokens (for Soul processing)
+    pub fn getRecentTokens(self: *Self, out: []u32) usize {
+        const n = @min(out.len, self.history_count);
+        for (0..n) |i| {
+            const idx = (self.history_pos + TRIGRAM_BUFFER_SIZE - n + i) % TRIGRAM_BUFFER_SIZE;
+            out[i] = self.token_history[idx];
+        }
+        return n;
+    }
+
+    /// Apply RRPRAM-lite pattern projection
+    pub fn applyPatternProjection(self: *Self, input: []const f32, output: []f32) void {
+        const dim = @min(input.len, PATTERN_DIM);
+        const out_dim = @min(output.len, PATTERN_DIM);
+
+        for (0..out_dim) |i| {
+            var sum: f32 = 0;
+            for (0..dim) |j| {
+                sum += self.pattern_weights[j][i] * input[j];
+            }
+            output[i] = sum;
+        }
+    }
+
+    /// Compute alpha based on current metrics + external state
+    pub fn computeAlpha(self: *Self, prophecy_debt: f32, calendar_dissonance: f32) f32 {
+        // High entropy or debt → more RRPRAM (pattern)
+        // High dissonance → more semantic (content)
+        var base: f32 = 0.5;
+        base += self.entropy * 0.2;
+        base += prophecy_debt * 0.15;
+        base -= calendar_dissonance * 0.1;
+        self.alpha = std.math.clamp(base, 0.1, 0.9);
+        return self.alpha;
+    }
+
+    /// Get signal for Soul (enriched with pattern info)
+    pub fn getSignalForSoul(self: *Self) LarynxSignal {
+        return .{
+            .entropy = self.entropy,
+            .pattern_strength = self.pattern_strength,
+            .trigram_coherence = self.trigram_coherence,
+            .alpha = self.alpha,
+            .recent_tokens = self.history_count,
+        };
+    }
+
+    // ═══ Private methods ═══
+
+    fn updateBigramStats(self: *Self) void {
+        // Simple: check if current bigram matches any previous
+        if (self.history_count < 4) return;
+
+        const curr_pos = (self.history_pos + TRIGRAM_BUFFER_SIZE - 1) % TRIGRAM_BUFFER_SIZE;
+        const prev_pos = (self.history_pos + TRIGRAM_BUFFER_SIZE - 2) % TRIGRAM_BUFFER_SIZE;
+        const curr = self.token_history[curr_pos];
+        const prev = self.token_history[prev_pos];
+
+        // Scan history for matching bigram
+        var i: usize = 0;
+        while (i + 1 < self.history_count - 2) : (i += 1) {
+            const idx = (self.history_pos + TRIGRAM_BUFFER_SIZE - self.history_count + i) % TRIGRAM_BUFFER_SIZE;
+            const idx_next = (idx + 1) % TRIGRAM_BUFFER_SIZE;
+            if (self.token_history[idx] == prev and self.token_history[idx_next] == curr) {
+                self.bigram_hits += 1;
+                break;
+            }
+        }
+    }
+
+    fn updateTrigramStats(self: *Self) void {
+        if (self.history_count < 6) return;
+
+        const p0 = (self.history_pos + TRIGRAM_BUFFER_SIZE - 3) % TRIGRAM_BUFFER_SIZE;
+        const p1 = (self.history_pos + TRIGRAM_BUFFER_SIZE - 2) % TRIGRAM_BUFFER_SIZE;
+        const p2 = (self.history_pos + TRIGRAM_BUFFER_SIZE - 1) % TRIGRAM_BUFFER_SIZE;
+        const t0 = self.token_history[p0];
+        const t1 = self.token_history[p1];
+        const t2 = self.token_history[p2];
+
+        // Scan for matching trigram
+        var i: usize = 0;
+        while (i + 2 < self.history_count - 3) : (i += 1) {
+            const idx = (self.history_pos + TRIGRAM_BUFFER_SIZE - self.history_count + i) % TRIGRAM_BUFFER_SIZE;
+            if (self.token_history[idx] == t0 and
+                self.token_history[(idx + 1) % TRIGRAM_BUFFER_SIZE] == t1 and
+                self.token_history[(idx + 2) % TRIGRAM_BUFFER_SIZE] == t2)
+            {
+                self.trigram_hits += 1;
+                break;
+            }
+        }
+    }
+
+    fn computeMetrics(self: *Self) void {
+        if (self.total_tokens < 4) return;
+
+        // Entropy: inverse of pattern repetition
+        const bigram_rate = @as(f32, @floatFromInt(self.bigram_hits)) /
+            @as(f32, @floatFromInt(self.total_tokens));
+        const trigram_rate = @as(f32, @floatFromInt(self.trigram_hits)) /
+            @as(f32, @floatFromInt(self.total_tokens));
+
+        // High hit rate = low entropy (predictable)
+        self.entropy = 1.0 - std.math.clamp(bigram_rate * 2.0 + trigram_rate * 3.0, 0.0, 1.0);
+
+        // Pattern strength: trigram coherence
+        self.pattern_strength = trigram_rate * 5.0;
+        self.pattern_strength = std.math.clamp(self.pattern_strength, 0.0, 1.0);
+
+        // Trigram coherence: ratio of trigram to bigram hits
+        if (self.bigram_hits > 0) {
+            self.trigram_coherence = @as(f32, @floatFromInt(self.trigram_hits)) /
+                @as(f32, @floatFromInt(self.bigram_hits));
+            self.trigram_coherence = std.math.clamp(self.trigram_coherence, 0.0, 1.0);
+        }
+    }
+
+    /// Reset statistics (call on new conversation)
+    pub fn reset(self: *Self) void {
+        self.history_pos = 0;
+        self.history_count = 0;
+        self.bigram_hits = 0;
+        self.trigram_hits = 0;
+        self.total_tokens = 0;
+        self.entropy = 0.5;
+        self.pattern_strength = 0.5;
+        self.trigram_coherence = 0.5;
+        self.alpha = 0.5;
+    }
+};
+
+/// Signal from Larynx to Soul
+pub const LarynxSignal = struct {
+    entropy: f32,
+    pattern_strength: f32,
+    trigram_coherence: f32,
+    alpha: f32,
+    recent_tokens: usize,
+};
+
+// Global Larynx instance
+var global_larynx: Larynx = .{};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // C INTERFACE — For ariannabody.c
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -476,6 +692,60 @@ export fn vagus_get_state() callconv(.C) *SharedState {
 
 export fn vagus_get_chambers(out: *[6]f32) callconv(.C) void {
     out.* = global_state.getChambers();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LARYNX C INTERFACE — Tongue↔Soul bridge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Ingest token from Tongue output
+export fn larynx_ingest_token(token: u32) callconv(.C) void {
+    global_larynx.ingestToken(token);
+}
+
+/// Get current entropy
+export fn larynx_get_entropy() callconv(.C) f32 {
+    return global_larynx.entropy;
+}
+
+/// Get pattern strength
+export fn larynx_get_pattern_strength() callconv(.C) f32 {
+    return global_larynx.pattern_strength;
+}
+
+/// Get alpha blend factor
+export fn larynx_get_alpha() callconv(.C) f32 {
+    return global_larynx.alpha;
+}
+
+/// Compute alpha based on prophecy debt and calendar dissonance
+export fn larynx_compute_alpha(prophecy_debt: f32, calendar_dissonance: f32) callconv(.C) f32 {
+    return global_larynx.computeAlpha(prophecy_debt, calendar_dissonance);
+}
+
+/// Get recent tokens for Soul processing
+export fn larynx_get_recent_tokens(out: [*]u32, max_tokens: c_int) callconv(.C) c_int {
+    var buf: [64]u32 = undefined;
+    const n = global_larynx.getRecentTokens(&buf);
+    const copy_n = @min(n, @as(usize, @intCast(max_tokens)));
+    for (0..copy_n) |i| {
+        out[i] = buf[i];
+    }
+    return @intCast(copy_n);
+}
+
+/// Get full Larynx signal (for Soul)
+export fn larynx_get_signal(out_entropy: *f32, out_pattern: *f32, out_coherence: *f32, out_alpha: *f32) callconv(.C) void {
+    const sig = global_larynx.getSignalForSoul();
+    out_entropy.* = sig.entropy;
+    out_pattern.* = sig.pattern_strength;
+    out_coherence.* = sig.trigram_coherence;
+    out_alpha.* = sig.alpha;
+}
+
+/// Reset Larynx (new conversation)
+export fn larynx_reset() callconv(.C) void {
+    global_larynx.reset();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
