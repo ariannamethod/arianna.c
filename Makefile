@@ -371,13 +371,13 @@ locus-clean:
 .PHONY: locus test_locus locus-clean
 
 
-# Tongue weights download (TinyLlama 1.1B Q4_0 GGUF, ~607MB)
-TONGUE_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue/arianna_1.1b_q4_0.gguf
-TONGUE_WEIGHTS = tongue/weights/arianna_1.1b_q4_0.gguf
+# Tongue weights download (TinyLlama 1.1B Q4_0 GGUF, ~637MB)
+TONGUE_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-4/arianna_1b_step3000_q4_0.gguf
+TONGUE_WEIGHTS = tongue/weights/arianna_1b_step3000_q4_0.gguf
 
 $(TONGUE_WEIGHTS):
 	@mkdir -p tongue/weights
-	@echo "[tongue] Downloading TinyLlama 1.1B GGUF from HuggingFace..."
+	@echo "[tongue] Downloading TinyLlama 1.1B GGUF from HuggingFace (~637MB)..."
 	@curl -L --progress-bar -o $(TONGUE_WEIGHTS) $(TONGUE_WEIGHTS_URL)
 	@echo "[tongue] Downloaded: $(TONGUE_WEIGHTS)"
 
