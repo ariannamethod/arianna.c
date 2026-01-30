@@ -457,6 +457,11 @@ void micro_update(MicroTrainer* mt, LowRankDelta* delta,
             delta->B[r * delta->in_dim + j] *= mt->decay;
         }
     }
+
+    // Guard against cumulative reinforcement in long sessions.
+    // Decay alone (0.999) can't prevent runaway if updates outpace it.
+    // Max norm = 10.0: empirically safe for rank-8 deltas at dim 512.
+    clamp_delta(delta, 10.0f);
 }
 
 // ============================================================
@@ -593,6 +598,9 @@ void notorch_step(MicroTrainer* mt, LowRankDelta* delta,
             delta->B[i] *= d;
         }
     }
+
+    // Same long-session guard as micro_update
+    clamp_delta(delta, 10.0f);
 }
 
 /*

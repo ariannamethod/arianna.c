@@ -285,6 +285,7 @@ pub const VagusNerve = struct {
     // Stats
     signals_sent: u64 = 0,
     signals_received: u64 = 0,
+    signals_dropped: u64 = 0,
 
     /// Initialize with shared memory
     pub fn init(state_ptr: *volatile SharedState) Self {
@@ -299,6 +300,8 @@ pub const VagusNerve = struct {
         if (success) {
             self.signals_sent += 1;
             self.applyToState(signal);
+        } else {
+            self.signals_dropped += 1;
         }
         return success;
     }
@@ -692,6 +695,20 @@ export fn vagus_get_state() callconv(.C) *SharedState {
 
 export fn vagus_get_chambers(out: *[6]f32) callconv(.C) void {
     out.* = global_state.getChambers();
+}
+
+/// Get number of signals dropped due to ring buffer overflow.
+/// Non-zero value means the nervous system is overwhelmed.
+export fn vagus_get_dropped(out_sent: *u64, out_received: *u64, out_dropped: *u64) callconv(.C) void {
+    if (global_nerve) |nerve| {
+        out_sent.* = nerve.signals_sent;
+        out_received.* = nerve.signals_received;
+        out_dropped.* = nerve.signals_dropped;
+    } else {
+        out_sent.* = 0;
+        out_received.* = 0;
+        out_dropped.* = 0;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

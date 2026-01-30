@@ -86,6 +86,7 @@ class ShardBridge:
         self.min_access_count = 3
         self.min_trauma_for_auto = 0.6
         self.min_sacred_for_auto = 0.7
+        self.min_coherence = 0.3  # Floor: incoherent episodes never graduate
         self.priority_patterns = {
             ResonancePattern.CRISIS,
             ResonancePattern.EMERGENCE,
@@ -165,6 +166,12 @@ class ShardBridge:
         pattern = episode.get('trigger_pattern', 0)
         trauma = episode.get('trauma', 0)
         sacred = episode.get('chamber_sacred', 0)
+        coherence = episode.get('coherence', 0.7)
+
+        # Coherence gate: incoherent episodes are noise, never graduate.
+        # Even high-trauma moments must have minimum structural integrity.
+        if coherence < self.min_coherence:
+            return False, 0.0, f"coherence too low ({coherence:.2f} < {self.min_coherence})"
 
         reasons = []
         priority = 0.0

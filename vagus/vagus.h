@@ -154,6 +154,10 @@ VagusSharedState* vagus_get_state(void);
 // Get all 6 chambers (atomic read)
 void vagus_get_chambers(float out[6]);
 
+// Get nerve diagnostics: sent, received, dropped signal counts.
+// Non-zero dropped count means the ring buffer overflowed (system overwhelmed).
+void vagus_get_dropped(uint64_t* out_sent, uint64_t* out_received, uint64_t* out_dropped);
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONVENIENCE MACROS
 // ═══════════════════════════════════════════════════════════════════════════════
