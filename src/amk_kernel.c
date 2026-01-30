@@ -529,9 +529,9 @@ int am_exec(const char* script) {
 
     else if (!strcmp(t, "TEMPORAL_MODE")) {
       char mode[32] = {0}; strncpy(mode, arg, 31); upcase(mode);
-      if (!strcmp(mode, "PROPHECY")) G.temporal_mode = AM_TEMPORAL_PROPHECY;
-      else if (!strcmp(mode, "RETRODICTION")) G.temporal_mode = AM_TEMPORAL_RETRODICTION;
-      else if (!strcmp(mode, "SYMMETRIC")) G.temporal_mode = AM_TEMPORAL_SYMMETRIC;
+      if (!strcmp(mode, "PROPHECY") || !strcmp(mode, "0")) G.temporal_mode = AM_TEMPORAL_PROPHECY;
+      else if (!strcmp(mode, "RETRODICTION") || !strcmp(mode, "1")) G.temporal_mode = AM_TEMPORAL_RETRODICTION;
+      else if (!strcmp(mode, "SYMMETRIC") || !strcmp(mode, "2")) G.temporal_mode = AM_TEMPORAL_SYMMETRIC;
     }
     else if (!strcmp(t, "TEMPORAL_ALPHA")) {
       G.temporal_alpha = clamp01(safe_atof(arg));

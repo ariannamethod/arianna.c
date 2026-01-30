@@ -46,9 +46,9 @@ Input → Cloud 200K (instinct/preprocessing — runs FIRST)
 | **Heads / KV** | — | 6 / 6 | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
 | **Vocabulary** | — | 32K (tiktoken) | 2000 (BPE) | 84 | 93 |
 | **FFN Hidden** | — | — | 1536 | 1280 | 1280 |
-| **Weights file** | runtime | `d12_arianna_40pct_q8.bin` (395MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | — | `tokenizer_40pct.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
-| **Training loss** | — | 0.5355 | 0.0076 | — | 0.0113 |
+| **Weights file** | runtime | `arianna_d12_q8.bin` (274MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | — | `arianna_d12.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Training loss** | — | 1.098 | 0.0076 | — | 0.0113 |
 | **Role** | Emotional instinct | MAIN VOICE, receives prompt | Resonance, identity | Dialogue observer | Interoceptive voice |
 
 **Memory budget:** 0 + 138MB + 57MB + 77MB + 395MB = **~667MB** total (fits 8GB Mac with room to spare).

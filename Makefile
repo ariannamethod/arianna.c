@@ -40,6 +40,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/c
            $(SRC_DIR)/meta_arianna.c \
            sartre/sartre_bridge.c \
            $(SRC_DIR)/d12_bridge.c \
+           $(SRC_DIR)/larynx.c \
            $(SRC_DIR)/arianna_dynamic.c
 
 # Check for Lua and add it automatically
@@ -163,7 +164,7 @@ TEST_DIR = tests
 TEST_BIN_DIR = $(BIN_DIR)
 
 # Common test dependencies
-TEST_COMMON = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c
+TEST_COMMON = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/larynx.c
 
 # Individual tests
 test_cloud: $(TEST_BIN_DIR)/test_cloud
@@ -363,8 +364,8 @@ locus-clean:
 
 
 # D12 weights download
-D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/d12_arianna_40pct_q8.bin
-D12_WEIGHTS = tongue/weights/d12_arianna_40pct_q8.bin
+D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-2/arianna_d12_q8.bin
+D12_WEIGHTS = tongue/weights/arianna_d12_q8.bin
 
 $(D12_WEIGHTS):
 	@mkdir -p tongue/weights

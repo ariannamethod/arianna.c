@@ -107,8 +107,8 @@ typedef struct {
  * ============================================================ */
 
 /* Initialize D12 bridge.
- * weights_path: path to d12_arianna_40pct_q8.bin
- * tokenizer_path: path to tokenizer_40pct.tok
+ * weights_path: path to arianna_d12_q8.bin
+ * tokenizer_path: path to arianna_d12.tok
  * Returns 0 on success, -1 on error. */
 int d12_init(D12Bridge* d12,
              const char* weights_path,
@@ -191,8 +191,8 @@ const char* d12_decode_token(const D12Bridge* d12, int id);
  * Returns path to weights file, or NULL on error. */
 const char* d12_ensure_weights(const char* cache_dir);
 
-#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/d12_arianna_40pct_q8.bin"
-#define D12_WEIGHTS_FILE "d12_arianna_40pct_q8.bin"
-#define D12_TOKENIZER_FILE "tokenizer_40pct.tok"
+#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-2/arianna_d12_q8.bin"
+#define D12_WEIGHTS_FILE "arianna_d12_q8.bin"
+#define D12_TOKENIZER_FILE "arianna_d12.tok"
 
 #endif /* D12_BRIDGE_H */

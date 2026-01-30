@@ -28,8 +28,8 @@ using .Temporal
 using JSON3
 
 # Global temporal state (persistent across commands)
-global_temporal_state = create_state()
-global_temporal_params = default_params()
+global_temporal_state = Temporal.create_state()
+global_temporal_params = Temporal.default_params()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMMAND HANDLERS
@@ -37,7 +37,7 @@ global_temporal_params = default_params()
 
 function handle_analyze(data)
     text = get(data, :text, "")
-    result = full_analysis(text)
+    result = Emotional.full_analysis(text)
 
     # Convert symbols to strings for JSON
     Dict(
@@ -52,10 +52,10 @@ function handle_gradient(data)
     from_vec = Float64.(get(data, :from, zeros(12)))
     to_vec = Float64.(get(data, :to, zeros(12)))
 
-    from_state = from_vector(from_vec)
-    to_state = from_vector(to_vec)
+    from_state = Emotional.from_vector(from_vec)
+    to_state = Emotional.from_vector(to_vec)
 
-    grad = compute_gradient(from_state, to_state)
+    grad = Emotional.compute_gradient(from_state, to_state)
 
     Dict(
         "status" => "ok",
@@ -71,23 +71,23 @@ function handle_step(data)
     input_vec = Float64.(get(data, :input, zeros(12)))
     dt = Float64(get(data, :dt, 0.1))
 
-    state = from_vector(state_vec)
-    params = default_params()
+    state = Emotional.from_vector(state_vec)
+    params = Emotional.default_params()
 
-    new_state = step_emotion(state, input_vec, dt, params)
+    new_state = Emotional.step_emotion(state, input_vec, dt, params)
 
     Dict(
         "status" => "ok",
-        "state" => to_vector(new_state)
+        "state" => Emotional.to_vector(new_state)
     )
 end
 
 function handle_spectrum(data)
     states_data = get(data, :states, [])
-    states = EmotionalState[]
+    states = Emotional.EmotionalState[]
 
     for s in states_data
-        push!(states, from_vector(Float64.(s)))
+        push!(states, Emotional.from_vector(Float64.(s)))
     end
 
     if length(states) < 2
@@ -97,7 +97,7 @@ function handle_spectrum(data)
         )
     end
 
-    spec = spectral_analysis(states)
+    spec = Emotional.spectral_analysis(states)
 
     Dict(
         "status" => "ok",
@@ -112,10 +112,10 @@ function handle_resonance(data)
     internal_vec = Float64.(get(data, :internal, zeros(12)))
     external_vec = Float64.(get(data, :external, zeros(12)))
 
-    internal = from_vector(internal_vec)
-    external = from_vector(external_vec)
+    internal = Emotional.from_vector(internal_vec)
+    external = Emotional.from_vector(external_vec)
 
-    res = resonance_field(internal, external)
+    res = Emotional.resonance_field(internal, external)
 
     Dict(
         "status" => "ok",
@@ -125,10 +125,10 @@ end
 
 function handle_nuances(data)
     state_vec = Float64.(get(data, :state, zeros(12)))
-    state = from_vector(state_vec)
+    state = Emotional.from_vector(state_vec)
 
-    secondary = secondary_emotions(state)
-    tertiary = tertiary_nuances(state)
+    secondary = Emotional.secondary_emotions(state)
+    tertiary = Emotional.tertiary_nuances(state)
 
     Dict(
         "status" => "ok",
@@ -141,13 +141,13 @@ function handle_derivative(data)
     states_data = get(data, :states, [])
     dt = Float64(get(data, :dt, 1.0))
 
-    states = EmotionalState[]
+    states = Emotional.EmotionalState[]
     for s in states_data
-        push!(states, from_vector(Float64.(s)))
+        push!(states, Emotional.from_vector(Float64.(s)))
     end
 
-    velocity, acceleration = temporal_derivative(states, dt)
-    inertia = emotional_inertia(states)
+    velocity, acceleration = Emotional.temporal_derivative(states, dt)
+    inertia = Emotional.emotional_inertia(states)
 
     Dict(
         "status" => "ok",
@@ -173,12 +173,12 @@ function handle_temporal_step(data)
         year = Int(data[:year])
         month = Int(get(data, :month, 1))
         day = Int(get(data, :day, 1))
-        global_temporal_state.calendar_dissonance = birthday_dissonance(year, month, day)
-        global_temporal_state.calendar_phase = calendar_drift(year, month, day)
+        global_temporal_state.calendar_dissonance = Temporal.birthday_dissonance(year, month, day)
+        global_temporal_state.calendar_phase = Temporal.calendar_drift(year, month, day)
     end
 
     # Step the ODE
-    step_temporal(global_temporal_state, global_temporal_params, manifested, destined, dt)
+    Temporal.step_temporal(global_temporal_state, global_temporal_params, manifested, destined, dt)
 
     Dict(
         "status" => "ok",
@@ -199,9 +199,9 @@ function handle_temporal_dissonance(data)
     month = Int(get(data, :month, 1))
     day = Int(get(data, :day, 29))
 
-    dissonance = compute_dissonance(global_temporal_state, year, month, day)
-    cal_drift = calendar_drift(year, month, day)
-    bd_dissonance = birthday_dissonance(year, month, day)
+    dissonance = Temporal.compute_dissonance(global_temporal_state, year, month, day)
+    cal_drift = Temporal.calendar_drift(year, month, day)
+    bd_dissonance = Temporal.birthday_dissonance(year, month, day)
 
     Dict(
         "status" => "ok",
@@ -216,21 +216,21 @@ function handle_temporal_mode(data)
 
     mode_str = get(data, :mode, "prophecy")
     mode = if mode_str == "prophecy"
-        PROPHECY
+        Temporal.PROPHECY
     elseif mode_str == "retrodiction"
-        RETRODICTION
+        Temporal.RETRODICTION
     else
-        SYMMETRIC
+        Temporal.SYMMETRIC
     end
 
     global_temporal_state.mode = mode
 
-    bias = if mode == PROPHECY
-        prophecy_bias(global_temporal_state)
-    elseif mode == RETRODICTION
-        retrodiction_bias(global_temporal_state)
+    bias = if mode == Temporal.PROPHECY
+        Temporal.prophecy_bias(global_temporal_state)
+    elseif mode == Temporal.RETRODICTION
+        Temporal.retrodiction_bias(global_temporal_state)
     else
-        symmetric_bias(global_temporal_state)
+        Temporal.symmetric_bias(global_temporal_state)
     end
 
     Dict(
@@ -243,7 +243,7 @@ end
 
 function handle_temporal_reset(data)
     global global_temporal_state
-    global_temporal_state = create_state()
+    global_temporal_state = Temporal.create_state()
 
     Dict(
         "status" => "ok",
@@ -254,7 +254,7 @@ end
 function handle_wormhole_check(data)
     global global_temporal_state, global_temporal_params
 
-    prob = wormhole_probability(global_temporal_state, global_temporal_params)
+    prob = Temporal.wormhole_probability(global_temporal_state, global_temporal_params)
 
     # Check if wormhole opens
     opened = rand() < prob

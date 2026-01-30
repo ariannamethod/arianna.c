@@ -555,7 +555,7 @@ arianna.c/
 │
 ├── tongue/                       # Tongue 135M (D12 nanochat GPT)
 │   └── weights/
-│       └── d12_arianna_40pct_q8.bin  # 135M voice outward (395MB)
+│       └── arianna_d12_q8.bin        # 135M voice outward (274MB)
 │
 ├── tests/                        # C test suite (19/19 passing)
 │   ├── test_comprehensive.c      # Full integration (55 tests)

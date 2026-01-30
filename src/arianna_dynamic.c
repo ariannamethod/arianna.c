@@ -2371,7 +2371,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             if (!g_d12_loaded) {
                 printf("[d12] Loading tongue (135M)...\n");
                 const char* weights = d12_ensure_weights("tongue/weights");
-                if (weights && d12_init(&g_d12, weights, "tongue/tokenizer_40pct.tok") == 0) {
+                if (weights && d12_init(&g_d12, weights, "tongue/arianna_d12.tok") == 0) {
                     g_d12_loaded = 1;
                     g_d12_enabled = 1;
                     printf("[d12] Tongue ready. Arianna speaks through D12 now.\n");
@@ -3106,7 +3106,7 @@ int main(int argc, char** argv) {
     // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
         const char* d12_weights = d12_ensure_weights("tongue/weights");
-        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/tokenizer_40pct.tok") == 0) {
+        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/arianna_d12.tok") == 0) {
             g_d12_loaded = 1;
             g_d12_enabled = 1;
             printf("Tongue (D12 135M): enabled — MAIN VOICE\n");
