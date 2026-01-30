@@ -454,6 +454,7 @@ pub const Larynx = struct {
     // RRPRAM-lite: learned pattern weights (initialized from corpus stats)
     // In production, load from weights file. Here: identity matrix start.
     pattern_weights: [PATTERN_DIM][PATTERN_DIM]f32 = blk: {
+        @setEvalBranchQuota(2000);
         var m: [PATTERN_DIM][PATTERN_DIM]f32 = undefined;
         for (0..PATTERN_DIM) |i| {
             for (0..PATTERN_DIM) |j| {
