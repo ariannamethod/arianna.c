@@ -80,3 +80,7 @@ tongue/weights/*.bin
 # Weights on HuggingFace: https://huggingface.co/ataeff/arianna.c
 arianna_34m_bpe/*.pt
 # PyTorch checkpoints - use HuggingFace or export to .bin
+
+# Tongue: GGUF weights (too large) and test binaries
+weights/tongue-4/*.gguf
+tests/test_tongue
