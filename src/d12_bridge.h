@@ -217,8 +217,9 @@ const char* d12_decode_token(const D12Bridge* d12, int id);
  * Returns path to weights file, or NULL on error. */
 const char* d12_ensure_weights(const char* cache_dir);
 
-#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-3/arianna_d20_q8.bin"
-#define D12_WEIGHTS_FILE "arianna_d20_q8.bin"
-#define D12_TOKENIZER_FILE "arianna_d20.tok"
+#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/d20/arianna_d20_v3_q8.bin"
+#define D12_TOKENIZER_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/d20/arianna_d20_v3.tok"
+#define D12_WEIGHTS_FILE "arianna_d20_v3_q8.bin"
+#define D12_TOKENIZER_FILE "arianna_d20_v3.tok"
 
 #endif /* D12_BRIDGE_H */

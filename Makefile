@@ -363,14 +363,22 @@ locus-clean:
 .PHONY: locus test_locus locus-clean
 
 
-# Tongue D20 weights download
-D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-3/arianna_d20_q8.bin
-D12_WEIGHTS = tongue/weights/arianna_d20_q8.bin
+# Tongue D20 v3 weights download
+D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/d20/arianna_d20_v3_q8.bin
+D12_TOKENIZER_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/d20/arianna_d20_v3.tok
+D12_WEIGHTS = tongue/weights/arianna_d20_v3_q8.bin
+D12_TOKENIZER = tongue/weights/arianna_d20_v3.tok
 
 $(D12_WEIGHTS):
 	@mkdir -p tongue/weights
-	@echo "[d12] Downloading weights from HuggingFace..."
+	@echo "[tongue] Downloading weights from HuggingFace (857MB)..."
 	@curl -L -o $(D12_WEIGHTS) $(D12_WEIGHTS_URL)
-	@echo "[d12] Downloaded: $(D12_WEIGHTS)"
+	@echo "[tongue] Downloaded: $(D12_WEIGHTS)"
 
-d12-weights: $(D12_WEIGHTS)
+$(D12_TOKENIZER):
+	@mkdir -p tongue/weights
+	@echo "[tongue] Downloading tokenizer from HuggingFace..."
+	@curl -L -o $(D12_TOKENIZER) $(D12_TOKENIZER_URL)
+	@echo "[tongue] Downloaded: $(D12_TOKENIZER)"
+
+d12-weights: $(D12_WEIGHTS) $(D12_TOKENIZER)

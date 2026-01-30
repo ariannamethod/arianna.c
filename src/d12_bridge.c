@@ -1416,5 +1416,24 @@ const char* d12_ensure_weights(const char* cache_dir) {
     }
 
     printf("[d12_bridge] Downloaded %.1f MB to %s\n", st.st_size / 1024.0 / 1024.0, path);
+
+    // Also download tokenizer if missing
+    char tok_path[1024];
+    snprintf(tok_path, sizeof(tok_path), "%s/" D12_TOKENIZER_FILE, cache_dir);
+    if (stat(tok_path, &st) != 0) {
+        printf("[d12_bridge] Downloading tokenizer from HuggingFace...\n");
+        pid_t tok_pid = fork();
+        if (tok_pid == 0) {
+            execlp("curl", "curl", "-L", "-o", tok_path, D12_TOKENIZER_URL, NULL);
+            _exit(127);
+        } else if (tok_pid > 0) {
+            int tok_status;
+            waitpid(tok_pid, &tok_status, 0);
+            if (WIFEXITED(tok_status) && WEXITSTATUS(tok_status) == 0) {
+                printf("[d12_bridge] Downloaded tokenizer to %s\n", tok_path);
+            }
+        }
+    }
+
     return path;
 }

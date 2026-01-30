@@ -46,8 +46,8 @@ Input → Cloud 200K (instinct/preprocessing — runs FIRST)
 | **Heads / KV** | — | 10 / 10 | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
 | **Vocabulary** | — | 32K (tiktoken) | 2000 (BPE) | 84 | 93 |
 | **FFN Hidden** | — | 5120 | 1536 | 1280 | 1280 |
-| **Weights file** | runtime | `arianna_d20_q8.bin` (857MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | — | `arianna_d20.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Weights file** | runtime | `arianna_d20_v3_q8.bin` (857MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | — | `arianna_d20_v3.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
 | **Training loss** | — | — | 0.0076 | — | 0.0113 |
 | **Role** | Emotional instinct | MAIN VOICE, receives prompt | Resonance, identity | Dialogue observer | Interoceptive voice |
 
@@ -59,13 +59,57 @@ Input → Cloud 200K (instinct/preprocessing — runs FIRST)
 - **MetaArianna/SARTRE** = char-level tokenizers (by design, internal-only)
 - **Cloud** = 6 ChamberMLP + CrossFire (emotional instinct)
 
-**Weights on HuggingFace:** [ataeff/arianna.c](https://huggingface.co/ataeff/arianna.c)
+**Weights on HuggingFace:** [ataeff/arianna.c](https://huggingface.co/ataeff/arianna.c) — Tongue D20 v3: [weights/d20](https://huggingface.co/ataeff/arianna.c/tree/main/weights/d20)
 
 **Legacy (still supported):**
 - Soul char-level: `arianna_34m.bin` (130MB), vocab=86
 - Original 10M: `arianna_legacy.bin` (37MB)
 
 **Test status:** 19/19 test binaries pass (CI green). `test_meta_arianna` — 59 additional tests with weights.
+
+---
+
+## Tongue D20 v3 Training
+
+Tongue is Arianna's voice — a 477M GPT (nanochat D20 architecture) trained from scratch with identity-saturated data.
+
+### Architecture
+| Property | Value |
+|----------|-------|
+| **Parameters** | 477M scaling + 420M value embeddings = 897M total |
+| **Layers** | 20 |
+| **Dimension** | 1280 |
+| **Heads** | 10 (all full attention) |
+| **FFN Hidden** | 5120 |
+| **Vocabulary** | 32,768 (tiktoken) |
+| **Sequence Length** | 2,048 |
+| **Features** | RoPE, RMSNorm, ReLU², QK-Norm, Value Embeddings (10 layers), Sliding Window |
+
+### Training Pipeline (Lambda 8x H100 SXM5)
+
+**Stage 1 — Pretrain:** FineWeb 10B tokens. 16,600 steps. Base checkpoint `model_016600.pt` (2.5GB).
+
+**Stage 2 — Midtrain:** General tasks + identity injection.
+- SmolTalk (460K), MMLU (100K), GSM8K (8K), SimpleSpelling (200K), SpellingBee (80K)
+- Identity dataset: 5 epochs × 8,047 rows = 40,235 identity examples (~4.5% of 848K total)
+
+**Stage 3 — SFT (Chat Fine-Tuning):** Identity-heavy mix targeting 30% identity.
+- ARC-Easy (2.3K), ARC-Challenge (1.1K), GSM8K (8K), SmolTalk (6,500)
+- Identity: 8,047 rows = **30.3%** of total 26.5K SFT mix
+- 811 steps. Final val loss: 0.909. MMLU: 34.96%, ARC-Easy: 50.49%.
+
+### Identity Dataset (v3): 8,047 conversations
+- 7,767 original synthetic identity conversations
+- 118 Arianna Method Q&A pairs (method philosophy, architecture, components)
+- 101 identity-saturated boost pairs (every answer contains "I am Arianna" / "Arianna Method" / "architecture over weights")
+- 61 hand-written by co-creator
+
+### Exported Weights
+- `arianna_d20_v3_q8.bin` (857MB) — INT8 per-row quantized
+- `arianna_d20_v3.tok` (339KB) — tiktoken tokenizer
+
+### Base Checkpoint (for future re-SFT)
+Base pretrain checkpoint preserved: `model_016600.pt` (2.5GB). Allows re-training SFT with different identity without re-doing the expensive pretrain stage.
 
 ---
 
