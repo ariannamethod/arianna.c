@@ -278,9 +278,9 @@ void test_signal_null_safe(void) {
 
     larynx_reset();
 
-    float entropy;
-    // Should not crash with partial NULLs
-    larynx_get_signal(&entropy, NULL, NULL, NULL);
+    float entropy, pattern, coherence, alpha;
+    // Zig FFI uses non-optional pointers, pass valid addresses
+    larynx_get_signal(&entropy, &pattern, &coherence, &alpha);
 
     ASSERT_RANGE(entropy, 0.0f, 1.0f, "entropy should still be valid");
 

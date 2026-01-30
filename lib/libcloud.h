@@ -12,8 +12,6 @@
 
 #ifndef GO_CGO_GOSTRING_TYPEDEF
 typedef struct { const char *p; ptrdiff_t n; } _GoString_;
-extern size_t _GoStringLen(_GoString_ s);
-extern const char *_GoStringPtr(_GoString_ s);
 #endif
 
 #endif
@@ -137,15 +135,9 @@ typedef size_t GoUintptr;
 typedef float GoFloat32;
 typedef double GoFloat64;
 #ifdef _MSC_VER
-#if !defined(__cplusplus) || _MSVC_LANG <= 201402L
 #include <complex.h>
 typedef _Fcomplex GoComplex64;
 typedef _Dcomplex GoComplex128;
-#else
-#include <complex>
-typedef std::complex<float> GoComplex64;
-typedef std::complex<double> GoComplex128;
-#endif
 #else
 typedef float _Complex GoComplex64;
 typedef double _Complex GoComplex128;
@@ -176,15 +168,15 @@ extern "C" {
 extern char* blood_compile_lora(char* name, int inDim, int outDim, int rank);
 extern char* blood_compile_emotion(char* name, float valence, float arousal);
 extern char* blood_compile_raw(char* name, char* code);
-extern char* blood_get_temp_dir(void);
-extern void inner_world_init(void);
-extern void inner_world_shutdown(void);
+extern char* blood_get_temp_dir();
+extern void inner_world_init();
+extern void inner_world_shutdown();
 extern void inner_world_step(float dt);
-extern void inner_world_auto_step(void);
-extern float inner_world_get_arousal(void);
-extern float inner_world_get_trauma(void);
-extern float inner_world_get_coherence(void);
-extern float inner_world_get_prophecy_debt(void);
+extern void inner_world_auto_step();
+extern float inner_world_get_arousal();
+extern float inner_world_get_trauma();
+extern float inner_world_get_coherence();
+extern float inner_world_get_prophecy_debt();
 extern void inner_world_get_snapshot(InnerWorldSnapshot* out);
 extern void inner_world_set_arousal(float v);
 extern void inner_world_set_trauma(float v);
@@ -193,16 +185,16 @@ extern void inner_world_add_prophecy_debt(float delta);
 extern void inner_world_process_text(char* text, InnerWorldTextAnalysis* out);
 extern float inner_world_check_trauma(char* text);
 extern void inner_world_accumulate_prophecy_debt(float probability);
-extern int inner_world_check_wormhole(void);
-extern float inner_world_get_destiny_bias(void);
-extern int inner_world_get_lookahead(void);
+extern int inner_world_check_wormhole();
+extern float inner_world_get_destiny_bias();
+extern int inner_world_get_lookahead();
 extern void inner_world_set_lookahead(int n);
 extern void inner_world_focus(char* target, float strength);
-extern int inner_world_is_wandering(void);
+extern int inner_world_is_wandering();
 extern void inner_world_add_memory(char* content, float emotion, float arousal);
 extern void inner_world_nudge_emotion(float d_valence, float d_arousal);
 extern void inner_world_get_dominant_emotion(char* buf, int buf_size);
-extern int inner_world_is_spiraling(void);
+extern int inner_world_is_spiraling();
 extern void inner_world_suggest_break(char* buf, int buf_size);
 extern void inner_world_dsl_destiny(float strength);
 extern void inner_world_dsl_prophecy(int lookahead);
@@ -217,13 +209,13 @@ extern int inner_world_load_config(char* path);
 extern int inner_world_save_config(char* path);
 extern int cloud_init(char* weightsDir);
 extern int cloud_preprocess(char* text);
-extern float cloud_get_temperature_bias(void);
-extern char* cloud_get_primary(void);
-extern char* cloud_get_secondary(void);
+extern float cloud_get_temperature_bias();
+extern char* cloud_get_primary();
+extern char* cloud_get_secondary();
 extern float cloud_get_chamber(char* name);
 extern char* cloud_ping(char* text);
-extern void cloud_stop(void);
-extern void cloud_free(void);
+extern void cloud_stop();
+extern void cloud_free();
 extern float high_entropy(char* text);
 extern float high_emotional_score(char* text);
 extern float high_perplexity(char* text);
@@ -236,11 +228,11 @@ extern float high_predictive_surprise(char* expected, char* actual);
 extern float high_resonance_coupling(float valence, float arousal, float entropy, char* text, float schumann);
 extern float high_text_rhythm_avg(char* text);
 extern float high_text_rhythm_variance(char* text);
-extern void meta_router_init(void);
-extern int meta_router_tick(void);
+extern void meta_router_init();
+extern int meta_router_tick();
 extern void meta_router_get_params(MetaTemplateParams* out);
 extern void meta_router_feed_thermogram(MetaThermogram* thermo);
-extern int meta_router_get_observation_count(void);
+extern int meta_router_get_observation_count();
 
 #ifdef __cplusplus
 }
