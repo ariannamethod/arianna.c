@@ -169,10 +169,16 @@ func loadWeights(gguf *GGUFFile, cfg *LlamaConfig) (*LlamaWeights, error) {
 	// Output (LM head) — might be tied to embedding
 	outData, outInfo, err := gguf.GetTensor("output.weight")
 	if err != nil {
-		// Try tied embeddings
+		// Not found — use tied embeddings
 		outData = w.TokenEmbed
 		outInfo = embInfo
 		fmt.Printf("[tongue/model] output.weight not found, using tied embeddings\n")
+	} else if !isSupportedType(outInfo.Type) {
+		// Unsupported quant type (e.g. Q5_K_M=14) — use tied embeddings
+		fmt.Printf("[tongue/model] output.weight has unsupported type %d, using tied embeddings (type %d)\n",
+			outInfo.Type, embInfo.Type)
+		outData = w.TokenEmbed
+		outInfo = embInfo
 	}
 	w.Output = outData
 	w.OutputType = outInfo.Type
@@ -306,6 +312,16 @@ func precomputeRoPE(s *LlamaState, cfg *LlamaConfig) {
 	}
 }
 
+// isSupportedType checks if a GGML tensor type is supported for matmul
+func isSupportedType(t uint32) bool {
+	switch t {
+	case ggmlTypeQ4_0, ggmlTypeF16, ggmlTypeF32, ggmlTypeQ6_K:
+		return true
+	default:
+		return false
+	}
+}
+
 // matmulDispatch dispatches to the right matmul based on tensor type
 func matmulDispatch(out []float32, w []byte, wtype uint32, x []float32, rows, cols int) {
 	switch wtype {
@@ -322,6 +338,10 @@ func matmulDispatch(out []float32, w []byte, wtype uint32, x []float32, rows, co
 					uint32(w[i*4+2])<<16 | uint32(w[i*4+3])<<24)
 		}
 		MatMulF32(out, f32, x, rows, cols)
+	case ggmlTypeQ6_K:
+		MatMulQ6_K(out, w, x, rows, cols)
+	default:
+		fmt.Printf("[tongue/model] WARNING: unsupported matmul type %d for %dx%d\n", wtype, rows, cols)
 	}
 }
 
@@ -353,16 +373,16 @@ func embedLookupDispatch(data []byte, dtype uint32, token, dim int) []float32 {
 }
 
 // applyRoPE applies rotary position encoding to a head vector
+// Uses half-split pairs (vec[i], vec[i+half]) matching llama.cpp LLAMA_ROPE_TYPE_NORM
 func applyRoPE(vec []float32, pos int, s *LlamaState, headDim int) {
 	half := headDim / 2
-	cosOff := pos * half
-	sinOff := pos * half
+	cacheOff := pos * half
 
 	for i := 0; i < half; i++ {
 		x0 := vec[i]
 		x1 := vec[i+half]
-		c := s.CosCache[cosOff+i]
-		si := s.SinCache[sinOff+i]
+		c := s.CosCache[cacheOff+i]
+		si := s.SinCache[cacheOff+i]
 		vec[i] = x0*c - x1*si
 		vec[i+half] = x0*si + x1*c
 	}

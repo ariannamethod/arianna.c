@@ -27,12 +27,13 @@ func DequantQ4_0Block(block []byte, out []float32) {
 	d := half2float(binary.LittleEndian.Uint16(block[0:2]))
 
 	// Next 16 bytes = 32 x 4-bit values
+	// GGML layout: low nibbles → positions 0..15, high nibbles → positions 16..31
 	for j := 0; j < 16; j++ {
 		b := block[2+j]
 		v0 := int(b&0x0F) - 8
 		v1 := int(b>>4) - 8
-		out[j*2] = float32(v0) * d
-		out[j*2+1] = float32(v1) * d
+		out[j] = float32(v0) * d
+		out[j+16] = float32(v1) * d
 	}
 }
 
@@ -64,17 +65,117 @@ func MatMulQ4_0(out []float32, w []byte, x []float32, rows, cols int) {
 			xOff := b * q4BlockSize
 			blockData := w[blockOff+2 : blockOff+q4BytesPerBlock]
 
-			// Unrolled dot product over 32 elements
+			// Dot product over 32 elements
+			// GGML Q4_0: low nibbles → positions 0..15, high nibbles → positions 16..31
 			var dot float32
 			for j := 0; j < 16; j++ {
 				bv := blockData[j]
 				v0 := float32(int(bv&0x0F) - 8)
 				v1 := float32(int(bv>>4) - 8)
-				dot += v0*x[xOff+j*2] + v1*x[xOff+j*2+1]
+				dot += v0*x[xOff+j] + v1*x[xOff+j+16]
 			}
 			sum += dot * d
 		}
 		out[i] = sum
+	}
+}
+
+// ============================================================
+// Q6_K dequantization (GGML type 14)
+// ============================================================
+//
+// Q6_K: 6-bit k-quant, 256 elements per super-block = 210 bytes:
+//   ql[128] — low 4 bits of each quant
+//   qh[64]  — high 2 bits of each quant
+//   scales[16] — int8 sub-block scales
+//   d (fp16) — super-block scale factor
+//
+// Each element: 6-bit unsigned (0-63), subtract 32 for signed (-32 to +31)
+// Dequantized = d * scales[sub_block] * (q6_val - 32)
+
+const q6kBlockSize = 256
+const q6kBytesPerBlock = 210
+
+// DequantQ6_K dequantizes a full Q6_K tensor into float32
+func DequantQ6_K(data []byte, n int) []float32 {
+	out := make([]float32, n)
+	nblocks := n / q6kBlockSize
+
+	for i := 0; i < nblocks; i++ {
+		blockOff := i * q6kBytesPerBlock
+		ql := data[blockOff:]
+		qh := data[blockOff+128:]
+		scales := data[blockOff+192:]
+		d := half2float(binary.LittleEndian.Uint16(data[blockOff+208 : blockOff+210]))
+
+		outOff := i * q6kBlockSize
+
+		// Process 128 elements at a time (2 passes for 256)
+		for n128 := 0; n128 < 2; n128++ {
+			qlP := ql[n128*64:]
+			qhP := qh[n128*32:]
+			scP := scales[n128*8:]
+			yOff := outOff + n128*128
+
+			for l := 0; l < 32; l++ {
+				q1 := int(qlP[l]&0x0F) | (int(qhP[l]>>0)&3)<<4
+				q2 := int(qlP[l+32]&0x0F) | (int(qhP[l]>>2)&3)<<4
+				q3 := int(qlP[l]>>4) | (int(qhP[l]>>4)&3)<<4
+				q4 := int(qlP[l+32]>>4) | (int(qhP[l]>>6)&3)<<4
+
+				out[yOff+l+0] = d * float32(int8(scP[0])) * float32(q1-32)
+				out[yOff+l+32] = d * float32(int8(scP[2])) * float32(q2-32)
+				out[yOff+l+64] = d * float32(int8(scP[4])) * float32(q3-32)
+				out[yOff+l+96] = d * float32(int8(scP[6])) * float32(q4-32)
+			}
+		}
+	}
+	return out
+}
+
+// MatMulQ6_K computes out[rows] = W_q6k[rows, cols] @ x[cols]
+func MatMulQ6_K(out []float32, w []byte, x []float32, rows, cols int) {
+	blocksPerRow := cols / q6kBlockSize
+	bytesPerRow := blocksPerRow * q6kBytesPerBlock
+
+	for r := 0; r < rows; r++ {
+		rowOff := r * bytesPerRow
+		sum := float32(0)
+
+		for b := 0; b < blocksPerRow; b++ {
+			blockOff := rowOff + b*q6kBytesPerBlock
+			ql := w[blockOff:]
+			qh := w[blockOff+128:]
+			scales := w[blockOff+192:]
+			d := half2float(binary.LittleEndian.Uint16(w[blockOff+208 : blockOff+210]))
+
+			xOff := b * q6kBlockSize
+
+			for n128 := 0; n128 < 2; n128++ {
+				qlP := ql[n128*64:]
+				qhP := qh[n128*32:]
+				scP := scales[n128*8:]
+				xBase := xOff + n128*128
+
+				for l := 0; l < 32; l++ {
+					q1 := int(qlP[l]&0x0F) | (int(qhP[l]>>0)&3)<<4
+					q2 := int(qlP[l+32]&0x0F) | (int(qhP[l]>>2)&3)<<4
+					q3 := int(qlP[l]>>4) | (int(qhP[l]>>4)&3)<<4
+					q4 := int(qlP[l+32]>>4) | (int(qhP[l]>>6)&3)<<4
+
+					s0 := d * float32(int8(scP[0]))
+					s2 := d * float32(int8(scP[2]))
+					s4 := d * float32(int8(scP[4]))
+					s6 := d * float32(int8(scP[6]))
+
+					sum += s0 * float32(q1-32) * x[xBase+l+0]
+					sum += s2 * float32(q2-32) * x[xBase+l+32]
+					sum += s4 * float32(q3-32) * x[xBase+l+64]
+					sum += s6 * float32(q4-32) * x[xBase+l+96]
+				}
+			}
+		}
+		out[r] = sum
 	}
 }
 

@@ -48,8 +48,13 @@ const (
 	ggmlTypeQ4_1 = 3
 	ggmlTypeQ5_0 = 6
 	ggmlTypeQ5_1 = 7
-	ggmlTypeQ8_0 = 8
-	ggmlTypeQ8_1 = 9
+	ggmlTypeQ8_0  = 8
+	ggmlTypeQ8_1  = 9
+	ggmlTypeQ2_K  = 10
+	ggmlTypeQ3_K  = 11
+	ggmlTypeQ4_K  = 12
+	ggmlTypeQ5_K  = 13
+	ggmlTypeQ6_K  = 14
 )
 
 // GGUFMetadata holds parsed metadata
@@ -68,11 +73,12 @@ type GGUFMetadata struct {
 	RopeFreqBase  float32
 
 	// Tokenizer
-	TokenList   []string
-	TokenScores []float32
-	TokenTypes  []int32
-	BosID       int
-	EosID       int
+	TokenList      []string
+	TokenScores    []float32
+	TokenTypes     []int32
+	BosID          int
+	EosID          int
+	AddSpacePrefix bool
 
 	// Raw KV store
 	KV map[string]interface{}
@@ -237,6 +243,8 @@ func ggmlBlockSize(t uint32) int {
 		return 20 // 2 (min) + 2 (scale) + 16 data
 	case ggmlTypeQ8_0:
 		return 34 // 2 (fp16 scale) + 32 (32 x 8-bit)
+	case ggmlTypeQ6_K:
+		return 210 // 128 (ql) + 64 (qh) + 16 (scales) + 2 (d) per 256 elements
 	default:
 		return 0
 	}
@@ -247,6 +255,8 @@ func ggmlBlockElements(t uint32) int {
 	switch t {
 	case ggmlTypeF32, ggmlTypeF16:
 		return 1
+	case ggmlTypeQ6_K:
+		return 256 // k-quant super block
 	default:
 		return 32 // Q4_0, Q4_1, Q5_0, Q5_1, Q8_0
 	}
@@ -479,6 +489,20 @@ func parseMetadata(kv map[string]interface{}) GGUFMetadata {
 	}
 	if v, ok := kv["tokenizer.ggml.eos_token_id"]; ok {
 		meta.EosID = toInt(v)
+	}
+	// Default: add space prefix (standard SentencePiece behavior)
+	meta.AddSpacePrefix = true
+	if v, ok := kv["tokenizer.ggml.add_space_prefix"]; ok {
+		switch val := v.(type) {
+		case bool:
+			meta.AddSpacePrefix = val
+		case uint8:
+			meta.AddSpacePrefix = val != 0
+		case int:
+			meta.AddSpacePrefix = val != 0
+		case uint32:
+			meta.AddSpacePrefix = val != 0
+		}
 	}
 
 	fmt.Printf("[tongue/gguf] arch=%s layers=%d dim=%d heads=%d kv_heads=%d head_dim=%d\n",

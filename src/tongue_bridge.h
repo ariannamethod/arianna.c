@@ -116,6 +116,10 @@ extern void tongue_set_exploratory_bias(float bias);
 /* Set temperature floor (default 0.9) */
 extern void tongue_set_temp_floor(float floor);
 
+/* Set repetition penalty (default 1.15) and look-back window (default 64).
+ * penalty > 1.0 reduces probability of recently generated tokens. */
+extern void tongue_set_rep_penalty(float penalty, int window);
+
 /* ============================================================
  * Generation
  * ============================================================ */

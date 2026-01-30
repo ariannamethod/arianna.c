@@ -24,12 +24,13 @@ import (
 
 // Tokenizer handles SentencePiece BPE encoding/decoding
 type Tokenizer struct {
-	Vocab      []string
-	Scores     []float32
-	Types      []int32
-	VocabSize  int
-	BosID      int
-	EosID      int
+	Vocab          []string
+	Scores         []float32
+	Types          []int32
+	VocabSize      int
+	BosID          int
+	EosID          int
+	AddSpacePrefix bool
 
 	// Lookup table for encoding
 	tokenToID map[string]int
@@ -40,12 +41,13 @@ type Tokenizer struct {
 // NewTokenizer creates a tokenizer from GGUF metadata
 func NewTokenizer(meta *GGUFMetadata) *Tokenizer {
 	t := &Tokenizer{
-		Vocab:     meta.TokenList,
-		Scores:    meta.TokenScores,
-		Types:     meta.TokenTypes,
-		VocabSize: meta.VocabSize,
-		BosID:     meta.BosID,
-		EosID:     meta.EosID,
+		Vocab:          meta.TokenList,
+		Scores:         meta.TokenScores,
+		Types:          meta.TokenTypes,
+		VocabSize:      meta.VocabSize,
+		BosID:          meta.BosID,
+		EosID:          meta.EosID,
+		AddSpacePrefix: meta.AddSpacePrefix,
 	}
 
 	// Build lookup table
@@ -64,7 +66,7 @@ func NewTokenizer(meta *GGUFMetadata) *Tokenizer {
 		}
 	}
 
-	fmt.Printf("[tongue/tokenizer] vocab=%d bos=%d eos=%d\n", t.VocabSize, t.BosID, t.EosID)
+	fmt.Printf("[tongue/tokenizer] vocab=%d bos=%d eos=%d add_space_prefix=%v\n", t.VocabSize, t.BosID, t.EosID, t.AddSpacePrefix)
 	return t
 }
 
@@ -80,8 +82,8 @@ func (t *Tokenizer) Encode(text string, addBos bool) []int {
 		return tokens
 	}
 
-	// SentencePiece: prepend space to input (unless it already starts with one)
-	if text[0] != ' ' {
+	// SentencePiece: prepend space to input only if add_space_prefix is set
+	if t.AddSpacePrefix && text[0] != ' ' {
 		text = " " + text
 	}
 
@@ -214,8 +216,8 @@ func (t *Tokenizer) Decode(ids []int) string {
 	}
 
 	result := sb.String()
-	// Trim leading space that was added during encoding
-	if len(result) > 0 && result[0] == ' ' {
+	// Trim leading space that was added during encoding (only if add_space_prefix was used)
+	if t.AddSpacePrefix && len(result) > 0 && result[0] == ' ' {
 		result = result[1:]
 	}
 	return result

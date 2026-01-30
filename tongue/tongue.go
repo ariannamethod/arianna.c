@@ -41,6 +41,10 @@ var (
 
 	// Temperature floor: Tongue never freezes
 	tempFloor float32 = 0.9
+
+	// Repetition penalty: prevents loops and language drift
+	repPenalty float32 = 1.15  // >1.0 penalizes repetition
+	repWindow  int     = 64    // look-back window for recent tokens
 )
 
 func init() {
@@ -114,6 +118,12 @@ func tongue_set_exploratory_bias(bias C.float) {
 //export tongue_set_temp_floor
 func tongue_set_temp_floor(floor C.float) {
 	tempFloor = float32(floor)
+}
+
+//export tongue_set_rep_penalty
+func tongue_set_rep_penalty(penalty C.float, window C.int) {
+	repPenalty = float32(penalty)
+	repWindow = int(window)
 }
 
 // ============================================================
@@ -192,12 +202,44 @@ func tongue_generate(
 	genCount := 0
 	maxTok := int(maxTokens)
 	maxOut := int(maxOutputLen) - 1
+	graceLimit := 32 // extra tokens allowed to finish a sentence
+	inGrace := false
 
-	for i := 0; i < maxTok && len(output) < maxOut; i++ {
+	// Track recent tokens for repetition penalty
+	recentTokens := make([]int, 0, repWindow)
+
+	for i := 0; i < maxTok+graceLimit && len(output) < maxOut; i++ {
+		// If past maxTok, we're in grace period — only continue to finish sentence
+		if i >= maxTok && !inGrace {
+			inGrace = true
+		}
+		if inGrace {
+			// Check if last output ends with sentence-ending punctuation
+			if len(output) > 0 {
+				last := output[len(output)-1]
+				if last == '.' || last == '!' || last == '?' || last == '\n' {
+					break
+				}
+			}
+		}
 		// Apply logit scale
 		if gLogitScale != 1.0 {
 			for j := 0; j < gModel.Config.VocabSize; j++ {
 				gModel.State.Logits[j] *= gLogitScale
+			}
+		}
+
+		// Apply repetition penalty: penalize recently generated tokens
+		if repPenalty > 1.0 && len(recentTokens) > 0 {
+			for _, tok := range recentTokens {
+				if tok >= 0 && tok < gModel.Config.VocabSize {
+					logit := gModel.State.Logits[tok]
+					if logit > 0 {
+						gModel.State.Logits[tok] = logit / repPenalty
+					} else {
+						gModel.State.Logits[tok] = logit * repPenalty
+					}
+				}
 			}
 		}
 
@@ -215,6 +257,12 @@ func tongue_generate(
 			next = sampleTopP(gModel.State.Logits, gModel.Config.VocabSize, temp, tp)
 		} else {
 			next = sampleTopK(gModel.State.Logits, gModel.Config.VocabSize, temp, 50)
+		}
+
+		// Update recent tokens window
+		recentTokens = append(recentTokens, next)
+		if len(recentTokens) > repWindow {
+			recentTokens = recentTokens[1:]
 		}
 
 		// Check for EOS

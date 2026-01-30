@@ -86,6 +86,7 @@ extern void tongue_set_temperature_mod(float mod);
 extern void tongue_set_logit_scale(float scale);
 extern void tongue_set_exploratory_bias(float bias);
 extern void tongue_set_temp_floor(float floor);
+extern void tongue_set_rep_penalty(float penalty, int window);
 extern void tongue_reset();
 extern int tongue_generate(char* promptC, char* outputC, int maxOutputLen, int maxTokens, float temperature, float topP, char* anchorPromptC);
 extern int tongue_encode(char* textC, int* idsOut, int maxTokens);
