@@ -3,16 +3,10 @@ build/
 
 # Test binaries (source only in tests/)
 bin/test_*
-# Full binary (requires Go libs at runtime, rebuild via `make full`)
-bin/arianna_full
 
-# Go shared libraries (rebuilt from source via `make go-lib`)
+# Go (but keep .dylib/.so for personality)
 inner_world/libinner_world.h
-inner_world/libinner_world.so
 inner_world/test_inner_world
-lib/libcloud.so
-lib/libinner_world.so
-bin/libinner_world.so
 
 # Locus compiled files
 locus/*.o
