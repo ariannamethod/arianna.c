@@ -75,7 +75,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib both lua tests vagus test_vagus weights-f32 debug
+.PHONY: all clean dynamic full go-lib cloud-lib tongue-lib both lua tests vagus test_vagus weights-f32 debug
 
 all: $(TARGET)
 
@@ -112,6 +112,14 @@ go-lib: cloud-lib
 cloud-lib:
 	cd inner_world && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libcloud.$(DYLIB_EXT) .
 	@mkdir -p $(GO_LIB_DIR)
+
+# Build Tongue 1.1B Go library (GGUF reader + Llama forward pass)
+tongue-lib:
+	@echo "[tongue] building libtongue.$(DYLIB_EXT)..."
+	cd tongue && go build -buildmode=c-shared -o libtongue.$(DYLIB_EXT) .
+	@mkdir -p $(GO_LIB_DIR)
+	cp tongue/libtongue.$(DYLIB_EXT) $(GO_LIB_DIR)/
+	@echo "[tongue] done: $(GO_LIB_DIR)/libtongue.$(DYLIB_EXT)"
 
 $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	@mkdir -p $(BIN_DIR)
