@@ -1152,8 +1152,9 @@ int d12_sample(D12Bridge* d12, float temperature, float top_p) {
     float* logits = model->state.logits;
     int vocab = model->config.vocab_size;
 
-    // Apply temperature modulation
+    // Apply temperature modulation with floor: Tongue never freezes
     float effective_temp = temperature * d12->mod.temperature_mod;
+    if (effective_temp < D12_TEMP_FLOOR) effective_temp = D12_TEMP_FLOOR;
 
     // Use RNG seed based on position
     static unsigned long long rng = 0;
@@ -1179,20 +1180,49 @@ int d12_generate(D12Bridge* d12,
     // Reset for new generation
     d12_reset(d12);
 
-    // Encode prompt (simple greedy tokenization for now)
-    int prompt_tokens[4096];
-    int prompt_len = d12_encode(d12, prompt, prompt_tokens, 4096);
-    if (prompt_len <= 0) {
-        // Use special tokens
-        if (tok->bos_id >= 0) prompt_tokens[prompt_len++] = tok->bos_id;
-        if (tok->assistant_start_id >= 0) prompt_tokens[prompt_len++] = tok->assistant_start_id;
+    int all_tokens[4096];
+    int total_len = 0;
+
+    // 1. BOS
+    if (tok->bos_id >= 0) {
+        all_tokens[total_len++] = tok->bos_id;
     }
 
-    // Feed prompt
+    // 2. Anchor prompt — connects Tongue to the body.
+    //    Fed once before user input so D12 knows who she is,
+    //    what she feels, and how to listen to the body.
+    {
+        int anchor_tokens[256];
+        int anchor_len = d12_encode(d12, D12_ANCHOR_PROMPT, anchor_tokens, 256);
+        for (int i = 0; i < anchor_len && total_len < 3800; i++) {
+            all_tokens[total_len++] = anchor_tokens[i];
+        }
+    }
+
+    // 3. User start marker
+    if (tok->user_start_id >= 0) {
+        all_tokens[total_len++] = tok->user_start_id;
+    }
+
+    // 4. User prompt
+    {
+        int user_tokens[3800];
+        int user_len = d12_encode(d12, prompt, user_tokens, 3800);
+        for (int i = 0; i < user_len && total_len < 4000; i++) {
+            all_tokens[total_len++] = user_tokens[i];
+        }
+    }
+
+    // 5. Assistant start marker
+    if (tok->assistant_start_id >= 0) {
+        all_tokens[total_len++] = tok->assistant_start_id;
+    }
+
+    // Feed full sequence into KV cache
     int prev = 0;
-    for (int i = 0; i < prompt_len; i++) {
-        d12_forward_internal(model, prompt_tokens[i], prev, d12->pos);
-        prev = prompt_tokens[i];
+    for (int i = 0; i < total_len; i++) {
+        d12_forward_internal(model, all_tokens[i], prev, d12->pos);
+        prev = all_tokens[i];
         d12->pos++;
     }
 
@@ -1206,8 +1236,9 @@ int d12_generate(D12Bridge* d12,
         // Apply modulation to logits
         d12_apply_modulation(d12);
 
-        // Sample
+        // Sample (temperature floor: Tongue never freezes)
         float effective_temp = temperature * d12->mod.temperature_mod;
+        if (effective_temp < D12_TEMP_FLOOR) effective_temp = D12_TEMP_FLOOR;
         int next;
         if (top_p < 1.0f) {
             next = d12_sample_topp(model->state.logits, model->config.vocab_size,

@@ -2462,7 +2462,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             fflush(stdout);
 
             float temp = 0.8f + g_d12.mod.temperature_mod * 0.2f;
-            if (temp < 0.3f) temp = 0.3f;
+            if (temp < D12_TEMP_FLOOR) temp = D12_TEMP_FLOOR;
             if (temp > 1.5f) temp = 1.5f;
 
             int n = d12_generate(&g_d12, prompt, output, sizeof(output),
