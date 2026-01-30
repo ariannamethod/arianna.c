@@ -373,18 +373,19 @@ func embedLookupDispatch(data []byte, dtype uint32, token, dim int) []float32 {
 }
 
 // applyRoPE applies rotary position encoding to a head vector
-// Uses half-split pairs (vec[i], vec[i+half]) matching llama.cpp LLAMA_ROPE_TYPE_NORM
+// Uses interleaved pairs (vec[i*2], vec[i*2+1]) — GGUF Q/K weights are pre-permuted
+// by convert_hf_to_gguf.py for this layout. Matches working arianna.go implementation.
 func applyRoPE(vec []float32, pos int, s *LlamaState, headDim int) {
 	half := headDim / 2
 	cacheOff := pos * half
 
 	for i := 0; i < half; i++ {
-		x0 := vec[i]
-		x1 := vec[i+half]
+		x0 := vec[i*2]
+		x1 := vec[i*2+1]
 		c := s.CosCache[cacheOff+i]
 		si := s.SinCache[cacheOff+i]
-		vec[i] = x0*c - x1*si
-		vec[i+half] = x0*si + x1*c
+		vec[i*2] = x0*c - x1*si
+		vec[i*2+1] = x0*si + x1*c
 	}
 }
 

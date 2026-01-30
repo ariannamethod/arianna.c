@@ -12,6 +12,8 @@
 
 #ifndef GO_CGO_GOSTRING_TYPEDEF
 typedef struct { const char *p; ptrdiff_t n; } _GoString_;
+extern size_t _GoStringLen(_GoString_ s);
+extern const char *_GoStringPtr(_GoString_ s);
 #endif
 
 #endif
@@ -50,9 +52,15 @@ typedef size_t GoUintptr;
 typedef float GoFloat32;
 typedef double GoFloat64;
 #ifdef _MSC_VER
+#if !defined(__cplusplus) || _MSVC_LANG <= 201402L
 #include <complex.h>
 typedef _Fcomplex GoComplex64;
 typedef _Dcomplex GoComplex128;
+#else
+#include <complex>
+typedef std::complex<float> GoComplex64;
+typedef std::complex<double> GoComplex128;
+#endif
 #else
 typedef float _Complex GoComplex64;
 typedef double _Complex GoComplex128;
@@ -81,20 +89,20 @@ extern "C" {
 #endif
 
 extern int tongue_init(char* weightsPath);
-extern void tongue_free();
+extern void tongue_free(void);
 extern void tongue_set_temperature_mod(float mod);
 extern void tongue_set_logit_scale(float scale);
 extern void tongue_set_exploratory_bias(float bias);
 extern void tongue_set_temp_floor(float floor);
 extern void tongue_set_rep_penalty(float penalty, int window);
-extern void tongue_reset();
+extern void tongue_reset(void);
 extern int tongue_generate(char* promptC, char* outputC, int maxOutputLen, int maxTokens, float temperature, float topP, char* anchorPromptC);
 extern int tongue_encode(char* textC, int* idsOut, int maxTokens);
 extern char* tongue_decode_token(int id);
-extern int tongue_get_vocab_size();
-extern int tongue_get_dim();
-extern int tongue_get_seq_len();
-extern int tongue_get_num_layers();
+extern int tongue_get_vocab_size(void);
+extern int tongue_get_dim(void);
+extern int tongue_get_seq_len(void);
+extern int tongue_get_num_layers(void);
 
 // tongue_get_logits_into copies logits into caller-provided C buffer.
 // Returns number of floats written.

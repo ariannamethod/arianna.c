@@ -3,7 +3,7 @@
 
 CC = gcc
 CFLAGS = -O3 -Wall -Wextra -march=native
-LDFLAGS = -lm
+LDFLAGS = -lm -ldl
 
 # Platform detection
 UNAME := $(shell uname -s)
@@ -371,14 +371,14 @@ locus-clean:
 .PHONY: locus test_locus locus-clean
 
 
-# D12 weights download
-D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-2/arianna_d12_q8.bin
-D12_WEIGHTS = tongue/weights/arianna_d12_q8.bin
+# Tongue weights download (TinyLlama 1.1B Q4_0 GGUF, ~607MB)
+TONGUE_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue/arianna_1.1b_q4_0.gguf
+TONGUE_WEIGHTS = tongue/weights/arianna_1.1b_q4_0.gguf
 
-$(D12_WEIGHTS):
+$(TONGUE_WEIGHTS):
 	@mkdir -p tongue/weights
-	@echo "[d12] Downloading weights from HuggingFace..."
-	@curl -L -o $(D12_WEIGHTS) $(D12_WEIGHTS_URL)
-	@echo "[d12] Downloaded: $(D12_WEIGHTS)"
+	@echo "[tongue] Downloading TinyLlama 1.1B GGUF from HuggingFace..."
+	@curl -L --progress-bar -o $(TONGUE_WEIGHTS) $(TONGUE_WEIGHTS_URL)
+	@echo "[tongue] Downloaded: $(TONGUE_WEIGHTS)"
 
-d12-weights: $(D12_WEIGHTS)
+tongue-weights: $(TONGUE_WEIGHTS)

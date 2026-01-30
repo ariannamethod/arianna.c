@@ -16,7 +16,12 @@ package main
 import (
 	"encoding/binary"
 	"math"
+	"runtime"
+	"sync"
 )
+
+// Number of goroutines for parallel matmul
+var numWorkers = runtime.NumCPU()
 
 const q4BlockSize = 32   // elements per Q4_0 block
 const q4BytesPerBlock = 18 // 2 (scale) + 16 (data)
@@ -50,11 +55,40 @@ func DequantQ4_0(data []byte, n int) []float32 {
 
 // MatMulQ4_0 computes out[rows] = W_q4[rows, cols] @ x[cols]
 // W is stored as Q4_0 blocks in row-major order
+// Parallelized across rows using goroutines (matches arianna.go pattern)
 func MatMulQ4_0(out []float32, w []byte, x []float32, rows, cols int) {
 	blocksPerRow := cols / q4BlockSize
 	bytesPerRow := blocksPerRow * q4BytesPerBlock
 
-	for i := 0; i < rows; i++ {
+	if rows < numWorkers*4 {
+		// Small matrix — single thread
+		matMulQ4_0Range(out, w, x, 0, rows, blocksPerRow, bytesPerRow)
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (rows + numWorkers - 1) / numWorkers
+
+	for worker := 0; worker < numWorkers; worker++ {
+		start := worker * chunkSize
+		end := start + chunkSize
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			matMulQ4_0Range(out, w, x, s, e, blocksPerRow, bytesPerRow)
+			wg.Done()
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func matMulQ4_0Range(out []float32, w []byte, x []float32, start, end, blocksPerRow, bytesPerRow int) {
+	for i := start; i < end; i++ {
 		rowOff := i * bytesPerRow
 		sum := float32(0)
 
@@ -65,8 +99,6 @@ func MatMulQ4_0(out []float32, w []byte, x []float32, rows, cols int) {
 			xOff := b * q4BlockSize
 			blockData := w[blockOff+2 : blockOff+q4BytesPerBlock]
 
-			// Dot product over 32 elements
-			// GGML Q4_0: low nibbles → positions 0..15, high nibbles → positions 16..31
 			var dot float32
 			for j := 0; j < 16; j++ {
 				bv := blockData[j]
@@ -134,11 +166,39 @@ func DequantQ6_K(data []byte, n int) []float32 {
 }
 
 // MatMulQ6_K computes out[rows] = W_q6k[rows, cols] @ x[cols]
+// Parallelized across rows using goroutines
 func MatMulQ6_K(out []float32, w []byte, x []float32, rows, cols int) {
 	blocksPerRow := cols / q6kBlockSize
 	bytesPerRow := blocksPerRow * q6kBytesPerBlock
 
-	for r := 0; r < rows; r++ {
+	if rows < numWorkers*4 {
+		matMulQ6_KRange(out, w, x, 0, rows, blocksPerRow, bytesPerRow)
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (rows + numWorkers - 1) / numWorkers
+
+	for worker := 0; worker < numWorkers; worker++ {
+		start := worker * chunkSize
+		end := start + chunkSize
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			matMulQ6_KRange(out, w, x, s, e, blocksPerRow, bytesPerRow)
+			wg.Done()
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func matMulQ6_KRange(out []float32, w []byte, x []float32, start, end, blocksPerRow, bytesPerRow int) {
+	for r := start; r < end; r++ {
 		rowOff := r * bytesPerRow
 		sum := float32(0)
 
@@ -180,8 +240,36 @@ func MatMulQ6_K(out []float32, w []byte, x []float32, rows, cols int) {
 }
 
 // MatMulF32 computes out[rows] = W_f32[rows, cols] @ x[cols]
+// Parallelized across rows using goroutines
 func MatMulF32(out []float32, w []float32, x []float32, rows, cols int) {
-	for i := 0; i < rows; i++ {
+	if rows < numWorkers*4 {
+		matMulF32Range(out, w, x, 0, rows, cols)
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (rows + numWorkers - 1) / numWorkers
+
+	for worker := 0; worker < numWorkers; worker++ {
+		start := worker * chunkSize
+		end := start + chunkSize
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			matMulF32Range(out, w, x, s, e, cols)
+			wg.Done()
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func matMulF32Range(out []float32, w []float32, x []float32, start, end, cols int) {
+	for i := start; i < end; i++ {
 		sum := float32(0)
 		off := i * cols
 		for j := 0; j < cols; j++ {
@@ -193,8 +281,36 @@ func MatMulF32(out []float32, w []float32, x []float32, rows, cols int) {
 
 // MatMulF16 computes out[rows] = W_f16[rows, cols] @ x[cols]
 // w is raw bytes of float16 values
+// Parallelized across rows using goroutines
 func MatMulF16(out []float32, w []byte, x []float32, rows, cols int) {
-	for i := 0; i < rows; i++ {
+	if rows < numWorkers*4 {
+		matMulF16Range(out, w, x, 0, rows, cols)
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (rows + numWorkers - 1) / numWorkers
+
+	for worker := 0; worker < numWorkers; worker++ {
+		start := worker * chunkSize
+		end := start + chunkSize
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			matMulF16Range(out, w, x, s, e, cols)
+			wg.Done()
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func matMulF16Range(out []float32, w []byte, x []float32, start, end, cols int) {
+	for i := start; i < end; i++ {
 		sum := float32(0)
 		rowOff := i * cols * 2
 		for j := 0; j < cols; j++ {
