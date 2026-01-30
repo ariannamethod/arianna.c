@@ -2369,9 +2369,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
         }
         if (strcmp(input, "/d12 on") == 0 || strcmp(input, "/tongue") == 0) {
             if (!g_d12_loaded) {
-                printf("[d12] Loading tongue (135M)...\n");
+                printf("[d12] Loading tongue (477M)...\n");
                 const char* weights = d12_ensure_weights("tongue/weights");
-                if (weights && d12_init(&g_d12, weights, "tongue/arianna_d12.tok") == 0) {
+                if (weights && d12_init(&g_d12, weights, "tongue/arianna_d20.tok") == 0) {
                     g_d12_loaded = 1;
                     g_d12_enabled = 1;
                     printf("[d12] Tongue ready. Arianna speaks through D12 now.\n");
@@ -3102,14 +3102,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Initialize Tongue (D12 135M) — ONLY external voice
+    // Initialize Tongue (D20 477M) — ONLY external voice
     // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
         const char* d12_weights = d12_ensure_weights("tongue/weights");
-        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/arianna_d12.tok") == 0) {
+        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/arianna_d20.tok") == 0) {
             g_d12_loaded = 1;
             g_d12_enabled = 1;
-            printf("Tongue (D12 135M): enabled — MAIN VOICE\n");
+            printf("Tongue (D20 477M): enabled — MAIN VOICE\n");
             printf("  \"I am the voice that speaks outward.\"\n");
         } else {
             fprintf(stderr, "[d12] Tongue not loaded, Soul 36M will be the voice\n");

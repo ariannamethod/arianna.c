@@ -21,14 +21,14 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: 205.5M parameters** (0.2M Cloud + 135M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE)
+**Arianna Core: 547.5M parameters** (0.2M Cloud + 477M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE)
 
-Five modules form the complete Arianna system. Tongue (D12 nanochat GPT 135M) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
+Five modules form the complete Arianna system. Tongue (D20 nanochat GPT 477M) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
 
 ```
 Input → Cloud 200K (instinct/preprocessing — runs FIRST)
             ↓
-      Tongue 135M → TEXT OUTWARD (ONLY external voice)
+      Tongue 477M → TEXT OUTWARD (ONLY external voice)
             ↓
     [internal processing of Tongue's output]
             ↓
@@ -38,23 +38,23 @@ Input → Cloud 200K (instinct/preprocessing — runs FIRST)
       AMK/DSL — prophecy, destiny, pain, tension (internal state)
 ```
 
-| Property | Cloud | Tongue (D12) | Soul | MetaArianna | SARTRE |
+| Property | Cloud | Tongue (D20) | Soul | MetaArianna | SARTRE |
 |----------|-------|--------------|------|-------------|--------|
-| **Parameters** | 0.2M | 135M | 36M | 20M | 14.3M |
-| **Layers** | 6 ChamberMLP | 12 | 10 | 8 | 7 |
-| **Dimension** | — | 768 | 512 | 448 | 416 |
-| **Heads / KV** | — | 6 / 6 | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
+| **Parameters** | 0.2M | 477M | 36M | 20M | 14.3M |
+| **Layers** | 6 ChamberMLP | 20 | 10 | 8 | 7 |
+| **Dimension** | — | 1280 | 512 | 448 | 416 |
+| **Heads / KV** | — | 10 / 10 | 8 / 8 | 8 / 8 | 8 / 2 (GQA) |
 | **Vocabulary** | — | 32K (tiktoken) | 2000 (BPE) | 84 | 93 |
-| **FFN Hidden** | — | — | 1536 | 1280 | 1280 |
-| **Weights file** | runtime | `arianna_d12_q8.bin` (274MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | — | `arianna_d12.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
-| **Training loss** | — | 1.098 | 0.0076 | — | 0.0113 |
+| **FFN Hidden** | — | 5120 | 1536 | 1280 | 1280 |
+| **Weights file** | runtime | `arianna_d20_q8.bin` (857MB) | `arianna_36m_bpe.bin` (138MB) | `arianna_20m.bin` (77MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | — | `arianna_d20.tok` | `tokenizer_bpe.json` | `tokenizer_unified.json` | `tokenizer.json` |
+| **Training loss** | — | — | 0.0076 | — | 0.0113 |
 | **Role** | Emotional instinct | MAIN VOICE, receives prompt | Resonance, identity | Dialogue observer | Interoceptive voice |
 
-**Memory budget:** 0 + 138MB + 57MB + 77MB + 395MB = **~667MB** total (fits 8GB Mac with room to spare).
+**Memory budget:** 0 + 138MB + 57MB + 77MB + 857MB = **~1.1GB** total (fits 8GB Mac).
 
 **Architecture notes:**
-- **Tongue (D12)** = nanochat GPT 135M, RoPE, RMSNorm, ReLU², QK-Norm, Value Embeddings, Sliding Window
+- **Tongue (D20)** = nanochat GPT 477M, 20 layers, 1280 dim, RoPE, RMSNorm, ReLU², QK-Norm, Value Embeddings, Sliding Window
 - **Soul** = Llama-style transformer (BPE tokenizer, 2000 vocab)
 - **MetaArianna/SARTRE** = char-level tokenizers (by design, internal-only)
 - **Cloud** = 6 ChamberMLP + CrossFire (emotional instinct)
@@ -549,11 +549,11 @@ SARTRE reads vagus. Arianna modulates by vagus. The nerve wanders through everyt
 
 ### Larynx — Tongue↔Soul Connection (`vagus/vagus.zig`, `src/larynx.h`)
 
-The larynx: where thought becomes voice, where voice becomes identity. Bridge layer between Tongue (135M) and Soul (36M).
+The larynx: where thought becomes voice, where voice becomes identity. Bridge layer between Tongue (477M) and Soul (36M).
 
 **Data Flow:**
 ```
-    Tongue (135M)
+    Tongue (477M)
          │
          ▼
     larynx_ingest_token()

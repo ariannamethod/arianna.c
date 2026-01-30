@@ -363,9 +363,9 @@ locus-clean:
 .PHONY: locus test_locus locus-clean
 
 
-# D12 weights download
-D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-2/arianna_d12_q8.bin
-D12_WEIGHTS = tongue/weights/arianna_d12_q8.bin
+# Tongue D20 weights download
+D12_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-3/arianna_d20_q8.bin
+D12_WEIGHTS = tongue/weights/arianna_d20_q8.bin
 
 $(D12_WEIGHTS):
 	@mkdir -p tongue/weights
