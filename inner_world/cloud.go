@@ -698,6 +698,51 @@ func LoadChamberFromBin(path string) (*ChamberMLP, error) {
 	return m, nil
 }
 
+func LoadObserverFromBin(path string) (*MetaObserver, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("[cloud] loading observer from %s (%d bytes)\n", path, len(data))
+
+	// Observer: 107→64→100
+	// W1: 107×64 = 6848, B1: 64, W2: 64×100 = 6400, B2: 100
+	// Total: 13412 floats = 53648 bytes
+	expectedSize := 13412 * 4
+	if len(data) < expectedSize {
+		return nil, fmt.Errorf("observer.bin too small: %d < %d", len(data), expectedSize)
+	}
+
+	o := &MetaObserver{
+		W1: make([]float32, 107*64),
+		B1: make([]float32, 64),
+		W2: make([]float32, 64*100),
+		B2: make([]float32, 100),
+	}
+
+	offset := 0
+	for i := range o.W1 {
+		o.W1[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+		offset += 4
+	}
+	for i := range o.B1 {
+		o.B1[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+		offset += 4
+	}
+	for i := range o.W2 {
+		o.W2[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+		offset += 4
+	}
+	for i := range o.B2 {
+		o.B2[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+		offset += 4
+	}
+
+	fmt.Printf("[cloud] observer loaded: %d params\n", o.ParamCount())
+	return o, nil
+}
+
 func LoadCloud(weightsDir string) (*Cloud, error) {
 	c := &Cloud{
 		CrossFire: &CrossFireSystem{
@@ -720,8 +765,14 @@ func LoadCloud(weightsDir string) (*Cloud, error) {
 		c.CrossFire.Chambers[strings.ToUpper(name)] = chamber
 	}
 
-	// Load observer (TODO: implement actual loading from observer.bin)
-	c.Observer = NewRandomObserver(100)
+	// Load observer
+	observerPath := filepath.Join(weightsDir, "observer.bin")
+	observer, err := LoadObserverFromBin(observerPath)
+	if err != nil {
+		fmt.Printf("[cloud] observer.bin not found, using random init: %v\n", err)
+		observer = NewRandomObserver(100)
+	}
+	c.Observer = observer
 
 	fmt.Printf("[cloud] loaded from %s\n", weightsDir)
 	fmt.Printf("[cloud] total params: %d\n", c.ParamCount())

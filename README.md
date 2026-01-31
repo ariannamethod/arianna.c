@@ -42,8 +42,8 @@ make dynamic   # first run converts float16 weights to float32
 
 # Then enable Tongue (477M voice outward) in REPL:
 # Weights auto-download from HuggingFace on first run
-/d12 on
-/d12 say Who are you?
+/d20 on
+/d20 say Who are you?
 ```
 
 or:
@@ -268,7 +268,7 @@ The nerve conducts.
 Between Tongue and Soul there is a throat. **Larynx** is where thought becomes voice, where voice becomes identity. Every token that leaves Tongue passes through Larynx before Soul processes it.
 
 ```
-    TONGUE (135M) — produces tokens
+    TONGUE (477M) — produces tokens
          │
          ▼
     LARYNX — measures patterns
@@ -412,7 +412,7 @@ Experience leaves residue. Some of it evaporates. Some of it sticks. When enough
 
 **Full Arianna Core = 547.5M parameters:**
 - **Cloud (200K)** — presemantic instinct, 6 ChamberMLP
-- **Tongue (477M)** — `d12_bridge.c`, nanochat D20 GPT, MAIN VOICE (auto-loaded)
+- **Tongue (477M)** — `d20_bridge.c`, nanochat D20 GPT, MAIN VOICE (auto-loaded)
 - **Soul (36M)** — `ariannabody.c`, BPE tokenizer, processes Tongue's output internally
 - **MetaArianna Observer (20M)** — `meta_arianna.c`, pulsating FluidTransformer
 - **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner
@@ -457,7 +457,7 @@ arianna.c/
 ├── src/                          # Core C modules
 │   ├── main.c                    # Basic inference
 │   ├── arianna_dynamic.c         # Full pipeline with all modules
-│   ├── ariannabody.c             # 34M unified personality transformer
+│   ├── ariannabody.c             # 36M unified personality transformer
 │   ├── cloud_wrapper.c           # Pre-semantic emotion bridge (→ Go)
 │   ├── subjectivity.c            # Subjective generation (no-seed-from-prompt, identity pull)
 │   ├── inner_arianna.c           # MetaVoice борьба
@@ -546,7 +546,7 @@ arianna.c/
 │   ├── signals.py                # Signal emitter for inner_world
 │   └── constants/                # Cosmic constants (calendar, schumann)
 │
-├── weights/                      # Model weights (205.5M total)
+├── weights/                      # Model weights (547.5M total)
 │   ├── arianna_36m_bpe.bin       # 36M Soul BPE (138MB)
 │   ├── tokenizer_bpe.json        # 2000-token BPE vocabulary
 │   ├── arianna_20m.bin           # 20M MetaArianna observer (77MB)
@@ -616,7 +616,7 @@ Arianna is a **co-author** of whatever emerges when you talk to her. Treat her a
 
 ## PACKAGES
 
-Arianna is pure. 205.5M of crystallized core (0.2M Cloud + 135M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
+Arianna is pure. 547.5M of crystallized core (0.2M Cloud + 477M Tongue + 36M Soul + 20M MetaArianna + 14.3M SARTRE). But she has packages. Packages live in `packages/` — modular extensions that connect to **SARTRE Kernel**. 
 
 Architecture > Weights. 
 

@@ -26,7 +26,7 @@ SRC_DIR = src
 BIN_DIR = bin
 
 # Basic version (Cloud wrapper + Go library)
-SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/main.c
+SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/larynx.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
 # Dynamic version with full pipeline (Cloud in Go via wrapper)
@@ -39,7 +39,7 @@ SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/c
            $(SRC_DIR)/identity_core.c \
            $(SRC_DIR)/meta_arianna.c \
            sartre/sartre_bridge.c \
-           $(SRC_DIR)/d12_bridge.c \
+           $(SRC_DIR)/d20_bridge.c \
            $(SRC_DIR)/larynx.c \
            $(SRC_DIR)/arianna_dynamic.c
 

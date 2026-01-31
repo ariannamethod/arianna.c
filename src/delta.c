@@ -183,6 +183,7 @@ void compute_mix(DeltaBank* bank, Signals* sig) {
 // ============================================================
 
 void apply_q_delta(DeltaBank* bank, float* q, float* x, int layer, int dim) {
+    (void)dim;
     for (int i = 0; i < bank->n_shards; i++) {
         if (bank->mix[i] < 0.01f) continue;  // Skip negligible
 
@@ -194,6 +195,7 @@ void apply_q_delta(DeltaBank* bank, float* q, float* x, int layer, int dim) {
 }
 
 void apply_k_delta(DeltaBank* bank, float* k, float* x, int layer, int dim) {
+    (void)dim;
     for (int i = 0; i < bank->n_shards; i++) {
         if (bank->mix[i] < 0.01f) continue;
 
@@ -205,6 +207,7 @@ void apply_k_delta(DeltaBank* bank, float* k, float* x, int layer, int dim) {
 }
 
 void apply_v_delta(DeltaBank* bank, float* v, float* x, int layer, int dim) {
+    (void)dim;
     for (int i = 0; i < bank->n_shards; i++) {
         if (bank->mix[i] < 0.01f) continue;
 

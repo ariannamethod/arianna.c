@@ -19,40 +19,6 @@ static const int SPIECE_UNDERLINE_LEN = 3;
 // Static decode buffer
 static char decode_buffer[BPE_MAX_TOKENS * BPE_MAX_PIECE_LEN];
 
-// Simple JSON string extraction (finds "key": "value" or "key": number)
-static int find_json_string(const char* json, const char* key, char* out, int max_len) {
-    char pattern[128];
-    snprintf(pattern, sizeof(pattern), "\"%s\":", key);
-
-    const char* pos = strstr(json, pattern);
-    if (!pos) return 0;
-
-    pos += strlen(pattern);
-    while (*pos && (*pos == ' ' || *pos == '\t')) pos++;
-
-    if (*pos == '"') {
-        pos++;
-        int i = 0;
-        while (*pos && *pos != '"' && i < max_len - 1) {
-            if (*pos == '\\' && *(pos+1)) {
-                pos++;
-                switch (*pos) {
-                    case 'n': out[i++] = '\n'; break;
-                    case 't': out[i++] = '\t'; break;
-                    case 'r': out[i++] = '\r'; break;
-                    default: out[i++] = *pos; break;
-                }
-            } else {
-                out[i++] = *pos;
-            }
-            pos++;
-        }
-        out[i] = '\0';
-        return 1;
-    }
-    return 0;
-}
-
 int bpe_load(BPETokenizer* tok, const char* json_path) {
     memset(tok, 0, sizeof(BPETokenizer));
 
@@ -282,7 +248,7 @@ const char* bpe_decode(const BPETokenizer* tok, const int* ids, int n_tokens) {
     decode_buffer[0] = '\0';
     int pos = 0;
 
-    for (int i = 0; i < n_tokens && pos < sizeof(decode_buffer) - BPE_MAX_PIECE_LEN; i++) {
+    for (int i = 0; i < n_tokens && (size_t)pos < sizeof(decode_buffer) - BPE_MAX_PIECE_LEN; i++) {
         int id = ids[i];
         if (id < 0 || id >= tok->vocab_size) continue;
 
@@ -308,7 +274,7 @@ const char* bpe_decode(const BPETokenizer* tok, const int* ids, int n_tokens) {
         }
 
         // Copy rest of piece
-        while (*src && pos < sizeof(decode_buffer) - 1) {
+        while (*src && (size_t)pos < sizeof(decode_buffer) - 1) {
             decode_buffer[pos++] = *src++;
         }
     }

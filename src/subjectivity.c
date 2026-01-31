@@ -451,12 +451,21 @@ typedef struct {
 } TrigramCount;
 
 int extract_trigrams(ExtendedIdentity* id, const char* text, int len) {
-    char words[1024][32];
+    char (*words)[32] = malloc(1024 * 32);
+    if (!words) {
+        fprintf(stderr, "[Subjectivity] extract_trigrams: malloc failed for words\n");
+        return 0;
+    }
     int n_words = tokenize(text, len, words, 1024);
-    if (n_words < 3) return 0;
+    if (n_words < 3) { free(words); return 0; }
 
     // Count trigrams (simple quadratic - ok for origin text)
-    TrigramCount counts[256];
+    TrigramCount* counts = malloc(256 * sizeof(TrigramCount));
+    if (!counts) {
+        fprintf(stderr, "[Subjectivity] extract_trigrams: malloc failed for counts\n");
+        free(words);
+        return 0;
+    }
     int n_counts = 0;
 
     for (int i = 0; i < n_words - 2 && n_counts < 256; i++) {
@@ -511,6 +520,8 @@ int extract_trigrams(ExtendedIdentity* id, const char* text, int len) {
         }
     }
 
+    free(words);
+    free(counts);
     return id->n_trigrams;
 }
 

@@ -404,6 +404,13 @@ static void load_model(Model* m, const char* path) {
         exit(1);
     }
     memcpy(c->window_pattern, (uint8_t*)data + 52, c->window_pattern_len);
+    // Validate window pattern values
+    for (int i = 0; i < c->window_pattern_len; i++) {
+        if (c->window_pattern[i] > 4) {  // max 4 window types
+            fprintf(stderr, "Warning: invalid window pattern[%d]=%d, clamping to 0\n", i, c->window_pattern[i]);
+            c->window_pattern[i] = 0;
+        }
+    }
     c->quant_type  = ih[16]; // offset 64 = index 16
 
     c->kv_dim = c->n_kv_head * c->head_dim;
@@ -454,6 +461,9 @@ static void load_model(Model* m, const char* path) {
     LOAD_EMBED(w->wte, w->wte_scales, c->padded_vocab, n);
     // 2. Bigram embedding (uses embed_quant)
     LOAD_EMBED(w->bigram_embed, w->bigram_scales, c->bigram_vocab, n);
+    if (c->bigram_vocab == 0 || w->bigram_embed == NULL) {
+        fprintf(stderr, "[tongue] Warning: bigram embeddings not found in weights, using random init\n");
+    }
 
     // 3. Lambdas (always fp16)
     w->resid_lambdas = (uint16_t*)ptr; ptr += c->n_layer * sizeof(uint16_t);

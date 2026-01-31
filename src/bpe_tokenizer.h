@@ -2,7 +2,7 @@
  * bpe_tokenizer.h — BPE Tokenizer for Arianna
  *
  * Handles SentencePiece-style BPE tokenization.
- * Used by: Arianna 36M BPE, d12, d20
+ * Used by: Arianna 36M BPE, d20, d20
  */
 
 #ifndef BPE_TOKENIZER_H

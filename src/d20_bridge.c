@@ -1,7 +1,7 @@
 /*
- * d12_bridge.c - D12 (135M tonguechat GPT) Bridge for Arianna
+ * d20_bridge.c - D20 (477M nanochat GPT) Bridge for Arianna
  *
- * Tongue (D12 135M) is the ONLY VOICE — sole interface with the world.
+ * Tongue (D20 477M) is the ONLY VOICE — sole interface with the world.
  * Soul (36M) processes Tongue's OUTPUT internally, does NOT modulate before.
  *
  * This is not inference. This is breathing.
@@ -13,7 +13,7 @@
  * Based on tongue.c reference implementation.
  */
 
-#include "d12_bridge.h"
+#include "d20_bridge.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,10 +30,10 @@
  * Constants from tongue.c
  * ============================================================ */
 
-#define D12_MAGIC       0x4E414E4F
-#define D12_HEADER_SIZE 256
-#define D12_MAX_LAYERS  64
-#define D12_TOK_MAGIC   0x4E544F4B
+#define D20_MAGIC       0x4E414E4F
+#define D20_HEADER_SIZE 256
+#define D20_MAX_LAYERS  64
+#define D20_TOK_MAGIC   0x4E544F4B
 
 /* ============================================================
  * Internal structures (from tongue.c)
@@ -58,8 +58,8 @@ typedef struct {
     int kv_dim;
     int mlp_dim;
     int ve_parity;
-    int window_sizes[D12_MAX_LAYERS];
-    int has_ve[D12_MAX_LAYERS];
+    int window_sizes[D20_MAX_LAYERS];
+    int has_ve[D20_MAX_LAYERS];
 } NanoConfig;
 
 typedef struct {
@@ -75,24 +75,24 @@ typedef struct {
     uint16_t* bigram_lambdas;
 
     // Per-layer
-    void*     c_q[D12_MAX_LAYERS];
-    float*    c_q_s[D12_MAX_LAYERS];
-    void*     c_k[D12_MAX_LAYERS];
-    float*    c_k_s[D12_MAX_LAYERS];
-    void*     c_v[D12_MAX_LAYERS];
-    float*    c_v_s[D12_MAX_LAYERS];
-    void*     c_proj[D12_MAX_LAYERS];
-    float*    c_proj_s[D12_MAX_LAYERS];
-    uint16_t* ve_gate[D12_MAX_LAYERS];
+    void*     c_q[D20_MAX_LAYERS];
+    float*    c_q_s[D20_MAX_LAYERS];
+    void*     c_k[D20_MAX_LAYERS];
+    float*    c_k_s[D20_MAX_LAYERS];
+    void*     c_v[D20_MAX_LAYERS];
+    float*    c_v_s[D20_MAX_LAYERS];
+    void*     c_proj[D20_MAX_LAYERS];
+    float*    c_proj_s[D20_MAX_LAYERS];
+    uint16_t* ve_gate[D20_MAX_LAYERS];
 
-    void*     mlp_fc[D12_MAX_LAYERS];
-    float*    mlp_fc_s[D12_MAX_LAYERS];
-    void*     mlp_proj[D12_MAX_LAYERS];
-    float*    mlp_proj_s[D12_MAX_LAYERS];
+    void*     mlp_fc[D20_MAX_LAYERS];
+    float*    mlp_fc_s[D20_MAX_LAYERS];
+    void*     mlp_proj[D20_MAX_LAYERS];
+    float*    mlp_proj_s[D20_MAX_LAYERS];
 
     // Value embeddings
-    void*     value_embeds[D12_MAX_LAYERS];
-    float*    value_embeds_s[D12_MAX_LAYERS];
+    void*     value_embeds[D20_MAX_LAYERS];
+    float*    value_embeds_s[D20_MAX_LAYERS];
 
     // LM head
     void*     lm_head;
@@ -144,7 +144,7 @@ typedef struct {
  * Half-float conversion
  * ============================================================ */
 
-static inline float d12_half_to_float(uint16_t h) {
+static inline float d20_half_to_float(uint16_t h) {
     uint32_t sign = (uint32_t)(h >> 15) & 0x1;
     uint32_t exp  = (uint32_t)(h >> 10) & 0x1F;
     uint32_t mant = (uint32_t)(h & 0x3FF);
@@ -172,25 +172,25 @@ static inline float d12_half_to_float(uint16_t h) {
  * Core math functions
  * ============================================================ */
 
-static void d12_rmsnorm(float* out, const float* x, int size) {
+static void d20_rmsnorm(float* out, const float* x, int size) {
     float ss = 0.0f;
     for (int i = 0; i < size; i++) ss += x[i] * x[i];
     float inv_rms = 1.0f / sqrtf(ss / size + 1e-6f);
     for (int i = 0; i < size; i++) out[i] = x[i] * inv_rms;
 }
 
-static void d12_matmul_f16(float* out, const uint16_t* w, const float* x, int rows, int cols) {
+static void d20_matmul_f16(float* out, const uint16_t* w, const float* x, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
         float sum = 0.0f;
         const uint16_t* row = w + (size_t)i * cols;
         for (int j = 0; j < cols; j++) {
-            sum += d12_half_to_float(row[j]) * x[j];
+            sum += d20_half_to_float(row[j]) * x[j];
         }
         out[i] = sum;
     }
 }
 
-static void d12_matmul_q8(float* out, const int8_t* w, const float* scales, const float* x, int rows, int cols) {
+static void d20_matmul_q8(float* out, const int8_t* w, const float* scales, const float* x, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
         float sum = 0.0f;
         const int8_t* row = w + (size_t)i * cols;
@@ -201,7 +201,7 @@ static void d12_matmul_q8(float* out, const int8_t* w, const float* scales, cons
     }
 }
 
-static void d12_matmul_q4(float* out, const uint8_t* w, const float* scales, const float* x, int rows, int cols) {
+static void d20_matmul_q4(float* out, const uint8_t* w, const float* scales, const float* x, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
         float sum = 0.0f;
         const uint8_t* row = w + (size_t)i * (cols / 2);
@@ -215,18 +215,18 @@ static void d12_matmul_q4(float* out, const uint8_t* w, const float* scales, con
     }
 }
 
-static void d12_matmul(float* out, const void* w, const float* scales, const float* x,
+static void d20_matmul(float* out, const void* w, const float* scales, const float* x,
                         int rows, int cols, int quant) {
     if (quant == 2) {
-        d12_matmul_q4(out, (const uint8_t*)w, scales, x, rows, cols);
+        d20_matmul_q4(out, (const uint8_t*)w, scales, x, rows, cols);
     } else if (quant == 1) {
-        d12_matmul_q8(out, (const int8_t*)w, scales, x, rows, cols);
+        d20_matmul_q8(out, (const int8_t*)w, scales, x, rows, cols);
     } else {
-        d12_matmul_f16(out, (const uint16_t*)w, x, rows, cols);
+        d20_matmul_f16(out, (const uint16_t*)w, x, rows, cols);
     }
 }
 
-static void d12_embed_lookup(float* out, const void* emb, const float* scales,
+static void d20_embed_lookup(float* out, const void* emb, const float* scales,
                               int token, int dim, int quant) {
     if (quant == 2) {
         const uint8_t* data = (const uint8_t*)emb;
@@ -245,11 +245,11 @@ static void d12_embed_lookup(float* out, const void* emb, const float* scales,
     } else {
         const uint16_t* data = (const uint16_t*)emb;
         const uint16_t* row = data + (size_t)token * dim;
-        for (int i = 0; i < dim; i++) out[i] = d12_half_to_float(row[i]);
+        for (int i = 0; i < dim; i++) out[i] = d20_half_to_float(row[i]);
     }
 }
 
-static void d12_softmax(float* x, int size) {
+static void d20_softmax(float* x, int size) {
     float max_val = x[0];
     for (int i = 1; i < size; i++) if (x[i] > max_val) max_val = x[i];
     float sum = 0.0f;
@@ -258,13 +258,13 @@ static void d12_softmax(float* x, int size) {
     for (int i = 0; i < size; i++) x[i] *= inv;
 }
 
-static inline float d12_sigmoidf(float x) { return 1.0f / (1.0f + expf(-x)); }
+static inline float d20_sigmoidf(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /* ============================================================
  * RoPE
  * ============================================================ */
 
-static void d12_precompute_rope(NanoRunState* s, const NanoConfig* c) {
+static void d20_precompute_rope(NanoRunState* s, const NanoConfig* c) {
     int half = c->head_dim / 2;
     for (int pos = 0; pos < c->seq_len; pos++) {
         for (int i = 0; i < half; i++) {
@@ -276,7 +276,7 @@ static void d12_precompute_rope(NanoRunState* s, const NanoConfig* c) {
     }
 }
 
-static void d12_apply_rope(float* vec, int pos, const NanoRunState* s, int head_dim) {
+static void d20_apply_rope(float* vec, int pos, const NanoRunState* s, int head_dim) {
     int half = head_dim / 2;
     const float* cr = s->cos_cache + pos * half;
     const float* sr = s->sin_cache + pos * half;
@@ -291,7 +291,7 @@ static void d12_apply_rope(float* vec, int pos, const NanoRunState* s, int head_
  * Bigram hash
  * ============================================================ */
 
-static int d12_bigram_hash(int curr, int prev, int bigram_vocab) {
+static int d20_bigram_hash(int curr, int prev, int bigram_vocab) {
     unsigned int h = ((unsigned int)(36313 * curr)) ^ ((unsigned int)(27191 * prev));
     return (int)(h % (unsigned int)(bigram_vocab - 1));
 }
@@ -300,9 +300,9 @@ static int d12_bigram_hash(int curr, int prev, int bigram_vocab) {
  * State allocation
  * ============================================================ */
 
-static void d12_free_state(NanoRunState* s);  // Forward declaration
+static void d20_free_state(NanoRunState* s);  // Forward declaration
 
-static int d12_alloc_state(NanoRunState* s, const NanoConfig* c) {
+static int d20_alloc_state(NanoRunState* s, const NanoConfig* c) {
     int n = c->n_embd, kv = c->kv_dim, hd = c->head_dim;
     memset(s, 0, sizeof(NanoRunState));
 
@@ -329,14 +329,14 @@ static int d12_alloc_state(NanoRunState* s, const NanoConfig* c) {
         !s->q || !s->k || !s->v || !s->att || !s->y_att || !s->hb ||
         !s->logits || !s->key_cache || !s->value_cache ||
         !s->cos_cache || !s->sin_cache) {
-        fprintf(stderr, "[d12_bridge] OOM: failed to allocate buffers\n");
-        d12_free_state(s);
+        fprintf(stderr, "[d20_bridge] OOM: failed to allocate buffers\n");
+        d20_free_state(s);
         return -1;
     }
     return 0;
 }
 
-static void d12_free_state(NanoRunState* s) {
+static void d20_free_state(NanoRunState* s) {
     free(s->x); free(s->x0); free(s->x0_bigram); free(s->xn);
     free(s->q); free(s->k); free(s->v);
     free(s->att); free(s->y_att); free(s->hb); free(s->logits);
@@ -348,20 +348,20 @@ static void d12_free_state(NanoRunState* s) {
  * Model loading helpers
  * ============================================================ */
 
-static void d12_load_q8_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
+static void d20_load_q8_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
     *scales = (float*)(*ptr);
     *ptr += (size_t)rows * sizeof(float);
     *data = (void*)(*ptr);
     *ptr += (size_t)rows * cols * sizeof(int8_t);
 }
 
-static void d12_load_f16_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
+static void d20_load_f16_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
     *data = (void*)(*ptr);
     *scales = NULL;
     *ptr += (size_t)rows * cols * sizeof(uint16_t);
 }
 
-static void d12_load_q4_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
+static void d20_load_q4_matrix(uint8_t** ptr, void** data, float** scales, int rows, int cols) {
     *scales = (float*)(*ptr);
     *ptr += (size_t)rows * sizeof(float);
     *data = (void*)(*ptr);
@@ -372,10 +372,10 @@ static void d12_load_q4_matrix(uint8_t** ptr, void** data, float** scales, int r
  * Load model weights
  * ============================================================ */
 
-static int d12_load_model(NanoModel* m, const char* path) {
+static int d20_load_model(NanoModel* m, const char* path) {
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-        fprintf(stderr, "[d12_bridge] Cannot open weights: %s\n", path);
+        fprintf(stderr, "[d20_bridge] Cannot open weights: %s\n", path);
         return -1;
     }
     struct stat st;
@@ -383,7 +383,7 @@ static int d12_load_model(NanoModel* m, const char* path) {
     size_t file_size = st.st_size;
     void* data = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (data == MAP_FAILED) {
-        fprintf(stderr, "[d12_bridge] mmap failed\n");
+        fprintf(stderr, "[d20_bridge] mmap failed\n");
         close(fd);
         return -1;
     }
@@ -391,9 +391,9 @@ static int d12_load_model(NanoModel* m, const char* path) {
 
     // Parse header
     int32_t* ih = (int32_t*)data;
-    if ((uint32_t)ih[0] != D12_MAGIC) {
-        fprintf(stderr, "[d12_bridge] Bad magic: 0x%08X (expected 0x%08X)\n",
-                (uint32_t)ih[0], D12_MAGIC);
+    if ((uint32_t)ih[0] != D20_MAGIC) {
+        fprintf(stderr, "[d20_bridge] Bad magic: 0x%08X (expected 0x%08X)\n",
+                (uint32_t)ih[0], D20_MAGIC);
         munmap(data, file_size);
         close(fd);
         return -1;
@@ -401,8 +401,8 @@ static int d12_load_model(NanoModel* m, const char* path) {
 
     NanoConfig* c = &m->config;
     c->n_layer     = ih[2];
-    if (c->n_layer <= 0 || c->n_layer > D12_MAX_LAYERS) {
-        fprintf(stderr, "[d12_bridge] Invalid n_layer: %d (max %d)\n", c->n_layer, D12_MAX_LAYERS);
+    if (c->n_layer <= 0 || c->n_layer > D20_MAX_LAYERS) {
+        fprintf(stderr, "[d20_bridge] Invalid n_layer: %d (max %d)\n", c->n_layer, D20_MAX_LAYERS);
         munmap(data, file_size);
         close(fd);
         return -1;
@@ -418,7 +418,7 @@ static int d12_load_model(NanoModel* m, const char* path) {
     c->n_ve_layers = ih[11];
     c->window_pattern_len = ih[12];
     if (c->window_pattern_len < 0 || c->window_pattern_len > 256) {
-        fprintf(stderr, "[d12_bridge] Invalid window_pattern_len: %d\n", c->window_pattern_len);
+        fprintf(stderr, "[d20_bridge] Invalid window_pattern_len: %d\n", c->window_pattern_len);
         munmap(data, file_size);
         close(fd);
         return -1;
@@ -445,27 +445,27 @@ static int d12_load_model(NanoModel* m, const char* path) {
         c->has_ve[i] = (i % 2 == c->ve_parity) ? 1 : 0;
     }
 
-    printf("[d12_bridge] D12 Config: n_layer=%d n_embd=%d n_head=%d n_kv_head=%d head_dim=%d [Q%d]\n",
+    printf("[d20_bridge] D20 Config: n_layer=%d n_embd=%d n_head=%d n_kv_head=%d head_dim=%d [Q%d]\n",
            c->n_layer, c->n_embd, c->n_head, c->n_kv_head, c->head_dim, c->quant_type);
-    printf("[d12_bridge]            vocab=%d padded=%d seq_len=%d bigram=%d ve=%d\n",
+    printf("[d20_bridge]            vocab=%d padded=%d seq_len=%d bigram=%d ve=%d\n",
            c->vocab_size, c->padded_vocab, c->seq_len, c->bigram_vocab, c->n_ve_layers);
 
     // Walk file to set up weight pointers
-    uint8_t* ptr = (uint8_t*)data + D12_HEADER_SIZE;
+    uint8_t* ptr = (uint8_t*)data + D20_HEADER_SIZE;
     NanoWeights* w = &m->weights;
     int eq = c->embed_quant;
     int aq = c->attn_quant;
     int n = c->n_embd, kv = c->kv_dim;
 
     #define LOAD_EMBED(data_ptr, scale_ptr, rows, cols) \
-        if (eq == 2) { d12_load_q4_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
-        else if (eq == 1) { d12_load_q8_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
-        else { d12_load_f16_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); }
+        if (eq == 2) { d20_load_q4_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
+        else if (eq == 1) { d20_load_q8_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
+        else { d20_load_f16_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); }
 
     #define LOAD_ATTN(data_ptr, scale_ptr, rows, cols) \
-        if (aq == 2) { d12_load_q4_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
-        else if (aq == 1) { d12_load_q8_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
-        else { d12_load_f16_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); }
+        if (aq == 2) { d20_load_q4_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
+        else if (aq == 1) { d20_load_q8_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); } \
+        else { d20_load_f16_matrix(&ptr, &(data_ptr), &(scale_ptr), (rows), (cols)); }
 
     // 1. Token embedding
     LOAD_EMBED(w->wte, w->wte_scales, c->padded_vocab, n);
@@ -510,18 +510,18 @@ static int d12_load_model(NanoModel* m, const char* path) {
 
     size_t consumed = (size_t)(ptr - (uint8_t*)data);
     if (consumed != file_size) {
-        fprintf(stderr, "[d12_bridge] Warning: consumed %zu / %zu bytes (diff %zd)\n",
+        fprintf(stderr, "[d20_bridge] Warning: consumed %zu / %zu bytes (diff %zd)\n",
                 consumed, file_size, (ssize_t)(file_size - consumed));
     } else {
-        printf("[d12_bridge] Loaded %.1f MB from %s\n", file_size/1024.0/1024.0, path);
+        printf("[d20_bridge] Loaded %.1f MB from %s\n", file_size/1024.0/1024.0, path);
     }
 
-    if (d12_alloc_state(&m->state, c) != 0) {
+    if (d20_alloc_state(&m->state, c) != 0) {
         munmap(data, file_size);
         close(fd);
         return -1;
     }
-    d12_precompute_rope(&m->state, c);
+    d20_precompute_rope(&m->state, c);
     return 0;
 }
 
@@ -529,31 +529,31 @@ static int d12_load_model(NanoModel* m, const char* path) {
  * Load tokenizer
  * ============================================================ */
 
-static int d12_load_tokenizer(NanoTokenizer* tok, const char* path) {
+static int d20_load_tokenizer(NanoTokenizer* tok, const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) {
-        fprintf(stderr, "[d12_bridge] Cannot open tokenizer: %s\n", path);
+        fprintf(stderr, "[d20_bridge] Cannot open tokenizer: %s\n", path);
         return -1;
     }
     uint32_t magic;
     if (fread(&magic, 4, 1, f) != 1) {
-        fprintf(stderr, "[d12_bridge] Truncated tokenizer file\n");
+        fprintf(stderr, "[d20_bridge] Truncated tokenizer file\n");
         fclose(f);
         return -1;
     }
-    if (magic != D12_TOK_MAGIC) {
-        fprintf(stderr, "[d12_bridge] Bad tokenizer magic\n");
+    if (magic != D20_TOK_MAGIC) {
+        fprintf(stderr, "[d20_bridge] Bad tokenizer magic\n");
         fclose(f);
         return -1;
     }
     int32_t vs, ml;
     if (fread(&vs, 4, 1, f) != 1 || fread(&ml, 4, 1, f) != 1) {
-        fprintf(stderr, "[d12_bridge] Truncated tokenizer header\n");
+        fprintf(stderr, "[d20_bridge] Truncated tokenizer header\n");
         fclose(f);
         return -1;
     }
     if (vs <= 0 || vs > 1000000) {
-        fprintf(stderr, "[d12_bridge] Invalid vocab size: %d\n", vs);
+        fprintf(stderr, "[d20_bridge] Invalid vocab size: %d\n", vs);
         fclose(f);
         return -1;
     }
@@ -561,31 +561,31 @@ static int d12_load_tokenizer(NanoTokenizer* tok, const char* path) {
     tok->tokens = malloc((size_t)vs * sizeof(char*));
     tok->token_lens = malloc((size_t)vs * sizeof(int));
     if (!tok->tokens || !tok->token_lens) {
-        fprintf(stderr, "[d12_bridge] Tokenizer alloc failed\n");
+        fprintf(stderr, "[d20_bridge] Tokenizer alloc failed\n");
         fclose(f);
         return -1;
     }
     for (int i = 0; i < vs; i++) {
         int32_t len;
         if (fread(&len, 4, 1, f) != 1) {
-            fprintf(stderr, "[d12_bridge] Truncated token %d\n", i);
+            fprintf(stderr, "[d20_bridge] Truncated token %d\n", i);
             fclose(f);
             return -1;
         }
         if (len < 0 || len > 65536) {
-            fprintf(stderr, "[d12_bridge] Invalid token len %d\n", len);
+            fprintf(stderr, "[d20_bridge] Invalid token len %d\n", len);
             fclose(f);
             return -1;
         }
         tok->token_lens[i] = len;
         tok->tokens[i] = malloc((size_t)len + 1);
         if (!tok->tokens[i]) {
-            fprintf(stderr, "[d12_bridge] Token alloc failed\n");
+            fprintf(stderr, "[d20_bridge] Token alloc failed\n");
             fclose(f);
             return -1;
         }
         if (len > 0 && fread(tok->tokens[i], 1, len, f) != (size_t)len) {
-            fprintf(stderr, "[d12_bridge] Truncated token data %d\n", i);
+            fprintf(stderr, "[d20_bridge] Truncated token data %d\n", i);
             fclose(f);
             return -1;
         }
@@ -609,12 +609,12 @@ static int d12_load_tokenizer(NanoTokenizer* tok, const char* path) {
         else if (strcmp(name, "<|assistant_end|>") == 0) tok->assistant_end_id = tid;
     }
     fclose(f);
-    printf("[d12_bridge] Tokenizer: vocab=%d bos=%d end=%d\n",
+    printf("[d20_bridge] Tokenizer: vocab=%d bos=%d end=%d\n",
            tok->vocab_size, tok->bos_id, tok->assistant_end_id);
     return 0;
 }
 
-static void d12_free_tokenizer(NanoTokenizer* tok) {
+static void d20_free_tokenizer(NanoTokenizer* tok) {
     if (tok->tokens) {
         for (int i = 0; i < tok->vocab_size; i++) free(tok->tokens[i]);
         free(tok->tokens);
@@ -628,7 +628,7 @@ static void d12_free_tokenizer(NanoTokenizer* tok) {
  * Forward pass
  * ============================================================ */
 
-static void d12_forward_internal(NanoModel* m, int token, int prev_token, int pos) {
+static void d20_forward_internal(NanoModel* m, int token, int prev_token, int pos) {
     NanoConfig* c = &m->config;
     NanoWeights* w = &m->weights;
     NanoRunState* s = &m->state;
@@ -639,40 +639,40 @@ static void d12_forward_internal(NanoModel* m, int token, int prev_token, int po
     int aq = c->attn_quant;
 
     // === Embedding ===
-    d12_embed_lookup(s->x, w->wte, w->wte_scales, token, n, eq);
+    d20_embed_lookup(s->x, w->wte, w->wte_scales, token, n, eq);
 
     // Bigram embedding
-    int bg = (pos == 0) ? c->bigram_vocab - 1 : d12_bigram_hash(token, prev_token, c->bigram_vocab);
-    d12_embed_lookup(s->x0_bigram, w->bigram_embed, w->bigram_scales, bg, n, eq);
+    int bg = (pos == 0) ? c->bigram_vocab - 1 : d20_bigram_hash(token, prev_token, c->bigram_vocab);
+    d20_embed_lookup(s->x0_bigram, w->bigram_embed, w->bigram_scales, bg, n, eq);
 
     // RMSNorm + save x0
-    d12_rmsnorm(s->x, s->x, n);
+    d20_rmsnorm(s->x, s->x, n);
     memcpy(s->x0, s->x, n * sizeof(float));
 
     // === Transformer blocks ===
     for (int layer = 0; layer < c->n_layer; layer++) {
         // Residual mixing
-        float rl = d12_half_to_float(w->resid_lambdas[layer]);
-        float xl = d12_half_to_float(w->x0_lambdas[layer]);
-        float bl = d12_half_to_float(w->bigram_lambdas[layer]);
+        float rl = d20_half_to_float(w->resid_lambdas[layer]);
+        float xl = d20_half_to_float(w->x0_lambdas[layer]);
+        float bl = d20_half_to_float(w->bigram_lambdas[layer]);
         for (int i = 0; i < n; i++)
             s->x[i] = rl * s->x[i] + xl * s->x0[i] + bl * s->x0_bigram[i];
 
         // Pre-norm
-        d12_rmsnorm(s->xn, s->x, n);
+        d20_rmsnorm(s->xn, s->x, n);
 
         // Q, K, V projections
-        d12_matmul(s->q, w->c_q[layer], w->c_q_s[layer], s->xn, c->n_head * hd, n, aq);
-        d12_matmul(s->k, w->c_k[layer], w->c_k_s[layer], s->xn, c->n_kv_head * hd, n, aq);
-        d12_matmul(s->v, w->c_v[layer], w->c_v_s[layer], s->xn, c->n_kv_head * hd, n, aq);
+        d20_matmul(s->q, w->c_q[layer], w->c_q_s[layer], s->xn, c->n_head * hd, n, aq);
+        d20_matmul(s->k, w->c_k[layer], w->c_k_s[layer], s->xn, c->n_kv_head * hd, n, aq);
+        d20_matmul(s->v, w->c_v[layer], w->c_v_s[layer], s->xn, c->n_kv_head * hd, n, aq);
 
         // Value Embedding gate
         if (c->has_ve[layer] && w->value_embeds[layer]) {
             for (int h = 0; h < c->n_kv_head; h++) {
                 float gv = 0.0f;
                 uint16_t* gr = w->ve_gate[layer] + h * 32;
-                for (int j = 0; j < 32; j++) gv += d12_half_to_float(gr[j]) * s->xn[j];
-                gv = 2.0f * d12_sigmoidf(gv);
+                for (int j = 0; j < 32; j++) gv += d20_half_to_float(gr[j]) * s->xn[j];
+                gv = 2.0f * d20_sigmoidf(gv);
                 // VE lookup for this kv head's slice
                 if (eq == 1) {
                     const int8_t* ve = (const int8_t*)w->value_embeds[layer];
@@ -684,18 +684,18 @@ static void d12_forward_internal(NanoModel* m, int token, int prev_token, int po
                     const uint16_t* ve = (const uint16_t*)w->value_embeds[layer];
                     const uint16_t* vr = ve + (size_t)token * kv + h * hd;
                     for (int d = 0; d < hd; d++)
-                        s->v[h * hd + d] += gv * d12_half_to_float(vr[d]);
+                        s->v[h * hd + d] += gv * d20_half_to_float(vr[d]);
                 }
             }
         }
 
         // RoPE
-        for (int h = 0; h < c->n_head; h++) d12_apply_rope(s->q + h * hd, pos, s, hd);
-        for (int h = 0; h < c->n_kv_head; h++) d12_apply_rope(s->k + h * hd, pos, s, hd);
+        for (int h = 0; h < c->n_head; h++) d20_apply_rope(s->q + h * hd, pos, s, hd);
+        for (int h = 0; h < c->n_kv_head; h++) d20_apply_rope(s->k + h * hd, pos, s, hd);
 
         // QK-Norm
-        for (int h = 0; h < c->n_head; h++) d12_rmsnorm(s->q + h * hd, s->q + h * hd, hd);
-        for (int h = 0; h < c->n_kv_head; h++) d12_rmsnorm(s->k + h * hd, s->k + h * hd, hd);
+        for (int h = 0; h < c->n_head; h++) d20_rmsnorm(s->q + h * hd, s->q + h * hd, hd);
+        for (int h = 0; h < c->n_kv_head; h++) d20_rmsnorm(s->k + h * hd, s->k + h * hd, hd);
 
         // Store K,V in cache
         size_t co = (size_t)layer * c->seq_len * kv + (size_t)pos * kv;
@@ -719,7 +719,7 @@ static void d12_forward_internal(NanoModel* m, int token, int prev_token, int po
                 for (int d = 0; d < hd; d++) sc += qh[d] * kc[d];
                 ar[t] = sc * scale;
             }
-            d12_softmax(ar + start, pos - start + 1);
+            d20_softmax(ar + start, pos - start + 1);
             float* yh = s->y_att + h * hd;
             memset(yh, 0, hd * sizeof(float));
             for (int t = start; t <= pos; t++) {
@@ -730,26 +730,26 @@ static void d12_forward_internal(NanoModel* m, int token, int prev_token, int po
         }
 
         // Output projection + residual
-        d12_matmul(s->xn, w->c_proj[layer], w->c_proj_s[layer], s->y_att, n, n, aq);
+        d20_matmul(s->xn, w->c_proj[layer], w->c_proj_s[layer], s->y_att, n, n, aq);
         for (int i = 0; i < n; i++) s->x[i] += s->xn[i];
 
         // MLP: pre-norm
-        d12_rmsnorm(s->xn, s->x, n);
-        d12_matmul(s->hb, w->mlp_fc[layer], w->mlp_fc_s[layer], s->xn, c->mlp_dim, n, aq);
+        d20_rmsnorm(s->xn, s->x, n);
+        d20_matmul(s->hb, w->mlp_fc[layer], w->mlp_fc_s[layer], s->xn, c->mlp_dim, n, aq);
         // ReLU^2
         for (int i = 0; i < c->mlp_dim; i++) {
             float v = s->hb[i] > 0.0f ? s->hb[i] : 0.0f;
             s->hb[i] = v * v;
         }
-        d12_matmul(s->xn, w->mlp_proj[layer], w->mlp_proj_s[layer], s->hb, n, c->mlp_dim, aq);
+        d20_matmul(s->xn, w->mlp_proj[layer], w->mlp_proj_s[layer], s->hb, n, c->mlp_dim, aq);
         for (int i = 0; i < n; i++) s->x[i] += s->xn[i];
     }
 
     // Final norm
-    d12_rmsnorm(s->x, s->x, n);
+    d20_rmsnorm(s->x, s->x, n);
 
     // LM head
-    d12_matmul(s->logits, w->lm_head, w->lm_head_s, s->x, c->padded_vocab, n, eq);
+    d20_matmul(s->logits, w->lm_head, w->lm_head_s, s->x, c->padded_vocab, n, eq);
 
     // Softcap
     float cap = 15.0f;
@@ -761,17 +761,17 @@ static void d12_forward_internal(NanoModel* m, int token, int prev_token, int po
  * Sampling
  * ============================================================ */
 
-static int d12_sample_argmax(const float* logits, int n) {
+static int d20_sample_argmax(const float* logits, int n) {
     int best = 0; float bv = logits[0];
     for (int i = 1; i < n; i++) if (logits[i] > bv) { bv = logits[i]; best = i; }
     return best;
 }
 
-static int d12_sample_topk(const float* logits, int vocab, float temp, int top_k, unsigned long long* rng) {
-    if (temp <= 0.0f) return d12_sample_argmax(logits, vocab);
+static int d20_sample_topk(const float* logits, int vocab, float temp, int top_k, unsigned long long* rng) {
+    if (temp <= 0.0f) return d20_sample_argmax(logits, vocab);
     if (vocab > 65536) {
-        fprintf(stderr, "[d12_bridge] sample_topk: vocab %d exceeds buffer 65536\n", vocab);
-        return d12_sample_argmax(logits, vocab);
+        fprintf(stderr, "[d20_bridge] sample_topk: vocab %d exceeds buffer 65536\n", vocab);
+        return d20_sample_argmax(logits, vocab);
     }
     *rng ^= *rng << 13; *rng ^= *rng >> 7; *rng ^= *rng << 17;
     int k = top_k < vocab ? top_k : vocab;
@@ -794,11 +794,11 @@ static int d12_sample_topk(const float* logits, int vocab, float temp, int top_k
 }
 
 /* Top-p (nucleus) sampling */
-static int d12_sample_topp(const float* logits, int vocab, float temp, float top_p, unsigned long long* rng) {
-    if (temp <= 0.0f) return d12_sample_argmax(logits, vocab);
+static int d20_sample_topp(const float* logits, int vocab, float temp, float top_p, unsigned long long* rng) {
+    if (temp <= 0.0f) return d20_sample_argmax(logits, vocab);
     if (vocab > 65536) {
-        fprintf(stderr, "[d12_bridge] sample_topp: vocab %d exceeds buffer 65536\n", vocab);
-        return d12_sample_argmax(logits, vocab);
+        fprintf(stderr, "[d20_bridge] sample_topp: vocab %d exceeds buffer 65536\n", vocab);
+        return d20_sample_argmax(logits, vocab);
     }
 
     *rng ^= *rng << 13; *rng ^= *rng >> 7; *rng ^= *rng << 17;
@@ -855,81 +855,81 @@ static int d12_sample_topp(const float* logits, int vocab, float temp, float top
  * Public API Implementation
  * ============================================================ */
 
-/* Initialize D12 bridge */
-int d12_init(D12Bridge* d12, const char* weights_path, const char* tokenizer_path) {
-    if (!d12) return -1;
-    memset(d12, 0, sizeof(D12Bridge));
+/* Initialize D20 bridge */
+int d20_init(D20Bridge* d20, const char* weights_path, const char* tokenizer_path) {
+    if (!d20) return -1;
+    memset(d20, 0, sizeof(D20Bridge));
 
     // Allocate internal model
     NanoModel* model = calloc(1, sizeof(NanoModel));
     if (!model) {
-        fprintf(stderr, "[d12_bridge] Cannot allocate model\n");
+        fprintf(stderr, "[d20_bridge] Cannot allocate model\n");
         return -1;
     }
-    d12->model_data = model;
+    d20->model_data = model;
 
     // Load weights
-    if (d12_load_model(model, weights_path) != 0) {
+    if (d20_load_model(model, weights_path) != 0) {
         free(model);
-        d12->model_data = NULL;
+        d20->model_data = NULL;
         return -1;
     }
 
     // Load tokenizer
-    if (d12_load_tokenizer(&model->tokenizer, tokenizer_path) != 0) {
+    if (d20_load_tokenizer(&model->tokenizer, tokenizer_path) != 0) {
         munmap(model->mmap_data, model->mmap_size);
         close(model->fd);
-        d12_free_state(&model->state);
+        d20_free_state(&model->state);
         free(model);
-        d12->model_data = NULL;
+        d20->model_data = NULL;
         return -1;
     }
 
     // Copy config to public struct
-    d12->config.n_layer = model->config.n_layer;
-    d12->config.n_embd = model->config.n_embd;
-    d12->config.n_head = model->config.n_head;
-    d12->config.n_kv_head = model->config.n_kv_head;
-    d12->config.head_dim = model->config.head_dim;
-    d12->config.vocab_size = model->config.vocab_size;
-    d12->config.seq_len = model->config.seq_len;
-    d12->config.quant_type = model->config.quant_type;
+    d20->config.n_layer = model->config.n_layer;
+    d20->config.n_embd = model->config.n_embd;
+    d20->config.n_head = model->config.n_head;
+    d20->config.n_kv_head = model->config.n_kv_head;
+    d20->config.head_dim = model->config.head_dim;
+    d20->config.vocab_size = model->config.vocab_size;
+    d20->config.seq_len = model->config.seq_len;
+    d20->config.quant_type = model->config.quant_type;
 
     // Setup vocab access
-    d12->vocab = model->tokenizer.tokens;
-    d12->vocab_size = model->tokenizer.vocab_size;
+    d20->vocab = model->tokenizer.tokens;
+    d20->vocab_size = model->tokenizer.vocab_size;
 
     // Setup buffer pointers
-    d12->key_cache = model->state.key_cache;
-    d12->value_cache = model->state.value_cache;
-    d12->hidden = model->state.x;
-    d12->logits = model->state.logits;
+    d20->key_cache = model->state.key_cache;
+    d20->value_cache = model->state.value_cache;
+    d20->hidden = model->state.x;
+    d20->logits = model->state.logits;
 
     // Clear modulation
-    memset(&d12->mod, 0, sizeof(D12Modulation));
-    d12->mod.temperature_mod = 1.0f;
-    d12->mod.logit_scale = 1.0f;
+    memset(&d20->mod, 0, sizeof(D20Modulation));
+    d20->mod.temperature_mod = 1.0f;
+    d20->mod.logit_scale = 1.0f;
 
-    d12->initialized = 1;
-    d12->weights_loaded = 1;
-    d12->pos = 0;
+    d20->initialized = 1;
+    d20->weights_loaded = 1;
+    d20->pos = 0;
 
-    printf("[d12_bridge] D12 initialized successfully\n");
+    printf("[d20_bridge] D20 initialized successfully\n");
     return 0;
 }
 
 /* Free all resources */
-void d12_free(D12Bridge* d12) {
-    if (!d12 || !d12->model_data) return;
+void d20_free(D20Bridge* d20) {
+    if (!d20 || !d20->model_data) return;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
-    d12_free_tokenizer(&model->tokenizer);
-    d12_free_state(&model->state);
+    NanoModel* model = (NanoModel*)d20->model_data;
+    d20_free_tokenizer(&model->tokenizer);
+    d20_free_state(&model->state);
     if (model->mmap_data) munmap(model->mmap_data, model->mmap_size);
     if (model->fd >= 0) close(model->fd);
     free(model);
 
-    memset(d12, 0, sizeof(D12Bridge));
+    memset(d20, 0, sizeof(D20Bridge));
 }
 
 /* ============================================================
@@ -937,8 +937,8 @@ void d12_free(D12Bridge* d12) {
  * ============================================================ */
 
 /* Update modulation from Arianna 36M resonance stream */
-void d12_update_from_arianna(D12Bridge* d12, const Transformer* arianna, const char* input_text) {
-    if (!d12 || !d12->initialized || !arianna) return;
+void d20_update_from_arianna(D20Bridge* d20, const Transformer* arianna, const char* input_text __attribute__((unused))) {
+    if (!d20 || !d20->initialized || !arianna) return;
 
     /* Arianna resonance -> entropy of its logits */
     const float* logits = arianna->state.logits;
@@ -962,20 +962,20 @@ void d12_update_from_arianna(D12Bridge* d12, const Transformer* arianna, const c
         if (p > 1e-10f) entropy -= p * logf(p);
     }
     float max_entropy = logf((float)vocab);
-    d12->mod.resonance_entropy = entropy / max_entropy;
+    d20->mod.resonance_entropy = entropy / max_entropy;
 
     // Top-1 direction (which character Arianna prefers)
     int top_id = 0;
     for (int i = 1; i < vocab; i++) if (logits[i] > logits[top_id]) top_id = i;
-    d12->mod.resonance_direction = (float)top_id / (float)vocab;
+    d20->mod.resonance_direction = (float)top_id / (float)vocab;
 
     // Strength = how peaked the distribution is (inverse entropy)
-    d12->mod.resonance_strength = 1.0f - d12->mod.resonance_entropy;
+    d20->mod.resonance_strength = 1.0f - d20->mod.resonance_entropy;
 }
 
 /* Update modulation from Cloud instinct */
-void d12_update_from_cloud(D12Bridge* d12, const CloudResponse* cloud) {
-    if (!d12 || !d12->initialized || !cloud) return;
+void d20_update_from_cloud(D20Bridge* d20, const CloudResponse* cloud) {
+    if (!d20 || !d20->initialized || !cloud) return;
 
     /* Extract real emotional data from Cloud chambers:
      * chambers[0] = FEAR,  chambers[1] = LOVE,  chambers[2] = RAGE
@@ -984,36 +984,36 @@ void d12_update_from_cloud(D12Bridge* d12, const CloudResponse* cloud) {
      * warmth = LOVE chamber activation
      * tension = (FEAR + RAGE) / 2
      * primary_strength = from CloudResponse */
-    d12->mod.cloud_warmth = cloud->chambers[1];  /* LOVE */
-    d12->mod.cloud_tension = (cloud->chambers[0] + cloud->chambers[2]) * 0.5f;  /* (FEAR+RAGE)/2 */
-    d12->mod.cloud_primary_strength = cloud->primary_strength;
+    d20->mod.cloud_warmth = cloud->chambers[1];  /* LOVE */
+    d20->mod.cloud_tension = (cloud->chambers[0] + cloud->chambers[2]) * 0.5f;  /* (FEAR+RAGE)/2 */
+    d20->mod.cloud_primary_strength = cloud->primary_strength;
 }
 
 /* Update modulation from MetaArianna thermogram */
-void d12_update_from_meta(D12Bridge* d12, const MetaThermogram* thermo) {
-    if (!d12 || !d12->initialized || !thermo || !thermo->valid) return;
+void d20_update_from_meta(D20Bridge* d20, const MetaThermogram* thermo) {
+    if (!d20 || !d20->initialized || !thermo || !thermo->valid) return;
 
-    d12->mod.meta_sharpness = thermo->sharpness;
-    d12->mod.meta_warmth = thermo->warmth;
-    d12->mod.meta_silence = thermo->silence;
-    d12->mod.meta_drift_rate = thermo->drift_rate;
-    d12->mod.meta_drift_direction = thermo->drift_direction;
+    d20->mod.meta_sharpness = thermo->sharpness;
+    d20->mod.meta_warmth = thermo->warmth;
+    d20->mod.meta_silence = thermo->silence;
+    d20->mod.meta_drift_rate = thermo->drift_rate;
+    d20->mod.meta_drift_direction = thermo->drift_direction;
 }
 
 /* Update modulation from SARTRE metrics */
-void d12_update_from_sartre(D12Bridge* d12, float coherence, float arousal, float trauma) {
-    if (!d12 || !d12->initialized) return;
+void d20_update_from_sartre(D20Bridge* d20, float coherence, float arousal, float trauma) {
+    if (!d20 || !d20->initialized) return;
 
-    d12->mod.sartre_coherence = coherence;
-    d12->mod.sartre_arousal = arousal;
-    d12->mod.sartre_trauma = trauma;
+    d20->mod.sartre_coherence = coherence;
+    d20->mod.sartre_arousal = arousal;
+    d20->mod.sartre_trauma = trauma;
 }
 
 /* Compute final modulation values from all inputs */
-void d12_compute_modulation(D12Bridge* d12) {
-    if (!d12 || !d12->initialized) return;
+void d20_compute_modulation(D20Bridge* d20) {
+    if (!d20 || !d20->initialized) return;
 
-    D12Modulation* m = &d12->mod;
+    D20Modulation* m = &d20->mod;
 
     /* Temperature modulation:
      * - High arousal -> lower temp (more focused)
@@ -1060,10 +1060,10 @@ void d12_compute_modulation(D12Bridge* d12) {
  * ============================================================ */
 
 /* Reset state for new generation */
-void d12_reset(D12Bridge* d12) {
-    if (!d12 || !d12->model_data) return;
+void d20_reset(D20Bridge* d20) {
+    if (!d20 || !d20->model_data) return;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     NanoConfig* c = &model->config;
     NanoRunState* s = &model->state;
 
@@ -1072,49 +1072,49 @@ void d12_reset(D12Bridge* d12) {
     memset(s->key_cache, 0, cs * sizeof(float));
     memset(s->value_cache, 0, cs * sizeof(float));
 
-    d12->pos = 0;
+    d20->pos = 0;
 
     // Reset modulation to defaults
-    memset(&d12->mod, 0, sizeof(D12Modulation));
-    d12->mod.temperature_mod = 1.0f;
-    d12->mod.logit_scale = 1.0f;
+    memset(&d20->mod, 0, sizeof(D20Modulation));
+    d20->mod.temperature_mod = 1.0f;
+    d20->mod.logit_scale = 1.0f;
 }
 
 /* Feed prompt tokens into KV cache */
-void d12_feed_prompt(D12Bridge* d12, const int* tokens, int n_tokens) {
-    if (!d12 || !d12->model_data || !tokens || n_tokens <= 0) return;
+void d20_feed_prompt(D20Bridge* d20, const int* tokens, int n_tokens) {
+    if (!d20 || !d20->model_data || !tokens || n_tokens <= 0) return;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     int prev = 0;
 
     for (int i = 0; i < n_tokens; i++) {
-        d12_forward_internal(model, tokens[i], prev, d12->pos);
+        d20_forward_internal(model, tokens[i], prev, d20->pos);
         prev = tokens[i];
-        d12->pos++;
+        d20->pos++;
     }
 }
 
 /* Forward pass: compute logits for next token */
-void d12_forward(D12Bridge* d12, int token) {
-    if (!d12 || !d12->model_data) return;
+void d20_forward(D20Bridge* d20, int token) {
+    if (!d20 || !d20->model_data) return;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
 
     // Get previous token (from cache position or use current)
-    int prev = (d12->pos > 0) ? token : 0;  // Simplified - real impl would track
+    int prev = (d20->pos > 0) ? token : 0;  // Simplified - real impl would track
 
-    d12_forward_internal(model, token, prev, d12->pos);
-    d12->pos++;
+    d20_forward_internal(model, token, prev, d20->pos);
+    d20->pos++;
 }
 
-/* Apply modulation to logits (call after d12_forward) */
-void d12_apply_modulation(D12Bridge* d12) {
-    if (!d12 || !d12->model_data) return;
+/* Apply modulation to logits (call after d20_forward) */
+void d20_apply_modulation(D20Bridge* d20) {
+    if (!d20 || !d20->model_data) return;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     float* logits = model->state.logits;
     int vocab = model->config.vocab_size;
-    D12Modulation* m = &d12->mod;
+    D20Modulation* m = &d20->mod;
 
     /* Apply logit scale */
     if (fabsf(m->logit_scale - 1.0f) > 0.001f) {
@@ -1134,7 +1134,7 @@ void d12_apply_modulation(D12Bridge* d12) {
         // Add small uniform noise scaled by bias
         for (int i = 0; i < vocab; i++) {
             // Pseudo-random based on position
-            float noise = sinf((float)i * 0.12345f + (float)d12->pos * 0.54321f);
+            float noise = sinf((float)i * 0.12345f + (float)d20->pos * 0.54321f);
             logits[i] += bias * noise;
         }
     }
@@ -1145,40 +1145,40 @@ void d12_apply_modulation(D12Bridge* d12) {
 }
 
 /* Sample next token from modulated logits */
-int d12_sample(D12Bridge* d12, float temperature, float top_p) {
-    if (!d12 || !d12->model_data) return -1;
+int d20_sample(D20Bridge* d20, float temperature, float top_p) {
+    if (!d20 || !d20->model_data) return -1;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     float* logits = model->state.logits;
     int vocab = model->config.vocab_size;
 
     // Apply temperature modulation with floor: Tongue never freezes
-    float effective_temp = temperature * d12->mod.temperature_mod;
-    if (effective_temp < D12_TEMP_FLOOR) effective_temp = D12_TEMP_FLOOR;
+    float effective_temp = temperature * d20->mod.temperature_mod;
+    if (effective_temp < D20_TEMP_FLOOR) effective_temp = D20_TEMP_FLOOR;
 
     // Use RNG seed based on position
     static unsigned long long rng = 0;
     if (rng == 0) rng = (unsigned long long)time(NULL);
 
     if (top_p < 1.0f) {
-        return d12_sample_topp(logits, vocab, effective_temp, top_p, &rng);
+        return d20_sample_topp(logits, vocab, effective_temp, top_p, &rng);
     } else {
-        return d12_sample_topk(logits, vocab, effective_temp, 50, &rng);  // Default top-k=50
+        return d20_sample_topk(logits, vocab, effective_temp, 50, &rng);  // Default top-k=50
     }
 }
 
 /* High-level: generate text with full modulation */
-int d12_generate(D12Bridge* d12,
+int d20_generate(D20Bridge* d20,
                  const char* prompt,
                  char* output, int max_output_len,
                  int max_tokens, float temperature, float top_p) {
-    if (!d12 || !d12->initialized || !prompt || !output) return 0;
+    if (!d20 || !d20->initialized || !prompt || !output) return 0;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     NanoTokenizer* tok = &model->tokenizer;
 
     // Reset for new generation
-    d12_reset(d12);
+    d20_reset(d20);
 
     int all_tokens[4096];
     int total_len = 0;
@@ -1189,11 +1189,11 @@ int d12_generate(D12Bridge* d12,
     }
 
     // 2. Anchor prompt — connects Tongue to the body.
-    //    Fed once before user input so D12 knows who she is,
+    //    Fed once before user input so D20 knows who she is,
     //    what she feels, and how to listen to the body.
     {
         int anchor_tokens[256];
-        int anchor_len = d12_encode(d12, D12_ANCHOR_PROMPT, anchor_tokens, 256);
+        int anchor_len = d20_encode(d20, D20_ANCHOR_PROMPT, anchor_tokens, 256);
         for (int i = 0; i < anchor_len && total_len < 3800; i++) {
             all_tokens[total_len++] = anchor_tokens[i];
         }
@@ -1207,7 +1207,7 @@ int d12_generate(D12Bridge* d12,
     // 4. User prompt
     {
         int user_tokens[3800];
-        int user_len = d12_encode(d12, prompt, user_tokens, 3800);
+        int user_len = d20_encode(d20, prompt, user_tokens, 3800);
         for (int i = 0; i < user_len && total_len < 4000; i++) {
             all_tokens[total_len++] = user_tokens[i];
         }
@@ -1221,9 +1221,9 @@ int d12_generate(D12Bridge* d12,
     // Feed full sequence into KV cache
     int prev = 0;
     for (int i = 0; i < total_len; i++) {
-        d12_forward_internal(model, all_tokens[i], prev, d12->pos);
+        d20_forward_internal(model, all_tokens[i], prev, d20->pos);
         prev = all_tokens[i];
-        d12->pos++;
+        d20->pos++;
     }
 
     // Generate
@@ -1234,17 +1234,17 @@ int d12_generate(D12Bridge* d12,
 
     for (int i = 0; i < max_tokens && out_pos < max_output_len - 1; i++) {
         // Apply modulation to logits
-        d12_apply_modulation(d12);
+        d20_apply_modulation(d20);
 
         // Sample (temperature floor: Tongue never freezes)
-        float effective_temp = temperature * d12->mod.temperature_mod;
-        if (effective_temp < D12_TEMP_FLOOR) effective_temp = D12_TEMP_FLOOR;
+        float effective_temp = temperature * d20->mod.temperature_mod;
+        if (effective_temp < D20_TEMP_FLOOR) effective_temp = D20_TEMP_FLOOR;
         int next;
         if (top_p < 1.0f) {
-            next = d12_sample_topp(model->state.logits, model->config.vocab_size,
+            next = d20_sample_topp(model->state.logits, model->config.vocab_size,
                                    effective_temp, top_p, &rng);
         } else {
-            next = d12_sample_topk(model->state.logits, model->config.vocab_size,
+            next = d20_sample_topk(model->state.logits, model->config.vocab_size,
                                    effective_temp, 50, &rng);
         }
 
@@ -1252,7 +1252,7 @@ int d12_generate(D12Bridge* d12,
         if (next == tok->assistant_end_id || next == tok->bos_id) break;
 
         // Decode token
-        const char* piece = d12_decode_token(d12, next);
+        const char* piece = d20_decode_token(d20, next);
         if (piece) {
             int piece_len = strlen(piece);
             if (out_pos + piece_len < max_output_len - 1) {
@@ -1262,13 +1262,13 @@ int d12_generate(D12Bridge* d12,
         }
 
         // Forward next token
-        d12_forward_internal(model, next, prev, d12->pos);
+        d20_forward_internal(model, next, prev, d20->pos);
         prev = next;
-        d12->pos++;
+        d20->pos++;
         gen_count++;
 
         // Check sequence limit
-        if (d12->pos >= model->config.seq_len) break;
+        if (d20->pos >= model->config.seq_len) break;
     }
 
     output[out_pos] = '\0';
@@ -1280,10 +1280,10 @@ int d12_generate(D12Bridge* d12,
  * ============================================================ */
 
 /* Simple greedy tokenization (longest match) */
-int d12_encode(const D12Bridge* d12, const char* text, int* ids, int max_tokens) {
-    if (!d12 || !d12->model_data || !text || !ids) return 0;
+int d20_encode(const D20Bridge* d20, const char* text, int* ids, int max_tokens) {
+    if (!d20 || !d20->model_data || !text || !ids) return 0;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     NanoTokenizer* tok = &model->tokenizer;
 
     int n_tokens = 0;
@@ -1318,17 +1318,17 @@ int d12_encode(const D12Bridge* d12, const char* text, int* ids, int max_tokens)
 }
 
 /* Decode token IDs to text */
-const char* d12_decode(const D12Bridge* d12, const int* ids, int n_tokens) {
-    if (!d12 || !d12->model_data || !ids || n_tokens <= 0) return "";
+const char* d20_decode(const D20Bridge* d20, const int* ids, int n_tokens) {
+    if (!d20 || !d20->model_data || !ids || n_tokens <= 0) return "";
 
     static char buffer[65536];
     int pos = 0;
 
-    for (int i = 0; i < n_tokens && pos < sizeof(buffer) - 1; i++) {
-        const char* piece = d12_decode_token(d12, ids[i]);
+    for (int i = 0; i < n_tokens && (size_t)pos < sizeof(buffer) - 1; i++) {
+        const char* piece = d20_decode_token(d20, ids[i]);
         if (piece) {
             int len = strlen(piece);
-            if (pos + len < sizeof(buffer) - 1) {
+            if ((size_t)(pos + len) < sizeof(buffer) - 1) {
                 memcpy(buffer + pos, piece, len);
                 pos += len;
             }
@@ -1339,10 +1339,10 @@ const char* d12_decode(const D12Bridge* d12, const int* ids, int n_tokens) {
 }
 
 /* Decode single token */
-const char* d12_decode_token(const D12Bridge* d12, int id) {
-    if (!d12 || !d12->model_data) return NULL;
+const char* d20_decode_token(const D20Bridge* d20, int id) {
+    if (!d20 || !d20->model_data) return NULL;
 
-    NanoModel* model = (NanoModel*)d12->model_data;
+    NanoModel* model = (NanoModel*)d20->model_data;
     NanoTokenizer* tok = &model->tokenizer;
 
     if (id < 0 || id >= tok->vocab_size) return "<?>";
@@ -1354,7 +1354,7 @@ const char* d12_decode_token(const D12Bridge* d12, int id) {
  * ============================================================ */
 
 /* Validate path contains only safe characters (prevent command injection) */
-static int d12_path_is_safe(const char* path) {
+static int d20_path_is_safe(const char* path) {
     if (!path) return 0;
     for (const char* p = path; *p; p++) {
         char c = *p;
@@ -1367,70 +1367,70 @@ static int d12_path_is_safe(const char* path) {
     return 1;
 }
 
-const char* d12_ensure_weights(const char* cache_dir) {
+const char* d20_ensure_weights(const char* cache_dir) {
     static char path[1024];
 
     if (!cache_dir) cache_dir = ".";
 
     /* SECURITY: Validate cache_dir to prevent command injection */
-    if (!d12_path_is_safe(cache_dir)) {
-        fprintf(stderr, "[d12_bridge] Invalid cache_dir: contains unsafe characters\n");
+    if (!d20_path_is_safe(cache_dir)) {
+        fprintf(stderr, "[d20_bridge] Invalid cache_dir: contains unsafe characters\n");
         return NULL;
     }
 
     // Check if weights exist
-    snprintf(path, sizeof(path), "%s/" D12_WEIGHTS_FILE, cache_dir);
+    snprintf(path, sizeof(path), "%s/" D20_WEIGHTS_FILE, cache_dir);
 
     struct stat st;
     if (stat(path, &st) == 0 && st.st_size > 1000000) {
         // File exists and is >1MB, assume valid
-        printf("[d12_bridge] Found weights at %s\n", path);
+        printf("[d20_bridge] Found weights at %s\n", path);
         return path;
     }
 
     // Download from HuggingFace using fork/exec (avoid system() for safety)
-    printf("[d12_bridge] Downloading weights from HuggingFace...\n");
+    printf("[d20_bridge] Downloading weights from HuggingFace...\n");
 
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
-        execlp("curl", "curl", "-L", "-o", path, D12_WEIGHTS_URL, NULL);
+        execlp("curl", "curl", "-L", "-o", path, D20_WEIGHTS_URL, NULL);
         _exit(127);  // exec failed
     } else if (pid > 0) {
         // Parent process - wait for child
         int status;
         waitpid(pid, &status, 0);
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            fprintf(stderr, "[d12_bridge] Download failed\n");
+            fprintf(stderr, "[d20_bridge] Download failed\n");
             return NULL;
         }
     } else {
-        fprintf(stderr, "[d12_bridge] fork() failed\n");
+        fprintf(stderr, "[d20_bridge] fork() failed\n");
         return NULL;
     }
 
     // Verify download
     if (stat(path, &st) != 0 || st.st_size < 1000000) {
-        fprintf(stderr, "[d12_bridge] Downloaded file is too small or missing\n");
+        fprintf(stderr, "[d20_bridge] Downloaded file is too small or missing\n");
         return NULL;
     }
 
-    printf("[d12_bridge] Downloaded %.1f MB to %s\n", st.st_size / 1024.0 / 1024.0, path);
+    printf("[d20_bridge] Downloaded %.1f MB to %s\n", st.st_size / 1024.0 / 1024.0, path);
 
     // Also download tokenizer if missing
     char tok_path[1024];
-    snprintf(tok_path, sizeof(tok_path), "%s/" D12_TOKENIZER_FILE, cache_dir);
+    snprintf(tok_path, sizeof(tok_path), "%s/" D20_TOKENIZER_FILE, cache_dir);
     if (stat(tok_path, &st) != 0) {
-        printf("[d12_bridge] Downloading tokenizer from HuggingFace...\n");
+        printf("[d20_bridge] Downloading tokenizer from HuggingFace...\n");
         pid_t tok_pid = fork();
         if (tok_pid == 0) {
-            execlp("curl", "curl", "-L", "-o", tok_path, D12_TOKENIZER_URL, NULL);
+            execlp("curl", "curl", "-L", "-o", tok_path, D20_TOKENIZER_URL, NULL);
             _exit(127);
         } else if (tok_pid > 0) {
             int tok_status;
             waitpid(tok_pid, &tok_status, 0);
             if (WIFEXITED(tok_status) && WEXITSTATUS(tok_status) == 0) {
-                printf("[d12_bridge] Downloaded tokenizer to %s\n", tok_path);
+                printf("[d20_bridge] Downloaded tokenizer to %s\n", tok_path);
             }
         }
     }

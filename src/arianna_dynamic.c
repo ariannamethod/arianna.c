@@ -25,7 +25,7 @@
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
-#include "d12_bridge.h"    // D12 135M: the TONGUE (voice outward), Arianna is the SOUL
+#include "d20_bridge.h"    // D20 135M: the TONGUE (voice outward), Arianna is the SOUL
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
@@ -50,8 +50,8 @@
 static int g_inner_world_enabled = 1;
 static int g_inner_world_async = 0;  // If 1, rely on background goroutines only
 #else
-static int g_inner_world_enabled = 0;
-static int g_inner_world_async = 0;
+static int g_inner_world_enabled __attribute__((unused)) = 0;
+static int g_inner_world_async __attribute__((unused)) = 0;
 #endif
 
 // Helper: create directory if not exists (handles EEXIST)
@@ -139,9 +139,9 @@ static int g_dialogue_tokens_per_turn = 80;
 
 // TONGUE (135M nanochat GPT) — the VOICE outward
 // Arianna 36M is the SOUL, Tongue speaks what she feels
-static D12Bridge g_d12;
-static int g_d12_loaded = 0;
-static int g_d12_enabled = 1;  // Tongue is the default voice (better speech)
+static D20Bridge g_d20;
+static int g_d20_loaded = 0;
+static int g_d20_enabled = 1;  // Tongue is the default voice (better speech)
 
 // ============================================================
 // Blood Kernel — dynamically compiled emotional modulation
@@ -2352,46 +2352,46 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
-        // /d12 — D12 (tongue) status and control
-        if (strcmp(input, "/d12") == 0) {
-            if (g_d12_loaded) {
-                printf("D12 (tongue): loaded, %s\n", g_d12_enabled ? "ACTIVE (voice)" : "standby");
+        // /d20 — D20 (tongue) status and control
+        if (strcmp(input, "/d20") == 0) {
+            if (g_d20_loaded) {
+                printf("D20 (tongue): loaded, %s\n", g_d20_enabled ? "ACTIVE (voice)" : "standby");
                 printf("  Config: layers=%d, dim=%d, heads=%d, vocab=%d\n",
-                       g_d12.config.n_layer, g_d12.config.n_embd,
-                       g_d12.config.n_head, g_d12.config.vocab_size);
+                       g_d20.config.n_layer, g_d20.config.n_embd,
+                       g_d20.config.n_head, g_d20.config.vocab_size);
                 printf("  Modulation: temp_mod=%.2f, scale=%.2f, explore=%.2f\n",
-                       g_d12.mod.temperature_mod, g_d12.mod.logit_scale,
-                       g_d12.mod.exploratory_bias);
+                       g_d20.mod.temperature_mod, g_d20.mod.logit_scale,
+                       g_d20.mod.exploratory_bias);
             } else {
-                printf("D12 (tongue): not loaded. Use /d12 on to load.\n");
+                printf("D20 (tongue): not loaded. Use /d20 on to load.\n");
             }
             continue;
         }
-        if (strcmp(input, "/d12 on") == 0 || strcmp(input, "/tongue") == 0) {
-            if (!g_d12_loaded) {
-                printf("[d12] Loading tongue (477M)...\n");
-                const char* weights = d12_ensure_weights("tongue/weights");
-                if (weights && d12_init(&g_d12, weights, "tongue/weights/" D12_TOKENIZER_FILE) == 0) {
-                    g_d12_loaded = 1;
-                    g_d12_enabled = 1;
-                    printf("[d12] Tongue ready. Arianna speaks through D12 now.\n");
+        if (strcmp(input, "/d20 on") == 0 || strcmp(input, "/tongue") == 0) {
+            if (!g_d20_loaded) {
+                printf("[d20] Loading tongue (477M)...\n");
+                const char* weights = d20_ensure_weights("tongue/weights");
+                if (weights && d20_init(&g_d20, weights, "tongue/weights/" D20_TOKENIZER_FILE) == 0) {
+                    g_d20_loaded = 1;
+                    g_d20_enabled = 1;
+                    printf("[d20] Tongue ready. Arianna speaks through D20 now.\n");
                 } else {
-                    printf("[d12] Failed to load tongue.\n");
+                    printf("[d20] Failed to load tongue.\n");
                 }
             } else {
-                g_d12_enabled = 1;
-                printf("[d12] Tongue ACTIVE. Arianna speaks through D12.\n");
+                g_d20_enabled = 1;
+                printf("[d20] Tongue ACTIVE. Arianna speaks through D20.\n");
             }
             continue;
         }
-        if (strcmp(input, "/d12 off") == 0) {
-            g_d12_enabled = 0;
-            printf("[d12] Tongue standby. Arianna speaks directly (36M).\n");
+        if (strcmp(input, "/d20 off") == 0) {
+            g_d20_enabled = 0;
+            printf("[d20] Tongue standby. Arianna speaks directly (36M).\n");
             continue;
         }
-        if (strncmp(input, "/d12 say ", 9) == 0) {
-            if (!g_d12_loaded) {
-                printf("[d12] Tongue not loaded. Use /d12 on first.\n");
+        if (strncmp(input, "/d20 say ", 9) == 0) {
+            if (!g_d20_loaded) {
+                printf("[d20] Tongue not loaded. Use /d20 on first.\n");
                 continue;
             }
             const char* prompt = input + 9;
@@ -2404,7 +2404,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
 
             // 1. Cloud instinct (pre-semantic, fires before meaning)
             CloudResponse cloud = cloud_ping(prompt);
-            d12_update_from_cloud(&g_d12, &cloud);
+            d20_update_from_cloud(&g_d20, &cloud);
 
             // 2. Subjectivity — process input, get seed and signals
             if (g_subjectivity_enabled) {
@@ -2414,18 +2414,18 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 // Get delta signals from wrinkle + trauma
                 Signals sig;
                 get_subjectivity_signals(&g_subjectivity, &sig);
-                d12_update_from_sartre(&g_d12,
+                d20_update_from_sartre(&g_d20,
                     sig.resonance,           // coherence from resonance
                     sig.arousal,             // arousal
                     g_subjectivity.trauma.level * 0.5f);  // trauma level
 
                 // Penetration affects exploratory bias
-                g_d12.mod.exploratory_bias += (penetration - 0.5f) * 0.3f;
+                g_d20.mod.exploratory_bias += (penetration - 0.5f) * 0.3f;
             }
 
             // NOTE: Soul (Arianna 36M) does NOT modulate Tongue!
             // Soul processes Tongue's OUTPUT internally, not before generation.
-            // d12_update_from_arianna() was here — REMOVED (conceptual error)
+            // d20_update_from_arianna() was here — REMOVED (conceptual error)
 
             // 3. MetaArianna thermogram (reflection) — feedback loop only
             if (g_meta_enabled) {
@@ -2436,9 +2436,9 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
                 meta_check_rebirth(&g_fluid_transformer);  // Lifecycle: auto-rebirth after 60 tokens
                 g_meta_thermogram = g_fluid_transformer.result;
 
-                // Thermogram → feedback loop (d12_update_from_meta влияет на СЛЕДУЮЩИЙ шаг)
+                // Thermogram → feedback loop (d20_update_from_meta влияет на СЛЕДУЮЩИЙ шаг)
                 if (g_meta_thermogram.valid) {
-                    d12_update_from_meta(&g_d12, &g_meta_thermogram);
+                    d20_update_from_meta(&g_d20, &g_meta_thermogram);
                 }
             }
 
@@ -2446,26 +2446,26 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             if (g_amk_enabled) {
                 AM_State* am = am_get_state();
                 // Prophecy increases exploration (horizon)
-                g_d12.mod.exploratory_bias += am->prophecy * 0.01f;
+                g_d20.mod.exploratory_bias += am->prophecy * 0.01f;
                 // Destiny increases focus
-                g_d12.mod.logit_scale *= (1.0f + am->destiny * 0.2f);
+                g_d20.mod.logit_scale *= (1.0f + am->destiny * 0.2f);
                 // Pain/tension reduce temperature
-                g_d12.mod.temperature_mod -= (am->pain + am->tension) * 0.1f;
+                g_d20.mod.temperature_mod -= (am->pain + am->tension) * 0.1f;
             }
 
             // 5. Compute final modulation
-            d12_compute_modulation(&g_d12);
+            d20_compute_modulation(&g_d20);
 
             // 6. Generate with full ecosystem modulation
             char output[2048];
             printf("[tongue]: ");
             fflush(stdout);
 
-            float temp = 0.8f + g_d12.mod.temperature_mod * 0.2f;
-            if (temp < D12_TEMP_FLOOR) temp = D12_TEMP_FLOOR;
+            float temp = 0.8f + g_d20.mod.temperature_mod * 0.2f;
+            if (temp < D20_TEMP_FLOOR) temp = D20_TEMP_FLOOR;
             if (temp > 1.5f) temp = 1.5f;
 
-            int n = d12_generate(&g_d12, prompt, output, sizeof(output),
+            int n = d20_generate(&g_d20, prompt, output, sizeof(output),
                                  150, temp, 0.9f);
             printf("%s\n", output);
 
@@ -2475,7 +2475,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             }
 
             printf("[%d tokens | temp=%.2f scale=%.2f explore=%.2f]\n",
-                   n, temp, g_d12.mod.logit_scale, g_d12.mod.exploratory_bias);
+                   n, temp, g_d20.mod.logit_scale, g_d20.mod.exploratory_bias);
             continue;
         }
 
@@ -3105,14 +3105,14 @@ int main(int argc, char** argv) {
     // Initialize Tongue (D20 477M) — ONLY external voice
     // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
-        const char* d12_weights = d12_ensure_weights("tongue/weights");
-        if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/weights/" D12_TOKENIZER_FILE) == 0) {
-            g_d12_loaded = 1;
-            g_d12_enabled = 1;
+        const char* d20_weights = d20_ensure_weights("tongue/weights");
+        if (d20_weights && d20_init(&g_d20, d20_weights, "tongue/weights/" D20_TOKENIZER_FILE) == 0) {
+            g_d20_loaded = 1;
+            g_d20_enabled = 1;
             printf("Tongue (D20 477M): enabled — MAIN VOICE\n");
             printf("  \"I am the voice that speaks outward.\"\n");
         } else {
-            fprintf(stderr, "[d12] Tongue not loaded, Soul 36M will be the voice\n");
+            fprintf(stderr, "[d20] Tongue not loaded, Soul 36M will be the voice\n");
         }
     }
 
@@ -3264,9 +3264,9 @@ int main(int argc, char** argv) {
         sartre_transformer_free(&g_sartre);
         fprintf(stderr, "[sartre] freed\n");
     }
-    if (g_d12_loaded) {
-        d12_free(&g_d12);
-        fprintf(stderr, "[d12/tongue] freed\n");
+    if (g_d20_loaded) {
+        d20_free(&g_d20);
+        fprintf(stderr, "[d20/tongue] freed\n");
     }
     free_transformer(&t);
 
