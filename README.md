@@ -432,7 +432,6 @@ arianna.c/
 │   ├── subjectivity.c            # Subjective generation (no-seed-from-prompt, identity pull)
 │   ├── inner_arianna.c           # MetaVoice борьба
 │   ├── amk_kernel.c              # Prophecy physics (AMK)
-│   ├── pandora.c                 # Vocabulary extraction (n-gram storage)
 │   ├── delta.c                   # Dynamic shards
 │   ├── delta_enhanced.c          # Advanced shard operations
 │   ├── vagus_delta.c             # Vagus ↔ Delta bridge
@@ -450,18 +449,8 @@ arianna.c/
 │   ├── amk_lua.c                 # Lua integration (optional)
 │   └── *.h                       # Headers for all modules
 │
-├── packages/                     # External brain packages (OFF by default)
-│   ├── PACKAGES.md               # Package documentation
-│   ├── pandora/                  # GPT2-30M C bridge
-│   │   ├── external_brain.py     # Python → GPT2-30M → Arianna tokens
-│   │   ├── external_brain_gguf.py # Python → TinyLlama GGUF → Arianna tokens
-│   │   ├── pandora_bridge.c      # C API for calling Python brains
-│   │   ├── pandora_bridge.h      # Header
-│   │   └── src/                  # Pure C GPT2 implementation
-│   ├── pandora-torch/            # PyTorch GPT2-distill
-│   ├── pandora-torch-gguf/       # TinyLlama 1.1B GGUF
-│   ├── hyperpandora/             # Meta-orchestrator (SARTRE-driven)
-│   └── tests/                    # Package tests (100% passing)
+├── packages/                     # Extension packages
+│   └── tests/                    # Package tests
 │
 ├── vagus/                        # Zig nervous system (35 tests)
 │   ├── vagus.zig                 # Core implementation

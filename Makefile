@@ -17,10 +17,9 @@ else
   RPATH_FLAG = -Wl,-rpath,'$$ORIGIN'
 endif
 
-# Go libraries (inner_world + cloud)
+# Go library (unified: tongue + inner_world + cloud)
 GO_LIB_DIR = lib
-GO_LDFLAGS = -L$(GO_LIB_DIR) -linner_world $(RPATH_FLAG)
-CLOUD_LDFLAGS = -L$(GO_LIB_DIR) -lcloud $(RPATH_FLAG)
+GO_LDFLAGS = -L$(GO_LIB_DIR) -larianna $(RPATH_FLAG)
 
 SRC_DIR = src
 BIN_DIR = bin
@@ -31,7 +30,7 @@ TARGET = $(BIN_DIR)/arianna
 
 # Dynamic version with full pipeline (Cloud in Go via wrapper)
 SRCS_DYN_CORE = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/julia_bridge.c \
-           $(SRC_DIR)/schumann.c $(SRC_DIR)/pandora.c packages/pandora/pandora_bridge.c $(SRC_DIR)/delta.c \
+           $(SRC_DIR)/schumann.c $(SRC_DIR)/delta.c \
            $(SRC_DIR)/delta_enhanced.c $(SRC_DIR)/mood.c $(SRC_DIR)/guided.c \
            $(SRC_DIR)/subjectivity.c $(SRC_DIR)/cooccur.c $(SRC_DIR)/body_sense.c \
            $(SRC_DIR)/selfsense.c $(SRC_DIR)/mathbrain.c $(SRC_DIR)/inner_arianna.c \
@@ -75,7 +74,7 @@ LUA_SRCS = $(LUA_SRC_DIR)/lapi.c $(LUA_SRC_DIR)/lauxlib.c $(LUA_SRC_DIR)/lbaseli
 LUA_CFLAGS_BUNDLED = -I$(LUA_SRC_DIR) -DLUA_USE_POSIX
 SRCS_LUA = $(SRC_DIR)/amk_lua.c
 
-.PHONY: all clean dynamic full go-lib cloud-lib tongue-lib both lua tests vagus test_vagus weights-f32 debug
+.PHONY: all clean dynamic full golib go-lib cloud-lib tongue-lib both lua tests vagus test_vagus weights-f32 debug
 
 all: $(TARGET)
 
@@ -99,27 +98,21 @@ dynamic: weights-f32 $(TARGET_DYN)
 
 lua: $(TARGET_LUA)
 
-full: go-lib $(TARGET_FULL)
+full: golib $(TARGET_FULL)
 
 both: $(TARGET) $(TARGET_DYN)
 
-# Build Go libraries (inner_world + cloud)
-go-lib: cloud-lib
-	cd inner_world && go build -buildmode=c-shared -o libinner_world.$(DYLIB_EXT) .
+# Unified Go library (tongue + inner_world + cloud → libarianna)
+golib:
+	@echo "[golib] building libarianna.$(DYLIB_EXT)..."
 	@mkdir -p $(GO_LIB_DIR)
-	cp inner_world/libinner_world.$(DYLIB_EXT) $(GO_LIB_DIR)/
+	cd golib && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libarianna.$(DYLIB_EXT) .
+	@echo "[golib] done: $(GO_LIB_DIR)/libarianna.$(DYLIB_EXT)"
 
-cloud-lib:
-	cd inner_world && go build -buildmode=c-shared -o ../$(GO_LIB_DIR)/libcloud.$(DYLIB_EXT) .
-	@mkdir -p $(GO_LIB_DIR)
-
-# Build Tongue 1.1B Go library (GGUF reader + Llama forward pass)
-tongue-lib:
-	@echo "[tongue] building libtongue.$(DYLIB_EXT)..."
-	cd tongue && go build -buildmode=c-shared -o libtongue.$(DYLIB_EXT) .
-	@mkdir -p $(GO_LIB_DIR)
-	cp tongue/libtongue.$(DYLIB_EXT) $(GO_LIB_DIR)/
-	@echo "[tongue] done: $(GO_LIB_DIR)/libtongue.$(DYLIB_EXT)"
+# Aliases for backward compatibility
+go-lib: golib
+cloud-lib: golib
+tongue-lib: golib
 
 $(TARGET): $(SRCS) $(SRC_DIR)/arianna.h
 	@mkdir -p $(BIN_DIR)
@@ -138,12 +131,12 @@ $(TARGET_DYN): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/bpe_tokenizer.h $(SRC
 $(TARGET_FULL): $(SRCS_DYN) $(SRC_DIR)/arianna.h $(SRC_DIR)/delta.h $(SRC_DIR)/mood.h \
                 $(SRC_DIR)/guided.h $(SRC_DIR)/subjectivity.h $(SRC_DIR)/cooccur.h \
                 $(SRC_DIR)/body_sense.h $(SRC_DIR)/selfsense.h $(SRC_DIR)/mathbrain.h \
-                $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT)
+                $(SRC_DIR)/inner_world.h $(GO_LIB_DIR)/libarianna.$(DYLIB_EXT)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -DUSE_GO_INNER_WORLD -I$(SRC_DIR) -Isartre $(SRCS_DYN) -o $(TARGET_FULL) $(LDFLAGS) $(GO_LDFLAGS)
-	@cp $(GO_LIB_DIR)/libinner_world.$(DYLIB_EXT) $(BIN_DIR)/
+	@cp $(GO_LIB_DIR)/libarianna.$(DYLIB_EXT) $(BIN_DIR)/
 ifeq ($(PLATFORM),macos)
-	@install_name_tool -change libinner_world.dylib @loader_path/libinner_world.dylib $(TARGET_FULL)
+	@install_name_tool -change libarianna.dylib @loader_path/libarianna.dylib $(TARGET_FULL)
 endif
 
 # Lua-enabled dynamic version
@@ -237,11 +230,6 @@ $(TEST_BIN_DIR)/test_mathbrain: $(TEST_DIR)/test_mathbrain.c $(SRC_DIR)/mathbrai
 	@mkdir -p $(TEST_BIN_DIR)
 	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
 
-test_pandora: $(TEST_BIN_DIR)/test_pandora
-$(TEST_BIN_DIR)/test_pandora: $(TEST_DIR)/test_pandora.c $(SRC_DIR)/pandora.c $(TEST_COMMON)
-	@mkdir -p $(TEST_BIN_DIR)
-	$(CC) $(CFLAGS) -I$(SRC_DIR) $^ -o $@ $(LDFLAGS)
-
 test_selfsense: $(TEST_BIN_DIR)/test_selfsense
 $(TEST_BIN_DIR)/test_selfsense: $(TEST_DIR)/test_selfsense.c $(SRC_DIR)/selfsense.c $(TEST_COMMON)
 	@mkdir -p $(TEST_BIN_DIR)
@@ -281,10 +269,10 @@ $(TEST_BIN_DIR)/test_larynx: $(TEST_DIR)/test_larynx.c $(SRC_DIR)/larynx.h
 # Go race tests (requires Go)
 test_go_race:
 	@echo "[test] Running Go race tests..."
-	cd inner_world && go test -race -v ./...
+	cd golib && go test -race -v ./...
 
 # Run all tests
-tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_pandora test_selfsense test_delta_enhanced test_julia test_ariannabody_extended test_meta_arianna sartre
+tests: test_amlk test_cloud test_comprehensive test_accumulator test_inner test_amk test_mathbrain test_selfsense test_delta_enhanced test_julia test_ariannabody_extended test_meta_arianna sartre
 	@echo ""
 	@echo "=========================================="
 	@echo "RUNNING ALL ARIANNA TESTS"

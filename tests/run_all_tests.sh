@@ -4,7 +4,7 @@
 # Set library path for Go dylibs
 export DYLD_LIBRARY_PATH=./lib:./bin:$DYLD_LIBRARY_PATH
 
-TESTS="test_amlk test_cloud test_comprehensive test_accumulator test_inner test_mathbrain test_pandora test_selfsense test_amk test_delta_enhanced test_blood test_high test_inner_world test_julia test_ariannabody_extended test_sartre test_sartre_comprehensive test_sampling_edge_cases test_delta test_meta_arianna"
+TESTS="test_amlk test_cloud test_comprehensive test_accumulator test_inner test_mathbrain test_selfsense test_amk test_delta_enhanced test_blood test_high test_inner_world test_julia test_ariannabody_extended test_sartre test_sartre_comprehensive test_sampling_edge_cases test_delta test_meta_arianna"
 
 # Note: test_larynx requires vagus library (zig build first)
 # Note: julia/test_temporal.jl requires Julia runtime

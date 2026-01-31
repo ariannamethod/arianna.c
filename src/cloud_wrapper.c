@@ -1,7 +1,7 @@
 // cloud_wrapper.c — C wrapper for Go Cloud library
 //
 // Bridges the C codebase with the Go implementation of Cloud 200K.
-// Uses libcloud.dylib via dlfcn.
+// Uses libarianna.dylib via dlfcn.
 
 #include "cloud.h"
 #include <stdio.h>
@@ -147,17 +147,17 @@ static int load_go_library(void) {
 
     // Try library paths relative to executable
 #ifdef __APPLE__
-    const char* lib_name = "libcloud.dylib";
+    const char* lib_name = "libarianna.dylib";
 #else
-    const char* lib_name = "libcloud.so";
+    const char* lib_name = "libarianna.so";
 #endif
 
-    // Try exe_dir/lib/libcloud.{dylib,so}
+    // Try exe_dir/lib/libarianna.{dylib,so}
     snprintf(lib_path, sizeof(lib_path), "%s/lib/%s", exe_dir, lib_name);
     go_lib = dlopen(lib_path, RTLD_NOW);
 
     if (!go_lib) {
-        // Try exe_dir/../lib/libcloud.{dylib,so}
+        // Try exe_dir/../lib/libarianna.{dylib,so}
         snprintf(lib_path, sizeof(lib_path), "%s/../lib/%s", exe_dir, lib_name);
         char resolved[PATH_MAX];
         if (realpath(lib_path, resolved)) {

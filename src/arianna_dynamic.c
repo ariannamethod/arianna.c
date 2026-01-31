@@ -20,8 +20,6 @@
 #include "cloud.h"  // Pre-semantic emotion detection
 #include "julia_bridge.h"  // Julia emotional gradient engine
 #include "schumann.h"  // Earth-ionosphere resonance (cosmic input)
-#include "pandora.h"  // Vocabulary injection from External Brain
-#include "../packages/pandora/pandora_bridge.h"  // Python bridge to external brains
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "meta_arianna.h"  // MetaArianna: pulsating meta-observer (FluidTransformer)
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
@@ -116,10 +114,6 @@ static float g_julia_emotional_vec[12];  // For ODE stepping
 
 // Schumann resonance (Earth's heartbeat - cosmic input)
 static int g_schumann_enabled = 0;
-
-// Pandora (vocabulary injection from External Brain)
-static PandoraBox g_pandora;
-static int g_pandora_enabled = 0;
 
 // AMK — Arianna Method Kernel (prophecy, destiny, suffering, movement)
 static int g_amk_enabled = 0;
@@ -2521,109 +2515,6 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             continue;
         }
 
-        // /pandora <prompt> — GPT2-30M vocabulary extraction
-        if (strncmp(input, "/pandora ", 9) == 0) {
-            const char* prompt = input + 9;
-            if (strlen(prompt) > 0) {
-                g_pandora_enabled = 1;
-                pandora_set_active(&g_pandora, 1);
-                int n = pandora_steal_from_brain(&g_pandora, prompt);
-                if (n > 0) {
-                    printf("[pandora] Extracted %d n-grams from GPT2-30M\n", n);
-                    printf("[pandora] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
-                }
-            } else {
-                printf("Usage: /pandora <prompt>\n");
-                printf("Example: /pandora What is consciousness?\n");
-            }
-            continue;
-        }
-
-        // /pandora-gguf <prompt> — TinyLlama 1.1B GGUF (auto-downloads if needed)
-        if (strncmp(input, "/pandora-gguf ", 14) == 0) {
-            const char* prompt = input + 14;
-            if (strlen(prompt) > 0) {
-                g_pandora_enabled = 1;
-                pandora_set_active(&g_pandora, 1);
-                printf("[pandora-gguf] Using TinyLlama 1.1B (first run downloads ~700MB)...\n");
-                int n = pandora_steal_from(&g_pandora, BRAIN_TINYLLAMA, prompt);
-                if (n > 0) {
-                    printf("[pandora-gguf] Extracted %d n-grams from TinyLlama-1.1B\n", n);
-                    printf("[pandora-gguf] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
-                }
-            } else {
-                printf("Usage: /pandora-gguf <prompt>\n");
-                printf("Example: /pandora-gguf What is the meaning of life?\n");
-            }
-            continue;
-        }
-
-        // /pandora-torch <prompt> — GPT2-distill
-        if (strncmp(input, "/pandora-torch ", 15) == 0) {
-            const char* prompt = input + 15;
-            if (strlen(prompt) > 0) {
-                g_pandora_enabled = 1;
-                pandora_set_active(&g_pandora, 1);
-                printf("[pandora-torch] Using GPT2-distill...\n");
-                int n = pandora_steal_from(&g_pandora, BRAIN_GPT2_DISTILL, prompt);
-                if (n > 0) {
-                    printf("[pandora-torch] Extracted %d n-grams from GPT2-distill\n", n);
-                    printf("[pandora-torch] Total vocabulary: %d n-grams\n", g_pandora.n_ngrams);
-                }
-            } else {
-                printf("Usage: /pandora-torch <prompt>\n");
-                printf("Example: /pandora-torch What is the meaning of life?\n");
-            }
-            continue;
-        }
-
-        // HyperPandora commands
-        if (strcmp(input, "/hyper") == 0) {
-            printf("[HyperPandora] Auto-selection enabled\n");
-            printf("Will choose best available brain based on SARTRE state.\n");
-            g_pandora_enabled = 1;
-            pandora_set_active(&g_pandora, 1);
-            continue;
-        }
-
-        if (strcmp(input, "/hyper-off") == 0) {
-            printf("[HyperPandora] All external brains disabled\n");
-            g_pandora_enabled = 0;
-            pandora_set_active(&g_pandora, 0);
-            continue;
-        }
-
-        if (strcmp(input, "pandora") == 0 || strcmp(input, "/pandora") == 0) {
-            printf("Pandora status: %s\n", g_pandora_enabled ? "ACTIVE" : "READY");
-            printf("  N-grams: %d / %d\n", g_pandora.n_ngrams, PANDORA_MAX_NGRAMS);
-            printf("  Injection strength: %.2f\n", g_pandora.injection_strength);
-            printf("\nPackages:\n");
-            printf("  /pandora <prompt>       — GPT2-30M (fast, ~100MB)\n");
-            printf("  /pandora-torch <prompt> — GPT2-distill (PyTorch)\n");
-            printf("  /pandora-gguf <prompt>  — TinyLlama 1.1B (~700MB)\n");
-            printf("\nHyperPandora:\n");
-            printf("  /hyper     — enable auto-selection\n");
-            printf("  /hyper-off — disable all external brains\n");
-            printf("\nControl:\n");
-            printf("  pandoraon  — enable injection into generation\n");
-            printf("  pandoraoff — disable (pure Arianna voice)\n");
-            continue;
-        }
-
-        if (strcmp(input, "pandoraon") == 0) {
-            g_pandora_enabled = 1;
-            pandora_set_active(&g_pandora, 1);
-            printf("[Pandora ENABLED]\n");
-            continue;
-        }
-
-        if (strcmp(input, "pandoraoff") == 0) {
-            g_pandora_enabled = 0;
-            pandora_set_active(&g_pandora, 0);
-            printf("[Pandora DISABLED - pure voice]\n");
-            continue;
-        }
-
         if (strcmp(input, "help") == 0) {
             printf("Commands:\n");
             printf("  signals  - show signal values\n");
@@ -2633,11 +2524,6 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("  cooccur  - show co-occurrence stats\n");
             printf("  math     - show MathBrain stats\n");
             printf("  mathsave - save MathBrain state now\n");
-            printf("  pandora  - show Pandora packages status\n");
-            printf("  /pandora <text>       - GPT2-30M vocabulary\n");
-            printf("  /pandora-torch <text> - GPT2-distill vocabulary\n");
-            printf("  /pandora-gguf <text>  - TinyLlama 1.1B vocabulary\n");
-            printf("  /hyper                - HyperPandora auto-select\n");
             printf("\nDialogue (Arianna ↔ SARTRE):\n");
             printf("  /dialogue <seed>      - Start dialogue (lazy-loads SARTRE)\n");
             printf("  /talk <seed>          - Alias for /dialogue\n");
@@ -3056,11 +2942,7 @@ int main(int argc, char** argv) {
            amk->velocity_mode == AM_VEL_NOMOVE ? "nomove" : "backward",
            amk->effective_temp);
 
-    // Initialize Pandora (vocabulary release from External Brain)
-    pandora_init(&g_pandora);
-    g_pandora_enabled = 0;  // OFF by default - activate with steal/stealtiny
-    printf("Pandora (vocabulary): ready (use 'steal' or 'stealtiny' to activate)\n");
-    printf("  \"Take the words, leave the voice\"\n");
+
 
     // Enable Inner Arianna (MetaVoice: борьба)
     // Inner voice breaks through based on emotional state (Cloud, Mood, Body, Trauma)

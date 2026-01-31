@@ -216,6 +216,6 @@ const char* d12_ensure_weights(const char* cache_dir);
 
 #define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-4/arianna_1b_step3000_q4_0.gguf"
 #define D12_WEIGHTS_FILE "arianna_1b_step3000_q4_0.gguf"
-#define D12_TONGUE_LIB "tongue/libtongue"  /* .so on Linux, .dylib on macOS */
+#define D12_TONGUE_LIB "lib/libarianna"  /* .so on Linux, .dylib on macOS — unified Go lib */
 
 #endif /* D12_BRIDGE_H */
