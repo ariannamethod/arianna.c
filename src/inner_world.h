@@ -266,7 +266,7 @@ extern float high_analyze_valence(const char* text);
 extern float high_analyze_arousal(const char* text);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// META ROUTER (MetaArianna FluidTransformer selector)
+// META ROUTER (MetaArianna template selector)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Initialize the meta router

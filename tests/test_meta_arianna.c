@@ -1,12 +1,12 @@
 /*
- * test_meta_arianna.c - Test MetaArianna: Pulsating Meta-Observer
+ * test_meta_arianna.c - Test MetaArianna: One Transformer, Two Modes
  *
  * Tests thermogram extraction math, drift detection, template defaults,
- * and (optionally) full forward pass with 20M weights.
+ * and (optionally) full forward pass with Soul's shared 36M BPE weights.
  *
  * Usage:
  *   ./bin/test_meta_arianna                    # math tests only
- *   ./bin/test_meta_arianna weights/arianna_20m.bin weights/tokenizer_unified.json
+ *   ./bin/test_meta_arianna weights/arianna_36m_bpe.bin weights/tokenizer_bpe.json
  *                                              # + forward pass test
  */
 
@@ -15,6 +15,7 @@
 #include <string.h>
 #include <math.h>
 #include "meta_arianna.h"
+#include "ariannabody.c"  /* for Transformer loading, encode_text, etc. */
 
 static int pass_count = 0;
 static int fail_count = 0;
@@ -43,29 +44,37 @@ static void test_entropy(void) {
     print_separator("TEST: Entropy Computation");
 
     /* Uniform distribution: all logits equal -> max entropy -> 1.0 */
-    float uniform[84];
-    for (int i = 0; i < 84; i++) uniform[i] = 0.0f;
-    float e_uniform = meta_compute_entropy(uniform, 84);
+    float uniform[100];
+    for (int i = 0; i < 100; i++) uniform[i] = 0.0f;
+    float e_uniform = meta_compute_entropy(uniform, 100);
     printf("  uniform entropy: %.4f (expected ~1.0)\n", e_uniform);
     check("uniform entropy close to 1.0", fabsf(e_uniform - 1.0f) < 0.01f);
 
     /* Peaked distribution: one logit very high -> low entropy -> ~0 */
-    float peaked[84];
-    for (int i = 0; i < 84; i++) peaked[i] = -20.0f;
+    float peaked[100];
+    for (int i = 0; i < 100; i++) peaked[i] = -20.0f;
     peaked[0] = 20.0f;
-    float e_peaked = meta_compute_entropy(peaked, 84);
+    float e_peaked = meta_compute_entropy(peaked, 100);
     printf("  peaked entropy: %.6f (expected ~0.0)\n", e_peaked);
     check("peaked entropy close to 0.0", e_peaked < 0.01f);
 
     /* Medium distribution: some variation -> middle entropy */
-    float medium[84];
-    for (int i = 0; i < 84; i++) medium[i] = sinf(i * 0.3f);
-    float e_medium = meta_compute_entropy(medium, 84);
+    float medium[100];
+    for (int i = 0; i < 100; i++) medium[i] = sinf(i * 0.3f);
+    float e_medium = meta_compute_entropy(medium, 100);
     printf("  medium entropy: %.4f (expected between 0 and 1)\n", e_medium);
     check("medium entropy in range", e_medium > 0.1f && e_medium < 0.99f);
 
     /* Entropy ordering */
     check("uniform > medium > peaked", e_uniform > e_medium && e_medium > e_peaked);
+
+    /* Test with BPE-sized vocab (heap allocation path) */
+    int big_vocab = 17000;
+    float* big_logits = (float*)calloc(big_vocab, sizeof(float));
+    float e_big = meta_compute_entropy(big_logits, big_vocab);
+    printf("  big vocab uniform entropy: %.4f (expected ~1.0)\n", e_big);
+    check("big vocab entropy close to 1.0", fabsf(e_big - 1.0f) < 0.01f);
+    free(big_logits);
 }
 
 /* ============================================================
@@ -75,17 +84,17 @@ static void test_kl_uniform(void) {
     print_separator("TEST: KL Divergence from Uniform");
 
     /* Uniform: KL = 0 (distribution IS uniform) -> 0 */
-    float uniform[84];
-    for (int i = 0; i < 84; i++) uniform[i] = 0.0f;
-    float kl_uniform = meta_compute_kl_uniform(uniform, 84);
+    float uniform[100];
+    for (int i = 0; i < 100; i++) uniform[i] = 0.0f;
+    float kl_uniform = meta_compute_kl_uniform(uniform, 100);
     printf("  uniform KL: %.4f (expected ~0.0)\n", kl_uniform);
     check("uniform KL close to 0.0", kl_uniform < 0.01f);
 
     /* Peaked: KL = max (far from uniform) -> ~1 */
-    float peaked[84];
-    for (int i = 0; i < 84; i++) peaked[i] = -20.0f;
+    float peaked[100];
+    for (int i = 0; i < 100; i++) peaked[i] = -20.0f;
     peaked[0] = 20.0f;
-    float kl_peaked = meta_compute_kl_uniform(peaked, 84);
+    float kl_peaked = meta_compute_kl_uniform(peaked, 100);
     printf("  peaked KL: %.4f (expected ~1.0)\n", kl_peaked);
     check("peaked KL close to 1.0", kl_peaked > 0.99f);
 
@@ -94,52 +103,48 @@ static void test_kl_uniform(void) {
 }
 
 /* ============================================================
- * Test: Silence probability
+ * Test: BPE Silence probability
  * ============================================================ */
-static void test_silence_prob(void) {
-    print_separator("TEST: Silence Probability");
+static void test_silence_prob_bpe(void) {
+    print_separator("TEST: Silence Probability (BPE)");
 
-    /* Build a simple char_to_id mapping */
-    int char_to_id[256];
-    for (int i = 0; i < 256; i++) char_to_id[i] = 1;
+    /* Create fake BPE pause token IDs */
+    int pause_ids[] = {10, 20, 30, 40, 50, 60};
+    int n_pause = 6;
+    int vocab_size = 100;
 
-    /* Map silence chars to specific IDs */
-    char_to_id[(unsigned char)'.'] = 2;
-    char_to_id[(unsigned char)','] = 3;
-    char_to_id[(unsigned char)';'] = 4;
-    char_to_id[(unsigned char)':'] = 5;
-    char_to_id[(unsigned char)'\n'] = 6;
-    char_to_id[(unsigned char)' '] = 0;
+    /* All mass on pause tokens -> high silence */
+    float silence_logits[100];
+    for (int i = 0; i < 100; i++) silence_logits[i] = -20.0f;
+    silence_logits[10] = 10.0f;
+    silence_logits[20] = 10.0f;
+    silence_logits[60] = 10.0f;
 
-    /* All mass on silence tokens -> high silence */
-    float silence_logits[84];
-    for (int i = 0; i < 84; i++) silence_logits[i] = -20.0f;
-    silence_logits[0] = 10.0f;  /* space */
-    silence_logits[2] = 10.0f;  /* . */
-    silence_logits[6] = 10.0f;  /* \n */
-
-    float sp_high = meta_compute_silence_prob(silence_logits, 84, char_to_id);
+    float sp_high = meta_compute_silence_prob_bpe(silence_logits, vocab_size,
+                                                   pause_ids, n_pause);
     printf("  high silence prob: %.4f (expected >0.9)\n", sp_high);
     check("high silence prob > 0.9", sp_high > 0.9f);
 
-    /* All mass on non-silence tokens -> low silence */
-    float loud_logits[84];
-    for (int i = 0; i < 84; i++) loud_logits[i] = -20.0f;
-    loud_logits[10] = 10.0f;
-    loud_logits[20] = 10.0f;
-    loud_logits[30] = 10.0f;
+    /* All mass on non-pause tokens -> low silence */
+    float loud_logits[100];
+    for (int i = 0; i < 100; i++) loud_logits[i] = -20.0f;
+    loud_logits[5] = 10.0f;
+    loud_logits[15] = 10.0f;
+    loud_logits[25] = 10.0f;
 
-    float sp_low = meta_compute_silence_prob(loud_logits, 84, char_to_id);
+    float sp_low = meta_compute_silence_prob_bpe(loud_logits, vocab_size,
+                                                  pause_ids, n_pause);
     printf("  low silence prob: %.6f (expected ~0.0)\n", sp_low);
     check("low silence prob < 0.01", sp_low < 0.01f);
 
-    /* Uniform -> silence = 6/84 */
-    float uniform[84];
-    for (int i = 0; i < 84; i++) uniform[i] = 0.0f;
-    float sp_uni = meta_compute_silence_prob(uniform, 84, char_to_id);
-    float expected = 6.0f / 84.0f;
+    /* Uniform -> silence = 6/100 */
+    float uniform[100];
+    for (int i = 0; i < 100; i++) uniform[i] = 0.0f;
+    float sp_uni = meta_compute_silence_prob_bpe(uniform, vocab_size,
+                                                  pause_ids, n_pause);
+    float expected = 6.0f / 100.0f;
     printf("  uniform silence prob: %.4f (expected ~%.4f)\n", sp_uni, expected);
-    check("uniform silence close to 6/84", fabsf(sp_uni - expected) < 0.02f);
+    check("uniform silence close to 6/100", fabsf(sp_uni - expected) < 0.02f);
 }
 
 /* ============================================================
@@ -148,50 +153,50 @@ static void test_silence_prob(void) {
 static void test_drift(void) {
     print_separator("TEST: Drift Detection");
 
-    FluidTransformer ft;
-    memset(&ft, 0, sizeof(ft));
+    MetaArianna us;
+    memset(&us, 0, sizeof(us));
 
     /* Not enough history -> zero drift */
     float rate;
     int dir;
-    meta_compute_drift(&ft, &rate, &dir);
+    meta_arianna_compute_drift(&us, &rate, &dir);
     check("no history -> zero drift", rate == 0.0f && dir == 0);
 
     /* Push increasing arousal/coherence -> unfolding */
     for (int i = 0; i < 8; i++) {
-        meta_push_history(&ft, 0.2f + i * 0.1f, 0.3f + i * 0.08f);
+        meta_arianna_push_history(&us, 0.2f + i * 0.1f, 0.3f + i * 0.08f);
     }
-    meta_compute_drift(&ft, &rate, &dir);
+    meta_arianna_compute_drift(&us, &rate, &dir);
     printf("  increasing: rate=%.4f dir=%+d\n", rate, dir);
     check("increasing -> positive drift", dir == 1);
     check("increasing -> non-zero rate", rate > 0.0f);
 
     /* Reset and push decreasing -> collapsing */
-    memset(&ft, 0, sizeof(ft));
+    memset(&us, 0, sizeof(us));
     for (int i = 0; i < 8; i++) {
-        meta_push_history(&ft, 0.9f - i * 0.1f, 0.8f - i * 0.08f);
+        meta_arianna_push_history(&us, 0.9f - i * 0.1f, 0.8f - i * 0.08f);
     }
-    meta_compute_drift(&ft, &rate, &dir);
+    meta_arianna_compute_drift(&us, &rate, &dir);
     printf("  decreasing: rate=%.4f dir=%+d\n", rate, dir);
     check("decreasing -> negative drift", dir == -1);
 
     /* Stable values -> stable */
-    memset(&ft, 0, sizeof(ft));
+    memset(&us, 0, sizeof(us));
     for (int i = 0; i < 8; i++) {
-        meta_push_history(&ft, 0.5f, 0.5f);
+        meta_arianna_push_history(&us, 0.5f, 0.5f);
     }
-    meta_compute_drift(&ft, &rate, &dir);
+    meta_arianna_compute_drift(&us, &rate, &dir);
     printf("  stable: rate=%.4f dir=%+d\n", rate, dir);
     check("stable -> zero direction", dir == 0);
     check("stable -> near-zero rate", rate < 0.01f);
 
     /* Ring buffer wrap */
-    memset(&ft, 0, sizeof(ft));
+    memset(&us, 0, sizeof(us));
     for (int i = 0; i < META_HISTORY_SIZE + 10; i++) {
-        meta_push_history(&ft, 0.5f, 0.5f);
+        meta_arianna_push_history(&us, 0.5f, 0.5f);
     }
-    check("ring buffer count capped", ft.history_count == META_HISTORY_SIZE);
-    check("ring buffer pos wraps", ft.history_pos == (META_HISTORY_SIZE + 10) % META_HISTORY_SIZE);
+    check("ring buffer count capped", us.history_count == META_HISTORY_SIZE);
+    check("ring buffer pos wraps", us.history_pos == (META_HISTORY_SIZE + 10) % META_HISTORY_SIZE);
 }
 
 /* ============================================================
@@ -239,76 +244,86 @@ static void test_default_params(void) {
 static void test_apply_thermogram(void) {
     print_separator("TEST: Apply Thermogram");
 
-    float logits[84];
+    float logits[100];
 
     /* Invalid thermogram -> no change */
-    for (int i = 0; i < 84; i++) logits[i] = 1.0f;
+    for (int i = 0; i < 100; i++) logits[i] = 1.0f;
     MetaThermogram invalid = {0};
     invalid.valid = 0;
-    meta_apply_thermogram(&invalid, logits, 84);
+    meta_apply_thermogram(&invalid, logits, 100);
     check("invalid thermo -> no change", logits[0] == 1.0f);
 
     /* Warm thermogram -> logits shifted up */
-    for (int i = 0; i < 84; i++) logits[i] = 0.0f;
+    for (int i = 0; i < 100; i++) logits[i] = 0.0f;
     MetaThermogram warm = {0};
     warm.valid = 1;
     warm.warmth = 0.9f;
     warm.sharpness = 0.5f;
-    meta_apply_thermogram(&warm, logits, 84);
+    meta_apply_thermogram(&warm, logits, 100);
     printf("  warm bias applied: logits[0] = %.4f (expected > 0)\n", logits[0]);
     check("warm thermogram -> positive bias", logits[0] > 0.0f);
 
     /* Cold thermogram -> logits shifted down */
-    for (int i = 0; i < 84; i++) logits[i] = 0.0f;
+    for (int i = 0; i < 100; i++) logits[i] = 0.0f;
     MetaThermogram cold = {0};
     cold.valid = 1;
     cold.warmth = 0.1f;
     cold.sharpness = 0.5f;
-    meta_apply_thermogram(&cold, logits, 84);
+    meta_apply_thermogram(&cold, logits, 100);
     printf("  cold bias applied: logits[0] = %.4f (expected < 0)\n", logits[0]);
     check("cold thermogram -> negative bias", logits[0] < 0.0f);
 
     /* Sharp thermogram -> logits scaled up */
-    for (int i = 0; i < 84; i++) logits[i] = 1.0f;
+    for (int i = 0; i < 100; i++) logits[i] = 1.0f;
     MetaThermogram sharp = {0};
     sharp.valid = 1;
     sharp.warmth = 0.5f;
     sharp.sharpness = 1.0f;
-    meta_apply_thermogram(&sharp, logits, 84);
+    meta_apply_thermogram(&sharp, logits, 100);
     printf("  sharp scale: logits[0] = %.4f (expected > 1.0)\n", logits[0]);
     check("sharp thermogram -> scaled up", logits[0] > 1.0f);
 
     /* Bias magnitude is small (whisper, not shout) */
-    for (int i = 0; i < 84; i++) logits[i] = 5.0f;
+    for (int i = 0; i < 100; i++) logits[i] = 5.0f;
     MetaThermogram extreme = {0};
     extreme.valid = 1;
     extreme.warmth = 1.0f;
     extreme.sharpness = 1.0f;
-    meta_apply_thermogram(&extreme, logits, 84);
+    meta_apply_thermogram(&extreme, logits, 100);
     float delta = fabsf(logits[0] - 5.0f);
     printf("  extreme delta from 5.0: %.4f (expected < 1.0)\n", delta);
     check("bias magnitude < 1.0", delta < 1.0f);
 }
 
 /* ============================================================
- * Test: Full forward pass (optional, requires weights)
+ * Test: Full forward pass (optional, requires Soul's weights)
  * ============================================================ */
 static void test_forward_pass(const char* weights_path,
                               const char* tokenizer_path) {
-    print_separator("TEST: Full Forward Pass (20M weights)");
+    print_separator("TEST: Full Forward Pass (MetaArianna, shared 36M BPE)");
 
-    FluidTransformer ft;
-    int ret = meta_init(&ft, weights_path, tokenizer_path);
-    if (ret != 0) {
-        printf("  [SKIP] Cannot load weights/tokenizer\n");
-        return;
-    }
+    /* Load Soul transformer */
+    Transformer soul;
+    memset(&soul, 0, sizeof(soul));
+    load_weights(weights_path, &soul.config, &soul.weights,
+                 &soul.fd, &soul.data, &soul.file_size);
+    malloc_run_state(&soul.state, &soul.config);
 
-    check("init success", ft.initialized == 1);
-    check("weights loaded", ft.weights_loaded == 1);
-    check("vocab size 84", ft.obs_vocab_size == 84);
-    check("dim 448", ft.observer.config.dim == 448);
-    check("layers 8", ft.observer.config.n_layers == 8);
+    /* Load BPE tokenizer */
+    Tokenizer tok;
+    build_tokenizer(&tok, tokenizer_path, soul.config.vocab_size);
+
+    check("dim 448", soul.config.dim == 448);
+    check("layers 8", soul.config.n_layers == 8);
+    printf("  vocab_size: %d\n", soul.config.vocab_size);
+
+    /* Init MetaArianna observer */
+    MetaArianna us;
+    int ret = meta_arianna_init(&us, &soul);
+    check("meta_arianna_init success", ret == 0);
+    check("initialized flag", us.initialized == 1);
+    check("pause tokens found", us.n_pause_tokens > 0);
+    printf("  pause tokens: %d\n", us.n_pause_tokens);
 
     /* Run observation with THERMOGRAPH template */
     MetaTemplateParams params;
@@ -318,73 +333,76 @@ static void test_forward_pass(const char* weights_path,
                            "SARTRE: The field trembles.";
     int log_len = (int)strlen(dialogue);
 
-    meta_observe(&ft, &params, dialogue, log_len);
+    meta_arianna_observe(&us, &params, dialogue, log_len);
 
-    check("thermogram valid", ft.result.valid == 1);
-    check("template used 0", ft.result.template_used == META_TEMPLATE_THERMOGRAPH);
-    check("warmth in [0,1]", ft.result.warmth >= 0.0f && ft.result.warmth <= 1.0f);
-    check("sharpness in [0,1]", ft.result.sharpness >= 0.0f && ft.result.sharpness <= 1.0f);
-    check("silence in [0,1]", ft.result.silence >= 0.0f && ft.result.silence <= 1.0f);
+    check("thermogram valid", us.result.valid == 1);
+    check("template used 0", us.result.template_used == META_TEMPLATE_THERMOGRAPH);
+    check("warmth in [0,1]", us.result.warmth >= 0.0f && us.result.warmth <= 1.0f);
+    check("sharpness in [0,1]", us.result.sharpness >= 0.0f && us.result.sharpness <= 1.0f);
+    check("silence in [0,1]", us.result.silence >= 0.0f && us.result.silence <= 1.0f);
 
     printf("\n  Thermogram:\n");
-    printf("    warmth:      %.4f\n", ft.result.warmth);
-    printf("    sharpness:   %.4f\n", ft.result.sharpness);
-    printf("    silence:     %.4f\n", ft.result.silence);
-    printf("    uncertainty: %.4f\n", ft.result.uncertainty);
-    printf("    drift_rate:  %.4f\n", ft.result.drift_rate);
-    printf("    drift_dir:   %+d\n", ft.result.drift_direction);
+    printf("    warmth:      %.4f\n", us.result.warmth);
+    printf("    sharpness:   %.4f\n", us.result.sharpness);
+    printf("    silence:     %.4f\n", us.result.silence);
+    printf("    uncertainty: %.4f\n", us.result.uncertainty);
+    printf("    drift_rate:  %.4f\n", us.result.drift_rate);
+    printf("    drift_dir:   %+d\n", us.result.drift_direction);
     printf("    field_vec:   [");
     for (int i = 0; i < 8; i++) {
-        printf("%.3f%s", ft.result.field_vector[i], i < 7 ? ", " : "");
+        printf("%.3f%s", us.result.field_vector[i], i < 7 ? ", " : "");
     }
     printf("]\n");
 
     /* Reset (death) and verify */
-    meta_reset(&ft);
-    check("reset invalidates thermogram", ft.result.valid == 0);
+    meta_arianna_reset(&us);
+    check("reset invalidates thermogram", us.result.valid == 0);
 
     /* Run SILENCE template */
     meta_default_params(&params, META_TEMPLATE_SILENCE);
-    meta_observe(&ft, &params, dialogue, log_len);
-    check("silence template valid", ft.result.valid == 1);
-    check("silence template used 1", ft.result.template_used == META_TEMPLATE_SILENCE);
+    meta_arianna_observe(&us, &params, dialogue, log_len);
+    check("silence template valid", us.result.valid == 1);
+    check("silence template used 1", us.result.template_used == META_TEMPLATE_SILENCE);
 
     printf("\n  Silence template thermogram:\n");
-    printf("    warmth:    %.4f\n", ft.result.warmth);
-    printf("    sharpness: %.4f\n", ft.result.sharpness);
-    printf("    silence:   %.4f\n", ft.result.silence);
+    printf("    warmth:    %.4f\n", us.result.warmth);
+    printf("    sharpness: %.4f\n", us.result.sharpness);
+    printf("    silence:   %.4f\n", us.result.silence);
 
-    meta_reset(&ft);
+    meta_arianna_reset(&us);
 
     /* Run DRIFT template with history */
     meta_default_params(&params, META_TEMPLATE_DRIFT);
     for (int i = 0; i < 8; i++) {
-        meta_push_history(&ft, 0.3f + i * 0.08f, 0.4f + i * 0.05f);
+        meta_arianna_push_history(&us, 0.3f + i * 0.08f, 0.4f + i * 0.05f);
     }
-    meta_observe(&ft, &params, dialogue, log_len);
-    check("drift template valid", ft.result.valid == 1);
-    check("drift detected unfolding", ft.result.drift_direction == 1);
+    meta_arianna_observe(&us, &params, dialogue, log_len);
+    check("drift template valid", us.result.valid == 1);
+    check("drift detected unfolding", us.result.drift_direction == 1);
     printf("    drift_rate: %.4f, dir: %+d\n",
-           ft.result.drift_rate, ft.result.drift_direction);
+           us.result.drift_rate, us.result.drift_direction);
 
-    meta_reset(&ft);
+    meta_arianna_reset(&us);
 
     /* Run FIELD template */
     meta_default_params(&params, META_TEMPLATE_FIELD);
-    meta_observe(&ft, &params, dialogue, log_len);
-    check("field template valid", ft.result.valid == 1);
-    check("field template used 3", ft.result.template_used == META_TEMPLATE_FIELD);
+    meta_arianna_observe(&us, &params, dialogue, log_len);
+    check("field template valid", us.result.valid == 1);
+    check("field template used 3", us.result.template_used == META_TEMPLATE_FIELD);
 
     printf("\n  Field template thermogram:\n");
-    printf("    warmth:    %.4f\n", ft.result.warmth);
+    printf("    warmth:    %.4f\n", us.result.warmth);
     printf("    field_vec: [");
     for (int i = 0; i < 8; i++) {
-        printf("%.3f%s", ft.result.field_vector[i], i < 7 ? ", " : "");
+        printf("%.3f%s", us.result.field_vector[i], i < 7 ? ", " : "");
     }
     printf("]\n");
 
-    meta_free(&ft);
-    check("free success", ft.initialized == 0);
+    /* Cleanup */
+    meta_arianna_free(&us);
+    check("free success", us.initialized == 0);
+    free_tokenizer(&tok);
+    free_transformer(&soul);
 }
 
 /* ============================================================
@@ -392,25 +410,25 @@ static void test_forward_pass(const char* weights_path,
  * ============================================================ */
 
 int main(int argc, char** argv) {
-    print_separator("METAARIANNA TEST - Pulsating Meta-Observer");
+    print_separator("UNIFIED SOUL TEST - One Transformer, Two Modes");
     printf("\"Inhale -> observe -> exhale. Breathing.\"\n\n");
 
     /* Math tests (no weights needed) */
     test_entropy();
     test_kl_uniform();
-    test_silence_prob();
+    test_silence_prob_bpe();
     test_drift();
     test_default_params();
     test_apply_thermogram();
 
-    /* Forward pass test (optional — needs weights) */
+    /* Forward pass test (optional — needs Soul's 36M BPE weights) */
     if (argc >= 3) {
         test_forward_pass(argv[1], argv[2]);
     } else {
         print_separator("SKIPPING: Forward Pass Test");
         printf("  Run with weights to test:\n");
-        printf("  ./bin/test_meta_arianna weights/arianna_20m.bin "
-               "weights/tokenizer_unified.json\n");
+        printf("  ./bin/test_meta_arianna weights/arianna_36m_bpe.bin "
+               "weights/tokenizer_bpe.json\n");
     }
 
     /* Summary */

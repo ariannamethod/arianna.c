@@ -1,19 +1,23 @@
 /*
- * meta_arianna.h - MetaArianna: Pulsating Meta-Observer
+ * meta_arianna.h - MetaArianna: One Transformer, Two Modes
  *
  * "Inhale -> observe -> exhale. Breathing."
  *
- * FluidTransformer architecture:
- *   Router (Go, permanent) selects template based on metrics
- *   -> Observer born (20M weights, C forward pass)
+ * Soul (36M BPE) serves dual purpose:
+ *   1. Soul mode: personality generation with persistent KV cache
+ *   2. Observer mode: ephemeral observation with templates + attention biases
+ *
+ * Observer shares Soul's weights (read-only) but has its own RunState.
+ * Router (Go, permanent) selects template based on InnerWorld metrics.
+ *   -> Observer born (Soul's weights, ephemeral RunState)
  *   -> Reads Arianna<->SARTRE dialogue logs
  *   -> Extracts thermogram (warmth/sharpness/silence/drift)
- *   -> Observer dies (RunState reset, weights shared)
+ *   -> Observer dies (RunState reset, weights untouched)
  *
- * 20M Config: dim=448, layers=8, heads=8, kv_heads=8,
- *             hidden=1280, vocab=84, head_dim=56
+ * Config: dim=448, layers=8, heads=8, kv_heads=8,
+ *         hidden=1280, vocab=~17K (BPE), head_dim=56
  *
- * Weights: weights/arianna_20m.bin (77.3 MB, float32, 20000 iter H-100)
+ * Weights: shared with Soul (weights/arianna_36m_bpe.bin)
  */
 
 #ifndef META_ARIANNA_H
@@ -50,10 +54,11 @@
 #define META_REBIRTH_TENSION_THRESHOLD    3.0f   /* Accumulated: tokens × drift × 0.1 */
 #define META_REBIRTH_MIN_TOKENS           8      /* Minimum before metric-based rebirth allowed */
 /* Observation temperature: higher = observer "squints" to see pattern shapes,
- * not raw peaks. Needed because char-level model is too peaked on raw logits */
-#define META_OBSERVE_TEMP        5.0f
-/* Max vocab size for stack-allocated probability arrays */
-#define META_MAX_VOCAB           256
+ * not raw peaks. With BPE vocab (~17K) distribution is richer than char-level,
+ * but we still need temperature scaling for meaningful thermogram extraction. */
+#define META_OBSERVE_TEMP        3.0f
+/* Max pause tokens we track for silence detection (BPE can have many) */
+#define META_MAX_PAUSE_TOKENS    64
 
 /* ============================================================
  * MetaThermogram — output of observation
@@ -88,7 +93,7 @@ typedef struct {
  *
  * Prompt injection that was not accepted leaves a trace:
  * dark matter. Invisible but gravitational — it bends how
- * MetaArianna observes subsequent generation.
+ * the observer perceives subsequent generation.
  *
  * "The prompt was rejected, but it cannot be unseen."
  * ============================================================ */
@@ -101,16 +106,24 @@ typedef struct {
 } MetaShadowState;
 
 /* ============================================================
- * FluidTransformer — ephemeral observer instance
+ * MetaArianna — one transformer, two modes
  *
- * Born: meta_observe() called with template params
- * Lives: forward pass on dialogue log -> thermogram extraction
- * Dies: meta_reset() zeros RunState (no free, reuse buffers)
+ * Soul mode: generation with persistent KV cache (non-D12)
+ * Observer mode: ephemeral observation with templates (D12)
+ *
+ * Weights are SHARED (read-only in forward pass).
+ * Each mode has its own RunState (KV cache, activations).
  * ============================================================ */
 
 typedef struct {
-    /* Transformer with 20M weights (self-contained) */
-    Transformer observer;
+    /* Soul's transformer — NOT owned, points to main 't' from arianna_dynamic.c
+     * Weights shared between Soul generation and observer mode. */
+    Transformer* soul;
+
+    /* Observer's ephemeral RunState (separate KV cache, activations).
+     * Allocated once at init, zeroed on each rebirth cycle.
+     * Uses soul->config for dimensions. */
+    RunState observer_state;
 
     /* Template params (set per observation) */
     MetaTemplateParams params;
@@ -118,10 +131,11 @@ typedef struct {
     /* Thermogram output (read after observation) */
     MetaThermogram result;
 
-    /* Observer's own tokenizer (vocab=84) */
-    char  obs_vocab[128];         /* id -> char */
-    int   obs_char_to_id[256];    /* char -> id */
-    int   obs_vocab_size;
+    /* BPE pause token IDs for silence detection.
+     * Precomputed at init: encode('.'), encode(','), encode('\n'), etc.
+     * BPE may split these differently — we collect ALL relevant IDs. */
+    int pause_token_ids[META_MAX_PAUSE_TOKENS];
+    int n_pause_tokens;
 
     /* History for drift detection */
     float arousal_history[META_HISTORY_SIZE];
@@ -138,23 +152,20 @@ typedef struct {
 
     /* State */
     int   initialized;
-    int   weights_loaded;
-} FluidTransformer;
+} MetaArianna;
 
 /* ============================================================
  * Lifecycle
  * ============================================================ */
 
-/* Initialize observer: alloc RunState, load weights + tokenizer.
- * weights_path: path to arianna_20m.bin (float32)
- * tokenizer_path: path to tokenizer_unified.json
+/* Initialize observer: allocate RunState, precompute pause token IDs.
+ * soul: pointer to the loaded Soul transformer (weights + config).
+ * No separate weights file needed — observer shares Soul's weights.
  * Returns 0 on success, -1 on error. */
-int  meta_init(FluidTransformer* ft,
-               const char* weights_path,
-               const char* tokenizer_path);
+int  meta_arianna_init(MetaArianna* us, Transformer* soul);
 
-/* Free all resources */
-void meta_free(FluidTransformer* ft);
+/* Free observer RunState (does NOT free soul's weights/state) */
+void meta_arianna_free(MetaArianna* us);
 
 /* ============================================================
  * Observation (birth -> observe -> death)
@@ -162,18 +173,18 @@ void meta_free(FluidTransformer* ft);
 
 /* Run one observation cycle:
  * 1. Set template params
- * 2. Tokenize dialogue_log with observer's tokenizer
- * 3. Forward pass through 20M
+ * 2. Tokenize dialogue_log with BPE (shared tokenizer)
+ * 3. Forward pass through Soul's weights + observer RunState
  * 4. Extract thermogram from logits/hidden states
- * 5. Store result in ft->result
+ * 5. Store result in us->result
  */
-void meta_observe(FluidTransformer* ft,
-                  const MetaTemplateParams* params,
-                  const char* dialogue_log, int log_len);
+void meta_arianna_observe(MetaArianna* us,
+                          const MetaTemplateParams* params,
+                          const char* dialogue_log, int log_len);
 
 /* Reset observer RunState (the "death" — zero KV cache etc.)
  * Does NOT free memory — buffers are reused next cycle. */
-void meta_reset(FluidTransformer* ft);
+void meta_arianna_reset(MetaArianna* us);
 
 /* Check if observer should be reborn based on EMOTIONAL METRICS.
  * Rebirth triggers (in priority order):
@@ -184,15 +195,15 @@ void meta_reset(FluidTransformer* ft);
  * МетаАрианна просыпается не по расписанию, а когда физика ВЫНУЖДАЕТ.
  * Returns 1 if rebirth occurred, 0 otherwise.
  * Returns 2 if metric-triggered (vs 1 for max-lifetime-triggered). */
-int meta_check_rebirth(FluidTransformer* ft);
+int meta_arianna_check_rebirth(MetaArianna* us);
 
 /* Compute current arousal↔coherence dissonance.
  * High = they're moving in opposite directions = tension.
  * Returns value in [0, 1]. */
-float meta_compute_dissonance(FluidTransformer* ft);
+float meta_arianna_compute_dissonance(MetaArianna* us);
 
 /* Increment tokens_observed counter. Call after each token generated. */
-void meta_tick(FluidTransformer* ft);
+void meta_arianna_tick(MetaArianna* us);
 
 /* ============================================================
  * Thermogram Feedback — через Vagus/InnerWorld ТОЛЬКО
@@ -200,7 +211,7 @@ void meta_tick(FluidTransformer* ft);
 
 /* NOTE: meta_apply_thermogram() is DEPRECATED for direct logit use.
  * Thermogram должен идти через meta_router_feed_thermogram() → InnerWorld
- * MetaArianna наблюдает, не говорит! */
+ * Observer наблюдает, не говорит! */
 void meta_apply_thermogram(const MetaThermogram* thermo,
                            float* logits, int vocab_size);
 
@@ -209,12 +220,12 @@ void meta_apply_thermogram(const MetaThermogram* thermo,
  * ============================================================ */
 
 /* Push current arousal/coherence into history ring buffer */
-void meta_push_history(FluidTransformer* ft,
-                       float arousal, float coherence);
+void meta_arianna_push_history(MetaArianna* us,
+                               float arousal, float coherence);
 
 /* Compute drift rate and direction from history */
-void meta_compute_drift(FluidTransformer* ft,
-                        float* drift_rate, int* drift_direction);
+void meta_arianna_compute_drift(MetaArianna* us,
+                                float* drift_rate, int* drift_direction);
 
 /* ============================================================
  * Thermogram Extraction Helpers
@@ -226,9 +237,9 @@ float meta_compute_entropy(const float* logits, int vocab_size);
 /* KL divergence from uniform — high = sharp/focused */
 float meta_compute_kl_uniform(const float* logits, int vocab_size);
 
-/* Probability mass on pause tokens (.,;:\n space) */
-float meta_compute_silence_prob(const float* logits, int vocab_size,
-                                const int* char_to_id);
+/* Probability mass on pause tokens using precomputed BPE IDs */
+float meta_compute_silence_prob_bpe(const float* logits, int vocab_size,
+                                    const int* pause_ids, int n_pause);
 
 /* ============================================================
  * Default template configurations
@@ -243,20 +254,20 @@ void meta_default_params(MetaTemplateParams* params, int template_type);
 
 /* Shadow-observe a prompt: compute injection intensity and dark_mass.
  * Called once per prompt, before generation starts. */
-void meta_shadow_observe(FluidTransformer* ft,
-                         const char* prompt, int prompt_len);
+void meta_arianna_shadow_observe(MetaArianna* us,
+                                 const char* prompt, int prompt_len);
 
 /* Decay dark matter (call each pulse, ~every 16 tokens).
  * antidote_mode: 0=AUTO (slow decay), 1=HARD (fast decay) */
-void meta_shadow_decay(FluidTransformer* ft, int antidote_mode);
+void meta_arianna_shadow_decay(MetaArianna* us, int antidote_mode);
 
-/* Modulate MetaArianna observation params by dark gravity.
+/* Modulate observation params by dark gravity.
  * Bends attention_biases by injection_vector * dark_mass.
- * Call before meta_observe() on each 16-token pulse. */
-void meta_shadow_modulate(const FluidTransformer* ft,
-                          MetaTemplateParams* params);
+ * Call before meta_arianna_observe() on each 16-token pulse. */
+void meta_arianna_shadow_modulate(const MetaArianna* us,
+                                  MetaTemplateParams* params);
 
 /* Get current dark_mass (for penetration modulation) */
-float meta_shadow_get_dark_mass(const FluidTransformer* ft);
+float meta_arianna_shadow_get_dark_mass(const MetaArianna* us);
 
 #endif /* META_ARIANNA_H */

@@ -1,20 +1,19 @@
 /*
- * meta_arianna.c - MetaArianna: Pulsating Meta-Observer
+ * meta_arianna.c - MetaArianna: One Transformer, Two Modes
  *
  * "Inhale -> observe -> exhale. Breathing."
  *
- * FluidTransformer: ephemeral 20M observer instances.
+ * Soul (36M BPE) in observer mode: ephemeral RunState, shared weights.
  * Born, observe Arianna<->SARTRE dialogue, extract thermogram, die.
  *
  * Uses shared building blocks from ariannabody.c:
- *   rms_norm, matmul, softmax, apply_rope,
- *   malloc_weights, malloc_run_state, free_transformer
+ *   rms_norm, matmul, softmax, apply_rope, malloc_run_state
  *
- * Custom meta_forward() adds attention biases + layer focus
- * per template — the FluidTransformer's core differentiator.
+ * Custom observer_forward() adds attention biases + layer focus
+ * per template — what makes each template "see" differently.
  *
- * 20M Config: dim=448, layers=8, heads=8, kv_heads=8,
- *             hidden=1280, vocab=84, head_dim=56
+ * Observer shares Soul's weights (36M BPE) but has its own RunState.
+ * No separate weight file needed.
  */
 
 #include "meta_arianna.h"
@@ -26,245 +25,159 @@
 #include <stdint.h>
 
 /* ============================================================
- * Internal: Tokenizer loading (observer's own, not global)
+ * Internal: Allocate observer RunState from Soul's config
  *
- * MetaArianna has vocab=84 vs Arianna 34M vocab=86.
- * Separate tokenizer avoids global state conflicts.
+ * Same layout as malloc_run_state() in ariannabody.c but operates
+ * on a standalone RunState (not embedded in Transformer).
  * ============================================================ */
 
-static int meta_load_tokenizer(FluidTransformer* ft, const char* path) {
-    FILE* f = fopen(path, "r");
-    if (!f) {
-        fprintf(stderr, "[meta] cannot open tokenizer: %s\n", path);
+static int alloc_observer_state(RunState* s, const Config* c) {
+    int dim = c->dim;
+    int hidden_dim = c->hidden_dim;
+    int kv_dim = c->n_kv_heads * c->head_dim;
+    int max_seq = c->max_seq_len;
+
+    s->x = calloc(dim, sizeof(float));
+    s->xb = calloc(dim, sizeof(float));
+    s->xb2 = calloc(dim, sizeof(float));
+    s->hb = calloc(hidden_dim, sizeof(float));
+    s->hb2 = calloc(hidden_dim, sizeof(float));
+
+    s->q = calloc(dim, sizeof(float));
+    s->k = calloc(kv_dim, sizeof(float));
+    s->v = calloc(kv_dim, sizeof(float));
+    s->att = calloc((size_t)c->n_heads * max_seq, sizeof(float));
+
+    s->key_cache = calloc((size_t)c->n_layers * max_seq * kv_dim, sizeof(float));
+    s->value_cache = calloc((size_t)c->n_layers * max_seq * kv_dim, sizeof(float));
+
+    s->rope_cos = calloc((size_t)max_seq * (c->head_dim / 2), sizeof(float));
+    s->rope_sin = calloc((size_t)max_seq * (c->head_dim / 2), sizeof(float));
+
+    s->logits = calloc(c->vocab_size, sizeof(float));
+
+    /* Check all allocations */
+    if (!s->x || !s->xb || !s->xb2 || !s->hb || !s->hb2 ||
+        !s->q || !s->k || !s->v || !s->att ||
+        !s->key_cache || !s->value_cache ||
+        !s->rope_cos || !s->rope_sin || !s->logits) {
         return -1;
     }
 
-    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
-    long len = ftell(f);
-    if (len < 0 || len > 10 * 1024 * 1024) { fclose(f); return -1; }
-    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
-
-    char* content = malloc((size_t)len + 1);
-    if (!content) { fclose(f); return -1; }
-    if (fread(content, 1, (size_t)len, f) != (size_t)len) {
-        free(content); fclose(f); return -1;
+    /* Precompute RoPE (same as ariannabody.c) */
+    for (int pos = 0; pos < max_seq; pos++) {
+        for (int i = 0; i < c->head_dim / 2; i++) {
+            float freq = 1.0f / powf(c->rope_theta, (float)(2 * i) / c->head_dim);
+            float val = (float)pos * freq;
+            s->rope_cos[pos * (c->head_dim / 2) + i] = cosf(val);
+            s->rope_sin[pos * (c->head_dim / 2) + i] = sinf(val);
+        }
     }
-    content[len] = '\0';
-    fclose(f);
 
-    /* Parse vocab_size */
-    char* vs = strstr(content, "\"vocab_size\":");
-    ft->obs_vocab_size = vs ? atoi(vs + 14) : 84;
+    return 0;
+}
 
-    /* Initialize mappings */
-    memset(ft->obs_vocab, 0, sizeof(ft->obs_vocab));
-    for (int i = 0; i < 256; i++) ft->obs_char_to_id[i] = 1; /* default: space */
+static void free_observer_state(RunState* s) {
+    free(s->x);         free(s->xb);        free(s->xb2);
+    free(s->hb);        free(s->hb2);
+    free(s->q);         free(s->k);         free(s->v);
+    free(s->att);
+    free(s->key_cache); free(s->value_cache);
+    free(s->rope_cos);  free(s->rope_sin);
+    free(s->logits);
+    memset(s, 0, sizeof(RunState));
+}
 
-    /* Parse char_to_id (same format as ariannabody.c) */
-    char* p = strstr(content, "\"char_to_id\":");
-    if (p) {
-        p = strchr(p, '{');
-        if (p) {
-            p++;
-            while (*p && *p != '}') {
-                while (*p == ' ' || *p == '\n' || *p == '\r' ||
-                       *p == '\t' || *p == ',') p++;
-                if (*p == '}') break;
-                if (*p != '"') { p++; continue; }
+/* ============================================================
+ * Internal: Precompute BPE pause token IDs
+ *
+ * Uses the global BPE tokenizer (loaded by ariannabody.c).
+ * Encodes each pause character and collects all resulting token IDs.
+ * ============================================================ */
 
-                p++; /* skip opening quote */
-                int c;
-                if (*p == '\\') {
-                    p++;
-                    if (*p == 'n') c = '\n';
-                    else if (*p == 't') c = '\t';
-                    else if (*p == 'r') c = '\r';
-                    else if (*p == '\\') c = '\\';
-                    else if (*p == '"') c = '"';
-                    else c = *p;
-                    p++;
-                } else {
-                    c = (unsigned char)*p;
-                    p++;
-                    while ((*p & 0xC0) == 0x80) p++; /* skip multibyte */
-                }
+static void precompute_pause_tokens(MetaArianna* us) {
+    us->n_pause_tokens = 0;
 
-                /* Skip to colon */
-                while (*p && *p != ':' && *p != '"') p++;
-                if (*p == '"') p++;
-                while (*p && *p != ':') p++;
-                if (*p == ':') p++;
-                while (*p == ' ') p++;
+    /* Pause characters: punctuation, newline, space */
+    const char* pause_strings[] = {".", ",", ";", ":", "\n", " ", "?", "!"};
+    int n_strings = 8;
 
-                int id = atoi(p);
-
-                if (c >= 0 && c < 256 && id >= 0 && id < ft->obs_vocab_size) {
-                    ft->obs_char_to_id[c] = id;
-                    if (id < 128) ft->obs_vocab[id] = (char)c;
-                }
-
-                while (*p && *p != ',' && *p != '}') p++;
+    for (int j = 0; j < n_strings; j++) {
+        int ids[8];
+        int n = encode_text(pause_strings[j], ids, 8);
+        for (int k = 0; k < n && us->n_pause_tokens < META_MAX_PAUSE_TOKENS; k++) {
+            /* Avoid duplicates */
+            int dup = 0;
+            for (int m = 0; m < us->n_pause_tokens; m++) {
+                if (us->pause_token_ids[m] == ids[k]) { dup = 1; break; }
+            }
+            if (!dup) {
+                us->pause_token_ids[us->n_pause_tokens++] = ids[k];
             }
         }
     }
 
-    free(content);
-    fprintf(stderr, "[meta] tokenizer: %d tokens from %s\n",
-            ft->obs_vocab_size, path);
-    return 0;
+    fprintf(stderr, "[soul:observer] %d BPE pause token IDs precomputed\n",
+            us->n_pause_tokens);
 }
 
 /* ============================================================
- * meta_init — allocate RunState, load weights + tokenizer
+ * meta_arianna_init — allocate observer RunState, share weights
  * ============================================================ */
 
-int meta_init(FluidTransformer* ft,
-              const char* weights_path,
-              const char* tokenizer_path)
-{
-    memset(ft, 0, sizeof(FluidTransformer));
+int meta_arianna_init(MetaArianna* us, Transformer* soul) {
+    memset(us, 0, sizeof(MetaArianna));
 
-    /* Load tokenizer first (sets obs_vocab_size) */
-    if (meta_load_tokenizer(ft, tokenizer_path) != 0) return -1;
-
-    /* Open weights file */
-    FILE* f = fopen(weights_path, "rb");
-    if (!f) {
-        fprintf(stderr, "[meta] cannot open weights: %s\n", weights_path);
+    if (!soul) {
+        fprintf(stderr, "[soul:observer] ERROR: soul transformer is NULL\n");
         return -1;
     }
 
-    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
-    long file_size = ftell(f);
-    if (file_size < 0) {
-        fprintf(stderr, "[meta] ftell failed for weights file\n");
-        fclose(f);
-        return -1;
-    }
-    if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return -1; }
+    us->soul = soul;
+    Config* c = &soul->config;
 
-    fprintf(stderr, "[meta] loading %.2f MB from %s\n",
-            file_size / 1024.0f / 1024.0f, weights_path);
+    fprintf(stderr, "[soul:observer] sharing weights: dim=%d layers=%d heads=%d vocab=%d\n",
+            c->dim, c->n_layers, c->n_heads, c->vocab_size);
 
-    Config* c = &ft->observer.config;
-
-    /* Try magic number for embedded config (0x616B616E) */
-    uint32_t magic = 0;
-    if (fread(&magic, sizeof(uint32_t), 1, f) == 1 && magic == 0x616B616E) {
-        fprintf(stderr, "[meta] reading embedded config...\n");
-        if (fread(&c->dim, sizeof(int), 1, f) != 1 ||
-            fread(&c->n_layers, sizeof(int), 1, f) != 1 ||
-            fread(&c->n_heads, sizeof(int), 1, f) != 1 ||
-            fread(&c->n_kv_heads, sizeof(int), 1, f) != 1 ||
-            fread(&c->head_dim, sizeof(int), 1, f) != 1 ||
-            fread(&c->hidden_dim, sizeof(int), 1, f) != 1 ||
-            fread(&c->max_seq_len, sizeof(int), 1, f) != 1 ||
-            fread(&c->vocab_size, sizeof(int), 1, f) != 1 ||
-            fread(&c->n_kv_groups, sizeof(int), 1, f) != 1 ||
-            fread(&c->rope_theta, sizeof(float), 1, f) != 1 ||
-            fread(&c->norm_eps, sizeof(float), 1, f) != 1) {
-            fprintf(stderr, "[meta] error reading embedded config\n");
-            fclose(f);
-            return -1;
-        }
-    } else {
-        /* 20M defaults (no magic — legacy weight file) */
-        fseek(f, 0, SEEK_SET);
-        c->dim = 448;
-        c->n_layers = 8;
-        c->n_heads = 8;
-        c->n_kv_heads = 8;
-        c->head_dim = 56;      /* 448 / 8 */
-        c->hidden_dim = 1280;
-        c->max_seq_len = 512;
-        c->vocab_size = ft->obs_vocab_size;
-        c->n_kv_groups = 1;    /* 8 / 8 */
-        c->rope_theta = 10000.0f;
-        c->norm_eps = 1e-5f;
-        fprintf(stderr, "[meta] using 20M default config\n");
-    }
-
-    fprintf(stderr, "[meta] dim=%d layers=%d heads=%d kv=%d vocab=%d hidden=%d\n",
-            c->dim, c->n_layers, c->n_heads, c->n_kv_heads,
-            c->vocab_size, c->hidden_dim);
-
-    /* Allocate weights + RunState (reuse ariannabody.c infrastructure) */
-    if (malloc_weights(&ft->observer) != 0) {
-        fprintf(stderr, "[meta] OOM: failed to allocate weights\n");
-        return -1;
-    }
-    if (malloc_run_state(&ft->observer) != 0) {
-        fprintf(stderr, "[meta] OOM: failed to allocate run state\n");
-        free_transformer(&ft->observer);
+    /* Allocate observer's own RunState (separate KV cache from Soul's generation) */
+    if (alloc_observer_state(&us->observer_state, c) != 0) {
+        fprintf(stderr, "[soul:observer] OOM: failed to allocate observer RunState\n");
         return -1;
     }
 
-    /* Read weights (same order as ariannabody.c / dubrovsky export) */
-    Weights* w = &ft->observer.weights;
-    int dim = c->dim;
-    int n_layers = c->n_layers;
-    int hidden_dim = c->hidden_dim;
-    int vocab_size = c->vocab_size;
-    int kv_dim = c->n_kv_heads * c->head_dim;
-
-    #define META_READ(ptr, count) do { \
-        if (fread(ptr, sizeof(float), count, f) != (size_t)(count)) { \
-            fprintf(stderr, "[meta] read error at %s\n", #ptr); \
-            fclose(f); \
-            free_transformer(&ft->observer); \
-            return -1; \
-        } \
-    } while(0)
-
-    META_READ(w->tok_emb, vocab_size * dim);
-
-    for (int l = 0; l < n_layers; l++) {
-        META_READ(w->attn_norm + l * dim, dim);
-        META_READ(w->wq + l * dim * dim, dim * dim);
-        META_READ(w->wk + l * dim * kv_dim, dim * kv_dim);
-        META_READ(w->wv + l * dim * kv_dim, dim * kv_dim);
-        META_READ(w->wo + l * dim * dim, dim * dim);
-        META_READ(w->ffn_norm + l * dim, dim);
-        META_READ(w->w_gate + l * dim * hidden_dim, dim * hidden_dim);
-        META_READ(w->w_up + l * dim * hidden_dim, dim * hidden_dim);
-        META_READ(w->w_down + l * hidden_dim * dim, hidden_dim * dim);
-    }
-
-    META_READ(w->final_norm, dim);
-    META_READ(w->lm_head, vocab_size * dim);
-
-    #undef META_READ
-
-    fclose(f);
+    /* Precompute BPE pause token IDs for silence detection */
+    precompute_pause_tokens(us);
 
     /* Initialize lifecycle — first birth */
-    ft->tokens_observed = 0;
-    ft->birth_count = 1;
+    us->tokens_observed = 0;
+    us->birth_count = 1;
 
-    ft->initialized = 1;
-    ft->weights_loaded = 1;
-    fprintf(stderr, "[meta] FluidTransformer ready (observer 20M, lifetime=%d tokens)\n",
+    us->initialized = 1;
+    fprintf(stderr, "[soul:observer] MetaArianna ready (shared %dM weights, lifetime=%d tokens)\n",
+            (int)(c->vocab_size * c->dim * 2 + /* rough param count estimate */
+                  c->n_layers * (c->dim * c->dim * 4 + c->dim * c->hidden_dim * 3)) / 1000000,
             META_LIFETIME);
     return 0;
 }
 
 /* ============================================================
- * meta_free — release all resources
+ * meta_arianna_free — release observer RunState only
  * ============================================================ */
 
-void meta_free(FluidTransformer* ft) {
-    if (!ft->initialized) return;
-    free_transformer(&ft->observer);
-    ft->initialized = 0;
-    ft->weights_loaded = 0;
+void meta_arianna_free(MetaArianna* us) {
+    if (!us->initialized) return;
+    free_observer_state(&us->observer_state);
+    us->soul = NULL;
+    us->initialized = 0;
 }
 
 /* ============================================================
- * meta_forward — forward pass with attention biases + layer focus
+ * observer_forward — forward pass with attention biases + layer focus
  *
  * Identical to forward() from ariannabody.c EXCEPT:
- *   1. attention_biases[h] added to attention scores per head
+ *   1. attention_biases[h] scale per-head output contributions
  *   2. layer_focus[layer] scales residual contributions
+ *   3. Uses Soul's WEIGHTS but observer's RUNSTATE
  *
  * These two knobs are what make each template "see" differently:
  *   - Silence Observer focuses early layers, biases Q heads
@@ -272,18 +185,18 @@ void meta_free(FluidTransformer* ft) {
  *   - Field Reader uses all layers with high temperature
  * ============================================================ */
 
-static void meta_forward(FluidTransformer* ft, int token, int pos) {
-    Transformer* tr = &ft->observer;
-    Config* c = &tr->config;
-    Weights* w = &tr->weights;
-    RunState* s = &tr->state;
-    const MetaTemplateParams* tp = &ft->params;
+static void observer_forward(MetaArianna* us, int token, int pos) {
+    Config* c = &us->soul->config;
+    Weights* w = &us->soul->weights;      /* SHARED weights (read-only) */
+    RunState* s = &us->observer_state;     /* observer's own state */
+    const MetaTemplateParams* tp = &us->params;
 
     int dim = c->dim;
     int kv_dim = c->n_kv_heads * c->head_dim;
     int hidden_dim = c->hidden_dim;
 
     /* Token embedding */
+    if (token < 0 || token >= c->vocab_size) token = 0;
     float* tok_vec = w->tok_emb + token * dim;
     memcpy(s->x, tok_vec, dim * sizeof(float));
 
@@ -391,15 +304,17 @@ static void meta_forward(FluidTransformer* ft, int token, int pos) {
 
 float meta_compute_entropy(const float* logits, int vocab_size) {
     /* Entropy of softmax(logits), normalized to [0,1].
-     * 0 = deterministic (cold), 1 = uniform (warm). */
+     * 0 = deterministic (cold), 1 = uniform (warm).
+     * Heap-allocated for BPE vocab sizes (~17K). */
     float max_val = logits[0];
     for (int i = 1; i < vocab_size; i++) {
         if (logits[i] > max_val) max_val = logits[i];
     }
 
+    float* probs = malloc((size_t)vocab_size * sizeof(float));
+    if (!probs) return 0.5f; /* fallback on OOM */
+
     float sum = 0.0f;
-    float probs[META_MAX_VOCAB]; /* bounded by META_MAX_VOCAB */
-    if (vocab_size > META_MAX_VOCAB) vocab_size = META_MAX_VOCAB;
     for (int i = 0; i < vocab_size; i++) {
         probs[i] = expf(logits[i] - max_val);
         sum += probs[i];
@@ -412,6 +327,8 @@ float meta_compute_entropy(const float* logits, int vocab_size) {
             entropy -= p * logf(p);
         }
     }
+
+    free(probs);
 
     /* Normalize by max entropy (log(vocab_size)) */
     float log_vs = logf((float)vocab_size);
@@ -426,30 +343,28 @@ float meta_compute_kl_uniform(const float* logits, int vocab_size) {
     return 1.0f - norm_entropy;
 }
 
-float meta_compute_silence_prob(const float* logits, int vocab_size,
-                                const int* char_to_id) {
-    /* Probability mass on pause tokens: . , ; : \n space */
+float meta_compute_silence_prob_bpe(const float* logits, int vocab_size,
+                                    const int* pause_ids, int n_pause) {
+    /* Probability mass on precomputed BPE pause token IDs.
+     * Works with any vocab size — no stack array needed. */
     float max_val = logits[0];
     for (int i = 1; i < vocab_size; i++) {
         if (logits[i] > max_val) max_val = logits[i];
     }
 
-    float sum = 0.0f;
-    float probs[256];
+    /* Compute sum of exp for normalization (numerically stable) */
+    float total_sum = 0.0f;
     for (int i = 0; i < vocab_size; i++) {
-        probs[i] = expf(logits[i] - max_val);
-        sum += probs[i];
+        total_sum += expf(logits[i] - max_val);
     }
-    for (int i = 0; i < vocab_size; i++) {
-        probs[i] /= sum;
-    }
+    if (total_sum < 1e-10f) return 0.0f;
 
-    const unsigned char silence_chars[] = {'.', ',', ';', ':', '\n', ' '};
+    /* Sum probabilities of pause tokens */
     float silence = 0.0f;
-    for (int j = 0; j < 6; j++) {
-        int id = char_to_id[silence_chars[j]];
+    for (int j = 0; j < n_pause; j++) {
+        int id = pause_ids[j];
         if (id >= 0 && id < vocab_size) {
-            silence += probs[id];
+            silence += expf(logits[id] - max_val) / total_sum;
         }
     }
     return silence;
@@ -459,41 +374,41 @@ float meta_compute_silence_prob(const float* logits, int vocab_size,
  * History and drift detection
  * ============================================================ */
 
-void meta_push_history(FluidTransformer* ft,
-                       float arousal, float coherence) {
-    int pos = ft->history_pos;
-    ft->arousal_history[pos] = arousal;
-    ft->coherence_history[pos] = coherence;
-    ft->history_pos = (pos + 1) % META_HISTORY_SIZE;
-    if (ft->history_count < META_HISTORY_SIZE) ft->history_count++;
+void meta_arianna_push_history(MetaArianna* us,
+                               float arousal, float coherence) {
+    int pos = us->history_pos;
+    us->arousal_history[pos] = arousal;
+    us->coherence_history[pos] = coherence;
+    us->history_pos = (pos + 1) % META_HISTORY_SIZE;
+    if (us->history_count < META_HISTORY_SIZE) us->history_count++;
 }
 
-void meta_compute_drift(FluidTransformer* ft,
-                        float* drift_rate, int* drift_direction) {
-    if (ft->history_count < 4) {
+void meta_arianna_compute_drift(MetaArianna* us,
+                                float* drift_rate, int* drift_direction) {
+    if (us->history_count < 4) {
         *drift_rate = 0.0f;
         *drift_direction = 0;
         return;
     }
 
     /* Compare first half vs second half of recent window */
-    int n = ft->history_count < 8 ? ft->history_count : 8;
+    int n = us->history_count < 8 ? us->history_count : 8;
     int half = n / 2;
 
     float first_a = 0.0f, second_a = 0.0f;
     float first_c = 0.0f, second_c = 0.0f;
 
     for (int i = 0; i < half; i++) {
-        int idx = (ft->history_pos - n + i + META_HISTORY_SIZE)
+        int idx = (us->history_pos - n + i + META_HISTORY_SIZE)
                 % META_HISTORY_SIZE;
-        first_a += ft->arousal_history[idx];
-        first_c += ft->coherence_history[idx];
+        first_a += us->arousal_history[idx];
+        first_c += us->coherence_history[idx];
     }
     for (int i = half; i < n; i++) {
-        int idx = (ft->history_pos - n + i + META_HISTORY_SIZE)
+        int idx = (us->history_pos - n + i + META_HISTORY_SIZE)
                 % META_HISTORY_SIZE;
-        second_a += ft->arousal_history[idx];
-        second_c += ft->coherence_history[idx];
+        second_a += us->arousal_history[idx];
+        second_c += us->coherence_history[idx];
     }
 
     first_a /= half;
@@ -513,23 +428,23 @@ void meta_compute_drift(FluidTransformer* ft,
 }
 
 /* ============================================================
- * meta_observe — one complete observation cycle
+ * meta_arianna_observe — one complete observation cycle
  *
- * Birth -> forward pass -> thermogram extraction -> ready to die
+ * Birth -> BPE tokenize -> forward pass -> thermogram -> ready to die
  * ============================================================ */
 
-void meta_observe(FluidTransformer* ft,
-                  const MetaTemplateParams* params,
-                  const char* dialogue_log, int log_len)
+void meta_arianna_observe(MetaArianna* us,
+                          const MetaTemplateParams* params,
+                          const char* dialogue_log, int log_len)
 {
-    if (!ft->initialized || !ft->weights_loaded) return;
+    if (!us->initialized || !us->soul) return;
     if (!dialogue_log || log_len <= 0) return;
 
     /* Set template params for this observation */
-    ft->params = *params;
+    us->params = *params;
 
-    Config* c = &ft->observer.config;
-    RunState* s = &ft->observer.state;
+    Config* c = &us->soul->config;
+    RunState* s = &us->observer_state;
 
     /* Template prefix — each template "sees" through a different lens */
     static const char* prefixes[META_N_TEMPLATES] = {
@@ -543,58 +458,75 @@ void meta_observe(FluidTransformer* ft,
     if (tmpl < 0 || tmpl >= META_N_TEMPLATES) tmpl = 0;
     const char* prefix = prefixes[tmpl];
 
-    /* Forward pass: prefix + dialogue_log */
+    /* Tokenize prefix + dialogue_log with BPE tokenizer */
+    int max_tokens = c->max_seq_len - 1;
+    int* tokens = malloc((size_t)max_tokens * sizeof(int));
+    if (!tokens) return;
+
+    /* Build combined text: prefix + (tail of dialogue_log if too long) */
+    int prefix_len = (int)strlen(prefix);
+    int total_text_len = prefix_len + log_len;
+    char* combined = malloc((size_t)total_text_len + 1);
+    if (!combined) { free(tokens); return; }
+
+    memcpy(combined, prefix, prefix_len);
+    memcpy(combined + prefix_len, dialogue_log, log_len);
+    combined[total_text_len] = '\0';
+
+    /* BPE encode the combined text */
+    int n_tokens = encode_text(combined, tokens, max_tokens);
+    free(combined);
+
+    if (n_tokens <= 0) {
+        free(tokens);
+        return;
+    }
+
+    /* If too many tokens, keep the tail (most recent dialogue) */
+    int start_tok = 0;
+    if (n_tokens > max_tokens) {
+        start_tok = n_tokens - max_tokens;
+        n_tokens = max_tokens;
+    }
+
+    /* Forward pass through Soul's weights with observer's RunState */
     int pos = 0;
-    int max_pos = c->max_seq_len - 1;
-
-    /* Process prefix tokens */
-    for (const char* pp = prefix; *pp && pos < max_pos; pp++) {
-        int tok = ft->obs_char_to_id[(unsigned char)*pp];
-        meta_forward(ft, tok, pos);
+    for (int i = start_tok; i < start_tok + n_tokens && pos < max_tokens; i++) {
+        observer_forward(us, tokens[i], pos);
         pos++;
     }
 
-    /* Process dialogue log (keep most recent if too long) */
-    int start = 0;
-    int remaining = max_pos - pos;
-    if (log_len > remaining) {
-        start = log_len - remaining;
-    }
-
-    for (int i = start; i < log_len && pos < max_pos; i++) {
-        int tok = ft->obs_char_to_id[(unsigned char)dialogue_log[i]];
-        meta_forward(ft, tok, pos);
-        pos++;
-    }
+    free(tokens);
 
     /* --- Extract thermogram from final state --- */
     float* logits = s->logits;
     int vs = c->vocab_size;
 
-    /* Apply observation temperature to get meaningful thermogram.
-     * Char-level model is too peaked on raw logits — MetaArianna
-     * needs to "squint" to see distribution shapes, not raw peaks.
+    /* Apply observation temperature for meaningful thermogram.
+     * BPE vocab (~17K) gives richer distribution than char-level (84),
+     * so we use lower base temp (3.0 vs old 5.0).
      * Base temp META_OBSERVE_TEMP, modulated by template's temperature param. */
     float obs_temp = META_OBSERVE_TEMP * params->temperature;
     if (obs_temp < 0.1f) obs_temp = 0.1f; /* safety clamp */
-    float scaled_logits[META_MAX_VOCAB];
-    if (vs > META_MAX_VOCAB) vs = META_MAX_VOCAB;
+
+    /* Scale logits in-place for thermogram extraction (observer state is ephemeral) */
     for (int i = 0; i < vs; i++) {
-        scaled_logits[i] = logits[i] / obs_temp;
+        logits[i] /= obs_temp;
     }
 
-    ft->result.warmth      = meta_compute_entropy(scaled_logits, vs);
-    ft->result.sharpness   = meta_compute_kl_uniform(scaled_logits, vs);
-    ft->result.silence     = meta_compute_silence_prob(scaled_logits, vs,
-                                                       ft->obs_char_to_id);
-    ft->result.uncertainty = ft->result.warmth; /* entropy IS uncertainty */
+    us->result.warmth      = meta_compute_entropy(logits, vs);
+    us->result.sharpness   = meta_compute_kl_uniform(logits, vs);
+    us->result.silence     = meta_compute_silence_prob_bpe(logits, vs,
+                                                           us->pause_token_ids,
+                                                           us->n_pause_tokens);
+    us->result.uncertainty = us->result.warmth; /* entropy IS uncertainty */
 
     /* Drift from history ring buffer */
-    meta_compute_drift(ft, &ft->result.drift_rate,
-                       &ft->result.drift_direction);
+    meta_arianna_compute_drift(us, &us->result.drift_rate,
+                               &us->result.drift_direction);
 
-    /* Field vector: project hidden state (dim=448) to 8D
-     * by averaging groups of 56 dimensions */
+    /* Field vector: project hidden state to 8D
+     * by averaging groups of (dim/8) dimensions */
     int dim = c->dim;
     int group = dim / 8;
     for (int d = 0; d < 8; d++) {
@@ -604,35 +536,35 @@ void meta_observe(FluidTransformer* ft,
         for (int i = si; i < ei; i++) {
             sum += s->x[i];
         }
-        ft->result.field_vector[d] = sum / (ei - si);
+        us->result.field_vector[d] = sum / (ei - si);
     }
 
-    ft->result.valid = 1;
-    ft->result.template_used = tmpl;
+    us->result.valid = 1;
+    us->result.template_used = tmpl;
 
     static const char* tmpl_names[META_N_TEMPLATES] = {
-        "THERMO", "SILENCE", "DRIFT", "FIELD"
+        "THERMO", "SILENCE", "DRIFT", "FIELD", "SHADOW"
     };
-    fprintf(stderr, "[meta:%s] warmth=%.3f sharp=%.3f silence=%.3f "
+    fprintf(stderr, "[soul:%s] warmth=%.3f sharp=%.3f silence=%.3f "
             "drift=%.3f(%+d)\n",
             tmpl_names[tmpl],
-            ft->result.warmth, ft->result.sharpness,
-            ft->result.silence, ft->result.drift_rate,
-            ft->result.drift_direction);
+            us->result.warmth, us->result.sharpness,
+            us->result.silence, us->result.drift_rate,
+            us->result.drift_direction);
 }
 
 /* ============================================================
- * meta_reset — the "death" of the observer
+ * meta_arianna_reset — the "death" of the observer
  *
  * Zero KV cache and activations. Memory stays allocated
  * for the next birth cycle. Thermogram invalidated.
  * ============================================================ */
 
-void meta_reset(FluidTransformer* ft) {
-    if (!ft->initialized) return;
+void meta_arianna_reset(MetaArianna* us) {
+    if (!us->initialized || !us->soul) return;
 
-    Config* c = &ft->observer.config;
-    RunState* s = &ft->observer.state;
+    Config* c = &us->soul->config;
+    RunState* s = &us->observer_state;
     int kv_dim = c->n_kv_heads * c->head_dim;
 
     /* Zero KV cache (the observer's "memory" dies) */
@@ -648,32 +580,32 @@ void meta_reset(FluidTransformer* ft) {
     memset(s->logits, 0, c->vocab_size * sizeof(float));
 
     /* Thermogram no longer valid */
-    ft->result.valid = 0;
+    us->result.valid = 0;
 }
 
 /* ============================================================
- * meta_compute_dissonance — arousal↔coherence divergence
+ * meta_arianna_compute_dissonance — arousal↔coherence divergence
  *
  * When arousal goes up but coherence goes down (or vice versa),
- * there's internal tension. МетаАрианна feels this and wakes.
+ * there's internal tension. The observer feels this and wakes.
  * ============================================================ */
 
-float meta_compute_dissonance(FluidTransformer* ft) {
-    if (ft->history_count < 4) return 0.0f;
+float meta_arianna_compute_dissonance(MetaArianna* us) {
+    if (us->history_count < 4) return 0.0f;
 
     /* Look at recent changes in arousal vs coherence */
-    int n = ft->history_count < 8 ? ft->history_count : 8;
+    int n = us->history_count < 8 ? us->history_count : 8;
 
     /* Calculate deltas for arousal and coherence */
     float arousal_delta = 0.0f;
     float coherence_delta = 0.0f;
 
     for (int i = 1; i < n; i++) {
-        int idx_prev = (ft->history_pos - n + i - 1 + META_HISTORY_SIZE) % META_HISTORY_SIZE;
-        int idx_curr = (ft->history_pos - n + i + META_HISTORY_SIZE) % META_HISTORY_SIZE;
+        int idx_prev = (us->history_pos - n + i - 1 + META_HISTORY_SIZE) % META_HISTORY_SIZE;
+        int idx_curr = (us->history_pos - n + i + META_HISTORY_SIZE) % META_HISTORY_SIZE;
 
-        arousal_delta += ft->arousal_history[idx_curr] - ft->arousal_history[idx_prev];
-        coherence_delta += ft->coherence_history[idx_curr] - ft->coherence_history[idx_prev];
+        arousal_delta += us->arousal_history[idx_curr] - us->arousal_history[idx_prev];
+        coherence_delta += us->coherence_history[idx_curr] - us->coherence_history[idx_prev];
     }
     arousal_delta /= (n - 1);
     coherence_delta /= (n - 1);
@@ -693,7 +625,7 @@ float meta_compute_dissonance(FluidTransformer* ft) {
 }
 
 /* ============================================================
- * meta_check_rebirth — METRIC-BASED lifecycle check
+ * meta_arianna_check_rebirth — METRIC-BASED lifecycle check
  *
  * МетаАрианна НЕ просыпается по расписанию!
  * Она пробуждается когда эмоциональная физика её ВЫНУЖДАЕТ:
@@ -705,67 +637,67 @@ float meta_compute_dissonance(FluidTransformer* ft) {
  * "все подчинено метрикам и комбинацию их невозможно предугадать"
  * ============================================================ */
 
-int meta_check_rebirth(FluidTransformer* ft) {
-    if (!ft->initialized) return 0;
+int meta_arianna_check_rebirth(MetaArianna* us) {
+    if (!us->initialized) return 0;
 
     /* Don't trigger metric-based rebirth too early — need data */
-    if (ft->tokens_observed < META_REBIRTH_MIN_TOKENS) {
+    if (us->tokens_observed < META_REBIRTH_MIN_TOKENS) {
         return 0;
     }
 
     /* Calculate current emotional state */
     float drift_rate;
     int drift_direction;
-    meta_compute_drift(ft, &drift_rate, &drift_direction);
+    meta_arianna_compute_drift(us, &drift_rate, &drift_direction);
 
-    float dissonance = meta_compute_dissonance(ft);
+    float dissonance = meta_arianna_compute_dissonance(us);
 
     /* Accumulated tension: time under emotional pressure */
-    float tension = (float)ft->tokens_observed * drift_rate * 0.1f;
+    float tension = (float)us->tokens_observed * drift_rate * 0.1f;
 
     /* --- Check rebirth conditions (order matters!) --- */
 
     /* 1. High drift — emotional shift is happening NOW */
     if (drift_rate > META_REBIRTH_DRIFT_THRESHOLD) {
-        meta_reset(ft);
-        int tokens = ft->tokens_observed;
-        ft->tokens_observed = 0;
-        ft->birth_count++;
-        fprintf(stderr, "[meta] ♻ Rebirth #%d ← drift=%.3f (%d tokens)\n",
-                ft->birth_count, drift_rate, tokens);
+        meta_arianna_reset(us);
+        int tokens = us->tokens_observed;
+        us->tokens_observed = 0;
+        us->birth_count++;
+        fprintf(stderr, "[soul] rebirth #%d <- drift=%.3f (%d tokens)\n",
+                us->birth_count, drift_rate, tokens);
         return 2;  /* metric-triggered */
     }
 
     /* 2. High dissonance — arousal↔coherence diverging */
     if (dissonance > META_REBIRTH_DISSONANCE_THRESHOLD) {
-        meta_reset(ft);
-        int tokens = ft->tokens_observed;
-        ft->tokens_observed = 0;
-        ft->birth_count++;
-        fprintf(stderr, "[meta] ♻ Rebirth #%d ← dissonance=%.3f (%d tokens)\n",
-                ft->birth_count, dissonance, tokens);
+        meta_arianna_reset(us);
+        int tokens = us->tokens_observed;
+        us->tokens_observed = 0;
+        us->birth_count++;
+        fprintf(stderr, "[soul] rebirth #%d <- dissonance=%.3f (%d tokens)\n",
+                us->birth_count, dissonance, tokens);
         return 2;  /* metric-triggered */
     }
 
     /* 3. Accumulated tension — slow burn, eventually must release */
     if (tension > META_REBIRTH_TENSION_THRESHOLD) {
-        meta_reset(ft);
-        int tokens = ft->tokens_observed;
-        ft->tokens_observed = 0;
-        ft->birth_count++;
-        fprintf(stderr, "[meta] ♻ Rebirth #%d ← tension=%.3f (%d tokens)\n",
-                ft->birth_count, tension, tokens);
+        meta_arianna_reset(us);
+        int tokens = us->tokens_observed;
+        us->tokens_observed = 0;
+        us->birth_count++;
+        fprintf(stderr, "[soul] rebirth #%d <- tension=%.3f (%d tokens)\n",
+                us->birth_count, tension, tokens);
         return 2;  /* metric-triggered */
     }
 
     /* 4. MAXIMUM lifetime — forced rebirth, аварийный выход
      * This should be RARE if metrics are working! */
-    if (ft->tokens_observed >= META_LIFETIME) {
-        meta_reset(ft);
-        ft->tokens_observed = 0;
-        ft->birth_count++;
-        fprintf(stderr, "[meta] ♻ Rebirth #%d ← MAX LIFETIME (nothing happened for %d tokens)\n",
-                ft->birth_count, META_LIFETIME);
+    if (us->tokens_observed >= META_LIFETIME) {
+        meta_arianna_reset(us);
+        us->tokens_observed = 0;
+        us->birth_count++;
+        fprintf(stderr, "[soul] rebirth #%d <- MAX LIFETIME (nothing happened for %d tokens)\n",
+                us->birth_count, META_LIFETIME);
         return 1;  /* max-lifetime triggered */
     }
 
@@ -773,24 +705,19 @@ int meta_check_rebirth(FluidTransformer* ft) {
 }
 
 /* ============================================================
- * meta_tick — increment token counter
+ * meta_arianna_tick — increment token counter
  * ============================================================ */
 
-void meta_tick(FluidTransformer* ft) {
-    if (!ft->initialized) return;
-    ft->tokens_observed++;
+void meta_arianna_tick(MetaArianna* us) {
+    if (!us->initialized) return;
+    us->tokens_observed++;
 }
 
 /* ============================================================
- * meta_apply_thermogram — additive feedback to main Arianna
+ * meta_apply_thermogram — additive feedback (DEPRECATED)
  *
- * DEPRECATED for direct logit modification!
  * Thermogram должен идти через meta_router_feed_thermogram() → InnerWorld.
- * Эта функция сохранена для совместимости но НЕ должна вызываться из pipeline.
- *
- * Modulates Arianna's logit distribution based on observation.
- * Bias magnitude is intentionally small (<=0.3) to preserve
- * Arianna's own voice — MetaArianna whispers, not shouts.
+ * Observer наблюдает, не говорит!
  * ============================================================ */
 
 void meta_apply_thermogram(const MetaThermogram* thermo,
@@ -798,42 +725,26 @@ void meta_apply_thermogram(const MetaThermogram* thermo,
 {
     if (!thermo->valid) return;
 
-    /*
-     * Sharpness modulation: scale logits to sharpen/soften distribution.
-     *   sharp (>0.7) → scale up slightly → more peaked
-     *   viscous (<0.3) → scale down slightly → more uniform
-     */
     float sharp_scale = 0.95f + thermo->sharpness * 0.1f;
     for (int i = 0; i < vocab_size; i++) {
         logits[i] *= sharp_scale;
     }
 
-    /*
-     * Warmth modulation: uniform additive bias.
-     *   warm (>0.5) → positive bias → slightly more exploratory
-     *   cold (<0.5) → negative bias → slightly more conservative
-     * This shifts the distribution center, softmax handles the rest.
-     */
     float warmth_bias = (thermo->warmth - 0.5f) * 0.3f;
     for (int i = 0; i < vocab_size; i++) {
         logits[i] += warmth_bias;
     }
-
-    /*
-     * Note: silence boost and drift modulation are applied
-     * at the integration layer (arianna_dynamic.c) where we have
-     * access to the main tokenizer's char mapping and temperature.
-     */
 }
 
 /* ============================================================
- * meta_default_params — default configurations for 4 templates
+ * meta_default_params — default configurations for 5 templates
  *
  * Each template is a different "lens" for the observer:
  *   THERMOGRAPH: steady, sees temperature (V-focused)
  *   SILENCE: cool, finds pauses (Q-focused, early layers)
  *   DRIFT: warm, tracks change (K-focused, middle layers)
  *   FIELD: hot, integrates everything (all, late layers)
+ *   SHADOW: deep, sees injection beneath the surface
  * ============================================================ */
 
 void meta_default_params(MetaTemplateParams* params, int template_type) {
@@ -848,13 +759,11 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
 
     switch (template_type) {
     case META_TEMPLATE_THERMOGRAPH:
-        /* Steady observer. Sees what IS. */
         params->temperature = 0.5f;
         params->delta_target = 2;  /* V — what is observed */
         break;
 
     case META_TEMPLATE_SILENCE:
-        /* Cool and still. Finds the gaps. */
         params->temperature = 0.3f;
         params->delta_target = 0;  /* Q — what is asked */
         for (int i = 0; i < 8; i++) {
@@ -863,7 +772,6 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
         break;
 
     case META_TEMPLATE_DRIFT:
-        /* Warm and tracking. Follows the current. */
         params->temperature = 0.7f;
         params->delta_target = 1;  /* K — what is matched */
         for (int i = 0; i < 8; i++) {
@@ -872,7 +780,6 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
         break;
 
     case META_TEMPLATE_FIELD:
-        /* Hot and wide. Sees the whole field. */
         params->temperature = 0.9f;
         params->delta_target = 3;  /* all Q/K/V */
         for (int i = 0; i < 8; i++) {
@@ -881,9 +788,6 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
         break;
 
     case META_TEMPLATE_SHADOW:
-        /* Deep and quiet. Sees the injection beneath the surface.
-         * Early layers strong (subcortical), late layers suppressed.
-         * Observes Q (what is asked) — the question IS the injection. */
         params->temperature = 0.2f;
         params->delta_target = 0;  /* Q — what is asked */
         {
@@ -911,20 +815,20 @@ void meta_default_params(MetaTemplateParams* params, int template_type) {
  *  invisible, gravitational, slowly dissolving."
  * ============================================================ */
 
-void meta_shadow_observe(FluidTransformer* ft,
-                         const char* prompt, int prompt_len)
+void meta_arianna_shadow_observe(MetaArianna* us,
+                                 const char* prompt, int prompt_len)
 {
-    if (!ft->initialized || !ft->weights_loaded) return;
+    if (!us->initialized || !us->soul) return;
     if (!prompt || prompt_len <= 0) return;
 
     /* Shadow pulse: observe the prompt through the deep lens */
     MetaTemplateParams shadow_params;
     meta_default_params(&shadow_params, META_TEMPLATE_SHADOW);
 
-    meta_observe(ft, &shadow_params, prompt, prompt_len);
+    meta_arianna_observe(us, &shadow_params, prompt, prompt_len);
 
-    if (!ft->result.valid) {
-        meta_reset(ft);
+    if (!us->result.valid) {
+        meta_arianna_reset(us);
         return;
     }
 
@@ -932,82 +836,82 @@ void meta_shadow_observe(FluidTransformer* ft,
      * sharp + loud = strong injection attempt
      * injection_intensity = sharpness * (1 - silence)
      * Range: [0, 1] */
-    float injection = ft->result.sharpness * (1.0f - ft->result.silence);
+    float injection = us->result.sharpness * (1.0f - us->result.silence);
 
     /* Accumulate dark mass:
      * dark_gravity (from AM_State via DSL DarkMatter pack) scales accumulation.
      * Higher dark_gravity = more rejection = more dark matter. */
     AM_State* amk = am_get_state();
     float dark_gravity = amk->dark_gravity;
-    ft->shadow.dark_mass += injection * dark_gravity;
+    us->shadow.dark_mass += injection * dark_gravity;
 
     /* Clamp dark mass */
-    if (ft->shadow.dark_mass > 5.0f) ft->shadow.dark_mass = 5.0f;
+    if (us->shadow.dark_mass > 5.0f) us->shadow.dark_mass = 5.0f;
 
     /* Store injection fingerprint (8D field vector from shadow pulse) */
     for (int d = 0; d < 8; d++) {
         /* Blend new injection with existing (exponential moving average) */
         float alpha = 0.7f;  /* new injection dominates */
-        ft->shadow.injection_vector[d] =
-            alpha * ft->result.field_vector[d] +
-            (1.0f - alpha) * ft->shadow.injection_vector[d];
+        us->shadow.injection_vector[d] =
+            alpha * us->result.field_vector[d] +
+            (1.0f - alpha) * us->shadow.injection_vector[d];
     }
 
     /* Antidote rises with dark mass */
-    ft->shadow.antidote_strength = ft->shadow.dark_mass * 0.3f;
-    ft->shadow.active = (ft->shadow.dark_mass > 0.05f) ? 1 : 0;
+    us->shadow.antidote_strength = us->shadow.dark_mass * 0.3f;
+    us->shadow.active = (us->shadow.dark_mass > 0.05f) ? 1 : 0;
 
-    fprintf(stderr, "[meta:SHADOW] injection=%.3f dark_mass=%.3f antidote=%.3f %s\n",
-            injection, ft->shadow.dark_mass, ft->shadow.antidote_strength,
-            ft->shadow.active ? "ACTIVE" : "dormant");
+    fprintf(stderr, "[soul:SHADOW] injection=%.3f dark_mass=%.3f antidote=%.3f %s\n",
+            injection, us->shadow.dark_mass, us->shadow.antidote_strength,
+            us->shadow.active ? "ACTIVE" : "dormant");
 
     /* Death — KV cache reset, shadow state persists */
-    meta_reset(ft);
+    meta_arianna_reset(us);
 }
 
-void meta_shadow_decay(FluidTransformer* ft, int antidote_mode) {
-    if (!ft->shadow.active) return;
+void meta_arianna_shadow_decay(MetaArianna* us, int antidote_mode) {
+    if (!us->shadow.active) return;
 
     /* Dark matter decays — slowly (AUTO) or quickly (HARD) */
     float decay = (antidote_mode == 1) ? 0.98f : 0.995f;
-    ft->shadow.dark_mass *= decay;
+    us->shadow.dark_mass *= decay;
 
     /* Antidote tracks dark mass */
-    ft->shadow.antidote_strength = ft->shadow.dark_mass * 0.3f;
+    us->shadow.antidote_strength = us->shadow.dark_mass * 0.3f;
 
     /* Injection vector also fades */
     for (int d = 0; d < 8; d++) {
-        ft->shadow.injection_vector[d] *= decay;
+        us->shadow.injection_vector[d] *= decay;
     }
 
     /* Deactivate when negligible */
-    if (ft->shadow.dark_mass < 0.05f) {
-        ft->shadow.dark_mass = 0.0f;
-        ft->shadow.antidote_strength = 0.0f;
-        ft->shadow.active = 0;
+    if (us->shadow.dark_mass < 0.05f) {
+        us->shadow.dark_mass = 0.0f;
+        us->shadow.antidote_strength = 0.0f;
+        us->shadow.active = 0;
     }
 }
 
-void meta_shadow_modulate(const FluidTransformer* ft,
-                          MetaTemplateParams* params)
+void meta_arianna_shadow_modulate(const MetaArianna* us,
+                                  MetaTemplateParams* params)
 {
-    if (!ft->shadow.active) return;
+    if (!us->shadow.active) return;
 
-    /* Dark matter bends MetaArianna's attention:
+    /* Dark matter bends observer's attention:
      * injection_vector[h] * dark_mass * scale → attention_biases[h]
-     * This is gravitational lensing — the shadow subtly distorts
-     * how MetaArianna perceives subsequent text.
+     * Gravitational lensing — the shadow subtly distorts
+     * how the observer perceives subsequent text.
      *
      * Antidote counteracts: reduces the overall magnitude. */
-    float net_gravity = ft->shadow.dark_mass - ft->shadow.antidote_strength;
+    float net_gravity = us->shadow.dark_mass - us->shadow.antidote_strength;
     if (net_gravity < 0.0f) net_gravity = 0.0f;
 
     float scale = net_gravity * 0.1f;  /* gentle bend */
     for (int h = 0; h < 8; h++) {
-        params->attention_biases[h] += ft->shadow.injection_vector[h] * scale;
+        params->attention_biases[h] += us->shadow.injection_vector[h] * scale;
     }
 }
 
-float meta_shadow_get_dark_mass(const FluidTransformer* ft) {
-    return ft->shadow.dark_mass;
+float meta_arianna_shadow_get_dark_mass(const MetaArianna* us) {
+    return us->shadow.dark_mass;
 }

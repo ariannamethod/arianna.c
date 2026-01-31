@@ -85,10 +85,6 @@ weights-f32:
 		echo "[weights] Converting float16 -> float32..."; \
 		python3 scripts/f16_to_f32.py weights/arianna_34m_f16.bin weights/arianna_34m.bin; \
 	fi
-	@if [ -f weights/arianna_20m_f16.bin ] && [ ! -f weights/arianna_20m.bin ]; then \
-		echo "[weights] Converting float16 -> float32..."; \
-		python3 scripts/f16_to_f32.py weights/arianna_20m_f16.bin weights/arianna_20m.bin; \
-	fi
 	@if [ -f weights/arianna_36m_bpe_f16.bin ] && [ ! -f weights/arianna_36m_bpe.bin ]; then \
 		echo "[weights] Converting BPE float16 -> float32..."; \
 		python3 scripts/f16_to_f32.py weights/arianna_36m_bpe_f16.bin weights/arianna_36m_bpe.bin; \
