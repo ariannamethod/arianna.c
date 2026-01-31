@@ -140,9 +140,47 @@ class EpisodeSearch:
 
         await self._conn.commit()
 
+    async def _index_episode_no_commit(
+        self,
+        episode_id: int,
+        prompt: str,
+        reply: str,
+        pattern_name: str = "",
+        active_chambers: str = "",
+    ) -> bool:
+        """Index a single episode without committing (for batch use)."""
+        import hashlib
+
+        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:16]
+        reply_hash = hashlib.md5(reply.encode()).hexdigest()[:16]
+
+        cursor = await self._conn.execute("""
+            SELECT prompt_hash, reply_hash FROM fts_metadata WHERE episode_id = ?
+        """, (episode_id,))
+        row = await cursor.fetchone()
+
+        if row and row[0] == prompt_hash and row[1] == reply_hash:
+            return False
+
+        await self._conn.execute("""
+            DELETE FROM episodes_fts WHERE episode_id = ?
+        """, (str(episode_id),))
+
+        await self._conn.execute("""
+            INSERT INTO episodes_fts (episode_id, prompt, reply, pattern_name, active_chambers)
+            VALUES (?, ?, ?, ?, ?)
+        """, (str(episode_id), prompt, reply, pattern_name, active_chambers))
+
+        await self._conn.execute("""
+            INSERT OR REPLACE INTO fts_metadata (episode_id, indexed_at, prompt_hash, reply_hash)
+            VALUES (?, ?, ?, ?)
+        """, (episode_id, time.time(), prompt_hash, reply_hash))
+
+        return True
+
     async def index_episodes(self, episodes: List[Dict[str, Any]]) -> int:
         """
-        Batch index multiple episodes.
+        Batch index multiple episodes with single commit.
 
         Returns count of episodes indexed.
         """
@@ -152,14 +190,19 @@ class EpisodeSearch:
             if isinstance(chambers, list):
                 chambers = ' '.join(chambers)
 
-            await self.index_episode(
+            was_indexed = await self._index_episode_no_commit(
                 episode_id=ep.get('id', ep.get('episode_id', 0)),
                 prompt=ep.get('prompt', ''),
                 reply=ep.get('reply', ''),
                 pattern_name=ep.get('pattern_name', ''),
                 active_chambers=chambers,
             )
-            indexed += 1
+            if was_indexed:
+                indexed += 1
+
+        # Single commit for entire batch
+        if indexed > 0:
+            await self._conn.commit()
 
         return indexed
 

@@ -125,11 +125,11 @@ def cluster_episodes(
             ep.get('chamber_complex', 0.4),
         ]
 
-    unclustered = list(range(len(episodes)))
+    unclustered = set(range(len(episodes)))  # O(1) removal instead of O(n) list.remove
     clusters: List[EpisodeCluster] = []
 
     while unclustered:
-        seed_idx = unclustered[0]
+        seed_idx = min(unclustered)  # Deterministic seed selection
         seed_vec = get_vec(episodes[seed_idx])
         seed_pattern = episodes[seed_idx].get('trigger_pattern', 0)
 
@@ -137,7 +137,9 @@ def cluster_episodes(
         cluster_indices = [seed_idx]
         cluster_vecs = [seed_vec]
 
-        for idx in unclustered[1:]:
+        for idx in list(unclustered):  # Snapshot for iteration
+            if idx == seed_idx:
+                continue
             vec = get_vec(episodes[idx])
             sim = cosine_similarity(seed_vec, vec)
 
@@ -164,10 +166,8 @@ def cluster_episodes(
                 avg_quality=avg_quality,
             ))
 
-        # Remove from unclustered
-        for idx in cluster_indices:
-            if idx in unclustered:
-                unclustered.remove(idx)
+        # Remove from unclustered — O(1) per item with set
+        unclustered -= set(cluster_indices)
 
     return clusters
 

@@ -81,10 +81,6 @@ all: $(TARGET)
 # Convert float16 weights to float32 (for GitHub-friendly storage)
 # Float16 files are ~50% smaller, converted on first build
 weights-f32:
-	@if [ -f weights/arianna_34m_f16.bin ] && [ ! -f weights/arianna_34m.bin ]; then \
-		echo "[weights] Converting float16 -> float32..."; \
-		python3 scripts/f16_to_f32.py weights/arianna_34m_f16.bin weights/arianna_34m.bin; \
-	fi
 	@if [ -f weights/arianna_36m_bpe_f16.bin ] && [ ! -f weights/arianna_36m_bpe.bin ]; then \
 		echo "[weights] Converting BPE float16 -> float32..."; \
 		python3 scripts/f16_to_f32.py weights/arianna_36m_bpe_f16.bin weights/arianna_36m_bpe.bin; \

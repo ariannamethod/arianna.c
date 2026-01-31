@@ -16,7 +16,7 @@ import os
 import random
 
 
-def run_arianna_batch(commands, weights="weights/arianna_34m.bin", tokenizer="weights/arianna_34m_tokenizer.json", max_tokens=50, temp=0.8):
+def run_arianna_batch(commands, weights="weights/arianna_36m_bpe.bin", tokenizer="weights/tokenizer_bpe.json", max_tokens=50, temp=0.8):
     """Run arianna with a batch of commands, return output."""
     binary = "./bin/arianna_dynamic"
 
@@ -59,7 +59,7 @@ def parse_math_result(output):
 class AriannaSession:
     """Session-based wrapper using batch calls."""
 
-    def __init__(self, weights="weights/arianna_34m.bin", tokenizer="weights/arianna_34m_tokenizer.json", max_tokens=100, temp=0.8):
+    def __init__(self, weights="weights/arianna_36m_bpe.bin", tokenizer="weights/tokenizer_bpe.json", max_tokens=100, temp=0.8):
         self.weights = weights
         self.tokenizer = tokenizer
         self.max_tokens = max_tokens
@@ -103,7 +103,7 @@ class AriannaSession:
         return self.run(["math"])
 
 
-def train_mathbrain(weights="weights/arianna_34m.bin", tokenizer="weights/arianna_34m_tokenizer.json", n_problems=100, batch_size=10):
+def train_mathbrain(weights="weights/arianna_36m_bpe.bin", tokenizer="weights/tokenizer_bpe.json", n_problems=100, batch_size=10):
     """Train MathBrain with arithmetic problems using batch mode."""
 
     print(f"\n=== Training MathBrain ({n_problems} problems) ===\n")
@@ -159,7 +159,7 @@ def train_mathbrain(weights="weights/arianna_34m.bin", tokenizer="weights/ariann
     print(f"Final accuracy: {correct}/{total} = {correct/total*100:.1f}%" if total > 0 else "No data")
 
 
-def interactive_mode(weights="weights/arianna_34m.bin", tokenizer="weights/arianna_34m_tokenizer.json", max_tokens=100, temp=0.8):
+def interactive_mode(weights="weights/arianna_36m_bpe.bin", tokenizer="weights/tokenizer_bpe.json", max_tokens=100, temp=0.8):
     """Run interactive REPL (each input is a batch call)."""
     print("\n" + "="*50)
     print("  Arianna.c Python Wrapper")
@@ -206,8 +206,8 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Arianna.c Python Wrapper")
-    parser.add_argument("--weights", default="weights/arianna_34m.bin", help="Path to weights")
-    parser.add_argument("--tokenizer", default="weights/arianna_34m_tokenizer.json", help="Path to tokenizer")
+    parser.add_argument("--weights", default="weights/arianna_36m_bpe.bin", help="Path to weights")
+    parser.add_argument("--tokenizer", default="weights/tokenizer_bpe.json", help="Path to tokenizer")
     parser.add_argument("--tokens", type=int, default=100, help="Max tokens per response")
     parser.add_argument("--temp", type=float, default=0.8, help="Temperature")
     parser.add_argument("--train-math", type=int, metavar="N", help="Train MathBrain with N problems")

@@ -237,27 +237,34 @@ class EnhancedEpisodicRAG:
         query_pattern = state.trigger_pattern
         now = time.time()
 
-        cursor = await self._conn.execute("""
-            SELECT *,
-                   (julianday('now') - julianday(datetime(created_at, 'unixepoch'))) as age_days
-            FROM enhanced_episodes
-            WHERE quality >= ?
-            ORDER BY created_at DESC
-            LIMIT 1000
-        """, (min_quality,))
-
-        rows = await cursor.fetchall()
-        if not rows:
-            return []
-
-        columns = [d[0] for d in cursor.description]
-
-        # Get max access count for normalization
-        max_access = max(dict(zip(columns, r)).get('access_count', 1) or 1 for r in rows)
-
+        # Stream in batches of 100 instead of fetching all 1000 at once
+        # Keeps only top-K candidates in memory
         scored: List[Tuple[float, Dict[str, Any]]] = []
+        columns = None
+        max_access = 1
 
-        for row in rows:
+        for batch_offset in range(0, 1000, 100):
+            cursor = await self._conn.execute("""
+                SELECT *,
+                       (julianday('now') - julianday(datetime(created_at, 'unixepoch'))) as age_days
+                FROM enhanced_episodes
+                WHERE quality >= ?
+                ORDER BY created_at DESC
+                LIMIT 100 OFFSET ?
+            """, (min_quality, batch_offset))
+
+            rows = await cursor.fetchall()
+            if not rows:
+                break
+
+            if columns is None:
+                columns = [d[0] for d in cursor.description]
+                # Pre-scan first batch for max_access (approximate)
+                max_access = max(
+                    dict(zip(columns, r)).get('access_count', 1) or 1 for r in rows
+                )
+
+            for row in rows:
             rd = dict(zip(columns, row))
 
             # Build episode vector
@@ -307,6 +314,11 @@ class EnhancedEpisodicRAG:
                 'coherence': rd['coherence'],
                 'active_chambers': self._get_active_chambers(rd),
             }))
+
+            # Keep only top candidates per batch to bound memory
+            if len(scored) > top_k * 3:
+                scored.sort(key=lambda x: x[0], reverse=True)
+                scored = scored[:top_k * 2]
 
         # Sort by score (highest first)
         scored.sort(key=lambda x: x[0], reverse=True)

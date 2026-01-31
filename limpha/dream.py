@@ -208,14 +208,26 @@ class DreamLoop:
                 stats.consolidation = cons_stats
                 self.state.last_consolidation_at = now
 
-        # === INDEXING (for search) ===
-        if self.search and now - self._last_index >= self.indexing_interval:
+        # === INDEXING + LINKING (parallel when both due) ===
+        do_index = self.search and now - self._last_index >= self.indexing_interval
+        do_link = self.graph and now - self._last_link >= self.linking_interval
+
+        if do_index and do_link:
+            # Run both in parallel — they operate on different tables
+            index_result, link_result = await asyncio.gather(
+                self._index_new_episodes(),
+                self._auto_link_episodes(),
+            )
+            stats.episodes_indexed = index_result
+            self._last_index = now
+            stats.links_created = link_result
+            self.state.total_links_created += link_result
+            self._last_link = now
+        elif do_index:
             indexed = await self._index_new_episodes()
             stats.episodes_indexed = indexed
             self._last_index = now
-
-        # === LINKING (graph memory) ===
-        if self.graph and now - self._last_link >= self.linking_interval:
+        elif do_link:
             links = await self._auto_link_episodes()
             stats.links_created = links
             self.state.total_links_created += links

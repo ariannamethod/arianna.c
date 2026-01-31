@@ -7,6 +7,8 @@
 
 #include "delta.h"
 #include <string.h>
+#include <time.h>
+#include <pthread.h>
 
 // ============================================================
 // Signal extraction
@@ -94,28 +96,48 @@ static void init_low_rank_delta(LowRankDelta* d, int out_dim, int in_dim, int ra
     d->rank = rank;
     d->A = (float*)calloc(out_dim * rank, sizeof(float));
     d->B = (float*)calloc(rank * in_dim, sizeof(float));
+    d->B_quant = NULL;
+    d->B_scale = 1.0f;
+    d->B_zero = 0.0f;
+    d->quantized = 0;
 }
 
 static void free_low_rank_delta(LowRankDelta* d) {
     if (d->A) free(d->A);
     if (d->B) free(d->B);
+    if (d->B_quant) free(d->B_quant);
     d->A = NULL;
     d->B = NULL;
+    d->B_quant = NULL;
+    d->quantized = 0;
 }
 
 // Compute ΔW @ x and add to output
 // out += (A @ B) @ x = A @ (B @ x)
 static void apply_delta(LowRankDelta* d, float* out, float* x, float scale) {
-    if (d->A == NULL || d->B == NULL) return;
+    if (d->A == NULL) return;
 
     // temp = B @ x  (rank x 1)
     float temp[DELTA_RANK];
     memset(temp, 0, sizeof(temp));
 
-    for (int r = 0; r < d->rank; r++) {
-        for (int j = 0; j < d->in_dim; j++) {
-            temp[r] += d->B[r * d->in_dim + j] * x[j];
+    if (d->quantized && d->B_quant != NULL) {
+        // int8 path: dequantize on the fly
+        for (int r = 0; r < d->rank; r++) {
+            for (int j = 0; j < d->in_dim; j++) {
+                float b_val = (float)d->B_quant[r * d->in_dim + j] * d->B_scale + d->B_zero;
+                temp[r] += b_val * x[j];
+            }
         }
+    } else if (d->B != NULL) {
+        // float32 path
+        for (int r = 0; r < d->rank; r++) {
+            for (int j = 0; j < d->in_dim; j++) {
+                temp[r] += d->B[r * d->in_dim + j] * x[j];
+            }
+        }
+    } else {
+        return;
     }
 
     // out += scale * A @ temp
@@ -588,14 +610,17 @@ void notorch_step(MicroTrainer* mt, LowRankDelta* delta,
         }
     }
 
-    // Gentle decay
+    // Adaptive decay: stronger when delta norm is large
     if (mt->decay > 0.0f && mt->decay < 1.0f) {
-        float d = mt->decay;
+        float norm = get_delta_norm(delta);
+        // Smooth ramp: base decay at low norm, stronger at high norm
+        float adaptive_decay = mt->decay - 0.004f * fminf(norm / 10.0f, 1.0f);
+        adaptive_decay = fmaxf(adaptive_decay, 0.990f);  // Floor at 0.990
         for (int i = 0; i < delta->in_dim * delta->rank; i++) {
-            delta->A[i] *= d;
+            delta->A[i] *= adaptive_decay;
         }
         for (int i = 0; i < delta->rank * delta->out_dim; i++) {
-            delta->B[i] *= d;
+            delta->B[i] *= adaptive_decay;
         }
     }
 
@@ -674,6 +699,59 @@ void clamp_delta(LowRankDelta* delta, float max_norm) {
     if (norm > max_norm) {
         float scale = max_norm / norm;
         soft_reset_delta(delta, scale);
+    }
+}
+
+// ============================================================
+// int8 Quantization for B matrices
+// ============================================================
+
+void quantize_B(LowRankDelta* delta) {
+    if (!delta || delta->B == NULL) return;
+
+    int size = delta->rank * delta->in_dim;
+
+    // Allocate B_quant if needed
+    if (delta->B_quant == NULL) {
+        delta->B_quant = (int8_t*)malloc(size * sizeof(int8_t));
+    }
+
+    // Find min/max of B
+    float bmin = delta->B[0], bmax = delta->B[0];
+    for (int i = 1; i < size; i++) {
+        if (delta->B[i] < bmin) bmin = delta->B[i];
+        if (delta->B[i] > bmax) bmax = delta->B[i];
+    }
+
+    // Compute scale and zero point for symmetric quantization
+    float absmax = fmaxf(fabsf(bmin), fabsf(bmax));
+    if (absmax < 1e-8f) absmax = 1e-8f;
+
+    delta->B_scale = absmax / 127.0f;
+    delta->B_zero = 0.0f;  // Symmetric quantization
+
+    // Quantize
+    float inv_scale = 1.0f / delta->B_scale;
+    for (int i = 0; i < size; i++) {
+        int q = (int)roundf(delta->B[i] * inv_scale);
+        if (q < -127) q = -127;
+        if (q > 127) q = 127;
+        delta->B_quant[i] = (int8_t)q;
+    }
+
+    delta->quantized = 1;
+}
+
+void dequantize_B_into(LowRankDelta* delta, float* out) {
+    if (!delta || !out) return;
+    int size = delta->rank * delta->in_dim;
+
+    if (delta->quantized && delta->B_quant) {
+        for (int i = 0; i < size; i++) {
+            out[i] = (float)delta->B_quant[i] * delta->B_scale + delta->B_zero;
+        }
+    } else if (delta->B) {
+        memcpy(out, delta->B, size * sizeof(float));
     }
 }
 
@@ -844,16 +922,18 @@ void init_accumulator(ExperienceAccumulator* acc, int dim, int vocab_size) {
     acc->dim = dim;
     acc->vocab_size = vocab_size;
 
-    // Allocate buffers - lazy, only x and targets initially
-    // probs_buffer is huge, so we don't store full probs, just summary stats
-    acc->x_buffer = (float*)calloc(ACCUM_BUFFER_SIZE * dim, sizeof(float));
-    acc->target_buffer = (int*)calloc(ACCUM_BUFFER_SIZE, sizeof(int));
-    acc->signal_buffer = (float*)calloc(ACCUM_BUFFER_SIZE, sizeof(float));
-    // probs_buffer = NULL - we compute novelty inline instead
+    // Online summary stats (replaces full x_buffer — 500KB → ~20KB)
+    acc->mean_x = (float*)calloc(dim, sizeof(float));
+    acc->target_counts = (int*)calloc(vocab_size, sizeof(int));
+    acc->signal_sum = 0.0f;
+    acc->experience_count = 0;
+
+    // Snapshot buffers for async training
+    acc->snapshot_mean_x = (float*)calloc(dim, sizeof(float));
+    acc->snapshot_target_counts = (int*)calloc(vocab_size, sizeof(int));
 
     // Baseline distribution for novelty detection
     acc->baseline_probs = (float*)calloc(vocab_size, sizeof(float));
-    // Init to uniform
     float uniform = 1.0f / vocab_size;
     for (int i = 0; i < vocab_size; i++) {
         acc->baseline_probs[i] = uniform;
@@ -869,17 +949,25 @@ void init_accumulator(ExperienceAccumulator* acc, int dim, int vocab_size) {
     acc->cooldown_period = 1.0f;
     acc->cooldown_remaining = 0.0f;
 
-    acc->buffer_count = 0;
+    // Async training
+    pthread_mutex_init(&acc->delta_mutex, NULL);
     acc->training_in_progress = 0;
     acc->total_training_cycles = 0;
 }
 
 void free_accumulator(ExperienceAccumulator* acc) {
     if (!acc) return;
-    if (acc->x_buffer) free(acc->x_buffer);
-    if (acc->target_buffer) free(acc->target_buffer);
-    if (acc->signal_buffer) free(acc->signal_buffer);
-    if (acc->probs_buffer) free(acc->probs_buffer);
+
+    // Wait for any in-progress training
+    if (acc->training_in_progress) {
+        pthread_join(acc->training_thread, NULL);
+    }
+    pthread_mutex_destroy(&acc->delta_mutex);
+
+    if (acc->mean_x) free(acc->mean_x);
+    if (acc->target_counts) free(acc->target_counts);
+    if (acc->snapshot_mean_x) free(acc->snapshot_mean_x);
+    if (acc->snapshot_target_counts) free(acc->snapshot_target_counts);
     if (acc->baseline_probs) free(acc->baseline_probs);
     memset(acc, 0, sizeof(ExperienceAccumulator));
 }
@@ -911,19 +999,20 @@ int accumulate_experience(ExperienceAccumulator* acc, MicroTrainer* mt,
                           LowRankDelta* delta, const float* x,
                           const float* probs, int target_id, float signal) {
     if (!acc || !x || !probs) return 0;
-    if (acc->training_in_progress) return 0;  // Skip while training
+    if (acc->training_in_progress) return 0;  // Skip while async training runs
 
-    // Add to buffer
-    if (acc->buffer_count < ACCUM_BUFFER_SIZE) {
-        int idx = acc->buffer_count;
-
-        // Copy x
-        memcpy(&acc->x_buffer[idx * acc->dim], x, acc->dim * sizeof(float));
-        acc->target_buffer[idx] = target_id;
-        acc->signal_buffer[idx] = signal;
-
-        acc->buffer_count++;
+    // Online mean update (Welford's method): mean = mean + (x - mean) / n
+    acc->experience_count++;
+    float inv_n = 1.0f / acc->experience_count;
+    for (int d = 0; d < acc->dim; d++) {
+        acc->mean_x[d] += (x[d] - acc->mean_x[d]) * inv_n;
     }
+
+    // Accumulate target frequency and signal
+    if (target_id >= 0 && target_id < acc->vocab_size) {
+        acc->target_counts[target_id]++;
+    }
+    acc->signal_sum += signal;
 
     // Update accumulation metrics
     acc->bytes_delta += 1.0f;  // One token = one unit
@@ -944,60 +1033,67 @@ int accumulate_experience(ExperienceAccumulator* acc, MicroTrainer* mt,
     return maybe_trigger_training(acc, mt, delta);
 }
 
-// Do actual batched training on buffer
-static void do_batched_training(ExperienceAccumulator* acc, MicroTrainer* mt,
-                                LowRankDelta* delta) {
-    if (!acc || !mt || !delta || acc->buffer_count == 0) return;
+// Async training context (passed to pthread)
+typedef struct {
+    ExperienceAccumulator* acc;
+    MicroTrainer* mt;
+    LowRankDelta* delta;
+} AsyncTrainingCtx;
 
-    // Average signal across buffer
-    float avg_signal = 0.0f;
-    for (int i = 0; i < acc->buffer_count; i++) {
-        avg_signal += acc->signal_buffer[i];
-    }
-    avg_signal /= acc->buffer_count;
+// Do actual batched training from snapshot (runs in worker thread)
+static void do_batched_training_from_snapshot(ExperienceAccumulator* acc,
+                                               MicroTrainer* mt,
+                                               LowRankDelta* delta) {
+    if (!acc || !mt || !delta || acc->snapshot_experience_count == 0) return;
 
-    // Average x across buffer (centroid of experience)
-    float* avg_x = (float*)calloc(acc->dim, sizeof(float));
-    for (int i = 0; i < acc->buffer_count; i++) {
-        for (int d = 0; d < acc->dim; d++) {
-            avg_x[d] += acc->x_buffer[i * acc->dim + d];
-        }
-    }
-    for (int d = 0; d < acc->dim; d++) {
-        avg_x[d] /= acc->buffer_count;
-    }
-
-    // Count target frequencies to build aggregate dy
-    int* target_counts = (int*)calloc(acc->vocab_size, sizeof(int));
-    for (int i = 0; i < acc->buffer_count; i++) {
-        int t = acc->target_buffer[i];
-        if (t >= 0 && t < acc->vocab_size) {
-            target_counts[t]++;
-        }
-    }
-
-    // Build dy: positive for frequent targets, negative for others
+    // Build dy from snapshot_target_counts
     float* dy = (float*)calloc(acc->vocab_size, sizeof(float));
     int max_count = 0;
     for (int i = 0; i < acc->vocab_size; i++) {
-        if (target_counts[i] > max_count) max_count = target_counts[i];
+        if (acc->snapshot_target_counts[i] > max_count)
+            max_count = acc->snapshot_target_counts[i];
     }
 
     if (max_count > 0) {
         for (int i = 0; i < acc->vocab_size; i++) {
-            float freq = (float)target_counts[i] / max_count;
-            // Push frequent targets, pull rest
+            float freq = (float)acc->snapshot_target_counts[i] / max_count;
             dy[i] = (freq > 0.1f) ? mt->push * freq : -mt->pull * (1.0f - freq) * 0.1f;
         }
     }
 
-    // Single notorch step with aggregated experience
-    notorch_step(mt, delta, avg_x, dy, avg_signal);
+    // Lock delta for update
+    pthread_mutex_lock(&acc->delta_mutex);
+    notorch_step(mt, delta, acc->snapshot_mean_x, dy, acc->snapshot_signal_avg);
+    // Re-quantize B after training
+    quantize_B(delta);
+    pthread_mutex_unlock(&acc->delta_mutex);
 
-    // Cleanup
-    free(avg_x);
-    free(target_counts);
     free(dy);
+}
+
+// Worker thread function
+static void* async_training_func(void* arg) {
+    AsyncTrainingCtx* ctx = (AsyncTrainingCtx*)arg;
+    do_batched_training_from_snapshot(ctx->acc, ctx->mt, ctx->delta);
+
+    // Mark training complete
+    ctx->acc->total_training_cycles++;
+    ctx->acc->training_in_progress = 0;
+
+    free(ctx);
+    return NULL;
+}
+
+// Reset accumulator stats (after snapshot taken)
+static void reset_accumulator_stats(ExperienceAccumulator* acc) {
+    acc->bytes_delta = 0.0f;
+    acc->resonance_mass = 0.0f;
+    acc->novelty_mass = 0.0f;
+    memset(acc->mean_x, 0, acc->dim * sizeof(float));
+    memset(acc->target_counts, 0, acc->vocab_size * sizeof(int));
+    acc->signal_sum = 0.0f;
+    acc->experience_count = 0;
+    acc->cooldown_remaining = acc->cooldown_period;
 }
 
 int maybe_trigger_training(ExperienceAccumulator* acc, MicroTrainer* mt,
@@ -1006,59 +1102,78 @@ int maybe_trigger_training(ExperienceAccumulator* acc, MicroTrainer* mt,
     if (acc->training_in_progress) return 0;
     if (acc->cooldown_remaining > 0.0f) return 0;
 
-    // Check thresholds (Stanley: all must be exceeded)
-    int bytes_ready = acc->bytes_delta >= acc->bytes_threshold;
-    int resonance_ready = acc->resonance_mass >= acc->resonance_threshold;
-    int novelty_ready = acc->novelty_mass >= acc->novelty_threshold;
-    int buffer_full = acc->buffer_count >= ACCUM_BUFFER_SIZE;
+    // Unified readiness score (replaces discrete AND/OR logic)
+    float readiness = 0.0f;
+    if (acc->bytes_threshold > 0.0f)
+        readiness += (acc->bytes_delta / acc->bytes_threshold) * 0.4f;
+    if (acc->resonance_threshold > 0.0f)
+        readiness += (acc->resonance_mass / acc->resonance_threshold) * 0.3f;
+    if (acc->novelty_threshold > 0.0f)
+        readiness += (acc->novelty_mass / acc->novelty_threshold) * 0.3f;
 
-    // Trigger if:
-    // 1. Buffer is full (forced), OR
-    // 2. At least 2 of 3 thresholds exceeded and bytes > 10
-    int should_train = buffer_full ||
-                       (acc->bytes_delta > 10.0f &&
-                        ((bytes_ready && resonance_ready) ||
-                         (bytes_ready && novelty_ready) ||
-                         (resonance_ready && novelty_ready)));
+    int capacity_full = acc->experience_count >= ACCUM_BUFFER_SIZE;
+    int should_train = capacity_full ||
+                       (readiness >= 1.0f && acc->bytes_delta > 10.0f);
 
     if (!should_train) return 0;
 
-    // Mark training in progress
+    // Snapshot current stats for async training
+    memcpy(acc->snapshot_mean_x, acc->mean_x, acc->dim * sizeof(float));
+    memcpy(acc->snapshot_target_counts, acc->target_counts, acc->vocab_size * sizeof(int));
+    acc->snapshot_signal_avg = (acc->experience_count > 0) ?
+                                acc->signal_sum / acc->experience_count : 0.0f;
+    acc->snapshot_experience_count = acc->experience_count;
+
+    // Mark training in progress and reset accumulator for new experiences
     acc->training_in_progress = 1;
+    reset_accumulator_stats(acc);
 
-    // Do the training (synchronous for now, TODO: make async with pthread)
-    do_batched_training(acc, mt, delta);
+    // Launch async training thread
+    AsyncTrainingCtx* ctx = (AsyncTrainingCtx*)malloc(sizeof(AsyncTrainingCtx));
+    ctx->acc = acc;
+    ctx->mt = mt;
+    ctx->delta = delta;
 
-    // Reset accumulators
-    acc->bytes_delta = 0.0f;
-    acc->resonance_mass = 0.0f;
-    acc->novelty_mass = 0.0f;
-    acc->buffer_count = 0;
-
-    // Start cooldown
-    acc->cooldown_remaining = acc->cooldown_period;
-
-    // Stats
-    acc->total_training_cycles++;
-    acc->training_in_progress = 0;
+    if (pthread_create(&acc->training_thread, NULL, async_training_func, ctx) != 0) {
+        // Fallback: synchronous if pthread fails
+        do_batched_training_from_snapshot(acc, mt, delta);
+        acc->total_training_cycles++;
+        acc->training_in_progress = 0;
+        free(ctx);
+    } else {
+        // Detach: thread will clean up itself
+        pthread_detach(acc->training_thread);
+    }
 
     return 1;
 }
 
 void flush_accumulator(ExperienceAccumulator* acc, MicroTrainer* mt,
                        LowRankDelta* delta) {
-    if (!acc || acc->buffer_count == 0) return;
+    if (!acc || acc->experience_count == 0) return;
 
-    // Force training regardless of thresholds
+    // Wait for any in-progress async training
+    if (acc->training_in_progress) {
+        // Busy-wait (flush is called at shutdown, ok to block briefly)
+        while (acc->training_in_progress) {
+            struct timespec ts = {0, 1000000};  // 1ms
+            nanosleep(&ts, NULL);
+        }
+    }
+
+    // Snapshot and train synchronously (shutdown path)
+    memcpy(acc->snapshot_mean_x, acc->mean_x, acc->dim * sizeof(float));
+    memcpy(acc->snapshot_target_counts, acc->target_counts, acc->vocab_size * sizeof(int));
+    acc->snapshot_signal_avg = (acc->experience_count > 0) ?
+                                acc->signal_sum / acc->experience_count : 0.0f;
+    acc->snapshot_experience_count = acc->experience_count;
+
     acc->training_in_progress = 1;
-    do_batched_training(acc, mt, delta);
-
-    acc->bytes_delta = 0.0f;
-    acc->resonance_mass = 0.0f;
-    acc->novelty_mass = 0.0f;
-    acc->buffer_count = 0;
+    do_batched_training_from_snapshot(acc, mt, delta);
     acc->total_training_cycles++;
     acc->training_in_progress = 0;
+
+    reset_accumulator_stats(acc);
 }
 
 void accumulator_tick(ExperienceAccumulator* acc, float dt) {

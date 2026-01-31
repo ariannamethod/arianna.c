@@ -1617,8 +1617,8 @@ int save_learning_shard(const char* path) {
     }
 
     // Flush any pending experience before saving
-    if (g_accumulator_initialized && g_accumulator.buffer_count > 0) {
-        printf("Flushing %d pending experiences...\n", g_accumulator.buffer_count);
+    if (g_accumulator_initialized && g_accumulator.experience_count > 0) {
+        printf("Flushing %d pending experiences...\n", g_accumulator.experience_count);
         // Need a delta to flush to - use first layer's Q delta
         flush_accumulator(&g_accumulator, &g_trainer, &g_active_shard->attn_q_deltas[0]);
     }

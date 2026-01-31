@@ -44,11 +44,17 @@ typedef struct {
 
 // Single low-rank delta: ΔW = A @ B
 typedef struct {
-    float* A;       // [out_dim, rank]
-    float* B;       // [rank, in_dim]
+    float* A;       // [out_dim, rank] - always float32
+    float* B;       // [rank, in_dim]  - float32 (working copy for updates)
     int out_dim;
     int in_dim;
     int rank;
+
+    // int8 quantization for B (inference-time compression)
+    int8_t* B_quant;   // [rank, in_dim] int8 quantized B (NULL if not quantized)
+    float B_scale;      // Scale factor: B_float ≈ B_quant * B_scale + B_zero
+    float B_zero;       // Zero point
+    int quantized;      // 1 if B_quant is valid and should be used for apply
 } LowRankDelta;
 
 // Experience shard - collection of deltas for all layers
@@ -219,6 +225,10 @@ void clamp_delta(LowRankDelta* delta, float max_norm);
 // Get delta norm (for monitoring)
 float get_delta_norm(LowRankDelta* delta);
 
+// int8 quantization for B matrices (inference-time compression)
+void quantize_B(LowRankDelta* delta);
+void dequantize_B_into(LowRankDelta* delta, float* out);  // out = [rank, in_dim]
+
 // ============================================================
 // Quantum Accumulation (Stanley-style)
 // "Don't train on every token - accumulate until critical mass"
@@ -226,13 +236,14 @@ float get_delta_norm(LowRankDelta* delta);
 
 #define ACCUM_BUFFER_SIZE 256  // Max accumulated experiences before forced flush
 
+#include <pthread.h>
+
 typedef struct {
-    // Accumulated experience buffer
-    float* x_buffer;              // [ACCUM_BUFFER_SIZE, dim] - input activations
-    float* probs_buffer;          // [ACCUM_BUFFER_SIZE, vocab_size] - output probs
-    int* target_buffer;           // [ACCUM_BUFFER_SIZE] - target tokens
-    float* signal_buffer;         // [ACCUM_BUFFER_SIZE] - learning signals
-    int buffer_count;             // Current items in buffer
+    // Online summary stats (replaces full x_buffer)
+    float* mean_x;                // [dim] - running mean of input activations
+    int* target_counts;           // [vocab_size] - frequency of each target token
+    float signal_sum;             // Sum of learning signals
+    int experience_count;         // Number of accumulated experiences
 
     // Accumulation metrics (Stanley-style)
     float bytes_delta;            // Volume of new experience
@@ -256,9 +267,17 @@ typedef struct {
     float* baseline_probs;        // [vocab_size] - running average
     float baseline_alpha;         // EMA decay for baseline
 
-    // Training state
+    // Async training (pthread)
+    pthread_t training_thread;
+    pthread_mutex_t delta_mutex;  // Protects delta during read/write
     int training_in_progress;     // 1 if async training running
     int total_training_cycles;    // Stats
+
+    // Snapshot for async training thread (copied before launch)
+    float* snapshot_mean_x;       // [dim] copy of mean_x at trigger time
+    int* snapshot_target_counts;  // [vocab_size] copy of target_counts
+    float snapshot_signal_avg;    // avg signal at trigger time
+    int snapshot_experience_count;
 } ExperienceAccumulator;
 
 // Initialize accumulator

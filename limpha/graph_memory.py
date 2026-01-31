@@ -21,6 +21,7 @@ import aiosqlite
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from collections import deque
 from typing import Dict, List, Optional, Any, Tuple, Set
 from enum import IntEnum
 
@@ -332,13 +333,18 @@ class GraphMemory:
         episode_id: int,
         min_strength: float = 0.0,
     ) -> Set[int]:
-        """Get all episodes connected to this one."""
-        outgoing = await self.get_outgoing(episode_id, min_strength=min_strength)
-        incoming = await self.get_incoming(episode_id, min_strength=min_strength)
+        """Get all episodes connected to this one (single UNION query)."""
+        cursor = await self._conn.execute("""
+            SELECT DISTINCT target_id AS neighbor FROM memory_links
+            WHERE source_id = ? AND strength >= ?
+            UNION
+            SELECT DISTINCT source_id AS neighbor FROM memory_links
+            WHERE target_id = ? AND strength >= ?
+        """, (episode_id, min_strength, episode_id, min_strength))
 
-        neighbors = {link.target_id for link in outgoing}
-        neighbors.update(link.source_id for link in incoming)
-        neighbors.discard(episode_id)  # Remove self if present
+        rows = await cursor.fetchall()
+        neighbors = {row[0] for row in rows}
+        neighbors.discard(episode_id)
 
         return neighbors
 
@@ -369,10 +375,10 @@ class GraphMemory:
             return [start_id]
 
         visited = {start_id}
-        queue = [(start_id, [start_id])]
+        queue = deque([(start_id, [start_id])])
 
         while queue:
-            current, path = queue.pop(0)
+            current, path = queue.popleft()
 
             if len(path) > max_depth:
                 continue
@@ -397,10 +403,10 @@ class GraphMemory:
     ) -> Set[int]:
         """Get all episodes in the same connected component."""
         visited = set()
-        queue = [episode_id]
+        queue = deque([episode_id])
 
         while queue and len(visited) < max_size:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current in visited:
                 continue
 

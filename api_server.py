@@ -66,8 +66,8 @@ def find_arianna_binary():
 def find_weights():
     """Locate the weights file"""
     candidates = [
-        "weights/arianna_34m.bin",
-        "weights/arianna_unified_20m.bin",  # fallback
+        "weights/arianna_36m_bpe.bin",
+        "weights/arianna_36m_bpe.bin",
     ]
 
     for path in candidates:
@@ -80,8 +80,8 @@ def find_weights():
 def find_tokenizer():
     """Locate the tokenizer file"""
     candidates = [
-        "weights/arianna_34m_tokenizer.json",
-        "weights/tokenizer_unified.json",  # fallback
+        "weights/tokenizer_bpe.json",
+        "weights/tokenizer_bpe.json",
     ]
 
     for path in candidates:
