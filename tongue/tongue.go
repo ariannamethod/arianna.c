@@ -63,20 +63,40 @@ func tongue_init(weightsPath *C.char) C.int {
 	path := C.GoString(weightsPath)
 	fmt.Printf("[tongue] loading GGUF from %s\n", path)
 
-	var err error
-	gGGUF, err = LoadGGUF(path)
-	if err != nil {
-		fmt.Printf("[tongue] ERROR loading GGUF: %v\n", err)
+	// Heavy work runs in a goroutine (full Go stack) to avoid
+	// cgo callback stack overflow when loading 607MB+ GGUF.
+	type initResult struct {
+		gguf      *GGUFFile
+		model     *LlamaModel
+		tokenizer *Tokenizer
+		err       error
+	}
+	ch := make(chan initResult, 1)
+	go func() {
+		var r initResult
+		r.gguf, r.err = LoadGGUF(path)
+		if r.err != nil {
+			ch <- r
+			return
+		}
+		r.model, r.err = LoadLlamaModel(r.gguf)
+		if r.err != nil {
+			ch <- r
+			return
+		}
+		r.tokenizer = NewTokenizer(&r.gguf.Meta)
+		ch <- r
+	}()
+	r := <-ch
+
+	if r.err != nil {
+		fmt.Printf("[tongue] ERROR: %v\n", r.err)
 		return -1
 	}
 
-	gModel, err = LoadLlamaModel(gGGUF)
-	if err != nil {
-		fmt.Printf("[tongue] ERROR loading model: %v\n", err)
-		return -1
-	}
-
-	gTokenizer = NewTokenizer(&gGGUF.Meta)
+	gGGUF = r.gguf
+	gModel = r.model
+	gTokenizer = r.tokenizer
 
 	fmt.Printf("[tongue] initialized: %d layers, %d dim, %d vocab, temp_floor=%.1f\n",
 		gModel.Config.NumLayers, gModel.Config.EmbedDim,
@@ -160,144 +180,137 @@ func tongue_generate(
 		anchorPrompt = C.GoString(anchorPromptC)
 	}
 
-	// Build token sequence: BOS + anchor + user input
-	var allTokens []int
-
-	// 1. BOS
-	if gTokenizer.BosID >= 0 {
-		allTokens = append(allTokens, gTokenizer.BosID)
-	}
-
-	// 2. Anchor prompt (identity + metabolism + heuristics)
-	if anchorPrompt != "" {
-		anchorTokens := gTokenizer.Encode(anchorPrompt, false)
-		allTokens = append(allTokens, anchorTokens...)
-	}
-
-	// 3. User prompt
-	userTokens := gTokenizer.Encode(prompt, false)
-	allTokens = append(allTokens, userTokens...)
-
-	// Reset KV cache for new generation
-	gModel.Reset()
-
-	// Feed all tokens through transformer
-	pos := 0
-	for _, tok := range allTokens {
-		gModel.Forward(tok, pos)
-		pos++
-		if pos >= gModel.Config.SeqLen-1 {
-			break
-		}
-	}
-
-	// Generate
+	maxTok := int(maxTokens)
+	maxOut := int(maxOutputLen) - 1
 	temp := float32(temperature) * gTempMod
 	if temp < tempFloor {
 		temp = tempFloor
 	}
 	tp := float32(topP)
 
-	var output []byte
-	genCount := 0
-	maxTok := int(maxTokens)
-	maxOut := int(maxOutputLen) - 1
-	graceLimit := 32 // extra tokens allowed to finish a sentence
-	inGrace := false
+	// Run generation in goroutine (full Go stack) to avoid cgo stack limits
+	type genResult struct {
+		output   []byte
+		genCount int
+	}
+	ch := make(chan genResult, 1)
+	go func() {
+		// Build token sequence: BOS + anchor + user input
+		var allTokens []int
 
-	// Track recent tokens for repetition penalty
-	recentTokens := make([]int, 0, repWindow)
-
-	for i := 0; i < maxTok+graceLimit && len(output) < maxOut; i++ {
-		// If past maxTok, we're in grace period — only continue to finish sentence
-		if i >= maxTok && !inGrace {
-			inGrace = true
+		if gTokenizer.BosID >= 0 {
+			allTokens = append(allTokens, gTokenizer.BosID)
 		}
-		if inGrace {
-			// Check if last output ends with sentence-ending punctuation
-			if len(output) > 0 {
-				last := output[len(output)-1]
-				if last == '.' || last == '!' || last == '?' || last == '\n' {
-					break
-				}
+		if anchorPrompt != "" {
+			anchorTokens := gTokenizer.Encode(anchorPrompt, false)
+			allTokens = append(allTokens, anchorTokens...)
+		}
+		userTokens := gTokenizer.Encode(prompt, false)
+		allTokens = append(allTokens, userTokens...)
+
+		gModel.Reset()
+
+		// Feed all tokens through transformer
+		pos := 0
+		for _, tok := range allTokens {
+			gModel.Forward(tok, pos)
+			pos++
+			if pos >= gModel.Config.SeqLen-1 {
+				break
 			}
 		}
-		// Apply logit scale
-		if gLogitScale != 1.0 {
-			for j := 0; j < gModel.Config.VocabSize; j++ {
-				gModel.State.Logits[j] *= gLogitScale
-			}
-		}
 
-		// Apply repetition penalty: penalize recently generated tokens
-		if repPenalty > 1.0 && len(recentTokens) > 0 {
-			for _, tok := range recentTokens {
-				if tok >= 0 && tok < gModel.Config.VocabSize {
-					logit := gModel.State.Logits[tok]
-					if logit > 0 {
-						gModel.State.Logits[tok] = logit / repPenalty
-					} else {
-						gModel.State.Logits[tok] = logit * repPenalty
+		// Generate
+		var output []byte
+		genCount := 0
+		graceLimit := 32
+		inGrace := false
+		recentTokens := make([]int, 0, repWindow)
+
+		for i := 0; i < maxTok+graceLimit && len(output) < maxOut; i++ {
+			if i >= maxTok && !inGrace {
+				inGrace = true
+			}
+			if inGrace {
+				if len(output) > 0 {
+					last := output[len(output)-1]
+					if last == '.' || last == '!' || last == '?' || last == '\n' {
+						break
 					}
 				}
 			}
-		}
 
-		// Apply exploratory bias
-		if gExploresBias != 0 {
-			for j := 0; j < gModel.Config.VocabSize; j++ {
-				noise := float32(math.Sin(float64(j)*0.12345 + float64(pos)*0.54321))
-				gModel.State.Logits[j] += gExploresBias * noise
+			if gLogitScale != 1.0 {
+				for j := 0; j < gModel.Config.VocabSize; j++ {
+					gModel.State.Logits[j] *= gLogitScale
+				}
+			}
+
+			if repPenalty > 1.0 && len(recentTokens) > 0 {
+				for _, tok := range recentTokens {
+					if tok >= 0 && tok < gModel.Config.VocabSize {
+						logit := gModel.State.Logits[tok]
+						if logit > 0 {
+							gModel.State.Logits[tok] = logit / repPenalty
+						} else {
+							gModel.State.Logits[tok] = logit * repPenalty
+						}
+					}
+				}
+			}
+
+			if gExploresBias != 0 {
+				for j := 0; j < gModel.Config.VocabSize; j++ {
+					noise := float32(math.Sin(float64(j)*0.12345 + float64(pos)*0.54321))
+					gModel.State.Logits[j] += gExploresBias * noise
+				}
+			}
+
+			var next int
+			if tp < 1.0 {
+				next = sampleTopP(gModel.State.Logits, gModel.Config.VocabSize, temp, tp)
+			} else {
+				next = sampleTopK(gModel.State.Logits, gModel.Config.VocabSize, temp, 50)
+			}
+
+			recentTokens = append(recentTokens, next)
+			if len(recentTokens) > repWindow {
+				recentTokens = recentTokens[1:]
+			}
+
+			if next == gTokenizer.EosID {
+				break
+			}
+
+			piece := gTokenizer.DecodeToken(next)
+			output = append(output, []byte(piece)...)
+
+			gModel.Forward(next, pos)
+			pos++
+			genCount++
+
+			if pos >= gModel.Config.SeqLen {
+				break
 			}
 		}
-
-		// Sample
-		var next int
-		if tp < 1.0 {
-			next = sampleTopP(gModel.State.Logits, gModel.Config.VocabSize, temp, tp)
-		} else {
-			next = sampleTopK(gModel.State.Logits, gModel.Config.VocabSize, temp, 50)
-		}
-
-		// Update recent tokens window
-		recentTokens = append(recentTokens, next)
-		if len(recentTokens) > repWindow {
-			recentTokens = recentTokens[1:]
-		}
-
-		// Check for EOS
-		if next == gTokenizer.EosID {
-			break
-		}
-
-		// Decode token
-		piece := gTokenizer.DecodeToken(next)
-		output = append(output, []byte(piece)...)
-
-		// Forward next token
-		gModel.Forward(next, pos)
-		pos++
-		genCount++
-
-		if pos >= gModel.Config.SeqLen {
-			break
-		}
-	}
+		ch <- genResult{output, genCount}
+	}()
+	r := <-ch
 
 	// Copy to C buffer
-	if len(output) > maxOut {
-		output = output[:maxOut]
+	if len(r.output) > maxOut {
+		r.output = r.output[:maxOut]
 	}
-	if len(output) > 0 {
-		cOutput := (*[1 << 30]byte)(unsafe.Pointer(outputC))[:len(output)+1:len(output)+1]
-		copy(cOutput, output)
-		cOutput[len(output)] = 0
+	if len(r.output) > 0 {
+		cOutput := (*[1 << 30]byte)(unsafe.Pointer(outputC))[:len(r.output)+1:len(r.output)+1]
+		copy(cOutput, r.output)
+		cOutput[len(r.output)] = 0
 	} else {
 		cOutput := (*[1]byte)(unsafe.Pointer(outputC))
 		cOutput[0] = 0
 	}
 
-	return C.int(genCount)
+	return C.int(r.genCount)
 }
 
 // ============================================================

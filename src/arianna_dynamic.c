@@ -2356,9 +2356,11 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
         if (strcmp(input, "/d12") == 0) {
             if (g_d12_loaded) {
                 printf("D12 (tongue): loaded, %s\n", g_d12_enabled ? "ACTIVE (voice)" : "standby");
-                printf("  Config: layers=%d, dim=%d, heads=%d, vocab=%d\n",
-                       g_d12.config.n_layer, g_d12.config.n_embd,
-                       g_d12.config.n_head, g_d12.config.vocab_size);
+                printf("  Config: layers=%d, dim=%d, vocab=%d, seq_len=%d\n",
+                       g_d12.fn_get_num_layers ? g_d12.fn_get_num_layers() : -1,
+                       g_d12.fn_get_dim ? g_d12.fn_get_dim() : -1,
+                       g_d12.fn_get_vocab_size ? g_d12.fn_get_vocab_size() : -1,
+                       g_d12.fn_get_seq_len ? g_d12.fn_get_seq_len() : -1);
                 printf("  Modulation: temp_mod=%.2f, scale=%.2f, explore=%.2f\n",
                        g_d12.mod.temperature_mod, g_d12.mod.logit_scale,
                        g_d12.mod.exploratory_bias);
@@ -2369,7 +2371,7 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
         }
         if (strcmp(input, "/d12 on") == 0 || strcmp(input, "/tongue") == 0) {
             if (!g_d12_loaded) {
-                printf("[d12] Loading tongue (135M)...\n");
+                printf("[d12] Loading tongue (TinyLlama 1.1B)...\n");
                 const char* weights = d12_ensure_weights("tongue/weights");
                 if (weights && d12_init(&g_d12, weights, "tongue/arianna_d12.tok") == 0) {
                     g_d12_loaded = 1;

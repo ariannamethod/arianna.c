@@ -150,15 +150,16 @@ func DequantQ6_K(data []byte, n int) []float32 {
 			yOff := outOff + n128*128
 
 			for l := 0; l < 32; l++ {
+				is := l / 16 // 0 for l=0..15, 1 for l=16..31
 				q1 := int(qlP[l]&0x0F) | (int(qhP[l]>>0)&3)<<4
 				q2 := int(qlP[l+32]&0x0F) | (int(qhP[l]>>2)&3)<<4
 				q3 := int(qlP[l]>>4) | (int(qhP[l]>>4)&3)<<4
 				q4 := int(qlP[l+32]>>4) | (int(qhP[l]>>6)&3)<<4
 
-				out[yOff+l+0] = d * float32(int8(scP[0])) * float32(q1-32)
-				out[yOff+l+32] = d * float32(int8(scP[2])) * float32(q2-32)
-				out[yOff+l+64] = d * float32(int8(scP[4])) * float32(q3-32)
-				out[yOff+l+96] = d * float32(int8(scP[6])) * float32(q4-32)
+				out[yOff+l+0] = d * float32(int8(scP[is+0])) * float32(q1-32)
+				out[yOff+l+32] = d * float32(int8(scP[is+2])) * float32(q2-32)
+				out[yOff+l+64] = d * float32(int8(scP[is+4])) * float32(q3-32)
+				out[yOff+l+96] = d * float32(int8(scP[is+6])) * float32(q4-32)
 			}
 		}
 	}
@@ -218,15 +219,16 @@ func matMulQ6_KRange(out []float32, w []byte, x []float32, start, end, blocksPer
 				xBase := xOff + n128*128
 
 				for l := 0; l < 32; l++ {
+					is := l / 16 // 0 for l=0..15, 1 for l=16..31
 					q1 := int(qlP[l]&0x0F) | (int(qhP[l]>>0)&3)<<4
 					q2 := int(qlP[l+32]&0x0F) | (int(qhP[l]>>2)&3)<<4
 					q3 := int(qlP[l]>>4) | (int(qhP[l]>>4)&3)<<4
 					q4 := int(qlP[l+32]>>4) | (int(qhP[l]>>6)&3)<<4
 
-					s0 := d * float32(int8(scP[0]))
-					s2 := d * float32(int8(scP[2]))
-					s4 := d * float32(int8(scP[4]))
-					s6 := d * float32(int8(scP[6]))
+					s0 := d * float32(int8(scP[is+0]))
+					s2 := d * float32(int8(scP[is+2]))
+					s4 := d * float32(int8(scP[is+4]))
+					s6 := d * float32(int8(scP[is+6]))
 
 					sum += s0 * float32(q1-32) * x[xBase+l+0]
 					sum += s2 * float32(q2-32) * x[xBase+l+32]

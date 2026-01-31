@@ -173,12 +173,8 @@ func loadWeights(gguf *GGUFFile, cfg *LlamaConfig) (*LlamaWeights, error) {
 		outData = w.TokenEmbed
 		outInfo = embInfo
 		fmt.Printf("[tongue/model] output.weight not found, using tied embeddings\n")
-	} else if !isSupportedType(outInfo.Type) {
-		// Unsupported quant type (e.g. Q5_K_M=14) — use tied embeddings
-		fmt.Printf("[tongue/model] output.weight has unsupported type %d, using tied embeddings (type %d)\n",
-			outInfo.Type, embInfo.Type)
-		outData = w.TokenEmbed
-		outInfo = embInfo
+	} else {
+		fmt.Printf("[tongue/model] output.weight: type=%d\n", outInfo.Type)
 	}
 	w.Output = outData
 	w.OutputType = outInfo.Type
@@ -448,8 +444,8 @@ func (m *LlamaModel) Forward(token int, pos int) {
 			// Softmax
 			Softmax(att, pos+1)
 
-			// Weighted sum of values
-			xbSlice := s.XB[h*hd : (h+1)*hd]
+			// Weighted sum of values → XB2
+			xbSlice := s.XB2[h*hd : (h+1)*hd]
 			for d := 0; d < hd; d++ {
 				xbSlice[d] = 0
 			}
@@ -462,10 +458,10 @@ func (m *LlamaModel) Forward(token int, pos int) {
 			}
 		}
 
-		// Output projection + residual
-		matmulDispatch(s.XB2, l.WO, l.WOType, s.XB, dim, dim)
+		// Output projection: XB = WO × XB2, then residual
+		matmulDispatch(s.XB, l.WO, l.WOType, s.XB2, dim, dim)
 		for i := 0; i < dim; i++ {
-			s.X[i] += s.XB2[i]
+			s.X[i] += s.XB[i]
 		}
 
 		// MLP: pre-norm
