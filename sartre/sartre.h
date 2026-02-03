@@ -30,6 +30,16 @@ typedef enum {
 } ModuleStatus;
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// TONGUE TIER (hardware-based model selection)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+typedef enum {
+    TONGUE_TIER_05B = 0,   // 0.5B Qwen2.5 (~537MB runtime) — canonical default
+    TONGUE_TIER_15B = 1,   // 1.5B Qwen2.5 (~1.4GB runtime)
+    TONGUE_TIER_3B  = 2    // 3B Qwen2.5 (~2.8GB runtime)
+} TongueTier;
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MODULE INFO
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -53,6 +63,11 @@ typedef struct {
     // Resources
     float memory_pressure;   // 0-1
     float cpu_load;          // 0-1
+
+    // Hardware detection (tongue routing)
+    int64_t total_ram_mb;        // total physical RAM in MB
+    TongueTier tongue_tier;      // recommended tongue model tier
+    int tongue_override;         // manual override (-1 = auto)
 
     // Inner world (from Go goroutines)
     float trauma_level;
@@ -106,6 +121,17 @@ SystemState* sartre_get_state(void);
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void sartre_print_state(void);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TONGUE ROUTING (hardware-based model selection)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TongueTier sartre_detect_tongue_tier(void);
+void sartre_set_tongue_override(TongueTier tier);
+void sartre_clear_tongue_override(void);
+TongueTier sartre_get_tongue_tier(void);
+const char* sartre_tongue_tier_name(TongueTier tier);
+int64_t sartre_get_total_ram_mb(void);
 
 #ifdef __cplusplus
 }

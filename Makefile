@@ -88,6 +88,13 @@ weights-f32:
 
 dynamic: weights-f32 $(TARGET_DYN)
 
+# Dynamic with tongue router (auto-detects RAM, picks 0.5B/1.5B/3B)
+TARGET_ROUTER = $(BIN_DIR)/arianna_router
+dynamic-router: weights-f32
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(DYN_CFLAGS) -DUSE_TONGUE_ROUTER -I$(SRC_DIR) -Isartre $(SRCS_DYN) sartre/sartre_kernel.c $(SRC_DIR)/tongue_router.c -o $(TARGET_ROUTER) $(LDFLAGS) $(DYN_LDFLAGS)
+	@echo "[build] arianna_router ready (multi-model tongue)"
+
 lua: $(TARGET_LUA)
 
 full: golib $(TARGET_FULL)
@@ -362,3 +369,46 @@ $(TONGUE_WEIGHTS):
 	@echo "[tongue] Downloaded: $(TONGUE_WEIGHTS)"
 
 tongue-weights: $(TONGUE_WEIGHTS)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TONGUE MULTI-MODEL WEIGHTS (1.5B and 3B, deeply finetuned)
+# ════════════════════════════════════════════════════════════════════════════════
+
+TONGUE_15B_URL = https://huggingface.co/ataeff/arianna/resolve/main/qw1-5b/arianna_qwen15_2500_q4_0.gguf
+TONGUE_15B = tongue/weights/arianna_qwen15_2500_q4_0.gguf
+
+TONGUE_3B_URL = https://huggingface.co/ataeff/arianna/resolve/main/qw3b/qwen3b_2000_q4_0.gguf
+TONGUE_3B = tongue/weights/qwen3b_2000_q4_0.gguf
+
+$(TONGUE_15B):
+	@mkdir -p tongue/weights
+	@echo "[tongue] Downloading Qwen2.5 1.5B GGUF (~935MB)..."
+	@curl -L --progress-bar -o $(TONGUE_15B) $(TONGUE_15B_URL)
+	@echo "[tongue] Downloaded: $(TONGUE_15B)"
+
+$(TONGUE_3B):
+	@mkdir -p tongue/weights
+	@echo "[tongue] Downloading Qwen2.5 3B GGUF (~1.82GB)..."
+	@curl -L --progress-bar -o $(TONGUE_3B) $(TONGUE_3B_URL)
+	@echo "[tongue] Downloaded: $(TONGUE_3B)"
+
+tongue-weights-15b: $(TONGUE_15B)
+tongue-weights-3b: $(TONGUE_3B)
+tongue-weights-all: $(TONGUE_WEIGHTS) $(TONGUE_15B) $(TONGUE_3B)
+
+# Auto-detect RAM, download best model
+tongue-weights-auto:
+	@RAM_MB=$$(if [ "$$(uname -s)" = "Darwin" ]; then sysctl -n hw.memsize 2>/dev/null | awk '{print int($$1/1048576)}'; else awk '/MemTotal/{print int($$2/1024)}' /proc/meminfo 2>/dev/null; fi); \
+	echo "[tongue] Detected $${RAM_MB}MB RAM"; \
+	if [ "$${RAM_MB}" -ge 8000 ] 2>/dev/null; then \
+		echo "[tongue] 8GB+ → downloading 3B model"; \
+		$(MAKE) tongue-weights-3b; \
+	elif [ "$${RAM_MB}" -ge 4000 ] 2>/dev/null; then \
+		echo "[tongue] 4GB+ → downloading 1.5B model"; \
+		$(MAKE) tongue-weights-15b; \
+	else \
+		echo "[tongue] <4GB → using 0.5B (default)"; \
+		$(MAKE) tongue-weights; \
+	fi
+
+.PHONY: tongue-weights-15b tongue-weights-3b tongue-weights-all tongue-weights-auto

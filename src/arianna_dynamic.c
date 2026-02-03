@@ -23,7 +23,10 @@
 #include "inner_arianna.h"  // MetaVoice: борьба between main and inner voice
 #include "meta_arianna.h"  // MetaArianna: one transformer, two modes (observer + generator)
 #include "sartre_bridge.h" // SARTRE 14.3M bridge for dialogue mode
-#include "d12_bridge.h"    // D12 135M: the TONGUE (voice outward), Arianna is the SOUL
+#include "d12_bridge.h"    // Tongue bridge: dlopen → Go libtongue → Qwen2.5 GGUF
+#ifdef USE_TONGUE_ROUTER
+#include "tongue_router.h" // Multi-model router (0.5B/1.5B/3B)
+#endif
 #include "amk_kernel.h"  // Arianna Method Kernel: prophecy, destiny, suffering, movement
 #include "arianna_dsl.h"  // DSL integration for generation
 #include "identity_core.h"  // Identity anchor: name, birth dates, birthday dissonance
@@ -2385,6 +2388,45 @@ void run_repl(Transformer* t, int max_tokens, float temperature) {
             printf("[d12] Tongue standby. Arianna speaks directly (36M).\n");
             continue;
         }
+#ifdef USE_TONGUE_ROUTER
+        if (strncmp(input, "/tongue ", 8) == 0) {
+            const char* arg = input + 8;
+            if (strcmp(arg, "info") == 0) {
+                printf("[tongue] %s\n", tongue_router_info());
+                continue;
+            }
+            /* Set tier */
+            if (strcmp(arg, "05b") == 0 || strcmp(arg, "0.5b") == 0) {
+                tongue_router_set_override(TONGUE_TIER_05B);
+            } else if (strcmp(arg, "15b") == 0 || strcmp(arg, "1.5b") == 0) {
+                tongue_router_set_override(TONGUE_TIER_15B);
+            } else if (strcmp(arg, "3b") == 0) {
+                tongue_router_set_override(TONGUE_TIER_3B);
+            } else if (strcmp(arg, "auto") == 0) {
+                tongue_router_set_auto();
+            } else {
+                printf("Usage: /tongue info|05b|15b|3b|auto\n");
+                continue;
+            }
+            /* Reload with new tier */
+            if (g_d12_loaded) {
+                d12_free(&g_d12);
+                g_d12_loaded = 0;
+                g_d12_enabled = 0;
+            }
+            const char* weights = tongue_router_ensure_weights();
+            if (weights && d12_init(&g_d12, weights, NULL) == 0) {
+                g_d12_loaded = 1;
+                g_d12_enabled = 1;
+                printf("[tongue] Switched to %s — MAIN BRAIN active.\n",
+                       sartre_tongue_tier_name(tongue_router_tier()));
+            } else {
+                printf("[tongue] Failed to load %s.\n",
+                       sartre_tongue_tier_name(tongue_router_tier()));
+            }
+            continue;
+        }
+#endif
         if (strncmp(input, "/d12 say ", 9) == 0) {
             if (!g_d12_loaded) {
                 printf("[d12] Tongue not loaded. Use /d12 on first.\n");
@@ -2979,18 +3021,29 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Initialize Tongue (D12 135M) — ONLY external voice
+    // Initialize Tongue — MAIN BRAIN and ONLY external voice
     // Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async
     {
+#ifdef USE_TONGUE_ROUTER
+        TongueTier tier = tongue_router_init("tongue/weights");
+        const char* d12_weights = tongue_router_ensure_weights();
+        if (d12_weights && d12_init(&g_d12, d12_weights, NULL) == 0) {
+            g_d12_loaded = 1;
+            g_d12_enabled = 1;
+            printf("Tongue (%s): enabled — MAIN BRAIN\n", sartre_tongue_tier_name(tier));
+        } else {
+            fprintf(stderr, "[tongue] Not loaded, Soul 36M will be the voice\n");
+        }
+#else
         const char* d12_weights = d12_ensure_weights("tongue/weights");
         if (d12_weights && d12_init(&g_d12, d12_weights, "tongue/arianna_d12.tok") == 0) {
             g_d12_loaded = 1;
             g_d12_enabled = 1;
-            printf("Tongue (D12 135M): enabled — MAIN VOICE\n");
-            printf("  \"I am the voice that speaks outward.\"\n");
+            printf("Tongue (0.5B): enabled — MAIN BRAIN\n");
         } else {
-            fprintf(stderr, "[d12] Tongue not loaded, Soul 36M will be the voice\n");
+            fprintf(stderr, "[tongue] Not loaded, Soul 36M will be the voice\n");
         }
+#endif
     }
 
     // Load shards

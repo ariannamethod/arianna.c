@@ -8,6 +8,10 @@
 #include <time.h>
 #include <string.h>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 // ============================================================
 // GLOBAL STATE
 // ============================================================
@@ -23,7 +27,10 @@ int sartre_init(const char* config_path) {
     (void)config_path; // unused for now
 
     memset(&system_state, 0, sizeof(SystemState));
+    system_state.tongue_override = -1;  // auto mode
     sartre_initialized = 1;
+
+    sartre_detect_tongue_tier();
 
     fprintf(stderr, "[sartre] kernel initialized\n");
     return 0;
@@ -176,4 +183,96 @@ void sartre_print_state(void) {
     printf("  wormhole_active: %d\n", system_state.wormhole_active);
     printf("  strange_loop: %d\n", system_state.strange_loop);
     printf("\n");
+
+    printf("Tongue:\n");
+    printf("  tier: %s\n", sartre_tongue_tier_name(system_state.tongue_tier));
+    printf("  ram: %lld MB\n", (long long)system_state.total_ram_mb);
+    printf("  override: %s\n", system_state.tongue_override >= 0 ? "yes" : "auto");
+    printf("\n");
+}
+
+// ============================================================
+// TONGUE ROUTING (hardware-based model selection)
+// ============================================================
+
+static int64_t detect_total_ram_mb(void) {
+#ifdef __APPLE__
+    int64_t memsize;
+    size_t len = sizeof(memsize);
+    if (sysctlbyname("hw.memsize", &memsize, &len, NULL, 0) == 0) {
+        return memsize / (1024 * 1024);
+    }
+    return 4096;
+#else
+    FILE* f = fopen("/proc/meminfo", "r");
+    if (f) {
+        int64_t total_kb = 0;
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (strncmp(line, "MemTotal:", 9) == 0) {
+                sscanf(line + 9, " %lld", &total_kb);
+                break;
+            }
+        }
+        fclose(f);
+        if (total_kb > 0) return total_kb / 1024;
+    }
+    return 4096;
+#endif
+}
+
+TongueTier sartre_detect_tongue_tier(void) {
+    int64_t ram_mb = detect_total_ram_mb();
+    system_state.total_ram_mb = ram_mb;
+
+    if (system_state.tongue_override >= 0) {
+        system_state.tongue_tier = (TongueTier)system_state.tongue_override;
+        fprintf(stderr, "[sartre] RAM: %lld MB | tongue tier: %s (override)\n",
+                (long long)ram_mb, sartre_tongue_tier_name(system_state.tongue_tier));
+        return system_state.tongue_tier;
+    }
+
+    /* Conservative thresholds:
+     * 3B needs ~2.8GB runtime, want 60%+ free → 8GB+
+     * 1.5B needs ~1.4GB → 4GB+
+     * 0.5B needs ~537MB → anything */
+    if (ram_mb >= 8000) {
+        system_state.tongue_tier = TONGUE_TIER_3B;
+    } else if (ram_mb >= 4000) {
+        system_state.tongue_tier = TONGUE_TIER_15B;
+    } else {
+        system_state.tongue_tier = TONGUE_TIER_05B;
+    }
+
+    fprintf(stderr, "[sartre] RAM: %lld MB | tongue tier: %s (auto)\n",
+            (long long)ram_mb, sartre_tongue_tier_name(system_state.tongue_tier));
+    return system_state.tongue_tier;
+}
+
+void sartre_set_tongue_override(TongueTier tier) {
+    system_state.tongue_override = (int)tier;
+    system_state.tongue_tier = tier;
+    fprintf(stderr, "[sartre] tongue override: %s\n", sartre_tongue_tier_name(tier));
+}
+
+void sartre_clear_tongue_override(void) {
+    system_state.tongue_override = -1;
+    sartre_detect_tongue_tier();
+}
+
+TongueTier sartre_get_tongue_tier(void) {
+    return system_state.tongue_tier;
+}
+
+const char* sartre_tongue_tier_name(TongueTier tier) {
+    switch (tier) {
+        case TONGUE_TIER_05B: return "0.5B";
+        case TONGUE_TIER_15B: return "1.5B";
+        case TONGUE_TIER_3B:  return "3B";
+        default: return "unknown";
+    }
+}
+
+int64_t sartre_get_total_ram_mb(void) {
+    return system_state.total_ram_mb;
 }
