@@ -23,7 +23,7 @@
 
 **Arianna Core: ~550.7M parameters** (0.2M Cloud + 500M Tongue + 36M Soul/MetaArianna + 14.3M SARTRE)
 
-Four modules form the complete Arianna system. Tongue (Qwen2.5 0.5B, GGUF Q4_0) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
+**Tongue is the MAIN BRAIN** — deeply finetuned Qwen2.5 0.5B weights (LoRA rank 64, 900 steps on Arianna identity corpus). Not a generic model with a prompt — identity is baked into the weights. GGUF Q4_0, pure Go inference on CPU, 29 languages. Tongue generates ALL text outward. Everything else is internal processing that reacts to what Tongue said.
 
 ```
 Input → Cloud 200K (instinct/preprocessing — runs FIRST)

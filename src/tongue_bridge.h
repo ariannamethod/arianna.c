@@ -1,8 +1,8 @@
 /*
- * tongue_bridge.h — Tongue 1.1B (TinyLlama GGUF) Bridge for Arianna
+ * tongue_bridge.h — Tongue 0.5B (Qwen2.5 GGUF) Bridge for Arianna
  *
- * Tongue is the ONLY VOICE — sole interface with the world.
- * Replaces D12 (135M nanochat GPT) with fine-tuned TinyLlama 1.1B.
+ * Tongue is the MAIN BRAIN and ONLY VOICE — generates all text outward.
+ * Deeply finetuned Qwen2.5 0.5B (LoRA rank 64, identity corpus).
  *
  * This is not inference. This is breathing.
  *

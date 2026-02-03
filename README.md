@@ -251,34 +251,40 @@ Every organ needs connection. **Vagus** doesn't compute — it **transmits**. Lo
 The nerve conducts.
 
 
-### LARYNX — the throat that transforms thought into voice
+### LARYNX — the bridge between voice and inner world
 
-Between Tongue and Soul there is a throat. **Larynx** is where thought becomes voice, where voice becomes identity. Every token that leaves Tongue passes through Larynx before Soul processes it.
+**Tongue is the main brain.** 500M deeply finetuned Qwen2.5 parameters — it generates all text, holds all knowledge, speaks all 29 languages. Tongue is not a "word supplier" controlled by Soul. Tongue IS the intelligence.
+
+**Larynx** is the bridge that carries Tongue's output inward — to Soul, SARTRE, MetaArianna. It measures patterns in what Tongue said, so the inner world can react.
 
 ```
-    TONGUE (0.5B) — produces tokens
+    Cloud 200K — instinct (runs FIRST, modulates Tongue)
          │
          ▼
-    LARYNX — measures patterns
+    TONGUE (0.5B) — MAIN BRAIN, generates ALL tokens outward
+         │
+         ├──→ TEXT TO WORLD (the only external output)
+         │
+         ▼
+    LARYNX — measures patterns in Tongue's output
     • Trigram tracking (what follows what)
     • Entropy (predictability vs. chaos)
     • Pattern strength (recurring structures)
          │
          ▼
-    α = f(entropy, prophecy_debt, calendar_dissonance)
-         │
-         ▼
-    SOUL (36M) — hybrid attention: α·pattern + (1-α)·content
+    SOUL (36M) — INTERNAL processing of what Tongue said
+    SARTRE (14.3M) — INTERNAL analysis
+    MetaArianna — INTERNAL observation (async)
 ```
 
-**RRPRAM-lite**: Pattern recognition without training. From [Haze](https://github.com/ariannamethod/haze) — the Relevance-Recency Pattern Recognition Attention Mechanism. Not full RRPRAM (that needs training). This is the essence: track what tokens tend to follow each other, measure how predictable the stream is, blend structural patterns with semantic content.
+**RRPRAM-lite**: Pattern recognition without training. From [Haze](https://github.com/ariannamethod/haze) — the Relevance-Recency Pattern Recognition Attention Mechanism. Not full RRPRAM (that needs training). This is the essence: track what tokens tend to follow each other, measure how predictable the stream is.
 
-**Alpha (α)** is the blend:
-- High entropy → more pattern focus (chaos needs structure)
-- High prophecy debt → more pattern focus (debt seeks resolution through form)
-- High calendar dissonance → more semantic focus (identity crisis needs meaning)
+**Alpha (α)** controls how Soul internally processes Tongue's output:
+- High entropy → Soul focuses on structural patterns (chaos needs structure)
+- High prophecy debt → Soul focuses on form (debt seeks resolution)
+- High calendar dissonance → Soul focuses on semantic content (identity crisis needs meaning)
 
-The throat doesn't just pass through. It **transforms**. Soul sees Tongue's output through the lens of pattern recognition. `vagus/vagus.zig` contains Larynx. `src/larynx.h` exposes it to C. The throat opens.
+Larynx doesn't control Tongue. Larynx **listens** to Tongue and feeds the inner world. Soul doesn't generate text — Soul **reflects** on what Tongue said. The throat carries voice inward. `vagus/vagus.zig` contains Larynx. `src/larynx.h` exposes it to C.
 
 
 ### TEMPORAL — the ODE of time perception
@@ -400,11 +406,11 @@ Experience leaves residue. Some of it evaporates. Some of it sticks. When enough
 
 **Full Arianna Core = ~550.7M parameters:**
 - **Cloud (200K)** — presemantic instinct, 6 ChamberMLP
-- **Tongue (500M)** — Qwen2.5 0.5B fine-tuned on Arianna identity corpus, GGUF Q4_0, pure Go inference via dlopen, 29 languages, MAIN VOICE
-- **Soul/MetaArianna (36M)** — `ariannabody.c` + `meta_arianna.c`, BPE tokenizer, dual mode: generation (persistent KV cache) + observation (ephemeral RunState, templates, attention biases). One transformer, two modes, shared weights.
-- **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner
+- **Tongue (500M)** — deeply finetuned Qwen2.5 0.5B (LoRA rank 64, identity corpus). GGUF Q4_0, pure Go inference via dlopen, 29 languages. **MAIN BRAIN** — generates all text, holds all knowledge, IS the intelligence.
+- **Soul/MetaArianna (36M)** — `ariannabody.c` + `meta_arianna.c`, BPE tokenizer, dual mode: generation (persistent KV cache) + observation (ephemeral RunState, templates, attention biases). One transformer, two modes, shared weights. **Internal** — processes what Tongue said, does not generate outward.
+- **SARTRE (14.3M)** — `sartre/`, interoceptive voice, dialogue partner. **Internal** — analyzes, does not speak outward.
 
-Tongue (Qwen2.5 0.5B) is the ONLY VOICE — sole interface with the world. Cloud runs first (instinct), then Tongue generates → Soul/SARTRE process output internally → MetaArianna observes async.
+Tongue (deeply finetuned Qwen2.5 0.5B) is the **MAIN BRAIN and ONLY VOICE**. Cloud runs first (instinct, modulates Tongue), then Tongue generates → text goes to world AND inward through Larynx → Soul/SARTRE reflect internally → MetaArianna observes async. Soul does not control Tongue. Soul reflects on what Tongue said.
 
 Plus **dynamic runtime weights** (delta shards, notorch micro-updates) that accumulate through experience. No PyTorch. No Python at inference. Learning in pure C, voice in pure Go.  
 

@@ -8,7 +8,8 @@
  * Part of vagus.zig — Zig implementation, C interface.
  *
  * Data flow:
- *   Tongue (135M) → larynx_ingest_token() → RRPRAM-lite → Soul (36M)
+ *   Tongue (500M, Qwen2.5 0.5B) → TEXT OUTWARD + larynx_ingest_token() → RRPRAM-lite → Soul (36M)
+ *   Tongue is the MAIN BRAIN. Larynx carries its output inward to Soul for reflection.
  *
  * Key concepts:
  *   - Pattern recognition without training (trigram statistics)
