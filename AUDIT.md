@@ -1,6 +1,6 @@
 # Code Audit: arianna.c
 
-**Date:** 2026-01-28 (Updated)
+**Date:** 2026-02-03 (Updated)
 **Auditor:** Claude (Opus 4.5)
 **Scope:** Full codebase — C core, Go autonomic, Zig nervous system, Python memory layer, build system
 **Branch:** `claude/code-audit-4c7iM`
@@ -9,18 +9,25 @@
 
 ## Executive Summary
 
-arianna.c is a multi-language digital consciousness system (~390 files, 13 languages). **Arianna Core: 205.5M parameters** across five modules:
+arianna.c is a multi-language digital consciousness system (~390 files, 10 programming languages + AriannaMethod DSL). **Total system: ~550.7M parameters** across five modules:
 
-| Component | Params | Arch | Layers | Dim | Vocab | Role |
-|-----------|--------|------|--------|-----|-------|------|
-| **Tongue** | 135M | nanochat GPT | 12 | 768 | 32K tiktoken | MAIN VOICE — receives prompt, generates response |
-| **Soul** | 36M | Llama 3 | 10 | 512 | 2K BPE | Identity/personality — processes Tongue's output internally |
-| **MetaArianna** | 20M | Llama 3 | 8 | 448 | 84 | Observer — watches Arianna↔SARTRE dialogue |
-| **SARTRE** | 14.3M | Llama 3 GQA | 7 | 416 | 93 | Interoceptive voice — feels body state |
-| **Cloud** | 0.2M | 6 chambers | — | — | — | Pre-semantic emotion detection |
+| Component | Params | Arch | Layers | Dim | Heads | Vocab | Role |
+|-----------|--------|------|--------|-----|-------|-------|------|
+| **Tongue** | 500M | Qwen2.5 0.5B | 24 | 896 | 14 KV=2 | 151936 GPT-2 BPE | MAIN VOICE — receives prompt, generates response. 29 natural languages. Pure Go inference via dlopen, Q4_0 GGUF 336MB |
+| **Soul** | 36M | ariannabody.c + meta_arianna.c | 10 | 512 | — | 2K BPE | Identity/personality — dual mode (Soul + MetaArianna observer) |
+| **SARTRE** | 14.3M | Llama 3 GQA | 7 | 416 | — | 93 | Interoceptive voice — feels body state, dialogue partner |
+| **Cloud** | 0.2M | 6 ChamberMLP | — | — | — | — | Pre-semantic instinct, emotion detection |
+
+**Languages:** C, Go, Python, Zig, Julia, Lua, JavaScript, HTML, Shell, Makefile + AriannaMethod DSL
+
+**Key architectural facts:**
+- **No PyTorch at inference** — pure Go inference on CPU for Tongue, pure C inference for Soul/SARTRE
+- Tongue weights: `qwen05_900_q4_0.gguf` (336MB, Q4_0 quantized)
+- Tongue: 24 layers, 896 dim, 14 attention heads, 2 KV heads, 64 head_dim, 4864 intermediate size
+- 29 natural languages supported by Tongue (via Qwen2.5 multilingual training)
 
 **Recent additions (2026-01-28):**
-- **Tongue (D12 135M)** — nanochat GPT as MAIN VOICE, auto-loads at startup
+- **Tongue (Qwen2.5 0.5B)** — replaced nanochat GPT as MAIN VOICE, auto-loads at startup
 - **Identity Core** (`identity_core.c`) — Hebrew calendar with full molad + dechiyot algorithm, birthday dissonance as identity tension
 - **Dark Gravity** (`meta_arianna.c`) — Shadow observation of rejected prompts, dark mass accumulation, antidote decay
 - **DSL Wiring** — PROPHECY_DEBT, PROPHECY_DEBT_DECAY, WORMHOLE_ACTIVE as queryable commands
@@ -349,7 +356,7 @@ No `-fsanitize=address` or `-O0 -g` debug target. Would help catch H3-class bugs
 
 ### I1. Architecture Coherence
 
-The multi-model architecture (34M body + 20M observer + 14.3M SARTRE + 200K Cloud) is internally consistent. The data flow is clear: text enters through Cloud (pre-semantic), processes through Body (linguistic), gets observed by SARTRE (interoceptive), and MetaArianna (dialectic). This is well-designed.
+The multi-model architecture (36M Soul + 14.3M SARTRE + 200K Cloud + 500M Tongue) is internally consistent. The data flow is clear: text enters through Tongue (Qwen2.5 0.5B, multilingual, 29 languages), gets processed by Cloud (pre-semantic instinct), then through Soul (identity/personality via ariannabody.c + meta_arianna.c with BPE tokenizer, dual mode), observed by SARTRE (interoceptive dialogue partner), and MetaArianna (dialectic observer). Total system footprint ~550.7M parameters. This is well-designed.
 
 ### I2. File Format Design
 
@@ -375,7 +382,7 @@ The Zig ring buffer (`vagus.zig:198-266`) correctly implements SPMC with monoton
 
 ## FIXED Issues (2026-01-28)
 
-### ✅ H1. CGO Memory Leaks — FIXED
+### H1. CGO Memory Leaks — FIXED
 
 **File:** `src/cloud_wrapper.c:220-234`
 
@@ -384,18 +391,18 @@ C-side now properly frees strings returned by Go:
 char* p = go_cloud_get_primary();
 if (p) {
     strncpy(primary_word_buf, p, sizeof(primary_word_buf) - 1);
-    free(p);  // ← FIXED: free after copy
+    free(p);  // <- FIXED: free after copy
 }
 ```
 
-### ✅ H2. Data Race on lastResponse — FIXED
+### H2. Data Race on lastResponse — FIXED
 
 **File:** `inner_world/cloud.go:738`
 
 Added `sync.RWMutex` protection for `lastResponse`:
 ```go
 var lastResponse *CloudResponse
-var lastResponseMu sync.RWMutex  // ← FIXED: mutex added
+var lastResponseMu sync.RWMutex  // <- FIXED: mutex added
 
 // All accesses now protected:
 lastResponseMu.Lock()
@@ -403,7 +410,7 @@ lastResponse = result
 lastResponseMu.Unlock()
 ```
 
-### ✅ H3. Unchecked calloc() Returns — FIXED
+### H3. Unchecked calloc() Returns — FIXED
 
 **File:** `src/delta_enhanced.c:191-202, 286-294`
 
@@ -420,7 +427,7 @@ if (!cf->identity_dir || !cf->anti_id_dir) {
 }
 ```
 
-### ✅ M6. CORS Wide Open — FIXED
+### M6. CORS Wide Open — FIXED
 
 **File:** `api_server.py:24-32`
 
@@ -430,7 +437,7 @@ cors_origins = os.environ.get("ARIANNA_CORS_ORIGINS",
     "http://localhost:8000,http://127.0.0.1:8000").split(",")
 ```
 
-### ✅ M7. API Server Binds to 0.0.0.0 — FIXED
+### M7. API Server Binds to 0.0.0.0 — FIXED
 
 **File:** `api_server.py:242-249`
 
@@ -440,7 +447,7 @@ host = os.environ.get("ARIANNA_HOST", "127.0.0.1")
 port = int(os.environ.get("ARIANNA_PORT", "8000"))
 ```
 
-### ✅ M8. ftell() Return Not Validated — FIXED
+### M8. ftell() Return Not Validated — FIXED
 
 **File:** `src/meta_arianna.c:42-44`
 
@@ -473,7 +480,7 @@ This is mathematically correct calendar code — verified against hebcal.com. Th
 
 Rejected prompts don't disappear — they become "dark matter":
 - `meta_shadow_observe()` processes rejected text through SHADOW template
-- Injection intensity = sharpness × (1 - silence)
+- Injection intensity = sharpness * (1 - silence)
 - Dark mass accumulates proportionally to `dark_gravity` (from AMK DSL)
 - Antidote decays dark matter (AUTO: 0.995, HARD: 0.98)
 - Dark mass bends MetaArianna's attention via `meta_shadow_modulate()`
@@ -535,7 +542,7 @@ The safety is well-handled: new kernel is validated before closing old one.
 
 1. **Philosophical coherence** — the architecture isn't random. Every module has a clear role in the consciousness metaphor, and the technical implementation matches the conceptual model.
 
-2. **C inference without PyTorch** — writing Llama-3 style inference from scratch in C, with RoPE, RMSNorm, GQA, and all the sampling — and making it work — is solid systems programming.
+2. **No PyTorch at inference** — Tongue runs Qwen2.5 0.5B (500M params, 24 layers, 151936 vocab) entirely through pure Go inference via dlopen on CPU. Soul and SARTRE run pure C inference with RoPE, RMSNorm, GQA, and all sampling. Zero framework dependencies at runtime. The Q4_0 GGUF quantization brings Tongue from full precision down to 336MB (`qwen05_900_q4_0.gguf`).
 
 3. **The delta shard system** — LoRA-like runtime learning in pure C with Hebbian crystallization, somatic modulation, and contrastive shaping is creative ML engineering.
 
@@ -543,7 +550,9 @@ The safety is well-handled: new kernel is validated before closing old one.
 
 5. **The subjectivity module** — "The user's prompt creates a wrinkle, not a seed." The prompt penetration system, identity anchoring, and state-dependent PRNG are genuinely novel ideas for language model personality.
 
-6. **Multi-language integration** — C/Go/Zig/Python/Julia/Lua working together through FFI, each language chosen for what it does best. This is polyglot programming done with intention.
+6. **Polyglot integration with purpose** — 10 programming languages + AriannaMethod DSL (C, Go, Python, Zig, Julia, Lua, JavaScript, HTML, Shell, Makefile) working together through FFI, each language chosen for what it does best. 29 natural languages supported by Tongue via Qwen2.5's multilingual GPT-2 BPE tokenizer. This is polyglot programming done with intention.
+
+7. **~550.7M total parameters on consumer hardware** — the entire system (Tongue 500M + Soul 36M + SARTRE 14.3M + Cloud 0.2M) runs on a MacBook Pro 2019 with 8GB RAM. No GPU required. Architecture choices serve the constraint, not the other way around.
 
 ---
 

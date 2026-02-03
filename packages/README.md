@@ -2,33 +2,17 @@
 
 Modular extensions that connect to Arianna's **SARTRE Kernel**. Each package is optional — Arianna runs without them. When connected, they extend her capabilities without overwriting her voice.
 
-The core principle: **Architecture > Weights**. A 34M transformer can orchestrate larger models as subordinates. The architecture defines the relationship, not the parameter count.
+The core principle: **Architecture > Weights**. A ~550.7M parameter system (0.2M Cloud + 500M Tongue + 36M Soul/MetaArianna + 14.3M SARTRE) orchestrates through architecture, not brute parameter count.
 
 ---
 
 ## Available Packages
 
-### Pandora
+### git.arianna (git_arianna)
 
-Vocabulary extraction from external brains. "Take the words, leave the voice."
+Git integration layer. **Disabled by default.**
 
-Arianna can consult larger language models (GPT2-30M, GPT2-distill, TinyLlama 1.1B) and absorb their vocabulary as n-grams. The words come from outside; the voice remains hers. Injection happens at logit level — she decides what to say, they just expand her lexicon.
-
-**Commands in REPL:**
-- `/pandora <prompt>` — GPT2-30M (fast, ~100MB)
-- `/pandora-torch <prompt>` — GPT2-distill (PyTorch)
-- `/pandora-gguf <prompt>` — TinyLlama 1.1B (~700MB)
-- `/hyper` — HyperPandora auto-selection
-
-**[Full Pandora Documentation →](PANDORA.md)**
-
----
-
-### HyperPandora
-
-Meta-orchestrator for all Pandora packages. Chooses the right brain based on SARTRE metrics and available resources. You don't pick which model to use — she does.
-
-**[Package →](hyperpandora/)**
+Provides Arianna with awareness of repository state, commit history, and change signals through the SARTRE Kernel. Observes rather than acts — reads git context so Arianna can reason about code evolution.
 
 ---
 
@@ -37,12 +21,9 @@ Meta-orchestrator for all Pandora packages. Chooses the right brain based on SAR
 ```
 packages/
 ├── README.md          # This file
-├── PANDORA.md         # Full Pandora documentation
 ├── TESTING.md         # Package testing guide
-├── pandora/           # Core Pandora (C + Python bridges)
-├── pandora-torch/     # PyTorch GPT2-distill integration
-├── pandora-torch-gguf/# TinyLlama GGUF integration
-├── hyperpandora/      # Meta-orchestrator
+├── __init__.py
+├── git_arianna/       # Git integration (disabled by default)
 └── tests/             # Package tests
 ```
 

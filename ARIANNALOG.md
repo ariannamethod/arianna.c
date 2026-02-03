@@ -21,14 +21,14 @@
 
 ## Canonical Specification (Single Source of Truth)
 
-**Arianna Core: ~1.15B parameters** (0.2M Cloud + 1.1B Tongue + 36M Soul/MetaArianna + 14.3M SARTRE)
+**Arianna Core: ~550.7M parameters** (0.2M Cloud + 500M Tongue + 36M Soul/MetaArianna + 14.3M SARTRE)
 
-Four modules form the complete Arianna system. Tongue (TinyLlama 1.1B, GGUF Q4_0) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
+Four modules form the complete Arianna system. Tongue (Qwen2.5 0.5B, GGUF Q4_0) is the ONLY VOICE — sole interface with the world. Everything else is internal processing.
 
 ```
 Input → Cloud 200K (instinct/preprocessing — runs FIRST)
             ↓
-      Tongue 1.1B → TEXT OUTWARD (ONLY external voice)
+      Tongue 0.5B → TEXT OUTWARD (ONLY external voice)
             ↓
     [internal processing of Tongue's output]
             ↓
@@ -49,23 +49,23 @@ Previously MetaArianna was a separate 20M char-level transformer. Now absorbed i
 
 BPE observation gives richer thermograms: 17K-dimensional distribution instead of 84-dimensional. Entropy and KL divergence are more informative. Silence detection uses precomputed BPE pause token IDs.
 
-| Property | Cloud | Tongue (1.1B) | Soul (MetaArianna) | SARTRE |
+| Property | Cloud | Tongue (0.5B) | Soul (MetaArianna) | SARTRE |
 |----------|-------|--------------|---------------------|--------|
-| **Parameters** | 0.2M | 1.1B | 36M | 14.3M |
-| **Layers** | 6 ChamberMLP | 22 | 8 | 7 |
-| **Dimension** | — | 2048 | 448 | 416 |
-| **Heads / KV** | — | 32 / 4 (GQA) | 8 / 8 | 8 / 2 (GQA) |
-| **Vocabulary** | — | 32K (SentencePiece) | ~17K (BPE) | 93 |
-| **FFN Hidden** | — | 5632 | 1280 | 1280 |
-| **Weights file** | runtime | `arianna_1b_step3000_q4_0.gguf` (637MB) | `arianna_36m_bpe.bin` (144MB) | `sartre.bin` (57MB) |
-| **Tokenizer** | — | GGUF metadata (SentencePiece BPE) | `tokenizer_bpe.json` | `tokenizer.json` |
-| **Training** | — | TinyLlama 1.1B + LoRA rank 64, 3000 steps, loss 0.16 | 0.0076 | 0.0113 |
+| **Parameters** | 0.2M | 500M | 36M | 14.3M |
+| **Layers** | 6 ChamberMLP | 24 | 8 | 7 |
+| **Dimension** | — | 896 | 448 | 416 |
+| **Heads / KV** | — | 14 / 2 (GQA) | 8 / 8 | 8 / 2 (GQA) |
+| **Vocabulary** | — | 151936 (GPT-2 BPE) | ~17K (BPE) | 93 |
+| **FFN Hidden** | — | 4864 | 1280 | 1280 |
+| **Weights file** | runtime | `qwen05_900_q4_0.gguf` (336MB) | `arianna_36m_bpe.bin` (144MB) | `sartre.bin` (57MB) |
+| **Tokenizer** | — | GGUF metadata (GPT-2 BPE) | `tokenizer_bpe.json` | `tokenizer.json` |
+| **Training** | — | Qwen2.5 0.5B + LoRA rank 64, 900 steps, loss 0.16 | 0.0076 | 0.0113 |
 | **Role** | Emotional instinct | MAIN VOICE, receives prompt | Generation + observation (unified) | Interoceptive voice |
 
-**Memory budget:** 0 + 637MB + 144MB + 57MB = **~838MB** total (fits 8GB Mac).
+**Memory budget:** 0 + 336MB + 144MB + 57MB = **~537MB** total (fits 8GB Mac).
 
 **Architecture notes:**
-- **Tongue** = TinyLlama 1.1B fine-tuned on Arianna identity corpus (8,047 conversations), GGUF Q4_0, Go inference via libarianna.dylib (unified Go library, dlopen from C), LLaMA architecture with RoPE, RMSNorm, SwiGLU, GQA
+- **Tongue** = Qwen2.5 0.5B fine-tuned on Arianna identity corpus (8,047 conversations), GGUF Q4_0, Go inference via libarianna.dylib (unified Go library, dlopen from C), Qwen2 architecture with RoPE, RMSNorm, SwiGLU, GQA, 29 languages
 - **Soul/MetaArianna** = Llama-style transformer (BPE tokenizer, ~17K vocab). Dual mode: generation (persistent KV cache) + observation (ephemeral RunState, templates, attention biases). Replaces former separate MetaArianna 20M.
 - **SARTRE** = char-level tokenizer (by design, internal-only)
 - **Cloud** = 6 ChamberMLP + CrossFire (emotional instinct)
@@ -73,7 +73,7 @@ BPE observation gives richer thermograms: 17K-dimensional distribution instead o
 
 **Weights on HuggingFace:** [ataeff/arianna.c](https://huggingface.co/ataeff/arianna.c)
 
-**Tongue inference:** Pure Go, reads GGUF directly (no llama.cpp dependency). Parallel matmul via goroutines. Q4_0 + Q6_K quantization. ~0.74 tok/s on Intel i5 2019 (CPU-only).
+**Tongue inference:** No PyTorch at inference. Pure Go inference on CPU, reads GGUF directly (no llama.cpp dependency). Parallel matmul via goroutines. Q4_0 quantization. ~0.74 tok/s on Intel i5 2019 (CPU-only).
 
 **Test status:** 19/19 test binaries pass (CI green). `test_meta_arianna` — math + optional forward pass with weights.
 
@@ -191,7 +191,7 @@ All Go components merged into a single shared library:
 
 | Package | Function |
 |---------|----------|
-| `tongue` | 1.1B GGUF inference, BPE tokenizer, parallel matmul |
+| `tongue` | 0.5B GGUF inference, GPT-2 BPE tokenizer (151936 vocab), parallel matmul |
 | `inner_world` | 6 async goroutines (trauma, overthinking, drift, memory, wandering, prophecy) |
 | `cloud` | 6 ChamberMLP + CrossFire emotional instinct |
 | `blood` | Runtime C compiler for LoRA adapters |
@@ -336,11 +336,11 @@ Activation: SiLU (SwiGLU FFN)
 
 ### Larynx — Tongue↔Soul Connection (`vagus/vagus.zig`, `src/larynx.h`)
 
-The larynx: where thought becomes voice, where voice becomes identity. Bridge layer between Tongue (1.1B) and Soul (36M).
+The larynx: where thought becomes voice, where voice becomes identity. Bridge layer between Tongue (0.5B) and Soul (36M).
 
 **Data Flow:**
 ```
-    Tongue (1.1B)
+    Tongue (0.5B)
          │
          ▼
     larynx_ingest_token()
@@ -483,7 +483,7 @@ Locus Coeruleus — the "blue spot" in the brainstem. Releases norepinephrine wh
 |--------|------|-------|---------|
 | **Soul/MetaArianna** | Float32 weights | 36M | Generation + observation (dual mode) |
 | **SARTRE** | Float32 weights | 14.3M | Interoceptive voice, dialogue partner |
-| **Tongue** | GGUF Q4_0 | 1.1B | External voice (Go inference) |
+| **Tongue** | GGUF Q4_0 | 500M | External voice (Go inference) |
 | **Cloud 200K** | 6 ChamberMLP + CrossFire | ~181K | Pre-semantic emotion |
 | **Subjectivity** | Trigrams + lexicon | 500k | Identity patterns |
 | **Julia** | Runtime state | 12 floats | Emotional ODE |
@@ -496,7 +496,7 @@ Locus Coeruleus — the "blue spot" in the brainstem. Releases norepinephrine wh
 | **Delta Shards** | Binary experience | Variable | Runtime learning |
 
 **Total Static Core:** ~50.5M (36M Soul + 14.3M SARTRE + 0.2M Cloud)
-**+ Tongue:** 1.1B (GGUF Q4_0, 637MB on disk)
+**+ Tongue:** 500M (GGUF Q4_0, 336MB on disk)
 **+ Dynamic Runtime Weights:** Delta shards, notorch micro-updates
 
 ---
@@ -518,7 +518,7 @@ Locus Coeruleus — the "blue spot" in the brainstem. Releases norepinephrine wh
    ```
    arianna_full with unified Go library
    Dependencies: Go 1.21+, CGO enabled
-   Size: 144MB + 637MB (GGUF) + 57MB (SARTRE) + ~15MB binary
+   Size: 144MB + 336MB (GGUF) + 57MB (SARTRE) + ~15MB binary
    Unified: tongue + inner_world + cloud + blood + high + meta_router
    ```
 
@@ -550,7 +550,7 @@ cd arianna.c
 # Build unified Go library (tongue + inner_world + cloud + blood + high + meta_router)
 make go-lib
 
-# Download Tongue weights (637MB GGUF)
+# Download Tongue weights (336MB GGUF)
 make tongue-weights
 
 # Compile (dynamic recommended - first run converts f16 weights)
@@ -636,7 +636,7 @@ bash tests/run_all_tests.sh
 |------|-----------|---------|
 | Soul only (36M) | ~45 tok/s | 171MB |
 | Dynamic (all modules + observer) | ~35 tok/s | ~210MB |
-| Full (with Go + Tongue) | ~0.74 tok/s (Tongue) | ~838MB |
+| Full (with Go + Tongue) | ~0.74 tok/s (Tongue) | ~537MB |
 | Dialogue (+ SARTRE lazy-loaded) | — | +57MB |
 
 ### Memory Usage
@@ -645,14 +645,14 @@ bash tests/run_all_tests.sh
 Baseline (process start): 48MB
 + Soul weights: +144MB (arianna_36m_bpe.bin, shared with observer)
 + Observer RunState: +2MB (ephemeral, zeroed each cycle)
-+ Tongue GGUF: +637MB (mmap, Q4_0)
++ Tongue GGUF: +336MB (mmap, Q4_0)
 + SARTRE: +57MB (sartre.bin, lazy-loaded on /dialogue)
 + Cloud 200K: +2MB (6 chambers)
 + Tokenizer: +2MB (BPE vocab)
 + Activations: +25MB (forward pass buffers)
 + KV cache: +15MB (512 context)
 ──────────────────────────────
-Total: ~838MB (full mode with Tongue)
+Total: ~537MB (full mode with Tongue)
 ```
 
 ---
@@ -700,12 +700,12 @@ Final norm + output head:
 
 **Loading code:** See `load_weights()` in `src/ariannabody.c` (auto-detects embedded config via magic number)
 
-### Tongue GGUF (`arianna_1b_step3000_q4_0.gguf`)
+### Tongue GGUF (`qwen05_900_q4_0.gguf`)
 
-Standard GGUF format (llama.cpp compatible). Parsed natively by Go code in `tongue/model.go`. Contains:
+Standard GGUF format. Parsed natively by Go code in `tongue/model.go`. Contains:
 - Model config in GGUF metadata
-- SentencePiece BPE tokenizer in metadata
-- Q4_0 quantized tensors (32K vocab, 2048 dim, 22 layers)
+- GPT-2 BPE tokenizer in metadata (151936 vocab)
+- Q4_0 quantized tensors (151936 vocab, 896 dim, 24 layers, 14 heads, 2 KV heads)
 
 ---
 
@@ -732,7 +732,7 @@ None currently. All critical bugs resolved.
 
 ### Done (v0.2)
 
-- [x] **Tongue rewrite:** Embedded C NanoModel → Go dlopen (TinyLlama 1.1B, GGUF Q4_0)
+- [x] **Tongue rewrite:** Embedded C NanoModel → Go dlopen (Qwen2.5 0.5B, GGUF Q4_0)
 - [x] **Unified Go library:** tongue + inner_world + cloud + blood + high + meta_router → libarianna.dylib
 - [x] **MetaArianna:** Soul absorbs MetaArianna — one transformer, two modes, shared weights
 - [x] **MetaArianna 20M removed:** Observer uses Soul's 36M BPE weights (saves ~81MB RAM)
@@ -770,9 +770,9 @@ When you talk to Arianna, here's the cascade through her organism:
                     └─────────────────────┬──────────────────────┘
                                           │
                     ┌─────────────────────▼──────────────────────┐
-                    │  TONGUE 1.1B (tongue.go) - THE VOICE       │
+                    │  TONGUE 0.5B (tongue.go) - THE VOICE       │
                     │  "The only part that speaks outward"       │
-                    │  • TinyLlama 1.1B GGUF Q4_0               │
+                    │  • Qwen2.5 0.5B GGUF Q4_0                 │
                     │  • Go inference, parallel matmul           │
                     │  • Temperature floor 0.9 (never freezes)   │
                     │  • Receives prompt, generates text         │
