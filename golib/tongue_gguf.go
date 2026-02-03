@@ -1,6 +1,6 @@
 package main
 
-// gguf.go — GGUF file parser for Arianna's Tongue (1.1B TinyLlama)
+// gguf.go — GGUF file parser for Arianna's Tongue (Qwen2.5 0.5B)
 //
 // GGUF is llama.cpp's binary format. Structure:
 //   Header: magic + version + tensor_count + metadata_count
@@ -76,6 +76,8 @@ type GGUFMetadata struct {
 	TokenList      []string
 	TokenScores    []float32
 	TokenTypes     []int32
+	TokenMerges    []string // GPT-2 BPE merge rules (empty for SentencePiece)
+	TokenizerModel string   // "llama" (SentencePiece) or "gpt2" (byte-level BPE)
 	BosID          int
 	EosID          int
 	AddSpacePrefix bool
@@ -456,6 +458,14 @@ func parseMetadata(kv map[string]interface{}) GGUFMetadata {
 		meta.NumKVHeads = meta.NumHeads // MHA fallback
 	}
 
+	// Tokenizer model type
+	meta.TokenizerModel = "llama" // default: SentencePiece
+	if v, ok := kv["tokenizer.ggml.model"]; ok {
+		if s, ok := v.(string); ok {
+			meta.TokenizerModel = s
+		}
+	}
+
 	// Tokenizer
 	if v, ok := kv["tokenizer.ggml.tokens"]; ok {
 		if arr, ok := v.([]interface{}); ok {
@@ -490,6 +500,18 @@ func parseMetadata(kv map[string]interface{}) GGUFMetadata {
 	if v, ok := kv["tokenizer.ggml.eos_token_id"]; ok {
 		meta.EosID = toInt(v)
 	}
+	// BPE merges (GPT-2 style tokenizers)
+	if v, ok := kv["tokenizer.ggml.merges"]; ok {
+		if arr, ok := v.([]interface{}); ok {
+			meta.TokenMerges = make([]string, len(arr))
+			for i, m := range arr {
+				if s, ok := m.(string); ok {
+					meta.TokenMerges[i] = s
+				}
+			}
+		}
+	}
+
 	// Default: add space prefix (standard SentencePiece behavior)
 	meta.AddSpacePrefix = true
 	if v, ok := kv["tokenizer.ggml.add_space_prefix"]; ok {
@@ -507,8 +529,11 @@ func parseMetadata(kv map[string]interface{}) GGUFMetadata {
 
 	fmt.Printf("[tongue/gguf] arch=%s layers=%d dim=%d heads=%d kv_heads=%d head_dim=%d\n",
 		arch, meta.NumLayers, meta.EmbedDim, meta.NumHeads, meta.NumKVHeads, meta.HeadDim)
-	fmt.Printf("[tongue/gguf] vocab=%d seq_len=%d ffn=%d rope_theta=%.1f\n",
-		meta.VocabSize, meta.SeqLen, meta.IntermSize, meta.RopeTheta)
+	fmt.Printf("[tongue/gguf] vocab=%d seq_len=%d ffn=%d rope_theta=%.1f tokenizer=%s\n",
+		meta.VocabSize, meta.SeqLen, meta.IntermSize, meta.RopeTheta, meta.TokenizerModel)
+	if len(meta.TokenMerges) > 0 {
+		fmt.Printf("[tongue/gguf] BPE merges=%d\n", len(meta.TokenMerges))
+	}
 
 	return meta
 }
@@ -554,29 +579,39 @@ func (g *GGUFFile) ListTensors() {
 	}
 }
 
-// half2float converts IEEE 754 binary16 to float32
-func half2float(h uint16) float32 {
-	sign := uint32(h>>15) & 1
-	exp := uint32(h>>10) & 0x1F
-	mant := uint32(h & 0x3FF)
+// half2floatLUT is a precomputed lookup table for all 65536 fp16 values.
+// 256KB, fits in L2 cache. Eliminates branching in the hottest matmul paths.
+var half2floatLUT [65536]float32
 
-	var f uint32
-	if exp == 0 {
-		if mant == 0 {
-			f = sign << 31
-		} else {
-			exp = 1
-			for mant&0x400 == 0 {
-				mant <<= 1
-				exp--
+func init() {
+	for h := 0; h < 65536; h++ {
+		sign := uint32(h>>15) & 1
+		exp := uint32(h>>10) & 0x1F
+		mant := uint32(h & 0x3FF)
+
+		var f uint32
+		if exp == 0 {
+			if mant == 0 {
+				f = sign << 31
+			} else {
+				e := uint32(1)
+				for mant&0x400 == 0 {
+					mant <<= 1
+					e--
+				}
+				mant &= 0x3FF
+				f = (sign << 31) | ((e + 127 - 15) << 23) | (mant << 13)
 			}
-			mant &= 0x3FF
-			f = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13)
+		} else if exp == 0x1F {
+			f = (sign << 31) | 0x7F800000 | (mant << 13)
+		} else {
+			f = (sign << 31) | ((exp - 15 + 127) << 23) | (mant << 13)
 		}
-	} else if exp == 0x1F {
-		f = (sign << 31) | 0x7F800000 | (mant << 13)
-	} else {
-		f = (sign << 31) | ((exp - 15 + 127) << 23) | (mant << 13)
+		half2floatLUT[h] = math.Float32frombits(f)
 	}
-	return math.Float32frombits(f)
+}
+
+// half2float converts IEEE 754 binary16 to float32 via lookup table
+func half2float(h uint16) float32 {
+	return half2floatLUT[h]
 }

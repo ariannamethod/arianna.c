@@ -25,7 +25,7 @@ SRC_DIR = src
 BIN_DIR = bin
 
 # Basic version (Cloud wrapper + Go library)
-SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/main.c
+SRCS = $(SRC_DIR)/ariannabody.c $(SRC_DIR)/bpe_tokenizer.c $(SRC_DIR)/cloud_wrapper.c $(SRC_DIR)/larynx.c $(SRC_DIR)/main.c
 TARGET = $(BIN_DIR)/arianna
 
 # Dynamic version with full pipeline (Cloud in Go via wrapper)
@@ -351,13 +351,13 @@ locus-clean:
 .PHONY: locus test_locus locus-clean
 
 
-# Tongue weights download (TinyLlama 1.1B Q4_0 GGUF, ~637MB)
-TONGUE_WEIGHTS_URL = https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-4/arianna_1b_step3000_q4_0.gguf
-TONGUE_WEIGHTS = tongue/weights/arianna_1b_step3000_q4_0.gguf
+# Tongue weights download (Qwen2.5 0.5B Q4_0 GGUF, ~352MB)
+TONGUE_WEIGHTS_URL = https://huggingface.co/ataeff/arianna/resolve/main/qw0-5b/qwen05_900_q4_0.gguf
+TONGUE_WEIGHTS = tongue/weights/qwen05_900_q4_0.gguf
 
 $(TONGUE_WEIGHTS):
 	@mkdir -p tongue/weights
-	@echo "[tongue] Downloading TinyLlama 1.1B GGUF from HuggingFace (~637MB)..."
+	@echo "[tongue] Downloading Qwen2.5 0.5B GGUF from HuggingFace (~352MB)..."
 	@curl -L --progress-bar -o $(TONGUE_WEIGHTS) $(TONGUE_WEIGHTS_URL)
 	@echo "[tongue] Downloaded: $(TONGUE_WEIGHTS)"
 

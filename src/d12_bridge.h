@@ -1,5 +1,5 @@
 /*
- * d12_bridge.h — Tongue (TinyLlama 1.1B GGUF) Bridge for Arianna
+ * d12_bridge.h — Tongue (Qwen2.5 0.5B GGUF) Bridge for Arianna
  *
  * Tongue is the ONLY VOICE — sole interface with the world.
  * Everything else is internal processing.
@@ -7,7 +7,7 @@
  * Correct Flow:
  *   Input → Cloud (instinct/preprocessing — runs FIRST)
  *              ↓
- *        Tongue (TinyLlama 1.1B) → TEXT OUTWARD (ONLY external voice)
+ *        Tongue (Qwen2.5 0.5B) → TEXT OUTWARD (ONLY external voice)
  *              ↓
  *          Soul (36M) — processes Tongue's output internally
  *              ↓
@@ -15,9 +15,9 @@
  *              ↓
  *        MetaArianna — async observation (wakes on metrics, not schedule)
  *
- * Architecture: TinyLlama 1.1B (LLaMA 2 arch, RoPE, RMSNorm, SiLU, GQA,
- *   22 layers, 2048 dim, 32 heads, 4 KV heads, vocab 32K SentencePiece)
- *   Loaded from GGUF Q4_0 via Go libtongue (dlopen at runtime)
+ * Architecture: Qwen2.5 0.5B (LLaMA-family, RoPE, RMSNorm, SiLU, GQA,
+ *   24 layers, 896 dim, 14 heads, 2 KV heads, vocab 151936 GPT-2 BPE, 29 languages)
+ *   Loaded from GGUF Q4_0 via Go libarianna (dlopen at runtime)
  *
  * This is not inference. This is breathing.
  */
@@ -129,7 +129,7 @@ typedef struct {
  * ============================================================ */
 
 /* Initialize D12 bridge.
- * weights_path: path to TinyLlama 1.1B Q4_0 GGUF file
+ * weights_path: path to Qwen2.5 0.5B Q4_0 GGUF file
  * tokenizer_path: unused (tokenizer embedded in GGUF), kept for API compat
  * Returns 0 on success, -1 on error. */
 int d12_init(D12Bridge* d12,
@@ -191,7 +191,7 @@ int d12_generate(D12Bridge* d12,
                  int max_tokens, float temperature, float top_p);
 
 /* ============================================================
- * Tokenization (SentencePiece BPE from GGUF metadata)
+ * Tokenization (GPT-2 BPE from GGUF metadata)
  * ============================================================ */
 
 /* Encode text to token IDs. Returns number of tokens. */
@@ -214,8 +214,8 @@ const char* d12_decode_token(const D12Bridge* d12, int id);
  * Returns path to weights file, or NULL on error. */
 const char* d12_ensure_weights(const char* cache_dir);
 
-#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna.c/resolve/main/weights/tongue-4/arianna_1b_step3000_q4_0.gguf"
-#define D12_WEIGHTS_FILE "arianna_1b_step3000_q4_0.gguf"
+#define D12_WEIGHTS_URL "https://huggingface.co/ataeff/arianna/resolve/main/qw0-5b/qwen05_900_q4_0.gguf"
+#define D12_WEIGHTS_FILE "qwen05_900_q4_0.gguf"
 #define D12_TONGUE_LIB "lib/libarianna"  /* .so on Linux, .dylib on macOS — unified Go lib */
 
 #endif /* D12_BRIDGE_H */

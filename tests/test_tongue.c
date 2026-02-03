@@ -1,11 +1,11 @@
 /*
- * test_tongue.c — Test the Tongue 1.1B Go bridge
+ * test_tongue.c — Test the Tongue (Qwen2.5 0.5B) Go bridge
  *
  * Tests:
  *   1. Library loads correctly
  *   2. GGUF weights parse
- *   3. Model dimensions match TinyLlama 1.1B
- *   4. Tokenizer works
+ *   3. Model dimensions match Qwen2.5 0.5B
+ *   4. Tokenizer works (GPT-2 BPE)
  *   5. Generation produces output
  */
 
@@ -27,11 +27,11 @@ static int tests_total = 0;
 } while(0)
 
 int main(void) {
-    printf("=== Tongue 1.1B Bridge Tests ===\n\n");
+    printf("=== Tongue (Qwen2.5 0.5B) Bridge Tests ===\n\n");
 
     // Test 1: Initialize with GGUF weights
     printf("[1] Loading GGUF weights...\n");
-    int rc = tongue_init("weights/tongue-4/arianna_1b_step3000_q4_0.gguf");
+    int rc = tongue_init("tongue/weights/qwen05_900_q4_0.gguf");
     CHECK("tongue_init() returns 0", rc == 0);
 
     if (rc != 0) {
@@ -48,9 +48,9 @@ int main(void) {
 
     printf("  vocab=%d dim=%d seq_len=%d layers=%d\n", vocab, dim, seq_len, layers);
 
-    CHECK("vocab == 32000 (TinyLlama)", vocab == 32000);
-    CHECK("dim == 2048", dim == 2048);
-    CHECK("layers == 22", layers == 22);
+    CHECK("vocab == 151936 (Qwen2.5)", vocab == 151936);
+    CHECK("dim == 896", dim == 896);
+    CHECK("layers == 24", layers == 24);
     CHECK("seq_len > 0", seq_len > 0);
 
     // Test 3: Tokenizer

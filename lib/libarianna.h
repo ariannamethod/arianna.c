@@ -113,7 +113,7 @@ typedef struct {
 
 #line 1 "cgo-generated-wrapper"
 
-#line 15 "tongue_bridge.go"
+#line 16 "tongue_bridge.go"
 
 #include <stdlib.h>
 #include <string.h>

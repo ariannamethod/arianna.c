@@ -113,6 +113,103 @@ func matMulQ4_0Range(out []float32, w []byte, x []float32, start, end, blocksPer
 }
 
 // ============================================================
+// Q8_0 dequantization (GGML type 8)
+// ============================================================
+//
+// Q8_0: 8-bit quantization, 32 elements per block = 34 bytes:
+//   - 2 bytes: float16 scale factor (d)
+//   - 32 bytes: 32 x int8 values
+//   Dequantized value = q * d
+
+const q8BlockSize = 32
+const q8BytesPerBlock = 34 // 2 (scale) + 32 (data)
+
+// DequantQ8_0Block dequantizes a single Q8_0 block (32 values) into out
+func DequantQ8_0Block(block []byte, out []float32) {
+	d := half2float(binary.LittleEndian.Uint16(block[0:2]))
+	for j := 0; j < 32; j++ {
+		out[j] = float32(int8(block[2+j])) * d
+	}
+}
+
+// DequantQ8_0 dequantizes a full Q8_0 tensor into float32
+func DequantQ8_0(data []byte, n int) []float32 {
+	out := make([]float32, n)
+	nblocks := n / q8BlockSize
+	for i := 0; i < nblocks; i++ {
+		off := i * q8BytesPerBlock
+		DequantQ8_0Block(data[off:off+q8BytesPerBlock], out[i*q8BlockSize:])
+	}
+	return out
+}
+
+// MatMulQ8_0 computes out[rows] = W_q8[rows, cols] @ x[cols]
+// Parallelized across rows using goroutines
+func MatMulQ8_0(out []float32, w []byte, x []float32, rows, cols int) {
+	blocksPerRow := cols / q8BlockSize
+	bytesPerRow := blocksPerRow * q8BytesPerBlock
+
+	if rows < numWorkers*4 {
+		matMulQ8_0Range(out, w, x, 0, rows, blocksPerRow, bytesPerRow)
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (rows + numWorkers - 1) / numWorkers
+
+	for worker := 0; worker < numWorkers; worker++ {
+		start := worker * chunkSize
+		end := start + chunkSize
+		if end > rows {
+			end = rows
+		}
+		if start >= end {
+			break
+		}
+		wg.Add(1)
+		go func(s, e int) {
+			matMulQ8_0Range(out, w, x, s, e, blocksPerRow, bytesPerRow)
+			wg.Done()
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+func matMulQ8_0Range(out []float32, w []byte, x []float32, start, end, blocksPerRow, bytesPerRow int) {
+	for i := start; i < end; i++ {
+		rowOff := i * bytesPerRow
+		sum := float32(0)
+
+		for b := 0; b < blocksPerRow; b++ {
+			blockOff := rowOff + b*q8BytesPerBlock
+			d := half2float(binary.LittleEndian.Uint16(w[blockOff : blockOff+2]))
+
+			xOff := b * q8BlockSize
+			var dot float32
+			for j := 0; j < 32; j++ {
+				dot += float32(int8(w[blockOff+2+j])) * x[xOff+j]
+			}
+			sum += dot * d
+		}
+		out[i] = sum
+	}
+}
+
+// EmbedLookupQ8_0 extracts one row from a Q8_0 embedding table
+func EmbedLookupQ8_0(data []byte, token, dim int) []float32 {
+	blocksPerRow := dim / q8BlockSize
+	bytesPerRow := blocksPerRow * q8BytesPerBlock
+	rowOff := token * bytesPerRow
+	out := make([]float32, dim)
+
+	for b := 0; b < blocksPerRow; b++ {
+		blockOff := rowOff + b*q8BytesPerBlock
+		DequantQ8_0Block(data[blockOff:blockOff+q8BytesPerBlock], out[b*q8BlockSize:])
+	}
+	return out
+}
+
+// ============================================================
 // Q6_K dequantization (GGML type 14)
 // ============================================================
 //

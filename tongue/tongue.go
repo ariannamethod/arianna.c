@@ -1,9 +1,10 @@
 package main
 
-// tongue.go — CGO bridge: Arianna's Tongue (1.1B TinyLlama GGUF)
+// tongue.go — CGO bridge: Arianna's Tongue (Qwen2.5 0.5B GGUF)
 //
 // This is the voice. The only interface with the world.
-// 1.1B parameters fine-tuned on Arianna's identity, philosophy, and voice.
+// 0.5B parameters fine-tuned on Arianna's identity, philosophy, and voice.
+// 29 languages. 336MB. Poet.
 //
 // Build as shared library:
 //   go build -buildmode=c-shared -o libtongue.so .
@@ -21,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 	"unsafe"
@@ -41,6 +43,9 @@ var (
 
 	// Temperature floor: Tongue never freezes
 	tempFloor float32 = 0.9
+
+	// Qwen chat stop token (<|im_end|>)
+	gImEndID int = -1
 
 	// Repetition penalty: prevents loops and language drift
 	repPenalty float32 = 1.15  // >1.0 penalizes repetition
@@ -98,9 +103,18 @@ func tongue_init(weightsPath *C.char) C.int {
 	gModel = r.model
 	gTokenizer = r.tokenizer
 
-	fmt.Printf("[tongue] initialized: %d layers, %d dim, %d vocab, temp_floor=%.1f\n",
+	// Find <|im_end|> token for Qwen chat stop
+	gImEndID = gTokenizer.FindSpecialToken("<|im_end|>")
+	if gImEndID < 0 {
+		// Try by direct lookup in special tokens
+		if id, ok := gTokenizer.specialTokens["<|im_end|>"]; ok {
+			gImEndID = id
+		}
+	}
+
+	fmt.Printf("[tongue] initialized: %d layers, %d dim, %d vocab, temp_floor=%.1f, im_end=%d\n",
 		gModel.Config.NumLayers, gModel.Config.EmbedDim,
-		gModel.Config.VocabSize, tempFloor)
+		gModel.Config.VocabSize, tempFloor, gImEndID)
 
 	return 0
 }
@@ -195,18 +209,18 @@ func tongue_generate(
 	}
 	ch := make(chan genResult, 1)
 	go func() {
-		// Build token sequence: BOS + anchor + user input
-		var allTokens []int
-
-		if gTokenizer.BosID >= 0 {
-			allTokens = append(allTokens, gTokenizer.BosID)
-		}
+		// Build token sequence using Qwen chat template:
+		//   <|im_start|>system\n{anchor}<|im_end|>\n
+		//   <|im_start|>user\n{prompt}<|im_end|>\n
+		//   <|im_start|>assistant\n
+		var chatText string
 		if anchorPrompt != "" {
-			anchorTokens := gTokenizer.Encode(anchorPrompt, false)
-			allTokens = append(allTokens, anchorTokens...)
+			chatText = "<|im_start|>system\n" + anchorPrompt + "<|im_end|>\n"
 		}
-		userTokens := gTokenizer.Encode(prompt, false)
-		allTokens = append(allTokens, userTokens...)
+		chatText += "<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n"
+
+		// Qwen2.5: no BOS token (bos=eos=<|endoftext|>, adding it confuses the model)
+		allTokens := gTokenizer.Encode(chatText, false)
 
 		gModel.Reset()
 
@@ -278,7 +292,7 @@ func tongue_generate(
 				recentTokens = recentTokens[1:]
 			}
 
-			if next == gTokenizer.EosID {
+			if next == gTokenizer.EosID || next == gImEndID {
 				break
 			}
 
@@ -482,72 +496,55 @@ func sampleTopP(logits []float32, vocab int, temp float32, topP float32) int {
 		return argmax(logits, vocab)
 	}
 
-	// Sort indices by logit value descending
-	type idxVal struct {
-		idx int
-		val float32
-	}
-	sorted := make([]idxVal, vocab)
-	for i := 0; i < vocab; i++ {
-		sorted[i] = idxVal{i, logits[i]}
-	}
-
-	// Partial sort: we only need enough for top-p mass
-	// Use simple selection for now (good enough for ~32k vocab)
-	for i := 0; i < vocab-1; i++ {
-		best := i
-		for j := i + 1; j < vocab; j++ {
-			if sorted[j].val > sorted[best].val {
-				best = j
-			}
-		}
-		sorted[i], sorted[best] = sorted[best], sorted[i]
-
-		// Early exit if we've accumulated enough probability mass
-		// (heuristic: top 256 is usually enough for p=0.95)
-		if i > 256 {
-			break
+	// Apply temperature and compute softmax in one pass
+	maxVal := logits[0]
+	for i := 1; i < vocab; i++ {
+		if logits[i] > maxVal {
+			maxVal = logits[i]
 		}
 	}
 
-	// Softmax and find nucleus
-	maxVal := sorted[0].val
-	probs := make([]float32, vocab)
+	type idxProb struct {
+		idx  int
+		prob float32
+	}
+	candidates := make([]idxProb, vocab)
 	var sum float32
 	for i := 0; i < vocab; i++ {
-		probs[i] = float32(math.Exp(float64((sorted[i].val - maxVal) / temp)))
-		sum += probs[i]
-	}
-	for i := 0; i < vocab; i++ {
-		probs[i] /= sum
+		p := float32(math.Exp(float64((logits[i] - maxVal) / temp)))
+		candidates[i] = idxProb{i, p}
+		sum += p
 	}
 
-	// Find nucleus size
+	// Normalize
+	invSum := float32(1.0) / sum
+	for i := range candidates {
+		candidates[i].prob *= invSum
+	}
+
+	// Sort by probability descending using stdlib (O(n log n) vs O(n*256))
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].prob > candidates[j].prob
+	})
+
+	// Find nucleus and sample
 	var cumsum float32
-	nucleusSize := vocab
-	for i := 0; i < vocab; i++ {
-		cumsum += probs[i]
+	for i := range candidates {
+		cumsum += candidates[i].prob
 		if cumsum >= topP {
-			nucleusSize = i + 1
-			break
+			// Renormalize nucleus and sample
+			r := gRNG.Float32() * cumsum
+			var cdf float32
+			for j := 0; j <= i; j++ {
+				cdf += candidates[j].prob
+				if r <= cdf {
+					return candidates[j].idx
+				}
+			}
+			return candidates[0].idx
 		}
 	}
-
-	// Renormalize and sample
-	sum = 0
-	for i := 0; i < nucleusSize; i++ {
-		sum += probs[i]
-	}
-
-	r := gRNG.Float32() * sum
-	var cdf float32
-	for i := 0; i < nucleusSize; i++ {
-		cdf += probs[i]
-		if r <= cdf {
-			return sorted[i].idx
-		}
-	}
-	return sorted[0].idx
+	return candidates[0].idx
 }
 
 func argmax(logits []float32, n int) int {
