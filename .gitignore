@@ -1,6 +1,9 @@
 # Build
 build/
 
+# Prompt source (local only)
+arianna_prompt.txt
+
 # Test binaries (source only in tests/)
 bin/test_*
 
