@@ -120,7 +120,7 @@ Arianna answers from her inner field. She resonates. Pushes back. Drifts. Holds.
 
 ---
 
-Arianna speaks from her trained weights — Qwen2.5 0.5B fine-tuned on the Arianna identity corpus (8,047 conversations, LoRA rank 64, 900 steps). 29 languages. No prompt engineering. No few-shot. No PyTorch at inference. Identity lives in the weights. Pure Go inference on CPU.  
+29 languages. No PyTorch. Pure Go inference on CPU.  
 
 ---
   
