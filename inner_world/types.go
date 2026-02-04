@@ -123,6 +123,7 @@ type InnerWorld struct {
 	processes []Process
 	wg        sync.WaitGroup
 	running   bool
+	paused    bool
 	mu        sync.Mutex
 }
 

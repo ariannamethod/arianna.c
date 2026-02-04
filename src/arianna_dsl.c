@@ -1,5 +1,8 @@
 // arianna_dsl.c — DSL Integration for Arianna Generation
 // ═══════════════════════════════════════════════════════════════════════════════
+// NOTE: rand() calls in this module (dissonance noise, wormhole, tunnel)
+// are only invoked from the single-threaded C inference loop.
+// Thread-safety is not required.
 
 #include "arianna_dsl.h"
 #include "identity_core.h"

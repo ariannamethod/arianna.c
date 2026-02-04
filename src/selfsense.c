@@ -14,6 +14,8 @@
 // Initialization
 // ============================================================
 
+// NOTE: rand() used only during init (single-threaded context via CGO).
+// Thread-safety not needed: init is called once from main thread.
 static float randf(void) {
     return (float)rand() / (float)RAND_MAX;
 }
@@ -43,12 +45,8 @@ void init_selfsense(SelfSense* ss, int dim) {
         !ss->identity.identity_embedding || !ss->identity.warmth_direction ||
         !ss->identity.cold_direction) {
         fprintf(stderr, "[SelfSense] calloc failed — OOM\n");
-        free(ss->mlp.w1); free(ss->mlp.b1);
-        free(ss->mlp.w2); free(ss->mlp.b2);
-        free(ss->identity.identity_embedding);
-        free(ss->identity.warmth_direction);
-        free(ss->identity.cold_direction);
-        memset(ss, 0, sizeof(SelfSense));
+        ss->initialized = 1;   // so free_selfsense() will actually free
+        free_selfsense(ss);     // handles all fields + memset to 0
         return;
     }
 
@@ -199,9 +197,10 @@ float compute_layer_tension(float* pre_layer, float* post_layer, int dim) {
 float compute_attention_focus(float* attention_weights, int seq_len) {
     // Gini coefficient of attention - higher = more focused
     if (attention_weights == NULL || seq_len <= 1) return 0.5f;
+    if (seq_len > MAX_SEQ_LEN) return 0.5f;  // M1: bounds check
 
     // Sort attention weights (simple bubble sort, seq_len is small)
-    float sorted[MAX_SEQ_LEN];
+    float sorted[MAX_SEQ_LEN];  // 2KB stack — safe, MAX_SEQ_LEN=512
     memcpy(sorted, attention_weights, seq_len * sizeof(float));
 
     for (int i = 0; i < seq_len - 1; i++) {

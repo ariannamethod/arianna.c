@@ -94,8 +94,8 @@ void test_transformer_load_valid() {
 
     int result = load_weights(t, WEIGHTS_PATH);
     TEST_ASSERT(result == 0, "Should load valid transformer");
-    TEST_ASSERT(t->config.dim == 448, "Soul 36M should have dim=448");
-    TEST_ASSERT(t->config.n_layers == 8, "Soul 36M should have 8 layers");
+    TEST_ASSERT(t->config.dim == 512, "Soul 36M should have dim=512");
+    TEST_ASSERT(t->config.n_layers == 10, "Soul 36M should have 10 layers");
     TEST_ASSERT(t->config.n_heads == 8, "Soul 36M should have 8 heads");
     TEST_ASSERT(t->config.vocab_size > 1000, "BPE vocab should be >1000");
 

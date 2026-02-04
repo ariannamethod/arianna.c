@@ -15,7 +15,7 @@
 #include <string.h>
 #include <math.h>
 #include "meta_arianna.h"
-#include "ariannabody.c"  /* for Transformer loading, encode_text, etc. */
+#include "arianna.h"  /* for Transformer loading, encode_text, etc. */
 
 static int pass_count = 0;
 static int fail_count = 0;
@@ -305,16 +305,14 @@ static void test_forward_pass(const char* weights_path,
     /* Load Soul transformer */
     Transformer soul;
     memset(&soul, 0, sizeof(soul));
-    load_weights(weights_path, &soul.config, &soul.weights,
-                 &soul.fd, &soul.data, &soul.file_size);
-    malloc_run_state(&soul.state, &soul.config);
+    load_weights(&soul, weights_path);
+    malloc_run_state(&soul);
 
     /* Load BPE tokenizer */
-    Tokenizer tok;
-    build_tokenizer(&tok, tokenizer_path, soul.config.vocab_size);
+    load_tokenizer(tokenizer_path);
 
-    check("dim 448", soul.config.dim == 448);
-    check("layers 8", soul.config.n_layers == 8);
+    check("dim 512", soul.config.dim == 512);
+    check("layers 10", soul.config.n_layers == 10);
     printf("  vocab_size: %d\n", soul.config.vocab_size);
 
     /* Init MetaArianna observer */
@@ -401,7 +399,6 @@ static void test_forward_pass(const char* weights_path,
     /* Cleanup */
     meta_arianna_free(&us);
     check("free success", us.initialized == 0);
-    free_tokenizer(&tok);
     free_transformer(&soul);
 }
 

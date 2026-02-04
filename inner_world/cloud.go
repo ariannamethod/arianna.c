@@ -94,6 +94,11 @@ func GetAllAnchors() []string {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // COUPLING MATRIX — cross-fire influence between chambers
+// This matrix models MLP-level emotional dynamics (FEAR/LOVE/RAGE/VOID/FLOW/COMPLEX).
+// vagus/vagus.zig has a separate CrossFireMatrix using interoceptive names
+// (warmth/void/tension/sacred/flow/complex) with weaker interactions (0.1x scale).
+// These are intentionally different abstraction levels:
+//   Cloud = emotional chambers, Vagus = nervous system signal blending.
 // ═══════════════════════════════════════════════════════════════════════════
 
 var COUPLING_MATRIX = [][]float32{
@@ -698,6 +703,46 @@ func LoadChamberFromBin(path string) (*ChamberMLP, error) {
 	return m, nil
 }
 
+func LoadObserverFromBin(path string) (*MetaObserver, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("[cloud] loading observer from %s (%d bytes)\n", path, len(data))
+
+	// Observer: 107→64→100 (flat binary, float32)
+	// W1: 107×64 = 6848, B1: 64, W2: 64×100 = 6400, B2: 100
+	// Total: 13412 floats = 53648 bytes
+	expected := 13412 * 4
+	if len(data) < expected {
+		return nil, fmt.Errorf("observer.bin too small: %d < %d", len(data), expected)
+	}
+
+	o := &MetaObserver{
+		W1: make([]float32, 107*64),
+		B1: make([]float32, 64),
+		W2: make([]float32, 64*100),
+		B2: make([]float32, 100),
+	}
+
+	offset := 0
+	readFloats := func(dst []float32) {
+		for i := range dst {
+			dst[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[offset:]))
+			offset += 4
+		}
+	}
+
+	readFloats(o.W1)
+	readFloats(o.B1)
+	readFloats(o.W2)
+	readFloats(o.B2)
+
+	fmt.Printf("[cloud]   loaded %d observer params\n", o.ParamCount())
+	return o, nil
+}
+
 func LoadCloud(weightsDir string) (*Cloud, error) {
 	c := &Cloud{
 		CrossFire: &CrossFireSystem{
@@ -720,8 +765,14 @@ func LoadCloud(weightsDir string) (*Cloud, error) {
 		c.CrossFire.Chambers[strings.ToUpper(name)] = chamber
 	}
 
-	// Load observer (TODO: implement actual loading from observer.bin)
-	c.Observer = NewRandomObserver(100)
+	// Load observer
+	obsPath := filepath.Join(weightsDir, "observer.bin")
+	obs, err := LoadObserverFromBin(obsPath)
+	if err != nil {
+		fmt.Printf("[cloud] observer.bin not found, using random init\n")
+		obs = NewRandomObserver(100)
+	}
+	c.Observer = obs
 
 	fmt.Printf("[cloud] loaded from %s\n", weightsDir)
 	fmt.Printf("[cloud] total params: %d\n", c.ParamCount())

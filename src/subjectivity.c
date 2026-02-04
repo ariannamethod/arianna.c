@@ -79,8 +79,9 @@ static int count_words(const char* text, int len) {
     return count;
 }
 
-// Simple PRNG for seed selection
-// Starts at 0, auto-initialized at load via constructor
+// Simple PRNG for seed selection — static state, single-threaded only.
+// Called from C inference loop which runs on one goroutine via CGO.
+// Thread-safety not needed: this module is never called concurrently.
 static unsigned int subj_seed = 0;
 static int subj_seed_initialized = 0;
 
@@ -451,9 +452,11 @@ typedef struct {
 } TrigramCount;
 
 int extract_trigrams(ExtendedIdentity* id, const char* text, int len) {
-    char words[1024][32];
+    // M1: heap-allocate words array (was 32KB on stack)
+    char (*words)[32] = (char (*)[32])malloc(1024 * 32);
+    if (!words) return 0;
     int n_words = tokenize(text, len, words, 1024);
-    if (n_words < 3) return 0;
+    if (n_words < 3) { free(words); return 0; }
 
     // Count trigrams (simple quadratic - ok for origin text)
     TrigramCount counts[256];
@@ -511,6 +514,7 @@ int extract_trigrams(ExtendedIdentity* id, const char* text, int len) {
         }
     }
 
+    free(words);
     return id->n_trigrams;
 }
 

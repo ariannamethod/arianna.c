@@ -243,8 +243,8 @@ void test_accumulator_init() {
 
     TEST_ASSERT(acc.dim == 64, "Dim should be 64");
     TEST_ASSERT(acc.vocab_size == 100, "Vocab size should be 100");
-    TEST_ASSERT(acc.buffer_count == 0, "Buffer should be empty");
-    TEST_ASSERT(acc.x_buffer != NULL, "x_buffer should be allocated");
+    TEST_ASSERT(acc.experience_count == 0, "Buffer should be empty");
+    TEST_ASSERT(acc.mean_x != NULL, "x_buffer should be allocated");
     TEST_ASSERT(acc.baseline_probs != NULL, "baseline_probs should be allocated");
 
     free_accumulator(&acc);

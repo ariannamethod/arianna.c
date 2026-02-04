@@ -79,13 +79,13 @@ int main() {
     }
 
     printf("    After 10 accumulations:\n");
-    printf("    buffer_count=%d\n", acc.buffer_count);
+    printf("    buffer_count=%d\n", acc.experience_count);
     printf("    bytes_delta=%.1f (thresh=%.0f)\n", acc.bytes_delta, acc.bytes_threshold);
     printf("    resonance_mass=%.2f (thresh=%.1f)\n", acc.resonance_mass, acc.resonance_threshold);
     printf("    novelty_mass=%.2f (thresh=%.1f)\n", acc.novelty_mass, acc.novelty_threshold);
     printf("    training_triggered=%d\n", trained_count);
 
-    if (trained_count == 0 && acc.buffer_count == 10) {
+    if (trained_count == 0 && acc.experience_count == 10) {
         printf("    [PASS] No premature training, buffer filling correctly\n");
     } else {
         printf("    [FAIL] Unexpected state\n");
@@ -114,9 +114,9 @@ int main() {
 
     printf("    tokens_accumulated=%d\n", tokens_until_train + 10);
     printf("    total_training_cycles=%d\n", acc.total_training_cycles);
-    printf("    buffer_count after train=%d\n", acc.buffer_count);
+    printf("    buffer_count after train=%d\n", acc.experience_count);
 
-    if (trained_count > 0 && acc.buffer_count == 0) {
+    if (trained_count > 0 && acc.experience_count == 0) {
         printf("    [PASS] Training triggered and buffer cleared\n");
     } else if (tokens_until_train >= 200) {
         printf("    [WARN] No training triggered in 200 tokens\n");
@@ -138,7 +138,7 @@ int main() {
 
     printf("    After 60 tokens with cooldown:\n");
     printf("    training_triggered=%d\n", trained_count);
-    printf("    buffer_count=%d\n", acc.buffer_count);
+    printf("    buffer_count=%d\n", acc.experience_count);
     printf("    cooldown_remaining=%.2f\n", acc.cooldown_remaining);
 
     // Now wait for cooldown to expire
@@ -170,14 +170,14 @@ int main() {
     for (int i = 0; i < 15; i++) {
         accumulate_experience(&acc, &trainer, &delta, x, probs, i % VOCAB_SIZE, 0.4f);
     }
-    printf("    buffer_count before flush=%d\n", acc.buffer_count);
+    printf("    buffer_count before flush=%d\n", acc.experience_count);
 
     // Flush
     flush_accumulator(&acc, &trainer, &delta);
-    printf("    buffer_count after flush=%d\n", acc.buffer_count);
+    printf("    buffer_count after flush=%d\n", acc.experience_count);
     printf("    total_training_cycles=%d\n", acc.total_training_cycles);
 
-    if (acc.buffer_count == 0) {
+    if (acc.experience_count == 0) {
         printf("    [PASS] Flush clears buffer and triggers training\n");
     }
 

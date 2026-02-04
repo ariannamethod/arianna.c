@@ -376,8 +376,11 @@ pub const VagusNerve = struct {
 // SIMD OPERATIONS — Fast emotional blending
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// CrossFire matrix for chamber interactions
-/// chambers suppress/amplify each other
+/// CrossFire matrix for vagus nerve signal interactions.
+/// Uses interoceptive names (warmth/void/tension/sacred/flow/complex) at 0.1x scale.
+/// Distinct from cloud.go COUPLING_MATRIX which uses emotional names
+/// (FEAR/LOVE/RAGE/VOID/FLOW/COMPLEX) at full scale.
+/// Different abstraction levels: vagus = subtle nerve signals, cloud = emotional chambers.
 pub const CrossFireMatrix = struct {
     // Row = source, Col = target
     // Positive = amplify, Negative = suppress

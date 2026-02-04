@@ -102,6 +102,10 @@ func (iw *InnerWorld) Stop() {
 // Use this when you want deterministic stepping instead of async
 func (iw *InnerWorld) Step(dt float32) {
 	iw.mu.Lock()
+	if iw.paused {
+		iw.mu.Unlock()
+		return
+	}
 	defer iw.mu.Unlock()
 
 	// Step all processes
@@ -142,11 +146,14 @@ func (iw *InnerWorld) handleCommands() {
 func (iw *InnerWorld) processCommand(cmd Command) {
 	switch cmd.Type {
 	case CmdPause:
-		// Pause all processes (they'll stop processing in next tick)
-		// Implementation: set a paused flag they check
+		iw.mu.Lock()
+		iw.paused = true
+		iw.mu.Unlock()
 
 	case CmdResume:
-		// Resume all processes
+		iw.mu.Lock()
+		iw.paused = false
+		iw.mu.Unlock()
 
 	case CmdReset:
 		// Reset state to defaults
@@ -161,7 +168,12 @@ func (iw *InnerWorld) processCommand(cmd Command) {
 		}
 
 	case CmdQuery:
-		// Query state - response through callback or channel
+		if ch, ok := cmd.Payload.(chan *InnerState); ok {
+			iw.mu.Lock()
+			stateCopy := *iw.State
+			iw.mu.Unlock()
+			ch <- &stateCopy
+		}
 
 	case CmdStep:
 		// Single step
