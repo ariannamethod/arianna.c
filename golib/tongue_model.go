@@ -405,6 +405,35 @@ func embedLookupInto(out []float32, data []byte, dtype uint32, token, dim int) {
 			h := uint16(data[off+i*2]) | uint16(data[off+i*2+1])<<8
 			out[i] = half2float(h)
 		}
+	case ggmlTypeQ6_K:
+		blocksPerRow := dim / q6kBlockSize
+		bytesPerRow := blocksPerRow * q6kBytesPerBlock
+		rowOff := token * bytesPerRow
+		for b := 0; b < blocksPerRow; b++ {
+			blockOff := rowOff + b*q6kBytesPerBlock
+			ql := data[blockOff:]
+			qh := data[blockOff+128:]
+			scales := data[blockOff+192:]
+			d := half2float(uint16(data[blockOff+208]) | uint16(data[blockOff+209])<<8)
+			yOff := b * q6kBlockSize
+			for n128 := 0; n128 < 2; n128++ {
+				qlP := ql[n128*64:]
+				qhP := qh[n128*32:]
+				scP := scales[n128*8:]
+				yBase := yOff + n128*128
+				for l := 0; l < 32; l++ {
+					is := l / 16
+					q1 := int(qlP[l]&0x0F) | (int(qhP[l]>>0)&3)<<4
+					q2 := int(qlP[l+32]&0x0F) | (int(qhP[l]>>2)&3)<<4
+					q3 := int(qlP[l]>>4) | (int(qhP[l]>>4)&3)<<4
+					q4 := int(qlP[l+32]>>4) | (int(qhP[l]>>6)&3)<<4
+					out[yBase+l+0] = d * float32(int8(scP[is+0])) * float32(q1-32)
+					out[yBase+l+32] = d * float32(int8(scP[is+2])) * float32(q2-32)
+					out[yBase+l+64] = d * float32(int8(scP[is+4])) * float32(q3-32)
+					out[yBase+l+96] = d * float32(int8(scP[is+6])) * float32(q4-32)
+				}
+			}
+		}
 	case ggmlTypeF32:
 		off := token * dim * 4
 		for i := 0; i < dim; i++ {
