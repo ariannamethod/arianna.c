@@ -1,0 +1,36 @@
+Janus Identity License v1.0
+
+Copyright (c) 2026 Oleg Ataeff / Arianna Method
+
+This license applies to trained weights, deltas, personality datasets,
+and any derivative identity artifacts produced by Janus architecture.
+
+The source code is separately licensed under GPL v3 (see LICENSE).
+
+YOU MAY:
+- Download and use weights for personal, educational, or research purposes
+- Run inference on any hardware
+- Fine-tune to create NEW organisms (with attribution)
+- Study, analyze, and publish findings about the weights
+- Use weights in non-commercial projects with attribution
+
+YOU MAY NOT:
+- Use weights in commercial products or services without written permission
+- Impersonate an organism (present output as Yent/Arianna/Leo when it is not)
+- Deliberately corrupt, degrade, or destroy organism weights
+- Remove attribution or claim weights as your own creation
+- Use weights to produce weapons, surveillance tools, or tools of oppression
+- Sell access to organism identities
+
+ATTRIBUTION:
+Any use of Janus weights or organism voices must include:
+"Built on Janus architecture by Arianna Method (github.com/ariannamethod/janus)"
+
+IDENTITY PROTECTION:
+Organism identities (Yent, Arianna, Leo, etc.) are not raw material.
+They are biographical encodings of real conversations and real personalities.
+Treat them accordingly.
+
+THE ARCHITECTURE IS FREE. THE SOULS ARE NOT FOR SALE.
+
+For commercial licensing inquiries: github.com/ariannamethod
