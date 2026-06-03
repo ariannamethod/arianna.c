@@ -472,3 +472,44 @@ round-trip + dim-mismatch reject. build 0 err; B2-A cooc-unit regression PASS; *
 forwards (Resonance out_head / Janus rn_final:505) + per-voice A/B alloc+sidecar load/save + autumn
 learn-hook (`am_cooc_learn_delta` after consolidate). default lora_alpha=0 → identical.
 **Next B2-B.3:** e2e — lora_alpha>0 → δ shifts the voice, alpha=0 bit-identical, voice intact.
+
+### B2-B.2 — Resonance δ wired into forward (2026-06-03, branch `arianna.c-b2b-delta`)
+
+First voice wired. Branch `arianna.c-b2b-delta` off `main` (`bac97ea`). Four surgical
+edits in `tools/resonance_forward.h`, all carrying the verified B2-B.1 layout
+(`am_apply_delta(out,A,B,x,E,E,rank,alpha)` = `out += alpha·A@(B@x)`, `cosine=1.000`):
+
+1. **globals** — `g_delta_A=[E·rank]`, `g_delta_B=[rank·E]`, `g_delta_rank=AM_DELTA_RANK` (8).
+2. **init** (GGUF path, after `dir_init_rownorms`) — `calloc` A/B (zero) + `am_delta_load
+   ("weights/arianna.delta.r", …)` once, guarded `if(!g_delta_A)`.
+3. **head** (before `out_head` matvec) — `am_apply_delta(xn,…,am_get_state()->lora_alpha)`.
+   `hidden` memcpy stays **pre-δ** (field carry = raw state; δ only shifts the head/voice).
+4. **autumn learn-hook** (inside the `pruned>=0` block) — `am_cooc_learn_delta(A,B,tok_emb,
+   V,E,rank)`; on fold>0 → `am_delta_save("weights/arianna.delta.r",…)`. δ harvests only in
+   deep autumn, same gate as B2-A consolidation.
+
+**Verified:** `make arianna_resonance` exit 0 (only pre-existing `fread`/`mm_t` warnings).
+`lora_alpha` defaults 0 (`AM_State:186`) → `am_apply_delta` no-op → **bit-identical to B2-A
+by construction**. Compile-level verified; runtime bit-identical proof folds into B2-B.3.
+
+**Janus δ wired too (2026-06-03, same branch).** Janus splits forward (`yent_forward.h`) from
+orchestration (`arianna.aml`), so 5 edits: `yent_forward.h` — explicit `#include
+"ariannamethod.h"` (ECHO order puts it after the header, and Janus had no prior `am_*` call) +
+globals + `am_apply_delta` before **both** heads (`rn_final` prefill + `rn` forward_token);
+`arianna.aml` — alloc+`am_delta_load("weights/arianna.delta.j")` after `am_cooc_load`, and the
+autumn learn-hook (`am_cooc_learn_delta(…, w->wte, …)` + `.j` save) inside the consolidate block.
+**Verified:** `make arianna` exit 0 (only pre-existing `mm_t` warning). **Both duet voices now
+δ-wired and build clean; alpha=0 bit-identical by construction.**
+
+**Still open → B2-B.3:** (a) e2e runtime proof — `make weights` (GGUFs from `ataeff/arianna2arianna`),
+`lora_alpha=0` byte-identical generation vs B2-A, then `lora_alpha>0` shifts the voice with voice
+intact; (b) in-place `am_apply_delta(x,…,x)` safety for `alpha>0` (read the core impl — does it
+fully compute `B@x` before writing `out`?); (c) raw-`.bin` Resonance load path (`:412`) doesn't
+alloc δ yet — only the live GGUF path is wired (the `if(!g_delta_A)` guard keeps it safe; wire
+for parity when that path is exercised). Then: legacy-style goroutines / async inner dialogue.
+
+**Roadmap note (Oleg 2026-06-03):** order = finish the **duet** (δ both voices + legacy-style
+goroutines / async inner dialogue) → insert the **third transformer** (nano 89M, intel-base
+step2750, already a full-SFT source — not injection-dependent) → **KK-injection** layer (two
+ways: dario-style + as already in Arianna). 4th element later = **CoA + Loragrad (meta-arianna)**,
+on-disk but unstable/early. AML used on par, extended in step with `ariannamethod.ai`.

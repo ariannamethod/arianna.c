@@ -146,6 +146,13 @@ static int    g_Adirty = 0;
 static int    g_proph_tok[DIR_PROPH_MAX], g_proph_age[DIR_PROPH_MAX], g_proph_n = 0;
 static float  g_proph_str[DIR_PROPH_MAX];
 
+/* B2-B.2 — low-rank δ voice: a persistent hidden-transform learned from the
+ * consolidated cooc field (am_cooc_learn_delta → am_notorch_step / Chuck).
+ * A=[E,rank], B=[rank,E]. lora_alpha=0 → am_apply_delta is a no-op (bit-identical
+ * to B2-A); the field activates δ by raising lora_alpha. Per-voice sidecar (.r). */
+static float *g_delta_A = NULL, *g_delta_B = NULL;
+static int    g_delta_rank = AM_DELTA_RANK;
+
 static float dir_dot(const float *a, const float *b, int n) {
     float s = 0; for (int i = 0; i < n; i++) s += a[i] * b[i]; return s;
 }
@@ -351,7 +358,10 @@ static void forward_token(Weights *w, int tok, int pos,
 
     /* Final norm + head */
     rmsnorm_p(xn, x, w->norm_f, E);
-    if (hidden) memcpy(hidden, xn, E * sizeof(float));
+    if (hidden) memcpy(hidden, xn, E * sizeof(float));   /* field carry = pre-δ hidden */
+    /* B2-B.2: low-rank δ shifts the voice before the head; lora_alpha=0 → no-op. */
+    am_apply_delta(xn, g_delta_A, g_delta_B, xn, E, E, g_delta_rank,
+                   am_get_state()->lora_alpha);
     matvec_t(logits, w->out_head, xn, V, E);
 }
 
@@ -503,6 +513,11 @@ static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {
     ctx->merges = NULL;   /* BPE inited by caller from baked header */
     kv_init(T);
     dir_init_rownorms(ctx->w.tok_emb);   /* direction-injection: ‖emb‖ once */
+    if (!g_delta_A) {                     /* B2-B.2: per-voice δ sidecar A/B, load if present */
+        g_delta_A = (float*)calloc((size_t)E * g_delta_rank, sizeof(float));
+        g_delta_B = (float*)calloc((size_t)g_delta_rank * E, sizeof(float));
+        am_delta_load("weights/arianna.delta.r", g_delta_A, g_delta_B, E, g_delta_rank);
+    }
     fprintf(stderr, "[resonance] GGUF loaded: %d tensors, KV cache %d MB\n",
             _rowned_n, (int)((size_t)B * T * E * 2 * 4 / 1024 / 1024));
     return 0;
@@ -712,6 +727,9 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
             float cmean, cmax; am_cooc_stats(&cmean, &cmax);
             fprintf(stderr, "[resonance] autumn consolidate: pruned=%d edges=%d mean=%.3f max=%.3f\n",
                     pruned, am_cooc_count(), cmean, cmax);
+            /* B2-B.2: harvest — fold the consolidated cooc into δ, persist the .r sidecar. */
+            if (am_cooc_learn_delta(g_delta_A, g_delta_B, ctx->w.tok_emb, V, E, g_delta_rank) > 0)
+                am_delta_save("weights/arianna.delta.r", g_delta_A, g_delta_B, E, g_delta_rank);
         }
     }
     /* Roster strip safety belt (arianna2arianna.sh:81): срез от chat-roster маркера. */
