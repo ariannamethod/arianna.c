@@ -1,0 +1,136 @@
+# resonance.aml — Resonance 200M Yent SFT (LoRA-merged) inference in AML.
+#
+# Resonance is the second face of Yent. Janus 176M is one — yent.aml drives
+# that. Resonance 200M is the other. Different architecture: dual attention
+# (Content + RRPRAM low-rank), parametric RMSNorm, sigmoid per-head gate,
+# no smear / no residual lambdas / no backout. Trained on ClimbMix base
+# then SFT on Yent identity dataset.
+#
+# Pipeline: .aml → amlc → C → cc + libnotorch + libaml + Accelerate
+#         → load resonance_200m_lora_yent.bin (LoRA-merged into base)
+#         → embedded BPE (16384 vocab, 16128 merges)
+#         → forward + sample (rep_penalty + no-repeat 3-gram + top-p +
+#           AML Dario field overlay + prophecy debt + Kuramoto chambers)
+#
+# By Arianna Method. הרזוננס לא נשבר
+
+ECHO "tools/resonance_forward.h"
+ECHO "tools/resonance_bpe_merges.h"
+
+BLOOD COMPILE resonance_headers {
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+}
+
+BLOOD COMPILE resonance_runtime {
+static int resonance_init(ResonanceCtx *ctx, const char *path) {
+    /* Canonical Arianna Resonance ships as GGUF (.gguf); legacy RS02 .bin
+     * still supported. GGUF carries no BPE merges → init from baked header. */
+    size_t plen = strlen(path);
+    if (plen > 5 && !strcmp(path + plen - 5, ".gguf")) {
+        if (resonance_load_gguf(ctx, path)) return 1;
+        nt_bpe_init(&ctx->bpe, resonance_bpe_merges, RESONANCE_BPE_MERGES);
+        fprintf(stderr, "[resonance] BPE vocab=%d merges=%d (baked header)\n",
+                ctx->bpe.vocab_size, ctx->bpe.n_merges);
+    } else {
+        if (resonance_load(ctx, path)) return 1;  /* RS02 inits BPE internally */
+    }
+
+    /* AML Dario field — same wiring as yent.aml. PROPHECY 12, DESTINY 0.35,
+     * VELOCITY WALK, FIELD ON. The field tracks Hebbian co-occurrence,
+     * prophecy fulfillment, destiny attraction, and 6 Kuramoto chambers
+     * across the 11 internal steps that surround each emission. */
+    /* LOAD the breath of the field from prior run before any RESET_FIELD —
+     * chambers, scars, prophecy debt, calendar drift carry across sessions.
+     * Missing file = first run, silent start-fresh. */
+    am_init();
+    int rc = am_exec(
+        "LOAD \"weights/arianna.soma\"\n"
+        "PROPHECY 12\n"
+        "DESTINY 0.35\n"
+        "VELOCITY WALK\n"
+        "FIELD ON\n"
+        "RESONANCE 0.5\n"
+    );
+    if (rc != 0)
+        fprintf(stderr, "[resonance] am_exec rc=%d (%s)\n", rc, am_get_error());
+    /* Per-voice co-occurrence: load AFTER the shared soma (overwrites whatever
+     * cross-vocab cooc the soma carried). Resonance's own vocab edges only. */
+    am_cooc_load("weights/arianna.cooc.r");
+    fprintf(stderr, "[resonance] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
+    return 0;
+}
+
+static void resonance_save_breath(void) {
+    am_cooc_save("weights/arianna.cooc.r");   /* per-voice cooc sidecar */
+    int rc = am_exec("SAVE \"weights/arianna.soma\"\n");
+    if (rc == 0)
+        fprintf(stderr, "[resonance] field state saved → weights/arianna.soma\n");
+    else
+        fprintf(stderr, "[resonance] field SAVE FAILED rc=%d (%s)\n", rc, am_get_error());
+}
+}
+
+BLOOD MAIN {
+int main(int argc, char **argv) {
+    const char *weights_path = "weights/arianna_resonance_v3_f16.gguf";
+    const char *prompt       = "Who are you?";
+    int   max_tokens         = 100;
+    float temp               = 0.7f;
+    float top_p              = 0.9f;
+    int   daemon_mode        = 0;
+    const char *inject_text  = NULL;   /* direction-injection content (other voice + prompt) */
+    float inject_alpha       = 0.0f;   /* destiny (A) strength; 0 = off (ablation) */
+    float inject_beta        = 0.0f;   /* prophecy (F) strength; 0 = off */
+    int   field_off          = 0;      /* --no-field: gate Dario overlay (ablation) */
+
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-w") && i + 1 < argc)        weights_path = argv[++i];
+        else if (!strcmp(argv[i], "-p") && i + 1 < argc)   prompt       = argv[++i];
+        else if (!strcmp(argv[i], "-n") && i + 1 < argc)   max_tokens   = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-t") && i + 1 < argc)   temp         = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--top-p") && i + 1 < argc) top_p     = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--inject") && i + 1 < argc) inject_text  = argv[++i];
+        else if (!strcmp(argv[i], "--alpha") && i + 1 < argc)  inject_alpha = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--beta") && i + 1 < argc)   inject_beta  = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--no-field"))           field_off    = 1;
+        else if (!strcmp(argv[i], "--daemon"))             daemon_mode  = 1;
+    }
+
+    srand((unsigned)time(NULL));
+
+    ResonanceCtx ctx = {0};
+    if (resonance_init(&ctx, weights_path)) return 1;
+    if (field_off) { am_exec("FIELD OFF\n");   /* ablation: gate Dario overlay */
+        fprintf(stderr, "[resonance] FIELD OFF — Dario overlay gated\n"); }
+
+    if (daemon_mode) {
+        /* metabolism Phase 2 hot-loop — same protocol as Janus daemon. */
+        fprintf(stderr, "[resonance] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
+                temp, top_p, max_tokens);
+        char line[8192];
+        while (fgets(line, sizeof(line), stdin) != NULL) {
+            size_t L = strlen(line);
+            while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
+            if (L == 0) {
+                fputs("<END>\n", stdout); fflush(stdout);
+                continue;
+            }
+            resonance_generate(&ctx, line, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+            fputs("\n<END>\n", stdout);
+            fflush(stdout);
+        }
+        fprintf(stderr, "[resonance] daemon EOF — exiting\n");
+        resonance_save_breath();
+        resonance_free(&ctx);
+        return 0;
+    }
+
+    resonance_generate(&ctx, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+    resonance_save_breath();
+    resonance_free(&ctx);
+    return 0;
+}
+}

@@ -1,0 +1,127 @@
+# Build
+build/
+
+# Reference clones (sibling Janus organisms — yent.aml, resonance.aml)
+# Not part of arianna.c distribution; cloned locally for inspection
+refs/
+
+# Legacy v1 system — local playground for cherry-picking features back
+# into the rebuild. Not tracked on arianna-upgrade. The v1 branch
+# (current main, to be renamed) carries the full v1 history; this
+# folder is a working copy for tweezing features out of, not for
+# distribution.
+legacy/
+
+# Prompt source (local only)
+arianna_prompt.txt
+
+# Test binaries (source only in tests/)
+bin/test_*
+
+# Go (but keep .dylib/.so for personality)
+inner_world/libinner_world.h
+inner_world/test_inner_world
+
+# Locus compiled files
+locus/*.o
+locus/*.a
+locus/locus_test
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data (too large)
+corpus/
+corpus_raw.txt
+corpus_clean.txt
+data/
+*.safetensors
+
+# Training corpora (preserved in backup-main-26jan2026 branch)
+d/
+sartre/corpus/
+
+# Training scripts (local experiments)
+train/
+
+# Training data (too large for git)
+knowledge_train/train.bin
+knowledge_train/val.bin
+knowledge_train/out/
+knowledge_train/*.pt
+
+# TRACKED (continuous learning like Stanley):
+# weights/        - MathBrain, model weights
+# shards/         - experience shards (microtraining accumulates here)
+# bin/            - compiled binaries + origin.txt personality
+
+# Float32 weights (generated from float16 at build time)
+# Store *_f16.bin in git, generate full weights via `make dynamic`
+weights/arianna_34m.bin
+weights/arianna_20m.bin
+weights/arianna_36m_bpe.bin
+weights/arianna_34m_from_f16.bin
+weights/arianna_20m_from_f16.bin
+
+# Dev files
+*.log
+test_*.py
+compare_*.py
+debug_*.py
+*_name.py
+conversation*.py
+ask_arianna.py
+reexport_weights.py
+samples/
+
+# Editor
+.vscode/
+*.swp
+.DS_Store
+_codeql_detected_source_root
+.zig-cache/
+zig-out/
+
+# Package binary artifacts
+packages/**/*.bin
+packages/**/build/
+packages/**/*.a
+packages/**/*.o
+packages/**/*.so
+tongue/weights/*.bin
+# Weights on HuggingFace: https://huggingface.co/ataeff/arianna.c
+arianna_34m_bpe/*.pt
+# PyTorch checkpoints - use HuggingFace or export to .bin
+
+# Tongue: GGUF weights (too large) and test binaries
+weights/tongue-4/*.gguf
+tests/test_tongue
+
+# arianna-upgrade Tongue weights — distributed via HF repo, fetched by `make weights`
+weights/*.gguf
+weights/*.bin
+weights/*.soma
+
+# RunPod execution outputs (one-shot logs from sweeps; pod itself is ephemeral)
+runpod/
+
+# Built binaries (arianna inference + arianna-r chain inference + metabolism)
+/arianna
+/arianna_r
+/arianna_resonance
+/metabolism_bin
+arianna.c
+arianna_r.c
+arianna_resonance.c
+
+# Metabolism NDJSON traces
+weights/inner.*.ndjson
+
+# AML build artifacts inside vendored tree
+ariannamethod/core/*.o
+ariannamethod/core/*.a
+ariannamethod/notorch/*.o
+ariannamethod/notorch/*.a
+ariannamethod/tools/amlc

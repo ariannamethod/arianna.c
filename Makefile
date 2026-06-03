@@ -1,0 +1,160 @@
+# arianna.c — Arianna voice on the AML+notorch+GGUF stack.
+#
+# Default build (Mac Apple Silicon + Accelerate):
+#   make                — vendored amlc + libnotorch + libaml + arianna
+#   make arianna        — just the inference binary (assumes libs built)
+#   make weights        — fetch GGUF weights from HF (TODO: HF repo)
+#   make clean          — remove all build artifacts
+#
+# Linux (OpenBLAS):
+#   make BLAS=openblas
+#
+# Vendored toolchain lives under ariannamethod/ (per JANUS_CONSTITUTION.md
+# Article 6.1 — independence at source level when the rebuild stabilises).
+
+CC      = cc
+NVCC    ?= nvcc
+AR      ?= ar
+CFLAGS  = -O2 -Wall -Wextra -std=c11
+LDFLAGS = -lm -lpthread
+
+UNAME := $(shell uname)
+
+# ── CUDA: OFF by default ───────────────────────────────────────────────────
+# Inference here is tiny (Janus 176M + Resonance 200M GGUF) and runs on CPU via
+# notorch + system BLAS (Accelerate / OpenBLAS); the forward passes have no GPU
+# branch, so CUDA brings nothing to inference and only adds link deps. We do NOT
+# auto-enable on nvcc presence (that would pull cudart/cublas on the polygon box
+# for no benefit). Opt in explicitly with `make USE_CUDA=1` if ever needed.
+USE_CUDA ?= 0
+
+# ── BLAS detection ─────────────────────────────────────────────────────────
+ifeq ($(UNAME), Darwin)
+  BLAS_FLAGS = -DUSE_BLAS -DACCELERATE -DACCELERATE_NEW_LAPACK
+  BLAS_LIBS  = -framework Accelerate
+endif
+ifeq ($(UNAME), Linux)
+  BLAS_FLAGS = -DUSE_BLAS
+  BLAS_LIBS  = -lopenblas
+  # Linux needs explicit POSIX feature test for clock_gettime / CLOCK_MONOTONIC.
+  CFLAGS += -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE
+endif
+
+# ── CUDA flags (when USE_CUDA=1) ───────────────────────────────────────────
+CUDA_FLAGS =
+CUDA_LIBS  =
+CUDA_OBJS  =
+ifeq ($(USE_CUDA),1)
+  CUDA_FLAGS = -DUSE_CUDA
+  CUDA_LIBS  = -L/usr/local/cuda/lib64 -lcudart -lcublas
+  CUDA_OBJS  = ariannamethod/notorch/notorch_cuda.o ariannamethod/core/ariannamethod_cuda.o
+endif
+
+# ── Include paths ──────────────────────────────────────────────────────────
+INCLUDES = -Iariannamethod/notorch -Iariannamethod/core -Itools
+
+# ── Vendored library outputs ───────────────────────────────────────────────
+LIBNOTORCH = ariannamethod/notorch/libnotorch.a
+LIBAML     = ariannamethod/core/libaml.a
+AMLC       = ariannamethod/tools/amlc
+
+# ── Default target ─────────────────────────────────────────────────────────
+.PHONY: all arianna arianna_resonance arianna2arianna clean weights distclean
+all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
+
+# ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
+$(LIBNOTORCH): ariannamethod/notorch/notorch.c ariannamethod/notorch/notorch.h \
+               ariannamethod/notorch/gguf.c    ariannamethod/notorch/gguf.h    \
+               ariannamethod/notorch/notorch_simd.h \
+               ariannamethod/notorch/notorch_simd_scalar.h \
+               $(if $(filter 1,$(USE_CUDA)),ariannamethod/notorch/notorch_cuda.o,)
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) -Iariannamethod/notorch \
+	    -c ariannamethod/notorch/notorch.c -o ariannamethod/notorch/notorch.o
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) -Iariannamethod/notorch \
+	    -c ariannamethod/notorch/gguf.c -o ariannamethod/notorch/gguf.o
+	$(AR) rcs $@ ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o \
+	    $(if $(filter 1,$(USE_CUDA)),ariannamethod/notorch/notorch_cuda.o,)
+
+ariannamethod/notorch/notorch_cuda.o: ariannamethod/notorch/notorch_cuda.cu \
+                                      ariannamethod/notorch/notorch_cuda.h
+	$(NVCC) -O2 -arch=sm_70 -Iariannamethod/notorch -c $< -o $@
+
+# ── AML core (plus CUDA when USE_CUDA=1) ───────────────────────────────────
+$(LIBAML): ariannamethod/core/ariannamethod.c ariannamethod/core/ariannamethod.h \
+           $(if $(filter 1,$(USE_CUDA)),ariannamethod/core/ariannamethod_cuda.o,)
+	$(CC) $(CFLAGS) $(CUDA_FLAGS) -c ariannamethod/core/ariannamethod.c \
+	    -o ariannamethod/core/ariannamethod.o
+	$(AR) rcs $@ ariannamethod/core/ariannamethod.o \
+	    $(if $(filter 1,$(USE_CUDA)),ariannamethod/core/ariannamethod_cuda.o,)
+
+ariannamethod/core/ariannamethod_cuda.o: ariannamethod/core/ariannamethod_cuda.cu \
+                                         ariannamethod/core/ariannamethod_cuda.h
+	$(NVCC) -O2 -arch=sm_70 -Iariannamethod/core -c $< -o $@
+
+# ── amlc transpiler ────────────────────────────────────────────────────────
+$(AMLC): ariannamethod/tools/amlc.c
+	$(CC) $(CFLAGS) $< -o $@
+
+# ── Inference binary ───────────────────────────────────────────────────────
+# amlc emits arianna.c from arianna.aml. We compile that against the
+# vendored libnotorch + libaml. Two output binaries:
+#   arianna   — single-mode default
+#   arianna_r — chain-mode convenience (same binary, alias)
+arianna: arianna.aml $(LIBNOTORCH) $(LIBAML) $(AMLC) \
+         tools/yent_forward.h tools/janus_v4_bpe_merges.h \
+         tools/jannus_calendar.h tools/jannus_spa.h tools/jannus_split.h
+	$(AMLC) arianna.aml --emit-c > arianna.c
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) $(INCLUDES) \
+	    arianna.c $(LIBNOTORCH) $(LIBAML) \
+	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) \
+	    -o arianna
+	@echo "[build] arianna (Janus 176M) USE_CUDA=$(USE_CUDA)"
+
+# ── Inner voice — Resonance 200M (Arianna SFT, GGUF F16) ───────────────────
+# Same vendored libs, separate binary so the two voices alternate cleanly
+# through a shared field state (weights/arianna.soma). BPE merges baked in
+# tools/resonance_bpe_merges.h (GGUF carries weights only).
+arianna_resonance: arianna_resonance.aml $(LIBNOTORCH) $(LIBAML) $(AMLC) \
+                   tools/resonance_forward.h tools/resonance_bpe_merges.h \
+                   tools/utf8_stream.h
+	$(AMLC) arianna_resonance.aml --emit-c > arianna_resonance.c
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) $(INCLUDES) \
+	    arianna_resonance.c $(LIBNOTORCH) $(LIBAML) \
+	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) \
+	    -o arianna_resonance
+	@echo "[build] arianna_resonance (Resonance 200M) USE_CUDA=$(USE_CUDA)"
+
+# ── arianna2arianna orchestrator (bash MVP — соединение двух голосов) ──────
+arianna2arianna: arianna arianna_resonance scripts/arianna2arianna.sh
+	@echo "[build] arianna2arianna bash orchestrator ready — run: bash scripts/arianna2arianna.sh"
+
+# metabolism (Go orchestrator) — НЕ в фундаменте arianna-duo. Archived-слой
+# из arianna.c. Соединение голосов идёт через bash + общее поле, без Go.
+
+# ── Weights ────────────────────────────────────────────────────────────────
+# TODO: replace local-copy expectation with HF repo `ataeff/arianna-c-tongue`
+# fetch (Janus 176M Arianna GGUF + Resonance 200M Arianna GGUF) from the private
+# HF repo ataeff/arianna2arianna. Needs `HF_TOKEN` env (repo is private).
+weights:
+	@mkdir -p weights
+	@if [ ! -f weights/arianna_v4_sft_f16.gguf ]; then \
+	    echo "fetching Janus GGUF from HF ataeff/arianna2arianna..."; \
+	    hf download ataeff/arianna2arianna arianna_v4_sft_f16.gguf --repo-type model --local-dir weights/; \
+	fi
+	@if [ ! -f weights/arianna_resonance_v3_f16.gguf ]; then \
+	    echo "fetching Resonance GGUF from HF ataeff/arianna2arianna..."; \
+	    hf download ataeff/arianna2arianna arianna_resonance_v3_f16.gguf --repo-type model --local-dir weights/; \
+	fi
+	@echo "weights present: $$(ls -la weights/*.gguf)"
+
+# ── Clean ──────────────────────────────────────────────────────────────────
+clean:
+	rm -f arianna arianna.c arianna_r
+	rm -f arianna_resonance arianna_resonance.c
+	rm -f metabolism_bin
+	rm -f ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o
+	rm -f ariannamethod/core/ariannamethod.o
+	rm -f $(LIBNOTORCH) $(LIBAML) $(AMLC)
+
+distclean: clean
+	rm -f weights/*.gguf weights/*.bin weights/*.soma

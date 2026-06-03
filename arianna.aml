@@ -1,0 +1,593 @@
+# arianna.aml — Arianna voice through Janus 176M (full SFT) on the
+# AML+notorch+GGUF stack. Forked from refs/yent.aml/yent.aml +
+# refs/yent.aml/jannus-r/jannus-r.aml, unified into one binary with
+# runtime --chain N switch:
+#
+#   --chain 0   — single autoregressive generation (default, fastest)
+#   --chain N>0 — N-step bi-directional jannus-r chain (sentence-level
+#                  forward/backward split by prophecy_debt+calendar
+#                  dissonance, wormhole skips, SPA cross-attention).
+#
+# TODO (logged): dynamic chain length — N picked by field state per call,
+# not fixed at startup. Sometimes 12, sometimes 8, sometimes all 20.
+# This iteration ships fixed N; field-driven N is the next pass.
+#
+# Pipeline: arianna.aml → amlc → C → cc + ariannamethod/notorch (vendored)
+#         → load weights/arianna_v4_sft_f16.gguf (Janus 176M Arianna SFT)
+#         → encode prompt as Janus chat tokens
+#         → if --chain N>0: prefill + N sentence-steps with field tick
+#         → else: prefill + max_tokens autoregressive with field tick
+#         → BPE decode → stdout
+#
+# By Arianna Method. הרזוננס לא נשבר
+
+ECHO "tools/janus_v4_bpe_merges.h"
+ECHO "tools/yent_forward.h"
+ECHO "tools/jannus_calendar.h"
+ECHO "tools/jannus_spa.h"
+ECHO "tools/jannus_split.h"
+
+BLOOD COMPILE arianna_headers {
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+#include "ariannamethod.h"
+}
+
+BLOOD COMPILE arianna_constants {
+/* Janus chat-format special tokens (chain_dialogue.py:30-31).
+ *   [BOS, USER_START] + bpe(question) + [USER_END, ASST_START] → answer → [ASST_END]
+ * Plain Q:/A: is OUT OF DISTRIBUTION for this checkpoint. */
+#define ARIANNA_BOS         32759
+#define ARIANNA_USER_START  32760
+#define ARIANNA_USER_END    32761
+#define ARIANNA_ASST_START  32762
+#define ARIANNA_ASST_END    32763
+
+#define ARIANNA_MAX_NSTEPS      20    /* upper bound for chain mode */
+#define ARIANNA_MAX_SENT_LEN    48    /* tokens per sentence step */
+#define ARIANNA_MIN_SENT_LEN    6     /* don't break too early */
+
+typedef struct {
+    int   tokens[ARIANNA_MAX_SENT_LEN];
+    int   len;
+    int   direction;
+    int   step_idx;
+    int   wormhole;
+    float temp;
+    float debt_at_step;
+    float diss_at_step;
+    char  text[256];
+} AriannaStep;
+}
+
+BLOOD COMPILE arianna_sample {
+/* Nucleus (top-p) sampler with rep_penalty + no-repeat-3-gram + AML
+ * Dario field overlay. Yent.aml lineage (sampler block lines 25-148).
+ * Used by both single mode and per-step in chain mode.
+ * 2026-05-14 garbage-trim: TOPK_CAP 256 → 100 cuts long-tail noise
+ * (mid-word truncations, dangling glyphs) without losing voice. */
+#define ARIANNA_TOPK_CAP 256
+
+typedef struct { float p; int idx; } _ProbIdx;
+
+static int _cmp_probidx_desc(const void *a, const void *b) {
+    float pa = ((const _ProbIdx *)a)->p, pb = ((const _ProbIdx *)b)->p;
+    return (pa < pb) - (pa > pb);
+}
+
+static int arianna_sample_token(float *logits, int *ctx, int len,
+                                float temp, float top_p) {
+    float rep_penalty = 1.4f;
+    int window = 64;
+    int start = len > window ? len - window : 0;
+    for (int j = start; j < len; j++) {
+        int t = ctx[j];
+        if (t >= 0 && t < V)
+            logits[t] = logits[t] > 0 ? logits[t] / rep_penalty
+                                      : logits[t] * rep_penalty;
+    }
+    if (len >= 2) {
+        int a = ctx[len - 2], b = ctx[len - 1];
+        for (int j = 0; j + 2 < len; j++) {
+            if (ctx[j] == a && ctx[j + 1] == b) {
+                int forbid = ctx[j + 2];
+                if (forbid >= 0 && forbid < V) logits[forbid] = -1e30f;
+            }
+        }
+    }
+    am_apply_field_to_logits(logits, V);
+
+    if (temp <= 0) temp = 1.0f;
+    for (int i = 0; i < V; i++) logits[i] /= temp;
+    softmax_f(logits, V);
+
+    static _ProbIdx topk[ARIANNA_TOPK_CAP];
+    for (int k = 0; k < ARIANNA_TOPK_CAP; k++) { topk[k].p = -1.0f; topk[k].idx = 0; }
+    float min_in_topk = -1.0f;
+    int topk_filled = 0;
+    for (int i = 0; i < V; i++) {
+        float p = logits[i];
+        if (topk_filled < ARIANNA_TOPK_CAP) {
+            topk[topk_filled].p = p;
+            topk[topk_filled].idx = i;
+            topk_filled++;
+            if (topk_filled == ARIANNA_TOPK_CAP) {
+                qsort(topk, ARIANNA_TOPK_CAP, sizeof(_ProbIdx), _cmp_probidx_desc);
+                min_in_topk = topk[ARIANNA_TOPK_CAP - 1].p;
+            }
+            continue;
+        }
+        if (p > min_in_topk) {
+            topk[ARIANNA_TOPK_CAP - 1].p   = p;
+            topk[ARIANNA_TOPK_CAP - 1].idx = i;
+            int j = ARIANNA_TOPK_CAP - 1;
+            while (j > 0 && topk[j].p > topk[j - 1].p) {
+                _ProbIdx tmp = topk[j]; topk[j] = topk[j - 1]; topk[j - 1] = tmp;
+                j--;
+            }
+            min_in_topk = topk[ARIANNA_TOPK_CAP - 1].p;
+        }
+    }
+    if (topk_filled < ARIANNA_TOPK_CAP)
+        qsort(topk, topk_filled, sizeof(_ProbIdx), _cmp_probidx_desc);
+
+    float cum = 0;
+    int   nuc = topk_filled;
+    for (int k = 0; k < topk_filled; k++) {
+        cum += topk[k].p;
+        if (cum >= top_p) { nuc = k + 1; break; }
+    }
+    if (nuc < 1) nuc = 1;
+    if (nuc > 40) nuc = 40;   /* Phase 7 champion top_k=40 hard cut — режет хвост, где живут слипания */
+    float total = 0;
+    for (int k = 0; k < nuc; k++) total += topk[k].p;
+    if (total <= 0) return topk[0].idx;
+    float r = (float)rand() / (float)RAND_MAX * total;
+    float c = 0;
+    for (int k = 0; k < nuc; k++) {
+        c += topk[k].p;
+        if (c >= r) return topk[k].idx;
+    }
+    return topk[nuc - 1].idx;
+}
+}
+
+BLOOD COMPILE arianna_runtime {
+static nt_bpe        g_bpe;
+static SPACtx        g_spa;
+static JcalMetaJanus g_mj = {0};
+
+static int arianna_init(const char *gguf_path, Weights *w) {
+    if (yent_read_cfg(gguf_path)) return 1;
+    fprintf(stderr, "[arianna] cfg V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n",
+            V, E, H, D, B, M, T, R);
+    if (yent_load_gguf(w, gguf_path)) return 1;
+    nt_bpe_init(&g_bpe, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES);
+    kv_init(T);
+
+    /* LOAD persistent field state if present, then set field params per
+     * Phase 7 champion for Arianna voice (temp=0.8/topk=40/rep=1.4 per
+     * milestone_dario_runpod_phase7_2026_05_08.md:67). */
+    am_init();
+    int rc = am_exec(
+        "LOAD \"weights/arianna.soma\"\n"
+        "PROPHECY 12\n"
+        "DESTINY 0.35\n"
+        "VELOCITY WALK\n"
+        "FIELD ON\n"
+        "RESONANCE 0.5\n"
+    );
+    if (rc != 0)
+        fprintf(stderr, "[arianna] am_exec rc=%d (%s)\n", rc, am_get_error());
+
+    fprintf(stderr, "[arianna] BPE vocab=%d merges=%d, KV cache %dMB\n",
+            g_bpe.vocab_size, g_bpe.n_merges,
+            (int)((size_t)B * T * E * 3 * 4 / 1024 / 1024));
+    /* Per-voice co-occurrence: load AFTER shared soma (Janus's own vocab edges). */
+    am_cooc_load("weights/arianna.cooc.j");
+    fprintf(stderr, "[arianna] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
+    return 0;
+}
+
+static int arianna_is_boundary(int tok, char *peek_buf, int peek_max) {
+    if (tok == ARIANNA_ASST_END) return 1;
+    int n = nt_bpe_decode(&g_bpe, &tok, 1, peek_buf, peek_max - 1);
+    peek_buf[n] = 0;
+    for (int i = 0; i < n; i++) {
+        char c = peek_buf[i];
+        if (c == '.' || c == '!' || c == '?' || c == '\n') return 1;
+    }
+    return 0;
+}
+
+static int arianna_encode_chat_prompt(const char *prompt, int *ctx, int cap) {
+    int len = 0;
+    ctx[len++] = ARIANNA_BOS;
+    ctx[len++] = ARIANNA_USER_START;
+    int n_prompt_bpe = nt_bpe_encode(&g_bpe, prompt, (int)strlen(prompt),
+                                     ctx + len, cap - len - 2);
+    len += n_prompt_bpe;
+    ctx[len++] = ARIANNA_USER_END;
+    ctx[len++] = ARIANNA_ASST_START;
+    fprintf(stderr, "[arianna] chat-format prompt: %d BPE tokens "
+                    "(+4 special) → %d total\n", n_prompt_bpe, len);
+    return len;
+}
+}
+
+BLOOD COMPILE arianna_single {
+/* Single-mode autoregressive generation (default --chain 0). */
+static void arianna_generate_single(Weights *w, const char *prompt,
+                                    int max_tokens, float temp, float top_p,
+                                    const char *inject_text, float inject_alpha,
+                                    float inject_beta) {
+    int ctx[4096];
+    int len = arianna_encode_chat_prompt(prompt, ctx, 4096);
+
+    /* DIRECTION injection: the other voice's words + the human prompt become a
+     * destiny compass (A) + prophecy targets (F) tilting the distribution by
+     * embedding cosine — field pressure, not pasted tokens. Seeded once; never
+     * placed into ctx (anti-fraud). alpha/beta = strength; 0 = off. */
+    if (inject_text && (inject_alpha > 0.0f || inject_beta > 0.0f)) {
+        int inj_toks[512];
+        int n_inj = nt_bpe_encode(&g_bpe, inject_text, (int)strlen(inject_text), inj_toks, 512);
+        if (n_inj > 512) n_inj = 512;
+        dir_update(w->wte, inj_toks, n_inj);
+        dir_recompute(w->wte);
+        am_ingest_tokens(inj_toks, n_inj);   /* circulation: other voice's words -> cooc */
+        fprintf(stderr, "[arianna] direction: \"%s\" -> %d toks (alpha=%.2f beta=%.2f mag=%.3f)\n",
+                inject_text, n_inj, inject_alpha, inject_beta, g_dest_mag);
+    }
+
+    float *logits = calloc(V, sizeof(float));
+    float *hidden = calloc(E, sizeof(float));
+
+    fprintf(stderr, "[arianna] prefill %d tokens (parallel)... ", len);
+    fflush(stderr);
+    prefill_batch(w, ctx, len, logits, hidden);
+    fprintf(stderr, "done\n--- generation ---\n");
+
+    char obuf[16384]; int olen = 0;    /* accumulate decode; post-filter at end */
+
+    struct timespec ts0, ts1;
+    clock_gettime(CLOCK_MONOTONIC, &ts0);
+    int gen_start = len;
+    int gen_chars = 0;                 /* chars emitted this turn */
+    const int MIN_SENT_CHARS = 30;     /* min before honoring a . ! ? cut */
+    for (int step = 0; step < max_tokens && len < T; step++) {
+        /* Within-turn decay: direction is a compass, strong at the start, fading
+         * (~halves every 5 tokens) so the voice develops the theme in its own
+         * words. Tuned point alpha 10, decay 0.15 (Resonance ablation 2026-05-29). */
+        float dfac = expf(-(float)step * 0.15f);
+        dir_recompute(w->wte);
+        dir_apply(logits, inject_alpha * dfac, inject_beta * dfac);
+        int next = arianna_sample_token(logits, ctx, len, temp, top_p);
+        if (next == ARIANNA_ASST_END) {
+            fprintf(stderr, "\n[arianna] hit ASST_END at step %d\n", step);
+            break;
+        }
+        char decoded[64];
+        int n = nt_bpe_decode(&g_bpe, &next, 1, decoded, sizeof(decoded) - 1);
+        if (olen + n < (int)sizeof(obuf)) { memcpy(obuf + olen, decoded, n); olen += n; }
+        gen_chars += n;
+
+        am_register_prophecy_debt(am_compute_prophecy_debt(logits, next, V));
+        am_step(0.05f);
+        dir_age(next);
+
+        ctx[len] = next;
+        len++;
+
+        /* Forward-scan sentence stop (port of clean_voice from old project,
+         * arianna.c/scripts/arianna2arianna.sh:67-77): after a min length,
+         * end the turn at the first . ! ? so the CLI -n cap never severs a
+         * word mid-sentence. Whole sentences out, no mid-word truncation. */
+        if (gen_chars >= MIN_SENT_CHARS) {
+            int sent_end = 0, kpos = -1;
+            for (int k = 0; k < n; k++)
+                if (decoded[k] == '.' || decoded[k] == '!' || decoded[k] == '?') {
+                    sent_end = 1; kpos = k; break;
+                }
+            /* Skip a false boundary after a single-letter clip ("inner v."). */
+            if (sent_end && !sent_end_ok(obuf, (olen - n) + kpos)) sent_end = 0;
+            if (sent_end) break;
+        }
+
+        forward_token(w, next, len - 1, logits, hidden);
+    }
+    /* Word circulation (B1.4): ingest this turn's generated tokens into the
+     * co-occurrence field (persisted in soma) so the dialogue accumulates and
+     * the H-term tilts future turns toward what co-occurred. */
+    if (len > gen_start) am_ingest_tokens(ctx + gen_start, len - gen_start);
+    /* End-of-turn autumn consolidation (B2-A): in deep autumn the field
+     * harvests — strong edges reinforced, the weak tail forgotten. No-op
+     * outside autumn, so default behaviour is identical to B1. */
+    {
+        int pruned = am_cooc_consolidate_autumn();
+        if (pruned >= 0) {
+            float cmean, cmax; am_cooc_stats(&cmean, &cmax);
+            fprintf(stderr, "[arianna] autumn consolidate: pruned=%d edges=%d mean=%.3f max=%.3f\n",
+                    pruned, am_cooc_count(), cmean, cmax);
+        } else {
+            fprintf(stderr, "[arianna] cooc edges=%d\n", am_cooc_count());
+        }
+    }
+    /* Post-decode space-guard over the WHOLE text: insert a space at every
+     * [a-z][A-Z] boundary. BPE sometimes emits a word-token without its
+     * leading space ("eConnected", and glue living INSIDE one token's decode
+     * that the per-token guard missed). lowercase→Uppercase is always a word
+     * boundary in natural English (no camelCase inside words). Digits left
+     * alone ("15th" is legitimate). Whole-text pass = deterministic zero. */
+    for (int i = 0; i < olen; i++) {
+        if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
+            obuf[i-1] >= 'a' && obuf[i-1] <= 'z') {
+            putchar(' ');
+        }
+        putchar((unsigned char)obuf[i]);
+    }
+    fflush(stdout);
+    clock_gettime(CLOCK_MONOTONIC, &ts1);
+    double el = (ts1.tv_sec - ts0.tv_sec) + (ts1.tv_nsec - ts0.tv_nsec) / 1e9;
+    int gen = len - gen_start;
+    fprintf(stderr, "\n[arianna] %d tokens, %.1f tok/s (%.2fs)\n",
+            gen, gen / el, el);
+
+    am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+    if (am_exec("SAVE \"weights/arianna.soma\"\n") == 0)
+        fprintf(stderr, "[arianna] field state saved → weights/arianna.soma\n");
+    else
+        fprintf(stderr, "[arianna] field SAVE FAILED (%s)\n", am_get_error());
+
+    free(logits);
+    free(hidden);
+    /* NOTE: kv_k/kv_v/kv_vr/kv_rrpram_mid are globals allocated once by
+     * arianna_init's kv_init(). Daemon mode reuses them across many
+     * prompts — do NOT free here. main() handles cleanup at process exit. */
+}
+}
+
+BLOOD COMPILE arianna_chain_step {
+/* One sentence-step for chain mode. Reused from jannus-r/jannus-r.aml. */
+static int arianna_chain_step_gen(Weights *w, AriannaStep *step,
+                                  int *ctx, int *ctx_len_io,
+                                  float *logits, float *hidden,
+                                  float temp, float top_p) {
+    int len = *ctx_len_io;
+    int produced = 0;
+    char dec_buf[64];
+
+    for (int i = 0; i < ARIANNA_MAX_SENT_LEN && len < T - 1; i++) {
+        int next = arianna_sample_token(logits, ctx, len, temp, top_p);
+        if (next == ARIANNA_ASST_END) {
+            *ctx_len_io = len;
+            return -produced - 1;
+        }
+        step->tokens[step->len++] = next;
+        ctx[len++] = next;
+        produced++;
+        am_register_prophecy_debt(am_compute_prophecy_debt(logits, next, V));
+        am_step(0.05f);
+
+        if (arianna_is_boundary(next, dec_buf, sizeof(dec_buf)) &&
+            produced >= ARIANNA_MIN_SENT_LEN)
+            break;
+
+        forward_token(w, next, len - 1, logits, hidden);
+    }
+
+    int dn = nt_bpe_decode(&g_bpe, step->tokens, step->len,
+                           step->text, sizeof(step->text) - 1);
+    step->text[dn] = 0;
+    *ctx_len_io = len;
+    return produced;
+}
+}
+
+BLOOD COMPILE arianna_chain {
+/* N-step bi-directional chain mode. Reused from jannus-r/jannus-r.aml. */
+static int arianna_run_chain(Weights *w, const char *prompt,
+                             AriannaStep steps[ARIANNA_MAX_NSTEPS],
+                             int *n_steps_out, int n_steps_requested) {
+    nt_bpe_init(&g_bpe, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES);
+    spa_init(&g_spa, V, 4242u);
+    jcal_metajanus_init(&g_mj);
+
+    float cal_diss  = jcal_dissonance_now();
+    float pers_diss = jcal_personal_dissonance(&g_mj);
+    float debt0     = 0.0f;
+
+    JannusSplit sp = jannus_compute_split(debt0, cal_diss, n_steps_requested);
+    int   nb = sp.nb;
+    int   nf = sp.nf;
+    float tb = sp.tb;
+
+    fprintf(stderr,
+        "[arianna-r] N=%d cal_diss=%.3f personal_diss=%.3f debt=%.3f → "
+        "%d backward + %d forward, base_temp=%.3f\n",
+        n_steps_requested, cal_diss, pers_diss, debt0, nb, nf, tb);
+
+    int ctx[4096];
+    int len = arianna_encode_chat_prompt(prompt, ctx, 4096);
+
+    float *logits = calloc(V, sizeof(float));
+    float *hidden = calloc(E, sizeof(float));
+    fprintf(stderr, "[arianna-r] prefill %d tokens... ", len);
+    fflush(stderr);
+    prefill_batch(w, ctx, len, logits, hidden);
+    fprintf(stderr, "done\n");
+
+    int sc = 0;
+    for (int s = 0; s < nf && sc < n_steps_requested; s++) {
+        AriannaStep *st = &steps[sc];
+        st->step_idx = sc;
+        st->direction = +1;
+        st->wormhole = 0;
+        st->len = 0;
+        st->temp = jannus_temp_forward(tb, s);
+        st->debt_at_step = 0.0f;
+        st->diss_at_step = cal_diss;
+        if (((float)rand() / (float)RAND_MAX) < 0.1f && s > 0) {
+            int skip = 1 + (rand() % 3);
+            st->wormhole = skip;
+            s += skip;
+            if (s >= nf) break;
+        }
+        int n = arianna_chain_step_gen(w, st, ctx, &len, logits, hidden,
+                                       st->temp, 0.9f);
+        if (n < 0) { sc++; *n_steps_out = sc; free(logits); free(hidden); return 0; }
+        sc++;
+    }
+    for (int s = 0; s < nb && sc < n_steps_requested; s++) {
+        AriannaStep *st = &steps[sc];
+        st->step_idx = sc;
+        st->direction = -1;
+        st->wormhole = 0;
+        st->len = 0;
+        st->temp = jannus_temp_backward(tb, s);
+        st->debt_at_step = 0.0f;
+        st->diss_at_step = cal_diss;
+        int n = arianna_chain_step_gen(w, st, ctx, &len, logits, hidden,
+                                       st->temp, 0.92f);
+        if (n < 0) { sc++; *n_steps_out = sc; free(logits); free(hidden); return 0; }
+        sc++;
+    }
+    *n_steps_out = sc;
+    free(logits);
+    free(hidden);
+    return 0;
+}
+
+static void arianna_chain_display(const char *prompt,
+                                  AriannaStep steps[ARIANNA_MAX_NSTEPS],
+                                  int n, const float *spa_scores) {
+    fprintf(stderr,
+        "\n╔═══════════════════════════════════════════════════════════╗\n"
+        "║ ARIANNA-R %d-STEP RESONANCE                                ║\n"
+        "╚═══════════════════════════════════════════════════════════╝\n", n);
+    for (int i = n - 1; i >= 0; i--) {
+        if (steps[i].direction != -1) continue;
+        printf("← %2d  T=%.2f  diss=%.2f  spa=%.2f%s | %s\n",
+               steps[i].step_idx, steps[i].temp, steps[i].diss_at_step,
+               spa_scores ? spa_scores[i] : 0.0f,
+               steps[i].wormhole ? " ⊕wh" : "    ",
+               steps[i].text);
+    }
+    printf("══════ ● ORIGIN: \"%s\" ══════\n", prompt);
+    for (int i = 0; i < n; i++) {
+        if (steps[i].direction != +1) continue;
+        printf("→ %2d  T=%.2f  diss=%.2f  spa=%.2f%s | %s\n",
+               steps[i].step_idx, steps[i].temp, steps[i].diss_at_step,
+               spa_scores ? spa_scores[i] : 0.0f,
+               steps[i].wormhole ? " ⊕wh" : "    ",
+               steps[i].text);
+    }
+    fprintf(stderr,
+        "\ndrift=%.4f cal_diss=%.4f sentences=%d\n",
+        jcal_cumulative_drift(jcal_days_since_epoch()),
+        jcal_dissonance_now(), n);
+}
+}
+
+BLOOD MAIN {
+int main(int argc, char **argv) {
+    const char *gguf_path = "weights/arianna_v4_sft_f16.gguf";
+    const char *prompt    = "Who are you?";
+    int   max_tokens      = 120;
+    float temp            = 0.8f;     /* Phase 7 Arianna champion */
+    float top_p           = 0.9f;     /* Phase 7 champion (top_k=40 делает реальный cut) */
+    int   chain_n         = 0;        /* 0 = single mode, >0 = N-step chain */
+    int   daemon_mode     = 0;        /* persistent stdin loop for metabolism */
+    const char *inject_text = NULL;   /* direction-injection content (other voice + prompt) */
+    float inject_alpha    = 0.0f;     /* destiny (A) strength; 0 = off */
+    float inject_beta     = 0.0f;     /* prophecy (F) strength; 0 = off */
+
+    for (int i = 1; i < argc; i++) {
+        if      (!strcmp(argv[i], "-w") && i + 1 < argc)        gguf_path  = argv[++i];
+        else if (!strcmp(argv[i], "-p") && i + 1 < argc)        prompt     = argv[++i];
+        else if (!strcmp(argv[i], "-n") && i + 1 < argc)        max_tokens = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "-t") && i + 1 < argc)        temp       = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--top-p") && i + 1 < argc)   top_p      = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--inject") && i + 1 < argc)  inject_text  = argv[++i];
+        else if (!strcmp(argv[i], "--alpha") && i + 1 < argc)   inject_alpha = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--beta") && i + 1 < argc)    inject_beta  = atof(argv[++i]);
+        else if ((!strcmp(argv[i], "--chain") || !strcmp(argv[i], "-c"))
+                 && i + 1 < argc)
+            chain_n = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--daemon"))                  daemon_mode = 1;
+    }
+
+    if (chain_n > ARIANNA_MAX_NSTEPS) chain_n = ARIANNA_MAX_NSTEPS;
+    if (chain_n < 0) chain_n = 0;
+
+    srand((unsigned)time(NULL));
+    jcal_init();
+
+    Weights w;
+    if (arianna_init(gguf_path, &w)) return 1;
+
+    if (daemon_mode) {
+        /* metabolism Phase 2 hot-loop: read prompts from stdin, generate
+         * one reply per line, emit «<END>\n» marker after each turn so
+         * the parent can frame replies in its read loop. EOF on stdin →
+         * SAVE + cleanup + exit.
+         *
+         * One process per voice, kept hot across many turns. KV cache
+         * already in place from arianna_init; prefill_batch overwrites
+         * positions 0..len-1 each turn — safe to reuse. */
+        fprintf(stderr, "[arianna] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
+                temp, top_p, max_tokens);
+        char line[8192];
+        while (fgets(line, sizeof(line), stdin) != NULL) {
+            size_t L = strlen(line);
+            while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
+            if (L == 0) {
+                fputs("<END>\n", stdout); fflush(stdout);
+                continue;
+            }
+            arianna_generate_single(&w, line, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+            fputs("\n<END>\n", stdout);
+            fflush(stdout);
+        }
+        fprintf(stderr, "[arianna] daemon EOF — exiting\n");
+        yent_free(&w);
+        return 0;
+    }
+
+    if (chain_n > 0) {
+        /* Chain mode (arianna-r): N sentence-level steps with field tick. */
+        AriannaStep steps[ARIANNA_MAX_NSTEPS];
+        int n_steps = 0;
+
+        struct timespec ts0, ts1;
+        clock_gettime(CLOCK_MONOTONIC, &ts0);
+        arianna_run_chain(&w, prompt, steps, &n_steps, chain_n);
+        clock_gettime(CLOCK_MONOTONIC, &ts1);
+        double el = (ts1.tv_sec - ts0.tv_sec) + (ts1.tv_nsec - ts0.tv_nsec) / 1e9;
+
+        float embs[ARIANNA_MAX_NSTEPS][SPA_DIM];
+        for (int i = 0; i < n_steps; i++)
+            spa_embed_sentence(&g_spa, steps[i].tokens, steps[i].len, embs[i]);
+        float spa_scores[ARIANNA_MAX_NSTEPS];
+        spa_cross_attend(&g_spa, embs, n_steps, spa_scores);
+
+        arianna_chain_display(prompt, steps, n_steps, spa_scores);
+        fprintf(stderr, "\n[arianna-r] %d steps in %.2fs\n", n_steps, el);
+
+        am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+        if (am_exec("SAVE \"weights/arianna.soma\"\n") == 0)
+            fprintf(stderr, "[arianna-r] field state saved → weights/arianna.soma\n");
+        else
+            fprintf(stderr, "[arianna-r] field SAVE FAILED (%s)\n", am_get_error());
+        spa_free(&g_spa);
+    } else {
+        /* Single mode: autoregressive generation. */
+        arianna_generate_single(&w, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+    }
+
+    yent_free(&w);
+    return 0;
+}
+}
