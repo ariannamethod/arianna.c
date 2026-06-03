@@ -501,12 +501,19 @@ autumn learn-hook (`am_cooc_learn_delta(…, w->wte, …)` + `.j` save) inside t
 **Verified:** `make arianna` exit 0 (only pre-existing `mm_t` warning). **Both duet voices now
 δ-wired and build clean; alpha=0 bit-identical by construction.**
 
-**Still open → B2-B.3:** (a) e2e runtime proof — `make weights` (GGUFs from `ataeff/arianna2arianna`),
-`lora_alpha=0` byte-identical generation vs B2-A, then `lora_alpha>0` shifts the voice with voice
-intact; (b) in-place `am_apply_delta(x,…,x)` safety for `alpha>0` (read the core impl — does it
-fully compute `B@x` before writing `out`?); (c) raw-`.bin` Resonance load path (`:412`) doesn't
-alloc δ yet — only the live GGUF path is wired (the `if(!g_delta_A)` guard keeps it safe; wire
-for parity when that path is exercised). Then: legacy-style goroutines / async inner dialogue.
+**Two B2-B.3 invariants closed by reading the core (`ariannamethod.c:6795`), no run needed:**
+- **alpha=0** → `am_apply_delta` early-returns on line 1 (`:6798 if(... alpha==0.0f) return;`) — it
+  doesn't even touch `out`. Bit-identical at alpha=0 is *guaranteed by the code*, not just by ablation.
+- **in-place `(out=x=rn)` safe for alpha>0**: `temp = B@x` is computed in full (reads all of `x` into
+  `temp[rank]`) before `out += alpha·A@temp` writes `out`; `x` is untouched in the second phase, true
+  for both the BLAS (`cblas_sgemv` ×2) and scalar branches. So our `am_apply_delta(rn,…,rn)` is correct.
+
+**Still open → B2-B.3 (behavioral, needs a run):** δ A/B are zero until an autumn harvest fills them
+(`am_cooc_learn_delta`), so demonstrating "alpha>0 shifts the real voice" needs `make weights`
+(GGUFs from `ataeff/arianna2arianna`) + a dialogue that accumulates cooc + an autumn-gated consolidate
++ alpha>0 — full integration, the next focused pass. Plus (parity) the raw-`.bin` Resonance load path
+(`:412`) doesn't alloc δ yet (only live GGUF path wired; `if(!g_delta_A)` guard keeps it safe).
+**Roadmap-next:** legacy-style goroutines / async inner dialogue across the duet over the shared field.
 
 **Roadmap note (Oleg 2026-06-03):** order = finish the **duet** (δ both voices + legacy-style
 goroutines / async inner dialogue) → insert the **third transformer** (nano 89M, intel-base
