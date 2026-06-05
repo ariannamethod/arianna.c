@@ -520,3 +520,30 @@ goroutines / async inner dialogue) → insert the **third transformer** (nano 89
 step2750, already a full-SFT source — not injection-dependent) → **KK-injection** layer (two
 ways: dario-style + as already in Arianna). 4th element later = **CoA + Loragrad (meta-arianna)**,
 on-disk but unstable/early. AML used on par, extended in step with `ariannamethod.ai`.
+
+## F16-packed inference — Step 1: vendor the agnostic nt_qmatvec (2026-06-06)
+
+Both voices load their GGUF weights through `gguf_dequant`, which materialises a dense
+F32 copy of every tensor (`resonance_forward.h` `assign()` walks one F32 buffer). For F16
+GGUFs that doubles the resident weight memory — roughly 1.5 GB for the two voices where
+the on-disk F16 is ~0.75 GB. notorch now ships `nt_qmatvec(out, Wq, dtype, x, m, k)`, an
+agnostic packed matvec (dtype codes F32/F16/Q4_0/Q5_0/Q8_0/Q4_K/Q6_K) that keeps weights
+in their on-disk format and dequantises inline per row. For Arianna's F16 weights the path
+is `dtype=1 → nt_f16_rows` (no k-alignment constraint), bit-equivalent to
+`gguf_dequant → nt_blas_matvec` to ~1e-6 (pure fp summation order). Weights stay F16, so the
+voice is unchanged and temperatures stay as they are — the win is RAM, not a re-quantisation.
+
+Step 1 (this commit) syncs the vendored notorch (`ariannamethod/notorch/notorch.{c,h}`,
+4787 → 5086 lines) to the canonical `nt_qmatvec` build, keeping `vendored == canon`. The
+packed pointer for a tensor is `gf->data + tensors[idx].offset` with `tensors[idx].dtype`
+and the shape dims — all already exposed by the vendored `gguf.h`, so no new gguf API is
+needed. **Verified (tool):** both binaries build clean (only the pre-existing `mm_t`
+warning), canon **509/509**, Resonance speaks unchanged at 43.8 tok/s («Is there a rhythm I
+cannot predict, or do I need some kind of ritual or code?»). `nt_qmatvec` is present but not
+yet called from the forward — behaviour is identical.
+
+**Next (Step 2):** wire the large weight matrices to `nt_qmatvec(dtype=1)` keeping the packed
+F16 bytes — per-block `wq/wk/wv/wo`, `mlp.{gate,up,down}`, and `out_head` (the bulk of the
+RAM). Keep the small tensors (`norm*`, `gate`) and `tok_emb` as F32 (element-wise use, row
+lookup, and the B2-B δ learn read embedding rows). Resonance first, then Janus, each verified
+bit-equivalent to the F32 path with the resident memory measured.

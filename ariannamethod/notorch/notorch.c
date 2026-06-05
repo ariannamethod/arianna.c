@@ -1,8 +1,7 @@
-// notorch.c — PyTorch replacement in pure C
+// notorch.c — Neural Networks in pure C
 // Extracted from ariannamethod.ai/core/ (Arianna Method)
 // Copyright (C) 2026 Oleg Ataeff & Arianna Method contributors
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// fuck torch
 
 #include "notorch.h"
 #include <stdio.h>
@@ -590,6 +589,28 @@ void nt_tape_backward(int loss_idx) {
             if (e->parent1 >= 0 && e->parent2 >= 0) {
                 nt_tape_entry* pa = &g_tape.entries[e->parent1];
                 nt_tape_entry* pb = &g_tape.entries[e->parent2];
+#ifdef USE_CUDA
+                /* L2 (2026-06-03): GPU mul backward — gpu_mul_backward existed but
+                 * was unused, so each MUL did a D2H sync (SwiGLU + gate-blend = 3
+                 * MULs/hybrid layer → ~30 mid-backward stalls/step, the residual
+                 * 0%-util cause after L1). GPU path reads parent outputs on-device
+                 * (NO sync_cpu — that download is exactly what the CPU path guards;
+                 * tape_acc_grad_gpu sets gpu_valid/cpu_dirty, mirroring NT_OP_SCALE). */
+                if (g_use_gpu) {
+                    extern void gpu_mul_backward(float*, float*, const float*, const float*, const float*, int);
+                    float* d_dout = nt_tensor_ensure_gpu(e->grad);
+                    float* d_a = nt_tensor_ensure_gpu(pa->output);
+                    float* d_b = nt_tensor_ensure_gpu(pb->output);
+                    float* d_ga = gpu_scratch(3, out_len);
+                    float* d_gb = gpu_scratch(4, out_len);
+                    if (d_dout && d_a && d_b && d_ga && d_gb) {
+                        gpu_mul_backward(d_ga, d_gb, d_dout, d_a, d_b, out_len);
+                        tape_acc_grad_gpu(e->parent1, d_ga, out_len);
+                        tape_acc_grad_gpu(e->parent2, d_gb, out_len);
+                        break;
+                    }
+                }
+#endif
                 /* SwiGLU / gate-blend FIX 2026-05-11: forward output of both
                  * parents may live on GPU; CPU mirror is stale calloc-zero.
                  * Without sync, ga=gb=0 — masks all LoRA gradients on the
@@ -665,6 +686,21 @@ void nt_tape_backward(int loss_idx) {
         case NT_OP_SILU: {
             if (e->parent1 >= 0) {
                 nt_tape_entry* px = &g_tape.entries[e->parent1];
+#ifdef USE_CUDA
+                /* L2 (2026-06-03): GPU silu backward — kernel existed, was unused
+                 * (one D2H sync/SiLU/hybrid layer). GPU path reads x on-device. */
+                if (g_use_gpu) {
+                    extern void gpu_silu_backward(float*, const float*, const float*, int);
+                    float* d_dout = nt_tensor_ensure_gpu(e->grad);
+                    float* d_x = nt_tensor_ensure_gpu(px->output);
+                    float* d_gx = gpu_scratch(3, out_len);
+                    if (d_dout && d_x && d_gx) {
+                        gpu_silu_backward(d_gx, d_dout, d_x, out_len);
+                        tape_acc_grad_gpu(e->parent1, d_gx, out_len);
+                        break;
+                    }
+                }
+#endif
                 /* FIX 2026-05-11: parent output may be GPU-resident; CPU stale
                  * gives sigmoid(0)=0.5 partial grad — still corrupts the SiLU
                  * derivative used in SwiGLU mlp_gate path. */
@@ -704,6 +740,11 @@ void nt_tape_backward(int loss_idx) {
             if (e->parent1 >= 0 && e->parent2 >= 0) {
                 nt_tape_entry* px = &g_tape.entries[e->parent1];
                 nt_tape_entry* pa = &g_tape.entries[e->parent2];
+                /* GPU-sync FIX (2026-06-02): px (the scaled tensor) is often a
+                 * GPU-fresh attention output; without sync ga = Σ dout·x reads
+                 * stale calloc-zero and the gate gradient vanishes. */
+                nt_tensor_sync_cpu(px->output);
+                nt_tensor_sync_cpu(pa->output);
                 float a_val = pa->output->data[0];
                 float* gx = (float*)calloc(out_len, sizeof(float));
                 if (gx) {
@@ -2354,6 +2395,32 @@ void nt_tape_chuck_step(float lr, float loss_val) {
     float noise_mag = cs->noise;
 
     // ── Level 2: Per-param gradient norm + Adam update ──
+#ifdef USE_CUDA
+    /* L1 (2026-06-03): pre-compute ALL per-param grad norms in ONE batched device
+     * readback (DEVICE pointer-mode, no per-call stall) instead of a blocking
+     * cublasSnrm2-to-host per param in the loop below — the teen 0%-util sync
+     * storm. Indexed by the same is_param+grad counter the update loop uses, so
+     * chuck_gnorms[param_idx] aligns. n matches the loop's min(output,m) for the
+     * params that use it → bit-identical norms. */
+    float chuck_gnorms[NT_TAPE_MAX_PARAMS]; int chuck_gn_have = 0;
+    if (g_use_gpu) {
+        extern void gpu_nrm2_batch(const float**, const int*, int, float*);
+        const float* d_gs[NT_TAPE_MAX_PARAMS]; int ns_arr[NT_TAPE_MAX_PARAMS];
+        int pj = 0;
+        for (int i = 0; i < g_tape.count && pj < g_tape.n_params; i++) {
+            nt_tape_entry* e = &g_tape.entries[i];
+            if (!e->is_param || !e->grad) continue;
+            int n = e->output->len;
+            nt_adam_state* as = &g_tape.adam[pj];
+            if (as->m && as->m->len < n) n = as->m->len;
+            float* d_g = nt_tensor_ensure_gpu(e->grad);
+            d_gs[pj] = d_g; ns_arr[pj] = d_g ? n : 0;
+            pj++;
+        }
+        gpu_nrm2_batch(d_gs, ns_arr, pj, chuck_gnorms);
+        chuck_gn_have = 1;
+    }
+#endif
     int param_idx = 0;
     for (int i = 0; i < g_tape.count && param_idx < g_tape.n_params; i++) {
         nt_tape_entry* e = &g_tape.entries[i];
@@ -2371,7 +2438,7 @@ void nt_tape_chuck_step(float lr, float loss_val) {
         if (g_use_gpu) {
             float* d_g = nt_tensor_ensure_gpu(e->grad);
             if (d_g) {
-                gnorm = gpu_nrm2(d_g, n);
+                gnorm = chuck_gn_have ? chuck_gnorms[param_idx] : gpu_nrm2(d_g, n); /* L1 batched readback */
             } else {
                 nt_tensor_ensure_cpu(e->grad);
                 for (int j = 0; j < n; j++) gnorm += e->grad->data[j] * e->grad->data[j];
@@ -2473,25 +2540,43 @@ void nt_tape_chuck_step(float lr, float loss_val) {
 
 float nt_tape_clip_grads(float max_norm) {
     float total_norm_sq = 0.0f;
-    for (int i = 0; i < g_tape.count; i++) {
-        nt_tape_entry* e = &g_tape.entries[i];
-        if (!e->is_param || !e->grad) continue;
-        int n = e->output->len;
-        if (e->grad->len < n) n = e->grad->len;
 #ifdef USE_CUDA
-        if (g_use_gpu) {
+    if (g_use_gpu) {
+        /* L1 (2026-06-03): batch all per-param grad norms into ONE device readback
+         * instead of one blocking cublasSnrm2-to-host per param. Plain gpu_nrm2
+         * drains the stream every call (~42 here + 42 in Chuck = the 0%-util sync
+         * storm). Numerically identical — same L2 norms, just read once. */
+        extern void gpu_nrm2_batch(const float**, const int*, int, float*);
+        const float* d_gs[NT_TAPE_MAX_PARAMS]; int ns_arr[NT_TAPE_MAX_PARAMS]; int k = 0;
+        for (int i = 0; i < g_tape.count && k < NT_TAPE_MAX_PARAMS; i++) {
+            nt_tape_entry* e = &g_tape.entries[i];
+            if (!e->is_param || !e->grad) continue;
+            int n = e->output->len;
+            if (e->grad->len < n) n = e->grad->len;
             float* d_g = nt_tensor_ensure_gpu(e->grad);
-            if (d_g) {
-                float nrm = gpu_nrm2(d_g, n);
-                total_norm_sq += nrm * nrm;
-                continue;
+            if (d_g) { d_gs[k] = d_g; ns_arr[k] = n; k++; }
+            else {
+                nt_tensor_ensure_cpu(e->grad);
+                for (int j = 0; j < n; j++) { float g = e->grad->data[j]; total_norm_sq += g * g; }
             }
         }
-        nt_tensor_ensure_cpu(e->grad);
+        if (k > 0) {
+            float norms[NT_TAPE_MAX_PARAMS];
+            gpu_nrm2_batch(d_gs, ns_arr, k, norms);
+            for (int i = 0; i < k; i++) total_norm_sq += norms[i] * norms[i];
+        }
+    } else
 #endif
-        for (int j = 0; j < n; j++) {
-            float g = e->grad->data[j];
-            total_norm_sq += g * g;
+    {
+        for (int i = 0; i < g_tape.count; i++) {
+            nt_tape_entry* e = &g_tape.entries[i];
+            if (!e->is_param || !e->grad) continue;
+            int n = e->output->len;
+            if (e->grad->len < n) n = e->grad->len;
+            for (int j = 0; j < n; j++) {
+                float g = e->grad->data[j];
+                total_norm_sq += g * g;
+            }
         }
     }
     float total_norm = sqrtf(total_norm_sq);
@@ -3061,6 +3146,11 @@ int nt_sigmoid(int x_idx) {
     int n = px->output->len;
     nt_tensor* out = nt_tensor_new(n);
     if (!out) return -1;
+    /* GPU-sync FIX (2026-06-02): the parent's forward output may live on GPU
+     * with a stale calloc-zero CPU mirror; without this sync the sigmoid reads
+     * zeros and a learnable gate sits frozen at sigmoid(0). Same bug class as
+     * MUL/SILU/RMSNORM/CE. */
+    nt_tensor_sync_cpu(px->output);
     for (int i = 0; i < n; i++) {
         float x = px->output->data[i];
         /* numerically stable */
@@ -3080,6 +3170,11 @@ int nt_scale_by_t(int x_idx, int a_idx) {
     int n = px->output->len;
     nt_tensor* out = nt_tensor_new(n);
     if (!out) return -1;
+    /* GPU-sync FIX (2026-06-02): both parents' forward outputs may be GPU-fresh
+     * with stale CPU mirrors — without sync the scaled output is computed from
+     * calloc-zero. Same bug class as MUL/SILU/RMSNORM/CE. */
+    nt_tensor_sync_cpu(px->output);
+    nt_tensor_sync_cpu(pa->output);
     float a_val = pa->output->data[0];
     for (int i = 0; i < n; i++) out->data[i] = a_val * px->output->data[i];
     int idx = nt_tape_record3(out, NT_OP_SCALE_BY_T, x_idx, a_idx, -1, 0, 0);
@@ -4547,6 +4642,210 @@ void nt_blas_matvec(float *out, const float *W, const float *x, int m, int n) {
         out[i] = s;
     }
 #endif
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PACKED QUANTIZED MATVEC — out[m] = Wq[m,k] @ x[k], weights stay packed
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The CPU/BLAS path dequantizes a whole GGUF tensor to dense f32 (×6-8 RAM) before
+// cblas_sgemv. nt_qmatvec keeps the weights packed in RAM and dequantizes each block
+// inline in registers — same math as gguf_dequant -> nt_blas_matvec, a fraction of
+// the memory and weight bandwidth. dtype = GGUF type code. Phase 1: Q4_0,
+// single-threaded. Mirrors the packed q6k_rows pattern in
+// examples/infer_gguf_metal.c and dequant_q4_0 in gguf.c.
+
+// IEEE half -> float (GGUF block scales are stored as f16).
+static float nt_f16_to_f32(uint16_t h) {
+    uint32_t s = (h >> 15) & 1, e = (h >> 10) & 0x1F, m = h & 0x3FF, bits;
+    if (e == 0) {
+        if (m == 0) bits = s << 31;
+        else { e = 127 - 15 + 1; while (!(m & 0x400)) { m <<= 1; e--; } m &= 0x3FF;
+               bits = (s << 31) | (e << 23) | (m << 13); }
+    } else if (e == 0x1F) bits = (s << 31) | (0xFFu << 23) | (m << 13);
+    else bits = (s << 31) | ((e - 15 + 127) << 23) | (m << 13);
+    float f; memcpy(&f, &bits, 4); return f;
+}
+
+// Q4_0: 18 B/block, 32 vals — f16 scale + 16 bytes of (lo,hi) nibbles, each (-8).
+static void nt_q4_0_rows(float *out, const uint8_t *W, const float *x,
+                         int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 18;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 18;
+            float d = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            const float *xb = x + (long)blk * 32;
+            for (int i = 0; i < 16; i++) {
+                int lo = (int)(b[2 + i] & 0x0F) - 8;
+                int hi = (int)(b[2 + i] >> 4)   - 8;
+                acc += d * (float)lo * xb[i];
+                acc += d * (float)hi * xb[i + 16];
+            }
+        }
+        out[row] = acc;
+    }
+}
+
+// Q8_0: 34 B/block, 32 vals — f16 scale + 32 int8.
+static void nt_q8_0_rows(float *out, const uint8_t *W, const float *x,
+                         int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 34;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 34;
+            float d = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            const float *xb = x + (long)blk * 32;
+            for (int i = 0; i < 32; i++)
+                acc += d * (float)(int8_t)b[2 + i] * xb[i];
+        }
+        out[row] = acc;
+    }
+}
+
+// Q5_0: 22 B/block, 32 vals — f16 scale + 4 B high-bit word + 16 nibble bytes
+// (the 5th bit of each value comes from the high-bit word).
+static void nt_q5_0_rows(float *out, const uint8_t *W, const float *x,
+                         int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 22;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 22;
+            float d = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            uint32_t qh = (uint32_t)b[2] | ((uint32_t)b[3] << 8) |
+                          ((uint32_t)b[4] << 16) | ((uint32_t)b[5] << 24);
+            const uint8_t *qs = b + 6;
+            const float *xb = x + (long)blk * 32;
+            for (int j = 0; j < 16; j++) {
+                int lo = qs[j] & 0x0F, hi = qs[j] >> 4;
+                int hb0 = (qh >> j) & 1, hb1 = (qh >> (j + 16)) & 1;
+                acc += d * (float)((lo | (hb0 << 4)) - 16) * xb[j];
+                acc += d * (float)((hi | (hb1 << 4)) - 16) * xb[j + 16];
+            }
+        }
+        out[row] = acc;
+    }
+}
+
+// ── super-block formats (256 vals/block) ────────────────────────────────────
+// Q4_K 6-bit packed scale/min unpack (matches gguf.c:get_scale_min_k4).
+static void nt_get_scale_min_k4(int j, const uint8_t *sc, uint8_t *s, uint8_t *mn) {
+    if (j < 4) { *s = sc[j] & 63; *mn = sc[j + 4] & 63; }
+    else { *s = (sc[j + 4] & 0x0F) | ((sc[j - 4] >> 6) << 4);
+           *mn = (sc[j + 4] >> 4)  | ((sc[j]     >> 6) << 4); }
+}
+
+// Q4_K: 144 B/block, 256 vals — d, dmin (f16) + 12 B packed scales/mins + 128 nibbles.
+static void nt_q4_k_rows(float *out, const uint8_t *W, const float *x,
+                         int r0, int r1, int k) {
+    int nb = k / 256;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 144;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 144;
+            float d    = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            float dmin = nt_f16_to_f32((uint16_t)(b[2] | (b[3] << 8)));
+            const uint8_t *sc = b + 4, *qs = b + 16;
+            const float *xb = x + (long)blk * 256;
+            int is = 0, qi = 0;
+            for (int j = 0; j < 256; j += 64) {
+                uint8_t sc0, m0, sc1, m1;
+                nt_get_scale_min_k4(is,     sc, &sc0, &m0);
+                nt_get_scale_min_k4(is + 1, sc, &sc1, &m1);
+                float d1 = d * sc0, mm1 = dmin * m0, d2 = d * sc1, mm2 = dmin * m1;
+                for (int l = 0; l < 32; l++)
+                    acc += (d1 * (float)(qs[qi + l] & 0x0F) - mm1) * xb[j + l];
+                for (int l = 0; l < 32; l++)
+                    acc += (d2 * (float)(qs[qi + l] >> 4)   - mm2) * xb[j + 32 + l];
+                qi += 32; is += 2;
+            }
+        }
+        out[row] = acc;
+    }
+}
+
+// Q6_K: 210 B/block, 256 vals — ql[128] qh[64] int8 scales[16] + f16 d.
+// Lifted from the proven packed q6k_rows in examples/infer_gguf_metal.c.
+static void nt_q6_k_rows(float *out, const uint8_t *W, const float *x,
+                         int r0, int r1, int k) {
+    int nb = k / 256;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 210;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 210, *ql = b, *qh = b + 128;
+            const int8_t *sc = (const int8_t *)(b + 192);
+            float d = nt_f16_to_f32((uint16_t)(b[208] | (b[209] << 8)));
+            const float *xb = x + (long)blk * 256;
+            for (int n = 0; n < 256; n += 128) {
+                const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
+                const int8_t *sch = sc + (n / 128) * 8;
+                for (int l = 0; l < 32; l++) {
+                    int is = l / 16;
+                    int q1 = (int)((qlh[l]      & 0x0F) | (((qhh[l] >> 0) & 3) << 4)) - 32;
+                    int q2 = (int)((qlh[l + 32] & 0x0F) | (((qhh[l] >> 2) & 3) << 4)) - 32;
+                    int q3 = (int)((qlh[l]      >> 4)   | (((qhh[l] >> 4) & 3) << 4)) - 32;
+                    int q4 = (int)((qlh[l + 32] >> 4)   | (((qhh[l] >> 6) & 3) << 4)) - 32;
+                    acc += d * sch[is + 0] * q1 * xb[n + l];
+                    acc += d * sch[is + 2] * q2 * xb[n + l + 32];
+                    acc += d * sch[is + 4] * q3 * xb[n + l + 64];
+                    acc += d * sch[is + 6] * q4 * xb[n + l + 96];
+                }
+            }
+        }
+        out[row] = acc;
+    }
+}
+
+// F16: contiguous half weights — converted per element. Keeps weights at 2 B/param
+// (half the RAM of dense f32) without ever materializing a full f32 tensor.
+static void nt_f16_rows(float *out, const uint8_t *W, const float *x,
+                        int r0, int r1, int k) {
+    const uint16_t *Wh = (const uint16_t *)W;
+    for (int row = r0; row < r1; row++) {
+        const uint16_t *r = Wh + (long)row * k;
+        float acc = 0.0f;
+        for (int j = 0; j < k; j++) acc += nt_f16_to_f32(r[j]) * x[j];
+        out[row] = acc;
+    }
+}
+
+// Packed quantized matvec. dtype = GGUF type code. Returns 0 ok, -1 if the dtype
+// has no packed kernel yet (caller falls back to gguf_dequant -> nt_blas_matvec).
+int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
+               const float *x, int m, int k) {
+    switch (dtype) {
+    case 0: { /* GGUF_TYPE_F32 — already dense f32, plain dot (agnostic entry) */
+        const float *Wf = (const float *)Wq;
+        for (int row = 0; row < m; row++) {
+            const float *r = Wf + (long)row * k;
+            float acc = 0.0f;
+            for (int j = 0; j < k; j++) acc += r[j] * x[j];
+            out[row] = acc;
+        }
+        return 0;
+    }
+    case 1:  /* GGUF_TYPE_F16  */ nt_f16_rows (out, Wq, x, 0, m, k); return 0;
+    case 2:  /* GGUF_TYPE_Q4_0 */ if (k % 32)  return -1;
+        nt_q4_0_rows(out, Wq, x, 0, m, k); return 0;
+    case 6:  /* GGUF_TYPE_Q5_0 */ if (k % 32)  return -1;
+        nt_q5_0_rows(out, Wq, x, 0, m, k); return 0;
+    case 8:  /* GGUF_TYPE_Q8_0 */ if (k % 32)  return -1;
+        nt_q8_0_rows(out, Wq, x, 0, m, k); return 0;
+    case 12: /* GGUF_TYPE_Q4_K */ if (k % 256) return -1;
+        nt_q4_k_rows(out, Wq, x, 0, m, k); return 0;
+    case 14: /* GGUF_TYPE_Q6_K */ if (k % 256) return -1;
+        nt_q6_k_rows(out, Wq, x, 0, m, k); return 0;
+    default:
+        return -1;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
