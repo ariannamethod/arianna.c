@@ -18,9 +18,16 @@
 #include <math.h>
 #include <stddef.h>
 #include "notorch.h"
+#include "ariannamethod.h"   /* B2-B.2: am_apply_delta / am_get_state for the δ voice */
 #include "gguf.h"
 
 static int V, E, H, D, B, M, T, R;
+
+/* B2-B.2 — low-rank δ voice (Janus side). A=[E,rank], B=[rank,E]; lora_alpha=0 →
+ * am_apply_delta no-op (bit-identical). Allocated/loaded + learned in arianna.aml
+ * (init am_cooc_load / autumn consolidate); applied here before each head matvec. */
+static float *g_delta_A = NULL, *g_delta_B = NULL;
+static int    g_delta_rank = AM_DELTA_RANK;
 
 /* ── BLAS-accelerated matmul via notorch ──
  *
@@ -502,7 +509,9 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
     /* Final norm + head for last position */
     float rn_final[1024];
     rmsnorm(rn_final, xs + (n-1)*E, E);
-    if (hidden) memcpy(hidden, rn_final, E * sizeof(float));
+    if (hidden) memcpy(hidden, rn_final, E * sizeof(float));   /* field carry = pre-δ */
+    am_apply_delta(rn_final, g_delta_A, g_delta_B, rn_final, E, E, g_delta_rank,
+                   am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
     matvec_t(logits, w->head, rn_final, V, E);
     for (int i = 0; i < V; i++) logits[i] = 15.0f * tanhf(logits[i] / 15.0f);
 
@@ -660,7 +669,9 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
     for (int e = 0; e < E; e++) x[e] -= bl_val * x_backout[e];
 
     rmsnorm(rn, x, E);
-    if (hidden) memcpy(hidden, rn, E * sizeof(float));
+    if (hidden) memcpy(hidden, rn, E * sizeof(float));   /* field carry = pre-δ */
+    am_apply_delta(rn, g_delta_A, g_delta_B, rn, E, E, g_delta_rank,
+                   am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
     matvec_t(logits, w->head, rn, V, E);
 
     /* Softcap: logits = 15 * tanh(logits / 15) */

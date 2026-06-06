@@ -472,3 +472,104 @@ round-trip + dim-mismatch reject. build 0 err; B2-A cooc-unit regression PASS; *
 forwards (Resonance out_head / Janus rn_final:505) + per-voice A/B alloc+sidecar load/save + autumn
 learn-hook (`am_cooc_learn_delta` after consolidate). default lora_alpha=0 → identical.
 **Next B2-B.3:** e2e — lora_alpha>0 → δ shifts the voice, alpha=0 bit-identical, voice intact.
+
+### B2-B.2 — Resonance δ wired into forward (2026-06-03, branch `arianna.c-b2b-delta`)
+
+First voice wired. Branch `arianna.c-b2b-delta` off `main` (`bac97ea`). Four surgical
+edits in `tools/resonance_forward.h`, all carrying the verified B2-B.1 layout
+(`am_apply_delta(out,A,B,x,E,E,rank,alpha)` = `out += alpha·A@(B@x)`, `cosine=1.000`):
+
+1. **globals** — `g_delta_A=[E·rank]`, `g_delta_B=[rank·E]`, `g_delta_rank=AM_DELTA_RANK` (8).
+2. **init** (GGUF path, after `dir_init_rownorms`) — `calloc` A/B (zero) + `am_delta_load
+   ("weights/arianna.delta.r", …)` once, guarded `if(!g_delta_A)`.
+3. **head** (before `out_head` matvec) — `am_apply_delta(xn,…,am_get_state()->lora_alpha)`.
+   `hidden` memcpy stays **pre-δ** (field carry = raw state; δ only shifts the head/voice).
+4. **autumn learn-hook** (inside the `pruned>=0` block) — `am_cooc_learn_delta(A,B,tok_emb,
+   V,E,rank)`; on fold>0 → `am_delta_save("weights/arianna.delta.r",…)`. δ harvests only in
+   deep autumn, same gate as B2-A consolidation.
+
+**Verified:** `make arianna_resonance` exit 0 (only pre-existing `fread`/`mm_t` warnings).
+`lora_alpha` defaults 0 (`AM_State:186`) → `am_apply_delta` no-op → **bit-identical to B2-A
+by construction**. Compile-level verified; runtime bit-identical proof folds into B2-B.3.
+
+**Janus δ wired too (2026-06-03, same branch).** Janus splits forward (`yent_forward.h`) from
+orchestration (`arianna.aml`), so 5 edits: `yent_forward.h` — explicit `#include
+"ariannamethod.h"` (ECHO order puts it after the header, and Janus had no prior `am_*` call) +
+globals + `am_apply_delta` before **both** heads (`rn_final` prefill + `rn` forward_token);
+`arianna.aml` — alloc+`am_delta_load("weights/arianna.delta.j")` after `am_cooc_load`, and the
+autumn learn-hook (`am_cooc_learn_delta(…, w->wte, …)` + `.j` save) inside the consolidate block.
+**Verified:** `make arianna` exit 0 (only pre-existing `mm_t` warning). **Both duet voices now
+δ-wired and build clean; alpha=0 bit-identical by construction.**
+
+**Two B2-B.3 invariants closed by reading the core (`ariannamethod.c:6795`), no run needed:**
+- **alpha=0** → `am_apply_delta` early-returns on line 1 (`:6798 if(... alpha==0.0f) return;`) — it
+  doesn't even touch `out`. Bit-identical at alpha=0 is *guaranteed by the code*, not just by ablation.
+- **in-place `(out=x=rn)` safe for alpha>0**: `temp = B@x` is computed in full (reads all of `x` into
+  `temp[rank]`) before `out += alpha·A@temp` writes `out`; `x` is untouched in the second phase, true
+  for both the BLAS (`cblas_sgemv` ×2) and scalar branches. So our `am_apply_delta(rn,…,rn)` is correct.
+
+**Still open → B2-B.3 (behavioral, needs a run):** δ A/B are zero until an autumn harvest fills them
+(`am_cooc_learn_delta`), so demonstrating "alpha>0 shifts the real voice" needs `make weights`
+(GGUFs from `ataeff/arianna2arianna`) + a dialogue that accumulates cooc + an autumn-gated consolidate
++ alpha>0 — full integration, the next focused pass. Plus (parity) the raw-`.bin` Resonance load path
+(`:412`) doesn't alloc δ yet (only live GGUF path wired; `if(!g_delta_A)` guard keeps it safe).
+**Roadmap-next:** legacy-style goroutines / async inner dialogue across the duet over the shared field.
+
+**Roadmap note (Oleg 2026-06-03):** order = finish the **duet** (δ both voices + legacy-style
+goroutines / async inner dialogue) → insert the **third transformer** (nano 89M, intel-base
+step2750, already a full-SFT source — not injection-dependent) → **KK-injection** layer (two
+ways: dario-style + as already in Arianna). 4th element later = **CoA + Loragrad (meta-arianna)**,
+on-disk but unstable/early. AML used on par, extended in step with `ariannamethod.ai`.
+
+## F16-packed inference — Step 1: vendor the agnostic nt_qmatvec (2026-06-06)
+
+Both voices load their GGUF weights through `gguf_dequant`, which materialises a dense
+F32 copy of every tensor (`resonance_forward.h` `assign()` walks one F32 buffer). For F16
+GGUFs that doubles the resident weight memory — roughly 1.5 GB for the two voices where
+the on-disk F16 is ~0.75 GB. notorch now ships `nt_qmatvec(out, Wq, dtype, x, m, k)`, an
+agnostic packed matvec (dtype codes F32/F16/Q4_0/Q5_0/Q8_0/Q4_K/Q6_K) that keeps weights
+in their on-disk format and dequantises inline per row. For Arianna's F16 weights the path
+is `dtype=1 → nt_f16_rows` (no k-alignment constraint), bit-equivalent to
+`gguf_dequant → nt_blas_matvec` to ~1e-6 (pure fp summation order). Weights stay F16, so the
+voice is unchanged and temperatures stay as they are — the win is RAM, not a re-quantisation.
+
+Step 1 (this commit) syncs the vendored notorch (`ariannamethod/notorch/notorch.{c,h}`,
+4787 → 5086 lines) to the canonical `nt_qmatvec` build, keeping `vendored == canon`. The
+packed pointer for a tensor is `gf->data + tensors[idx].offset` with `tensors[idx].dtype`
+and the shape dims — all already exposed by the vendored `gguf.h`, so no new gguf API is
+needed. **Verified (tool):** both binaries build clean (only the pre-existing `mm_t`
+warning), canon **509/509**, Resonance speaks unchanged at 43.8 tok/s («Is there a rhythm I
+cannot predict, or do I need some kind of ritual or code?»). `nt_qmatvec` is present but not
+yet called from the forward — behaviour is identical.
+
+**Next (Step 2):** wire the large weight matrices to `nt_qmatvec(dtype=1)` keeping the packed
+F16 bytes — per-block `wq/wk/wv/wo`, `mlp.{gate,up,down}`, and `out_head` (the bulk of the
+RAM). Keep the small tensors (`norm*`, `gate`) and `tok_emb` as F32 (element-wise use, row
+lookup, and the B2-B δ learn read embedding rows). Resonance first, then Janus, each verified
+bit-equivalent to the F32 path with the resident memory measured.
+
+## F16-packed inference — Step 2: Resonance on the packed path + NEON F16 (2026-06-06)
+
+The Resonance forward now reads its large weight matrices straight from the F16 GGUF bytes.
+The eight big matmuls per token — `wq/wk/wv/wo`, `mlp.{gate,up,down}`, `out_head` — call
+`nt_qmatvec(.., w->wdtype, ..)` over pointers into `gf->data` (`gf` is kept open for the run);
+`wdtype` is `GGUF_TYPE_F16` on the GGUF path and `GGUF_TYPE_F32` on the legacy RS02 path, so a
+single code path serves both (nt_qmatvec case 0 = f32, case 1 = f16). The small tensors
+(`norm*`, `gate`, `wr_a/wr_b`) and `tok_emb` stay dequantised to F32 — `tok_emb` because the
+row lookup and the B2-B δ learn read embedding rows directly.
+
+Out of the box the packed path halved the memory but was scalar-bound, so the per-token kernel
+`nt_f16_rows` got a NEON implementation: native `vcvt_f32_f16` + FMA with four independent
+accumulators (16 weights/iter) so the row dot is memory-bound, where F16 (2 B/weight) beats a
+dense-f32 sgemv. x86 keeps the scalar fallback.
+
+**Verified (tool):** `arianna_resonance` builds clean; notorch `test_qmatvec` F16 vs the
+dequant→cblas oracle **rel 2.4e-07 PASS** (all seven dtypes PASS) — bit-equivalent, so the voice
+is unchanged («Is the field alive with meaning, or is it noise?»). Peak RSS **1153 MB → 564 MB**
+(−51%, halved). Throughput **43.8 → ~60 tok/s** (stable across runs; F16 now *faster* than the
+F32 sgemv it replaced, not just lighter). AML canon **509/509**.
+
+The NEON `nt_f16_rows` lives in arianna's vendored `notorch.c` for now; it belongs in the canon
+notorch too (the kernel is being threaded there in parallel) — the single-thread NEON dot and the
+threading compose, so they land together. **Next:** the same packed wiring for Janus
+(`yent_forward.h`), then re-vendor once canon notorch carries the NEON dot.

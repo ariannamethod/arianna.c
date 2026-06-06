@@ -1,11 +1,10 @@
-// notorch.h — PyTorch replacement in pure C
+// notorch.h — Neural Networks in pure C
 // Train and run neural networks without Python.
 //
 // Extracted from ariannamethod.ai/core/ (Arianna Method)
 // Copyright (C) 2026 Oleg Ataeff & Arianna Method contributors
 // SPDX-License-Identifier: LGPL-3.0-or-later
-//
-// "fuck torch"
+
 
 #ifndef NOTORCH_H
 #define NOTORCH_H
@@ -493,6 +492,14 @@ void nt_blas_mm(float *C, const float *A, const float *B, int m, int k, int n);
 // call matvec per-token inside a hot loop. Under USE_BLAS uses cblas_sgemv
 // (Accelerate / OpenBLAS); without BLAS falls back to the naive nested loop.
 void nt_blas_matvec(float *out, const float *W, const float *x, int m, int n);
+
+// Packed quantized matvec: out[m] = Wq[m,k] @ x[k] with weights kept PACKED
+// (no dense-f32 blow-up), dequantized inline per block in registers. dtype is the
+// GGUF type code (2 = Q4_0, ...). Same result as gguf_dequant -> nt_blas_matvec but
+// a fraction of the RAM and weight bandwidth. Returns 0 on success, -1 if the dtype
+// has no packed kernel yet (caller falls back to dequant -> nt_blas_matvec).
+int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
+               const float *x, int m, int k);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROFILER — op timing + memory tracking
