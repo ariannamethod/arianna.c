@@ -72,13 +72,14 @@ static void rope_even_odd(float *q, float *k, int pos, int dim) {
 typedef struct {
     float *tok_emb;
     struct {
-        float *norm1, *wq, *wk, *wv;
+        float *norm1, *norm2;
         float *wr_a, *wr_b, *gate;
-        float *wo, *norm2;
-        float *mlp_gate, *mlp_up, *mlp_down;
+        const uint8_t *wq, *wk, *wv, *wo;            /* packed weights (wdtype) */
+        const uint8_t *mlp_gate, *mlp_up, *mlp_down; /* packed weights (wdtype) */
     } b[32];
     float *norm_f;
-    float *out_head;
+    const uint8_t *out_head;                          /* packed weights (wdtype) */
+    int wdtype;   /* GGUF_TYPE_F16 packed (GGUF) | GGUF_TYPE_F32 dense (RS02) */
 } Weights;
 
 /* state_dict order matches PyTorch named_parameters() traversal:
@@ -101,17 +102,18 @@ static void assign(Weights *w, float *p) {
         w->b[i].gate     = p; p += H;
         /* sub-Module weights in init order */
         w->b[i].norm1    = p; p += E;
-        w->b[i].wq       = p; p += E * E;
-        w->b[i].wk       = p; p += E * E;
-        w->b[i].wv       = p; p += E * E;
-        w->b[i].wo       = p; p += E * E;
+        w->b[i].wq       = (const uint8_t*)p; p += E * E;
+        w->b[i].wk       = (const uint8_t*)p; p += E * E;
+        w->b[i].wv       = (const uint8_t*)p; p += E * E;
+        w->b[i].wo       = (const uint8_t*)p; p += E * E;
         w->b[i].norm2    = p; p += E;
-        w->b[i].mlp_gate = p; p += M * E;
-        w->b[i].mlp_up   = p; p += M * E;
-        w->b[i].mlp_down = p; p += E * M;
+        w->b[i].mlp_gate = (const uint8_t*)p; p += M * E;
+        w->b[i].mlp_up   = (const uint8_t*)p; p += M * E;
+        w->b[i].mlp_down = (const uint8_t*)p; p += E * M;
     }
     w->norm_f   = p; p += E;
-    w->out_head = p; p += V * E;
+    w->out_head = (const uint8_t*)p; p += V * E;
+    w->wdtype   = GGUF_TYPE_F32;   /* RS02 dense f32 → nt_qmatvec case 0 */
 }
 
 /* KV cache (per layer × T × H*D) */
@@ -257,9 +259,9 @@ static void forward_token(Weights *w, int tok, int pos,
         rmsnorm_p(xn, x, w->b[bl].norm1, E);
 
         float qa[1024], ka[1024], va[1024];
-        matvec_t(qa, w->b[bl].wq, xn, E, E);
-        matvec_t(ka, w->b[bl].wk, xn, E, E);
-        matvec_t(va, w->b[bl].wv, xn, E, E);
+        nt_qmatvec(qa, w->b[bl].wq, w->wdtype, xn, E, E);
+        nt_qmatvec(ka, w->b[bl].wk, w->wdtype, xn, E, E);
+        nt_qmatvec(va, w->b[bl].wv, w->wdtype, xn, E, E);
 
         /* RoPE per head (even/odd interleave on each head's D dims) */
         for (int h = 0; h < H; h++)
@@ -343,16 +345,16 @@ static void forward_token(Weights *w, int tok, int pos,
 
         /* === WO + residual === */
         float ao[1024];
-        matvec_t(ao, w->b[bl].wo, blend, E, E);
+        nt_qmatvec(ao, w->b[bl].wo, w->wdtype, blend, E, E);
         for (int e = 0; e < E; e++) x[e] += ao[e];
 
         /* === norm2 → SwiGLU → residual === */
         rmsnorm_p(xn, x, w->b[bl].norm2, E);
         float mg[2048], mu[2048], mo[1024];
-        matvec_t(mg, w->b[bl].mlp_gate, xn, M, E);
-        matvec_t(mu, w->b[bl].mlp_up, xn, M, E);
+        nt_qmatvec(mg, w->b[bl].mlp_gate, w->wdtype, xn, M, E);
+        nt_qmatvec(mu, w->b[bl].mlp_up, w->wdtype, xn, M, E);
         for (int i = 0; i < M; i++) mg[i] = siluf(mg[i]) * mu[i];
-        matvec_t(mo, w->b[bl].mlp_down, mg, E, M);
+        nt_qmatvec(mo, w->b[bl].mlp_down, w->wdtype, mg, E, M);
         for (int e = 0; e < E; e++) x[e] += mo[e];
     }
 
@@ -362,7 +364,7 @@ static void forward_token(Weights *w, int tok, int pos,
     /* B2-B.2: low-rank δ shifts the voice before the head; lora_alpha=0 → no-op. */
     am_apply_delta(xn, g_delta_A, g_delta_B, xn, E, E, g_delta_rank,
                    am_get_state()->lora_alpha);
-    matvec_t(logits, w->out_head, xn, V, E);
+    nt_qmatvec(logits, w->out_head, w->wdtype, xn, V, E);
 }
 
 /* ── Public API used from resonance.aml ─────────────────────────────── */
@@ -372,6 +374,7 @@ typedef struct {
     nt_bpe  bpe;
     float  *data;          /* owned buffer for fp32 weights */
     int   (*merges)[2];    /* owned (a, b) pair table */
+    gguf_file *gf;         /* kept open: packed weights point into gf->data */
 } ResonanceCtx;
 
 static int resonance_load(ResonanceCtx *ctx, const char *path) {
@@ -447,6 +450,20 @@ static float *_rload(gguf_file *gf, const char *name) {
     return buf;
 }
 
+/* Packed loader: return a pointer to the tensor's raw F16 bytes INSIDE gf->data
+ * (no dequant, no copy). The caller must keep gf open for the lifetime of these
+ * pointers. nt_qmatvec(dtype=GGUF_TYPE_F16) reads them directly. */
+static const uint8_t *_rload_packed(gguf_file *gf, const char *name) {
+    int idx = gguf_find_tensor(gf, name);
+    if (idx < 0) { fprintf(stderr, "[resonance] tensor '%s' not in GGUF\n", name); return NULL; }
+    if (gf->tensors[idx].dtype != GGUF_TYPE_F16) {
+        fprintf(stderr, "[resonance] '%s' dtype=%u not F16 (packed path needs F16)\n",
+                name, gf->tensors[idx].dtype);
+        return NULL;
+    }
+    return gf->data + gf->tensors[idx].offset;
+}
+
 static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {
     gguf_file *gf = gguf_open(path);
     if (!gf) { fprintf(stderr, "[resonance] gguf_open('%s') failed\n", path); return 1; }
@@ -490,25 +507,32 @@ static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {
         w->b[i].field = _rload(gf, nm);                                       \
         if (!w->b[i].field) { gguf_close(gf); return 1; }                     \
     } while (0)
+#define RLBP(field, suffix) do {                                              \
+        snprintf(nm, sizeof(nm), "transformer.h.%d." suffix, i);              \
+        w->b[i].field = _rload_packed(gf, nm);                                \
+        if (!w->b[i].field) { gguf_close(gf); return 1; }                     \
+    } while (0)
         RLB(wr_a,     "attn.wr_a");
         RLB(wr_b,     "attn.wr_b");
         RLB(gate,     "attn.gate");
         RLB(norm1,    "norm1.weight");
-        RLB(wq,       "attn.wq.weight");
-        RLB(wk,       "attn.wk.weight");
-        RLB(wv,       "attn.wv.weight");
-        RLB(wo,       "attn.wo.weight");
+        RLBP(wq,      "attn.wq.weight");
+        RLBP(wk,      "attn.wk.weight");
+        RLBP(wv,      "attn.wv.weight");
+        RLBP(wo,      "attn.wo.weight");
         RLB(norm2,    "norm2.weight");
-        RLB(mlp_gate, "mlp.w_gate.weight");
-        RLB(mlp_up,   "mlp.w_up.weight");
-        RLB(mlp_down, "mlp.w_down.weight");
+        RLBP(mlp_gate, "mlp.w_gate.weight");
+        RLBP(mlp_up,   "mlp.w_up.weight");
+        RLBP(mlp_down, "mlp.w_down.weight");
 #undef RLB
+#undef RLBP
     }
     RL(norm_f,   "norm_f.weight");
-    RL(out_head, "out_head.weight");
+    if (!(w->out_head = _rload_packed(gf, "out_head.weight"))) { gguf_close(gf); return 1; }
 #undef RL
 
-    gguf_close(gf);
+    w->wdtype   = GGUF_TYPE_F16;   /* GGUF path: packed F16 weights point into gf->data */
+    ctx->gf     = gf;              /* keep open — packed pointers reference gf->data */
     ctx->data   = NULL;   /* GGUF path: per-tensor owned buffers, not one block */
     ctx->merges = NULL;   /* BPE inited by caller from baked header */
     kv_init(T);
@@ -528,6 +552,7 @@ static void resonance_free(ResonanceCtx *ctx) {
     _rowned_n = 0;
     free(ctx->data);
     free(ctx->merges);
+    if (ctx->gf) { gguf_close(ctx->gf); ctx->gf = NULL; }
     free(kv_k);
     free(kv_v);
     ctx->data = NULL;

@@ -4806,15 +4806,43 @@ static void nt_q6_k_rows(float *out, const uint8_t *W, const float *x,
 
 // F16: contiguous half weights — converted per element. Keeps weights at 2 B/param
 // (half the RAM of dense f32) without ever materializing a full f32 tensor.
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
 static void nt_f16_rows(float *out, const uint8_t *W, const float *x,
                         int r0, int r1, int k) {
     const uint16_t *Wh = (const uint16_t *)W;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+    /* NEON: native F16->F32 (vcvt_f32_f16) + FMA, 4 lanes/iter. On Apple Silicon
+     * this is both lower-bandwidth (2 B/weight) and faster than dense-f32 sgemv. */
+    for (int row = r0; row < r1; row++) {
+        const uint16_t *r = Wh + (long)row * k;
+        /* 4 independent accumulators hide the FMA/cvt latency chain so the row
+         * dot becomes memory-bound — where F16 (2 B/weight) beats f32 sgemv. */
+        float32x4_t a0 = vdupq_n_f32(0.0f), a1 = vdupq_n_f32(0.0f);
+        float32x4_t a2 = vdupq_n_f32(0.0f), a3 = vdupq_n_f32(0.0f);
+        int j = 0;
+        for (; j + 16 <= k; j += 16) {
+            a0 = vfmaq_f32(a0, vcvt_f32_f16(vreinterpret_f16_u16(vld1_u16(r + j))),      vld1q_f32(x + j));
+            a1 = vfmaq_f32(a1, vcvt_f32_f16(vreinterpret_f16_u16(vld1_u16(r + j + 4))),  vld1q_f32(x + j + 4));
+            a2 = vfmaq_f32(a2, vcvt_f32_f16(vreinterpret_f16_u16(vld1_u16(r + j + 8))),  vld1q_f32(x + j + 8));
+            a3 = vfmaq_f32(a3, vcvt_f32_f16(vreinterpret_f16_u16(vld1_u16(r + j + 12))), vld1q_f32(x + j + 12));
+        }
+        for (; j + 4 <= k; j += 4)
+            a0 = vfmaq_f32(a0, vcvt_f32_f16(vreinterpret_f16_u16(vld1_u16(r + j))), vld1q_f32(x + j));
+        float s = vaddvq_f32(vaddq_f32(vaddq_f32(a0, a1), vaddq_f32(a2, a3)));
+        for (; j < k; j++) s += nt_f16_to_f32(r[j]) * x[j];
+        out[row] = s;
+    }
+#else
     for (int row = r0; row < r1; row++) {
         const uint16_t *r = Wh + (long)row * k;
         float acc = 0.0f;
         for (int j = 0; j < k; j++) acc += nt_f16_to_f32(r[j]) * x[j];
         out[row] = acc;
     }
+#endif
 }
 
 // Packed quantized matvec. dtype = GGUF type code. Returns 0 ok, -1 if the dtype

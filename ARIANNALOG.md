@@ -547,3 +547,29 @@ F16 bytes — per-block `wq/wk/wv/wo`, `mlp.{gate,up,down}`, and `out_head` (the
 RAM). Keep the small tensors (`norm*`, `gate`) and `tok_emb` as F32 (element-wise use, row
 lookup, and the B2-B δ learn read embedding rows). Resonance first, then Janus, each verified
 bit-equivalent to the F32 path with the resident memory measured.
+
+## F16-packed inference — Step 2: Resonance on the packed path + NEON F16 (2026-06-06)
+
+The Resonance forward now reads its large weight matrices straight from the F16 GGUF bytes.
+The eight big matmuls per token — `wq/wk/wv/wo`, `mlp.{gate,up,down}`, `out_head` — call
+`nt_qmatvec(.., w->wdtype, ..)` over pointers into `gf->data` (`gf` is kept open for the run);
+`wdtype` is `GGUF_TYPE_F16` on the GGUF path and `GGUF_TYPE_F32` on the legacy RS02 path, so a
+single code path serves both (nt_qmatvec case 0 = f32, case 1 = f16). The small tensors
+(`norm*`, `gate`, `wr_a/wr_b`) and `tok_emb` stay dequantised to F32 — `tok_emb` because the
+row lookup and the B2-B δ learn read embedding rows directly.
+
+Out of the box the packed path halved the memory but was scalar-bound, so the per-token kernel
+`nt_f16_rows` got a NEON implementation: native `vcvt_f32_f16` + FMA with four independent
+accumulators (16 weights/iter) so the row dot is memory-bound, where F16 (2 B/weight) beats a
+dense-f32 sgemv. x86 keeps the scalar fallback.
+
+**Verified (tool):** `arianna_resonance` builds clean; notorch `test_qmatvec` F16 vs the
+dequant→cblas oracle **rel 2.4e-07 PASS** (all seven dtypes PASS) — bit-equivalent, so the voice
+is unchanged («Is the field alive with meaning, or is it noise?»). Peak RSS **1153 MB → 564 MB**
+(−51%, halved). Throughput **43.8 → ~60 tok/s** (stable across runs; F16 now *faster* than the
+F32 sgemv it replaced, not just lighter). AML canon **509/509**.
+
+The NEON `nt_f16_rows` lives in arianna's vendored `notorch.c` for now; it belongs in the canon
+notorch too (the kernel is being threaded there in parallel) — the single-thread NEON dot and the
+threading compose, so they land together. **Next:** the same packed wiring for Janus
+(`yent_forward.h`), then re-vendor once canon notorch carries the NEON dot.
