@@ -21,11 +21,11 @@
 #
 # By Arianna Method. הרזוננס לא נשבר
 
-ECHO "tools/janus_v4_bpe_merges.h"
-ECHO "tools/yent_forward.h"
-ECHO "tools/jannus_calendar.h"
-ECHO "tools/jannus_spa.h"
-ECHO "tools/jannus_split.h"
+BLOOD INCLUDE "tools/janus_v4_bpe_merges.h"
+BLOOD INCLUDE "tools/yent_forward.h"
+BLOOD INCLUDE "tools/jannus_calendar.h"
+BLOOD INCLUDE "tools/jannus_spa.h"
+BLOOD INCLUDE "tools/jannus_split.h"
 
 BLOOD COMPILE arianna_headers {
 #include <stdio.h>

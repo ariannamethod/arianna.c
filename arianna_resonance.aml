@@ -14,8 +14,8 @@
 #
 # By Arianna Method. הרזוננס לא נשבר
 
-ECHO "tools/resonance_forward.h"
-ECHO "tools/resonance_bpe_merges.h"
+BLOOD INCLUDE "tools/resonance_forward.h"
+BLOOD INCLUDE "tools/resonance_bpe_merges.h"
 
 BLOOD COMPILE resonance_headers {
 #include <stdio.h>

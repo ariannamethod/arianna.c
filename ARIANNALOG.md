@@ -573,3 +573,32 @@ The NEON `nt_f16_rows` lives in arianna's vendored `notorch.c` for now; it belon
 notorch too (the kernel is being threaded there in parallel) — the single-thread NEON dot and the
 threading compose, so they land together. **Next:** the same packed wiring for Janus
 (`yent_forward.h`), then re-vendor once canon notorch carries the NEON dot.
+
+## Pending — AML ECHO header-injection migration (waiting on the language fix)
+
+The AML audit (Fable 5 / Mythos, 2026-06-10) flagged ECHO doubling as #include. The language is
+moving ECHO to a log/spec op with an explicit include keyword, and raising/erroring the directive
+cap. Arianna is a *vendorer*: it ships its own `ariannamethod/tools/amlc` and uses ECHO for seven
+header injections — 2 in `arianna_resonance.aml` (`resonance_forward.h`, `resonance_bpe_merges.h`)
+and 5 in `arianna.aml` (`janus_v4_bpe_merges.h`, `yent_forward.h`, `jannus_calendar.h`,
+`jannus_spa.h`, `jannus_split.h`). When the language fix lands: re-vendor the updated amlc + AML
+core, migrate those seven ECHO lines to the new include keyword, then verify build + both voices +
+canon. No change until the keyword is final and the fix is pushed.
+
+## AML unification — DONE: vendored compiler synced to language v5 (2026-06-11)
+
+The language hardening from the Fable 5 / Mythos audit landed (canon `ariannamethod.ai`):
+ECHO is now console logging, header injection moved to the explicit `BLOOD INCLUDE "<path>"`
+directive, the directive cap was raised 64 → 512 with a loud overflow error, and the A-1..A-7
+amlc/core fixes (one-line/multi-line BLOOD, duplicate-MAIN guard, INCLUDE recursion guard,
+field auto-init separate from `am_init`'s memset, FIELD boolean-false). Arianna vendors the AML
+compiler, so it was re-synced rather than left behind: `ariannamethod/tools/amlc.c` and
+`ariannamethod/core/ariannamethod.{c,h}` are now byte-identical to canon (vendored == canon), and
+the seven header injections (`arianna.aml` ×5, `arianna_resonance.aml` ×2) migrated from
+`ECHO "tools/*.h"` to `BLOOD INCLUDE "tools/*.h"`.
+
+**Verified (tool):** amlc parses `arianna.aml` as 5 INCLUDE + `arianna_resonance.aml` as 2 INCLUDE
+(seven total, zero ECHO header-injects left); `make clean && make arianna arianna_resonance` builds
+both clean; Janus speaks Arianna at 50 tok/s, Resonance at 59 tok/s (the F16-packed NEON path holds);
+AML canon 509/509. The B2-roadmap field code (cooc / consolidate / learn_delta / delta sidecar)
+survived the core re-vendor intact.

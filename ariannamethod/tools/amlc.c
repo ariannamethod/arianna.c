@@ -3,9 +3,10 @@
  * Reads .aml file, extracts BLOOD blocks, concatenates BLOOD COMPILE bodies
  * into a single .c file, runs cc to compile (or just emits the C with
  * --emit-c). AML runtime directives (PROPHECY, DESTINY, VELOCITY, FIELD,
- * RESONANCE, STEP, TRAIN, LOAD, SAVE) are not transpiled — those live at
- * runtime in libaml and reach hardware via the `aml` runner. amlc only
- * lowers the BLOOD layer to C.
+ * RESONANCE, LOAD, SAVE) are lowered to `am_exec()` calls in a
+ * constructor so the compiled binary applies them before main() — the same
+ * field physics the `aml` runner executes via am_exec_file. amlc lowers both
+ * the BLOOD layer and the top-level directives to C.
  *
  * Acceleration baseline (auto-applied when present at $PREFIX/lib):
  *   - libaml.a       — AML runtime (LOAD_MODEL, GENERATE, PROPHECY, …)
@@ -16,7 +17,8 @@
  *   BLOOD COMPILE <name> { ...C... }   — named C source block
  *   BLOOD MAIN { ...C... }             — same shape, marks entry-point block
  *   BLOOD LINK <flag>                  — extra cc linker arg (e.g. -lpthread)
- *   ECHO "<path>"                      — inject `#include "<path>"`
+ *   BLOOD INCLUDE "<path>"             — inject `#include "<path>"` into the emitted C
+ *   ECHO <text>                        — log to console (spec); lowered to am_exec("ECHO ...")
  *
  * Usage: amlc <file.aml> [-o name] [--emit-c] [--no-accel] [--run -- args...]
  *
@@ -32,10 +34,14 @@
 
 #define MAX_BLOCKS    256
 #define MAX_LINKS     64
-#define MAX_ECHOS     64
+#define MAX_INCLUDES  64
 #define MAX_NAME      128
 #define MAX_LINE      8192
 #define MAX_ARG_LEN   512
+#define MAX_DIRECTIVES 512   /* raised from 64: A-1 lowers every directive and
+                              * code-shaped organisms exceed 64; overflow is now a
+                              * hard error, not a silent drop. Parsed is stack-alloc,
+                              * 512*MAX_ARG_LEN ~256KB is safe on an 8MB stack. */
 
 typedef struct {
     char  name[MAX_NAME];
@@ -51,14 +57,11 @@ typedef struct {
     int   has_main;
     char  links[MAX_LINKS][MAX_ARG_LEN];
     int   n_links;
-    char  echos[MAX_ECHOS][MAX_ARG_LEN];
-    int   n_echos;
+    char  includes[MAX_INCLUDES][MAX_ARG_LEN];   /* C headers from BLOOD INCLUDE */
+    int   n_includes;
+    char  directives[MAX_DIRECTIVES][MAX_ARG_LEN];
+    int   n_directives;
 } Parsed;
-
-static const char *AML_KEYWORDS[] = {
-    "PROPHECY", "DESTINY", "VELOCITY", "FIELD", "RESONANCE",
-    "STEP", "TRAIN", "LOAD", "SAVE", NULL
-};
 
 static const char *skip_ws(const char *p) {
     while (*p == ' ' || *p == '\t') p++;
@@ -81,12 +84,16 @@ static void rtrim(char *s) {
  * *depth in place. Returns 1 if depth reached 0 within this chunk, with
  * *closer_off set to the byte index just past the closing '}'. */
 static int track_braces(const char *buf, size_t n, int *depth,
-                        int *in_block_comment, size_t *closer_off) {
+                        int *in_block_comment, int *in_line_cmt_io,
+                        int *in_str_dq_io, int *in_str_sq_io, size_t *closer_off) {
     int bc = *in_block_comment;
     int d  = *depth;
-    int in_line_cmt = 0;
-    int in_str_dq   = 0;
-    int in_str_sq   = 0;
+    /* R-1: persist line-comment and string state across fgets chunks. A logical
+     * line longer than MAX_LINE is split mid-state; without carrying these, a '}'
+     * inside a string/`//` comment past the boundary closed the block early. */
+    int in_line_cmt = *in_line_cmt_io;
+    int in_str_dq   = *in_str_dq_io;
+    int in_str_sq   = *in_str_sq_io;
 
     for (size_t i = 0; i < n; i++) {
         char c  = buf[i];
@@ -127,17 +134,9 @@ static int track_braces(const char *buf, size_t n, int *depth,
     }
     *depth = d;
     *in_block_comment = bc;
-    return 0;
-}
-
-static int is_aml_keyword(const char *p) {
-    for (int i = 0; AML_KEYWORDS[i]; i++) {
-        size_t kl = strlen(AML_KEYWORDS[i]);
-        if (starts_with(p, AML_KEYWORDS[i])) {
-            char c = p[kl];
-            if (c == 0 || c == ' ' || c == '\t' || c == '\n') return 1;
-        }
-    }
+    *in_line_cmt_io = in_line_cmt;
+    *in_str_dq_io = in_str_dq;
+    *in_str_sq_io = in_str_sq;
     return 0;
 }
 
@@ -146,48 +145,63 @@ static int is_aml_keyword(const char *p) {
  * the matching '}' is found; any trailing bytes on that line after the
  * closing brace are pushed back as a line comment (rare in practice). */
 static int read_brace_body(FILE *f, int *line_no, const char *opener_kind,
-                           const char *name, char **code_out, size_t *len_out) {
+                           const char *name, const char *initial,
+                           char **code_out, size_t *len_out) {
     char line[MAX_LINE];
     size_t cap = 4096;
     char *buf = malloc(cap);
+    if (!buf) return 1;   /* R-4: was unchecked */
     size_t len = 0;
     int depth = 1;
     int in_block_comment = 0;
+    int in_line_cmt = 0, in_str_dq = 0, in_str_sq = 0;   /* R-1: persist across chunks */
 
-    while (fgets(line, sizeof(line), f)) {
-        (*line_no)++;
-        size_t llen = strlen(line);
+    /* A-3: a one-line block (BLOOD COMPILE foo { ... }) carries its whole body
+     * on the opener line after the '{'. The caller passes that tail as `initial`;
+     * process it before reading further lines. Without this the body is dropped
+     * and we scan following lines for a '}' that isn't there — unexpected EOF. */
+    const char *seed = (initial && *initial) ? initial : NULL;
+
+    for (;;) {
+        const char *chunk;
+        if (seed) {
+            chunk = seed;
+            seed = NULL;
+        } else {
+            if (!fgets(line, sizeof(line), f)) break;
+            (*line_no)++;
+            chunk = line;
+        }
+        size_t llen = strlen(chunk);
         size_t closer_off = 0;
-        int closed = track_braces(line, llen, &depth, &in_block_comment, &closer_off);
+        int closed = track_braces(chunk, llen, &depth, &in_block_comment,
+                                  &in_line_cmt, &in_str_dq, &in_str_sq, &closer_off);
         size_t take = closed ? closer_off : llen;
 
         /* Drop the closing '}' itself from emitted body if it sits at the
          * very end of the captured chunk (no preceding non-whitespace). */
         size_t emit_len = take;
         if (closed) {
-            /* Remove final '}' and any preceding whitespace on its line so
-             * the emitted C is clean. We trim back from take to the start
-             * of the line or to the last non-whitespace byte. */
             size_t k = take;
-            if (k > 0 && line[k-1] == '}') k--;
-            while (k > 0 && (line[k-1] == ' ' || line[k-1] == '\t')) k--;
+            if (k > 0 && chunk[k-1] == '}') k--;
+            while (k > 0 && (chunk[k-1] == ' ' || chunk[k-1] == '\t')) k--;
             emit_len = k;
         }
 
         if (emit_len > 0) {
             if (len + emit_len + 1 > cap) {
                 while (len + emit_len + 1 > cap) cap *= 2;
-                buf = realloc(buf, cap);
+                char *nb = realloc(buf, cap);   /* R-4: was unchecked */
+                if (!nb) { free(buf); return 1; }
+                buf = nb;
             }
-            memcpy(buf + len, line, emit_len);
+            memcpy(buf + len, chunk, emit_len);
             len += emit_len;
         }
 
         if (closed) {
-            /* If there's content after closer (rare) — silently ignore;
-             * AML convention puts only whitespace/newline after BLOOD '}'. */
             if (len > 0 && buf[len-1] != '\n') {
-                if (len + 2 > cap) { cap += 2; buf = realloc(buf, cap); }
+                if (len + 2 > cap) { cap += 2; char *nb = realloc(buf, cap); if (!nb) { free(buf); return 1; } buf = nb; }
                 buf[len++] = '\n';
             }
             buf[len] = 0;
@@ -205,9 +219,14 @@ static int read_brace_body(FILE *f, int *line_no, const char *opener_kind,
 /* If the opener line already contains '{', advance past it; otherwise
  * read the next non-blank line and require it to be '{'. */
 static int consume_open_brace(FILE *f, int *line_no, const char *after,
-                              const char *opener_kind, const char *name) {
+                              const char *opener_kind, const char *name,
+                              const char **tail_out) {
+    /* A-3: when '{' is on the opener line, hand the bytes after it back so the
+     * caller can feed a one-line block's body to read_brace_body. When '{' is
+     * on its own later line there is no meaningful tail (NULL). */
+    *tail_out = NULL;
     const char *brace = strchr(after, '{');
-    if (brace) return 0;
+    if (brace) { *tail_out = brace + 1; return 0; }
 
     char line[MAX_LINE];
     while (fgets(line, sizeof(line), f)) {
@@ -238,7 +257,8 @@ static int parse_aml(const char *path, Parsed *out) {
 
     out->n_compile = 0;
     out->n_links   = 0;
-    out->n_echos   = 0;
+    out->n_includes = 0;
+    out->n_directives = 0;
     out->has_main  = 0;
 
     char line[MAX_LINE];
@@ -256,6 +276,9 @@ static int parse_aml(const char *path, Parsed *out) {
             while (*q && *q != ' ' && *q != '\t' && *q != '{' && *q != '\n' &&
                    ni < MAX_NAME - 1)
                 name[ni++] = *q++;
+            if (ni == MAX_NAME - 1 && *q && *q != ' ' && *q != '\t' && *q != '{' && *q != '\n')
+                fprintf(stderr, "amlc: line %d: BLOOD COMPILE name truncated at %d chars\n",
+                        line_no, MAX_NAME - 1);   /* R-4 */
 
             if (out->n_compile >= MAX_BLOCKS) {
                 fprintf(stderr, "amlc: error: too many BLOOD COMPILE blocks (max %d)\n",
@@ -263,7 +286,8 @@ static int parse_aml(const char *path, Parsed *out) {
                 fclose(f);
                 return 1;
             }
-            if (consume_open_brace(f, &line_no, q, "BLOOD COMPILE", name) != 0) {
+            const char *body_tail = NULL;
+            if (consume_open_brace(f, &line_no, q, "BLOOD COMPILE", name, &body_tail) != 0) {
                 fclose(f);
                 return 1;
             }
@@ -271,7 +295,7 @@ static int parse_aml(const char *path, Parsed *out) {
             strncpy(b->name, name, MAX_NAME - 1);
             b->name[MAX_NAME - 1] = 0;
             b->start_line = line_no;
-            if (read_brace_body(f, &line_no, "BLOOD COMPILE", name,
+            if (read_brace_body(f, &line_no, "BLOOD COMPILE", name, body_tail,
                                 &b->code, &b->code_len) != 0) {
                 fclose(f);
                 return 1;
@@ -280,14 +304,20 @@ static int parse_aml(const char *path, Parsed *out) {
         }
 
         if (starts_with(p, "BLOOD MAIN")) {
+            if (out->has_main) {   /* R-4: a second BLOOD MAIN silently overwrote + leaked the first */
+                fprintf(stderr, "amlc: line %d: duplicate BLOOD MAIN\n", line_no);
+                fclose(f);
+                return 1;
+            }
             const char *q = p + 10;
-            if (consume_open_brace(f, &line_no, q, "BLOOD MAIN", "") != 0) {
+            const char *main_tail = NULL;
+            if (consume_open_brace(f, &line_no, q, "BLOOD MAIN", "", &main_tail) != 0) {
                 fclose(f);
                 return 1;
             }
             out->main_block.start_line = line_no;
             strncpy(out->main_block.name, "MAIN", MAX_NAME - 1);
-            if (read_brace_body(f, &line_no, "BLOOD MAIN", "",
+            if (read_brace_body(f, &line_no, "BLOOD MAIN", "", main_tail,
                                 &out->main_block.code,
                                 &out->main_block.code_len) != 0) {
                 fclose(f);
@@ -311,6 +341,33 @@ static int parse_aml(const char *path, Parsed *out) {
             continue;
         }
 
+        /* BLOOD INCLUDE "<path>" — inject a C #include into the emitted unit.
+         * This is the explicit home for header injection (was overloaded onto
+         * ECHO, which the spec defines as console logging — see A-5). */
+        if (starts_with(p, "BLOOD INCLUDE")) {
+            const char *q = skip_ws(p + 13);
+            if (out->n_includes >= MAX_INCLUDES) {
+                fprintf(stderr, "amlc: error: too many BLOOD INCLUDE directives\n");
+                fclose(f);
+                return 1;
+            }
+            char *inc = out->includes[out->n_includes++];
+            /* strip surrounding quotes if present */
+            char tmp[MAX_ARG_LEN];
+            strncpy(tmp, q, MAX_ARG_LEN - 1);
+            tmp[MAX_ARG_LEN - 1] = 0;
+            rtrim(tmp);
+            char *src = tmp;
+            size_t L = strlen(src);
+            if (L >= 2 && src[0] == '"' && src[L-1] == '"') {
+                src[L-1] = 0;
+                src++;
+            }
+            strncpy(inc, src, MAX_ARG_LEN - 1);
+            inc[MAX_ARG_LEN - 1] = 0;
+            continue;
+        }
+
         /* Other BLOOD <kind> directives (LORA, EMOTION, ...) are runtime
          * concerns — skip with a notice rather than treating as syntax error. */
         if (starts_with(p, "BLOOD ")) {
@@ -325,64 +382,54 @@ static int parse_aml(const char *path, Parsed *out) {
             continue;
         }
 
-        if (starts_with(p, "ECHO ")) {
-            const char *q = skip_ws(p + 5);
-            if (out->n_echos >= MAX_ECHOS) {
-                fprintf(stderr, "amlc: error: too many ECHO statements\n");
-                fclose(f);
-                return 1;
-            }
-            char *e = out->echos[out->n_echos++];
-            /* strip surrounding quotes if present */
-            char tmp[MAX_ARG_LEN];
-            strncpy(tmp, q, MAX_ARG_LEN - 1);
-            tmp[MAX_ARG_LEN - 1] = 0;
-            rtrim(tmp);
-            char *src = tmp;
-            size_t L = strlen(src);
-            if (L >= 2 && src[0] == '"' && src[L-1] == '"') {
-                src[L-1] = 0;
-                src++;
-            }
-            strncpy(e, src, MAX_ARG_LEN - 1);
-            e[MAX_ARG_LEN - 1] = 0;
-            continue;
-        }
+        /* ECHO is no longer special-cased: per spec ("ECHO = Log text to console")
+         * it is an ordinary directive, lowered below to am_exec("ECHO ...") so the
+         * compiled binary logs it exactly like the runner. C-header injection moved
+         * to the BLOOD INCLUDE directive above (A-5). */
 
-        if (is_aml_keyword(p)) {
-            char head[41] = {0};
-            int hi = 0;
-            while (hi < 40 && p[hi] && p[hi] != '\n') {
-                head[hi] = p[hi];
-                hi++;
-            }
-            fprintf(stderr, "amlc: line %d: skipping unimplemented AML command: %s\n",
-                    line_no, head);
-            continue;
+        /* Any line that reaches here is not blank/comment/BLOOD, so it is a
+         * top-level AML directive. Lower it verbatim to an am_exec() call (A-1:
+         * was — only the 7 names in AML_KEYWORDS were lowered, the other ~68 §2/§3
+         * commands dropped, breaking spec §2.0 "the transpiler lowers every
+         * top-level directive" and README/CLAUDE.md "every AML command maps to a
+         * concrete C operation"). am_exec upcases and silently ignores unknown
+         * commands per §9.5, so verbatim pass-through is safe and also makes
+         * matching case-insensitive — fixes A-2. */
+        if (out->n_directives >= MAX_DIRECTIVES) {
+            fprintf(stderr, "amlc: line %d: too many AML directives (max %d) — refusing "
+                    "rather than silently dropping; raise MAX_DIRECTIVES\n", line_no, MAX_DIRECTIVES);
+            fclose(f);
+            return 1;
         }
-
-        char head[61] = {0};
-        int hi = 0;
-        while (hi < 60 && p[hi] && p[hi] != '\n') {
-            head[hi] = p[hi];
-            hi++;
-        }
-        fprintf(stderr, "amlc: line %d: unknown directive: %s\n", line_no, head);
+        char *d = out->directives[out->n_directives++];
+        strncpy(d, p, MAX_ARG_LEN - 1);
+        d[MAX_ARG_LEN - 1] = 0;
+        rtrim(d);
     }
     fclose(f);
 
-    fprintf(stderr, "amlc: parsed %d BLOOD block(s), %d ECHO(s), %d LINK(s)%s\n",
-            out->n_compile, out->n_echos, out->n_links,
+    fprintf(stderr, "amlc: parsed %d BLOOD block(s), %d INCLUDE(s), %d LINK(s)%s\n",
+            out->n_compile, out->n_includes, out->n_links,
             out->has_main ? ", BLOOD MAIN present" : "");
     return 0;
+}
+
+/* Write `s` to fp as a C string literal, escaping backslash and double-quote. */
+static void emit_c_string(FILE *fp, const char *s) {
+    fputc('"', fp);
+    for (; *s; s++) {
+        if (*s == '\\' || *s == '"') fputc('\\', fp);
+        fputc(*s, fp);
+    }
+    fputc('"', fp);
 }
 
 static int emit_c(Parsed *p, FILE *fp) {
     int total_lines = 1;
     fprintf(fp, "/* Generated by amlc — do not edit. */\n");
 
-    for (int i = 0; i < p->n_echos; i++) {
-        fprintf(fp, "#include \"%s\"\n", p->echos[i]);
+    for (int i = 0; i < p->n_includes; i++) {
+        fprintf(fp, "#include \"%s\"\n", p->includes[i]);
         total_lines++;
     }
 
@@ -393,6 +440,21 @@ static int emit_c(Parsed *p, FILE *fp) {
         fwrite(b->code, 1, b->code_len, fp);
         for (size_t j = 0; j < b->code_len; j++)
             if (b->code[j] == '\n') total_lines++;
+    }
+
+    if (p->n_directives > 0) {
+        fprintf(fp, "\n/* Top-level AML runtime directives — applied before main() via a constructor. */\n");
+        fprintf(fp, "extern int am_exec(const char *);\n");
+        fprintf(fp, "__attribute__((constructor)) static void aml__apply_directives(void) {\n");
+        total_lines += 3;
+        for (int i = 0; i < p->n_directives; i++) {
+            fprintf(fp, "    am_exec(");
+            emit_c_string(fp, p->directives[i]);
+            fprintf(fp, ");\n");
+            total_lines++;
+        }
+        fprintf(fp, "}\n");
+        total_lines++;
     }
 
     if (p->has_main) {
@@ -526,6 +588,15 @@ int main(int argc, char **argv) {
     fclose(fp);
     fprintf(stderr, "amlc: generated %d lines of C (%ld bytes)\n", lines, fsz);
 
+    /* Priority-1b: top-level directives emit a constructor calling am_exec, which
+     * lives in libaml; --no-accel skips libaml, so the link fails with an opaque
+     * "undefined _am_exec". Refuse early with a clear message instead. */
+    if (no_accel && p.n_directives > 0) {
+        fprintf(stderr, "amlc: %d top-level directive(s) need am_exec from libaml, "
+                "but --no-accel skips it — rerun without --no-accel.\n", p.n_directives);
+        return 1;
+    }
+
     char cmd[8192];
     const char *PFX = prefix_dir();
     char libaml[1024], libnotorch[1024], inc_dir[1024];
@@ -538,7 +609,7 @@ int main(int argc, char **argv) {
 
     int n = snprintf(cmd, sizeof(cmd),
                      "cc -O2 -Wall -Wno-unused-parameter -Wno-unused-variable "
-                     "-Wno-unused-function -Wno-comment -I%s",
+                     "-Wno-unused-function -Wno-comment -I'%s'",
                      inc_dir);
 
 #if defined(__APPLE__)
@@ -552,12 +623,12 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    n += snprintf(cmd + n, sizeof(cmd) - n, " %s -o %s", cpath, outfile);
+    n += snprintf(cmd + n, sizeof(cmd) - n, " '%s' -o '%s'", cpath, outfile);
 
     if (have_notorch)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " %s", libnotorch);
+        n += snprintf(cmd + n, sizeof(cmd) - n, " '%s'", libnotorch);
     if (have_aml)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " %s", libaml);
+        n += snprintf(cmd + n, sizeof(cmd) - n, " '%s'", libaml);
 
     n += snprintf(cmd + n, sizeof(cmd) - n, " -lm -lpthread");
 
