@@ -152,7 +152,12 @@ typedef struct {
 // θ -= (α × λ × λ_l) × m̂/(√v̂ + ε) + η
 // github.com/iamolegataeff/chuck.optimizer
 
-// Synced with PyTorch chuck.py (iamolegataeff/chuck.optimizer) 2026-04-06
+// In-house Chuck: a reduced, per-param variant derived from PyTorch chuck.py
+// (iamolegataeff/chuck.optimizer, last reconciled 2026-04-06). NOT a verbatim
+// sync — it has diverged from the reference (the reference carries extra levels
+// and per-layer granularity that this C version intentionally drops/retunes).
+// This is the production-proven implementation (Arianna LoRA SFT 2026-05-11).
+// Golden-vector conformance test pinning C's actual behaviour: TODO.
 #define NT_CHUCK_WINDOW      16
 #define NT_CHUCK_DAMP_LO     0.3f
 #define NT_CHUCK_DAMP_HI     2.0f
@@ -500,6 +505,31 @@ void nt_blas_matvec(float *out, const float *W, const float *x, int m, int n);
 // has no packed kernel yet (caller falls back to dequant -> nt_blas_matvec).
 int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
                const float *x, int m, int k);
+
+// int8 dynamic-activation-quant matvec — the llama.cpp / MNN fast path. Quantizes
+// the activation to per-block int8 and dots it against the packed weights with
+// INTEGER accumulation (SDOT/VNNI-friendly). APPROXIMATE: a little accuracy traded
+// for speed; nt_qmatvec (f32 dequant) stays the exact reference. dtype = GGUF type
+// code. Returns 0 on success, -1 if no int8 kernel for the dtype yet.
+int nt_qmatvec_i8(float *out, const uint8_t *Wq, int dtype,
+                  const float *x, int m, int k);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMAGE OPS — forward-only conv2d + group norm for diffusion inference engines
+// ═══════════════════════════════════════════════════════════════════════════════
+// Unfold [Cin,Hin,Win] into columns [Cin*kH*kW, Hout*Wout] (im2col).
+void nt_im2col(float *col, const float *in, int Cin, int Hin, int Win,
+               int kH, int kW, int stride, int padding);
+// out[Cout,Hout,Wout] = weight[Cout,Cin*kH*kW] @ im2col(in) + bias. bias may be NULL.
+int nt_conv2d(float *out, const float *in, const float *weight, const float *bias,
+              int Cin, int Hin, int Win, int Cout, int kH, int kW, int stride, int padding);
+// GroupNorm over [C,H,W] with num_groups; per-channel affine (gamma/beta may be NULL).
+int nt_group_norm(float *out, const float *in, const float *gamma, const float *beta,
+                  int C, int H, int W, int num_groups, float eps);
+// Nearest-neighbour upsample [C,H,W] -> [C,H*scale,W*scale].
+void nt_upsample_nearest(float *out, const float *in, int C, int H, int W, int scale);
+// Scaled dot-product attention (single head): Q[T,d], K[S,d], V[S,d] -> out[T,d]. Self/cross.
+int nt_attention(float *out, const float *Q, const float *K, const float *V, int T, int S, int d);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROFILER — op timing + memory tracking

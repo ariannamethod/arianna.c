@@ -8,6 +8,8 @@
 #include <string.h>
 #include <float.h>
 #include <sys/time.h>
+#include <pthread.h>
+#include <unistd.h>
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BLAS BACKEND
@@ -2236,7 +2238,8 @@ void nt_tape_adam_step(float lr) {
     int param_idx = 0;
     for (int i = 0; i < g_tape.count && param_idx < g_tape.n_params; i++) {
         nt_tape_entry* e = &g_tape.entries[i];
-        if (!e->is_param || !e->grad) continue;
+        if (!e->is_param) continue;
+        if (!e->grad) { param_idx++; continue; }   // registered param w/o grad this step: keep slot alignment, skip update
         nt_adam_state* as = &g_tape.adam[param_idx];
         if (!as->m || !as->v) { param_idx++; continue; }
         as->t++;
@@ -2265,7 +2268,8 @@ void nt_tape_adamw_step(float lr, float weight_decay, float beta1, float beta2) 
     int param_idx = 0;
     for (int i = 0; i < g_tape.count && param_idx < g_tape.n_params; i++) {
         nt_tape_entry* e = &g_tape.entries[i];
-        if (!e->is_param || !e->grad) continue;
+        if (!e->is_param) continue;
+        if (!e->grad) { param_idx++; continue; }   // registered param w/o grad this step: keep slot alignment, skip update
         nt_adam_state* as = &g_tape.adam[param_idx];
         if (!as->m || !as->v) { param_idx++; continue; }
         as->t++;
@@ -2424,7 +2428,8 @@ void nt_tape_chuck_step(float lr, float loss_val) {
     int param_idx = 0;
     for (int i = 0; i < g_tape.count && param_idx < g_tape.n_params; i++) {
         nt_tape_entry* e = &g_tape.entries[i];
-        if (!e->is_param || !e->grad) continue;
+        if (!e->is_param) continue;
+        if (!e->grad) { param_idx++; continue; }   // registered param w/o grad this step: keep slot alignment, skip update
         nt_adam_state* as = &g_tape.adam[param_idx];
         nt_chuck_param_state* cp = &g_tape.chuck_params[param_idx];
         if (cp->dampen == 0.0f) cp->dampen = 1.0f;
@@ -4491,6 +4496,7 @@ nt_tensor** nt_load(const char* path, int* n_params) {
     for (int i = 0; i < n; i++) {
         int32_t ndim;
         fread(&ndim, 4, 1, f);
+        if (ndim < 0 || ndim > NT_MAX_DIMS) { fclose(f); *n_params = i; return params; }
         int shape[NT_MAX_DIMS];
         for (int d = 0; d < ndim; d++) {
             int32_t s;
@@ -4814,12 +4820,11 @@ static void nt_f16_rows(float *out, const uint8_t *W, const float *x,
                         int r0, int r1, int k) {
     const uint16_t *Wh = (const uint16_t *)W;
 #if defined(__aarch64__) && defined(__ARM_NEON)
-    /* NEON: native F16->F32 (vcvt_f32_f16) + FMA, 4 lanes/iter. On Apple Silicon
-     * this is both lower-bandwidth (2 B/weight) and faster than dense-f32 sgemv. */
+    /* NEON: native vcvt_f32_f16 + FMA with four accumulators (16 weights/iter) so the
+     * row dot is memory-bound — there F16 (2 B/weight) beats a dense-f32 sgemv.
+     * (Arianna-side optimization; not yet upstream in canon notorch.) */
     for (int row = r0; row < r1; row++) {
         const uint16_t *r = Wh + (long)row * k;
-        /* 4 independent accumulators hide the FMA/cvt latency chain so the row
-         * dot becomes memory-bound — where F16 (2 B/weight) beats f32 sgemv. */
         float32x4_t a0 = vdupq_n_f32(0.0f), a1 = vdupq_n_f32(0.0f);
         float32x4_t a2 = vdupq_n_f32(0.0f), a3 = vdupq_n_f32(0.0f);
         int j = 0;
@@ -4845,35 +4850,297 @@ static void nt_f16_rows(float *out, const uint8_t *W, const float *x,
 #endif
 }
 
-// Packed quantized matvec. dtype = GGUF type code. Returns 0 ok, -1 if the dtype
+// F32 dense dot as a range kernel, so the agnostic entry threads like the rest.
+static void nt_f32_rows(float *out, const uint8_t *W, const float *x,
+                        int r0, int r1, int k) {
+    const float *Wf = (const float *)W;
+    for (int row = r0; row < r1; row++) {
+        const float *r = Wf + (long)row * k;
+        float acc = 0.0f;
+        for (int j = 0; j < k; j++) acc += r[j] * x[j];
+        out[row] = acc;
+    }
+}
+
+typedef void (*nt_qrows_fn)(float *, const uint8_t *, const float *, int, int, int);
+
+// Map a GGUF dtype to its packed row-kernel, or NULL if unsupported / bad shape.
+static nt_qrows_fn nt_qrows_for(int dtype, int k) {
+    switch (dtype) {
+    case 0:  return nt_f32_rows;                          /* F32  */
+    case 1:  return nt_f16_rows;                          /* F16  */
+    case 2:  return (k % 32)  ? NULL : nt_q4_0_rows;      /* Q4_0 */
+    case 6:  return (k % 32)  ? NULL : nt_q5_0_rows;      /* Q5_0 */
+    case 8:  return (k % 32)  ? NULL : nt_q8_0_rows;      /* Q8_0 */
+    case 12: return (k % 256) ? NULL : nt_q4_k_rows;      /* Q4_K */
+    case 14: return (k % 256) ? NULL : nt_q6_k_rows;      /* Q6_K */
+    default: return NULL;
+    }
+}
+
+#define NT_QMV_MAX_THREADS 16
+
+typedef struct {
+    nt_qrows_fn fn; float *out; const uint8_t *Wq; const float *x;
+    int r0, r1, k;
+} nt_qjob;
+
+static void *nt_qworker(void *p) {
+    nt_qjob *j = (nt_qjob *)p;
+    j->fn(j->out, j->Wq, j->x, j->r0, j->r1, j->k);
+    return NULL;
+}
+
+// Packed quantized matvec, parallelized across rows (rows are independent and
+// write disjoint out[]). dtype = GGUF type code. Returns 0 ok, -1 if the dtype
 // has no packed kernel yet (caller falls back to gguf_dequant -> nt_blas_matvec).
 int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
                const float *x, int m, int k) {
-    switch (dtype) {
-    case 0: { /* GGUF_TYPE_F32 — already dense f32, plain dot (agnostic entry) */
-        const float *Wf = (const float *)Wq;
-        for (int row = 0; row < m; row++) {
-            const float *r = Wf + (long)row * k;
-            float acc = 0.0f;
-            for (int j = 0; j < k; j++) acc += r[j] * x[j];
-            out[row] = acc;
+    nt_qrows_fn fn = nt_qrows_for(dtype, k);
+    if (!fn) return -1;
+
+    int nt = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (nt < 1) nt = 1;
+    if (nt > NT_QMV_MAX_THREADS) nt = NT_QMV_MAX_THREADS;
+    if (nt > m) nt = m;
+    // Per-call pthread_create + the 2P+4E asymmetry of Apple-Silicon-class CPUs make
+    // fan-out counterproductive for small single-token decode matvecs (measured ~6%/noise
+    // on a 360M model). Gate it high: only large matvecs (big models / batched work) thread,
+    // where the spawn cost amortizes; small decode stays single-thread.
+    if (nt <= 1 || (long)m * k < (4L << 20)) { fn(out, Wq, x, 0, m, k); return 0; }
+
+    pthread_t th[NT_QMV_MAX_THREADS];
+    nt_qjob   jobs[NT_QMV_MAX_THREADS];
+    int per = (m + nt - 1) / nt, launched = 0;
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per, r1 = (r0 + per > m) ? m : r0 + per;
+        if (r0 >= m) break;
+        jobs[t] = (nt_qjob){ fn, out, Wq, x, r0, r1, k };
+        if (pthread_create(&th[t], NULL, nt_qworker, &jobs[t]) != 0) {
+            fn(out, Wq, x, r0, m, k);   // create failed: run the rest inline
+            break;
         }
-        return 0;
+        launched++;
     }
-    case 1:  /* GGUF_TYPE_F16  */ nt_f16_rows (out, Wq, x, 0, m, k); return 0;
-    case 2:  /* GGUF_TYPE_Q4_0 */ if (k % 32)  return -1;
-        nt_q4_0_rows(out, Wq, x, 0, m, k); return 0;
-    case 6:  /* GGUF_TYPE_Q5_0 */ if (k % 32)  return -1;
-        nt_q5_0_rows(out, Wq, x, 0, m, k); return 0;
-    case 8:  /* GGUF_TYPE_Q8_0 */ if (k % 32)  return -1;
-        nt_q8_0_rows(out, Wq, x, 0, m, k); return 0;
-    case 12: /* GGUF_TYPE_Q4_K */ if (k % 256) return -1;
-        nt_q4_k_rows(out, Wq, x, 0, m, k); return 0;
-    case 14: /* GGUF_TYPE_Q6_K */ if (k % 256) return -1;
-        nt_q6_k_rows(out, Wq, x, 0, m, k); return 0;
-    default:
-        return -1;
+    for (int t = 0; t < launched; t++) pthread_join(th[t], NULL);
+    return 0;
+}
+
+// ── int8 dynamic-activation-quant matvec (the llama.cpp / MNN fast path) ─────────
+// Quantize the activation to per-32-block symmetric int8 once, then dot it against
+// the packed int4/int8 weights with INTEGER accumulation. APPROXIMATE: int8
+// activation quant trades a little accuracy for speed; nt_qmatvec (f32 dequant) is
+// the exact reference. Phase 2b: Q4_0, scalar (SDOT/VNNI + more dtypes next).
+
+// x[k] -> per-32-block symmetric int8: qa[k] (int8) + da[k/32] (block scales).
+static void nt_quant_act_q8(const float *x, int k, int8_t *qa, float *da) {
+    int nb = k / 32;
+    for (int b = 0; b < nb; b++) {
+        const float *xb = x + (long)b * 32;
+        float amax = 0.0f;
+        for (int i = 0; i < 32; i++) { float a = fabsf(xb[i]); if (a > amax) amax = a; }
+        float d  = amax / 127.0f;
+        float id = (d > 0.0f) ? 1.0f / d : 0.0f;
+        da[b] = d;
+        for (int i = 0; i < 32; i++) {
+            int q = (int)lrintf(xb[i] * id);
+            if (q > 127) q = 127; else if (q < -127) q = -127;
+            qa[(long)b * 32 + i] = (int8_t)q;
+        }
     }
+}
+
+// Q4_0 int8-dot rows: packed weights (18 B/32) × pre-quantized int8 activation.
+// Block layout (per dequant_q4_0): byte i holds elem i (low nibble) and elem i+16
+// (high nibble), each value = nibble - 8. So lo nibbles pair with qa[0..15], hi with
+// qa[16..31]. Integer accumulation; per-block result scaled by d_w * d_a.
+#if defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+#include <arm_neon.h>
+static void nt_q4_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    const uint8x16_t mask0f = vdupq_n_u8(0x0F);
+    const int8x16_t  eight  = vdupq_n_s8(8);
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 18;
+        float acc = 0.0f;
+        for (int b = 0; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 18;
+            float d_w = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            const int8_t *qab = qa + (long)b * 32;
+            uint8x16_t packed = vld1q_u8(blk + 2);                        // 16 nibble-bytes
+            int8x16_t lo = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(packed, mask0f)), eight);  // elems 0..15
+            int8x16_t hi = vsubq_s8(vreinterpretq_s8_u8(vshrq_n_u8(packed, 4)), eight);     // elems 16..31
+            int8x16_t qlo = vld1q_s8(qab);                                // qa[0..15]
+            int8x16_t qhi = vld1q_s8(qab + 16);                           // qa[16..31]
+            int32x4_t s4 = vdupq_n_s32(0);
+            s4 = vdotq_s32(s4, lo, qlo);                                  // 16 int8-MAC
+            s4 = vdotq_s32(s4, hi, qhi);                                  // 16 int8-MAC
+            acc += d_w * da[b] * (float)vaddvq_s32(s4);                   // horizontal sum
+        }
+        out[row] = acc;
+    }
+}
+#else
+static void nt_q4_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 18;
+        float acc = 0.0f;
+        for (int b = 0; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 18;
+            float d_w = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            const int8_t *qab = qa + (long)b * 32;
+            int32_t s = 0;
+            for (int i = 0; i < 16; i++) {
+                int lo = (int)(blk[2 + i] & 0x0F) - 8;
+                int hi = (int)(blk[2 + i] >> 4)   - 8;
+                s += lo * qab[i];
+                s += hi * qab[i + 16];
+            }
+            acc += d_w * da[b] * (float)s;
+        }
+        out[row] = acc;
+    }
+}
+#endif
+
+int nt_qmatvec_i8(float *out, const uint8_t *Wq, int dtype,
+                  const float *x, int m, int k) {
+    if (dtype != 2 || (k % 32)) return -1;   /* Phase 2b: Q4_0 only for now */
+    int nb = k / 32;
+    int8_t *qa = (int8_t *)malloc((size_t)k);
+    float  *da = (float *)malloc((size_t)nb * sizeof(float));
+    if (!qa || !da) { free(qa); free(da); return -1; }
+    nt_quant_act_q8(x, k, qa, da);
+    nt_q4_0_rows_i8(out, Wq, qa, da, 0, m, k);
+    free(qa); free(da);
+    return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMAGE OPS — conv2d (im2col + GEMM) + group norm — forward-only inference ops
+// for diffusion engines (Stable-Diffusion UNet/VAE). Companions to nt_qmatvec:
+// pre-trained weights, no tape. The image-NN ops notorch lacked.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// nt_im2col — unfold [Cin,Hin,Win] into columns [Cin*kH*kW, Hout*Wout] so a
+// convolution becomes a single GEMM. Out-of-range taps are zero (padding).
+void nt_im2col(float *col, const float *in, int Cin, int Hin, int Win,
+               int kH, int kW, int stride, int padding) {
+    int Hout = (Hin + 2 * padding - kH) / stride + 1;
+    int Wout = (Win + 2 * padding - kW) / stride + 1;
+    int col_cols = Hout * Wout;
+    for (int c = 0; c < Cin; c++)
+        for (int kh = 0; kh < kH; kh++)
+            for (int kw = 0; kw < kW; kw++) {
+                int row = (c * kH + kh) * kW + kw;
+                size_t col_base = (size_t)row * col_cols;
+                for (int oh = 0; oh < Hout; oh++)
+                    for (int ow = 0; ow < Wout; ow++) {
+                        int ih = oh * stride - padding + kh;
+                        int iw = ow * stride - padding + kw;
+                        float val = 0.0f;
+                        if (ih >= 0 && ih < Hin && iw >= 0 && iw < Win)
+                            val = in[((size_t)c * Hin + ih) * Win + iw];
+                        col[col_base + (size_t)oh * Wout + ow] = val;
+                    }
+            }
+}
+
+// nt_conv2d — out[Cout,Hout,Wout] = weight[Cout, Cin*kH*kW] @ im2col(in) + bias.
+// weight is the standard [Cout,Cin,kH,kW] tensor row-major (== [Cout, Cin*kH*kW]).
+// bias may be NULL. Returns 0, or -1 on bad geometry / allocation failure.
+int nt_conv2d(float *out, const float *in, const float *weight, const float *bias,
+              int Cin, int Hin, int Win, int Cout, int kH, int kW, int stride, int padding) {
+    int Hout = (Hin + 2 * padding - kH) / stride + 1;
+    int Wout = (Win + 2 * padding - kW) / stride + 1;
+    if (Hout <= 0 || Wout <= 0) return -1;
+    int K = Cin * kH * kW;
+    int N = Hout * Wout;
+    float *col = (float *)malloc((size_t)K * N * sizeof(float));
+    if (!col) return -1;
+    nt_im2col(col, in, Cin, Hin, Win, kH, kW, stride, padding);
+    nt_blas_mm(out, weight, col, Cout, K, N);   /* [Cout,K] @ [K,N] -> [Cout,N] */
+    if (bias) {
+        for (int co = 0; co < Cout; co++) {
+            float b = bias[co];
+            float *op = out + (size_t)co * N;
+            for (int n = 0; n < N; n++) op[n] += b;
+        }
+    }
+    free(col);
+    return 0;
+}
+
+// nt_group_norm — GroupNorm over [C,H,W]: split C into num_groups, normalize each
+// group over (C/num_groups)*H*W, then per-channel affine (gamma/beta may be NULL).
+// out may alias in. Returns 0, or -1 on bad args.
+int nt_group_norm(float *out, const float *in, const float *gamma, const float *beta,
+                  int C, int H, int W, int num_groups, float eps) {
+    if (num_groups <= 0 || C % num_groups != 0) return -1;
+    int gc = C / num_groups;
+    int spatial = H * W;
+    long count = (long)gc * spatial;
+    if (count <= 0) return -1;
+    for (int g = 0; g < num_groups; g++) {
+        int c0 = g * gc;
+        const float *base = in + (size_t)c0 * spatial;
+        double sum = 0.0, sumsq = 0.0;
+        for (long i = 0; i < count; i++) { double v = base[i]; sum += v; sumsq += v * v; }
+        float mean = (float)(sum / count);
+        float var = (float)(sumsq / count - (double)mean * mean);
+        if (var < 0.0f) var = 0.0f;
+        float inv = 1.0f / sqrtf(var + eps);
+        for (int c = c0; c < c0 + gc; c++) {
+            float wsc = (gamma ? gamma[c] : 1.0f) * inv;
+            float wsh = (beta ? beta[c] : 0.0f) - mean * wsc;
+            const float *ip = in + (size_t)c * spatial;
+            float *op = out + (size_t)c * spatial;
+            for (int s = 0; s < spatial; s++) op[s] = ip[s] * wsc + wsh;
+        }
+    }
+    return 0;
+}
+
+// nt_upsample_nearest — nearest-neighbour upsample of [C,H,W] -> [C,H*scale,W*scale].
+// The UNet decoder / VAE up-blocks upsample then convolve.
+void nt_upsample_nearest(float *out, const float *in, int C, int H, int W, int scale) {
+    int Ho = H * scale, Wo = W * scale;
+    for (int c = 0; c < C; c++) {
+        const float *ip = in + (size_t)c * H * W;
+        float *op = out + (size_t)c * Ho * Wo;
+        for (int oh = 0; oh < Ho; oh++) {
+            const float *irow = ip + (size_t)(oh / scale) * W;
+            float *orow = op + (size_t)oh * Wo;
+            for (int ow = 0; ow < Wo; ow++) orow[ow] = irow[ow / scale];
+        }
+    }
+}
+
+// nt_attention — scaled dot-product attention (single head), forward inference.
+// Q[T,d], K[S,d], V[S,d] -> out[T,d] = softmax(Q @ K^T / sqrt(d)) @ V. Self-attention:
+// S == T (K,V from the same features). Cross-attention: S = context length (e.g. CLIP
+// tokens) — the conditioning path of a diffusion UNet. -1 on bad args / alloc failure.
+int nt_attention(float *out, const float *Q, const float *K, const float *V, int T, int S, int d) {
+    if (T <= 0 || S <= 0 || d <= 0) return -1;
+    float *scores = (float *)malloc((size_t)T * S * sizeof(float));
+    if (!scores) return -1;
+    nt_blas_mmT(scores, Q, K, T, d, S);          /* scores[T,S] = Q[T,d] @ K[S,d]^T */
+    float scale = 1.0f / sqrtf((float)d);
+    for (int t = 0; t < T; t++) {
+        float *row = scores + (size_t)t * S;
+        float mx = row[0] * scale;
+        for (int s = 1; s < S; s++) { float v = row[s] * scale; if (v > mx) mx = v; }
+        float sum = 0.0f;
+        for (int s = 0; s < S; s++) { float e = expf(row[s] * scale - mx); row[s] = e; sum += e; }
+        float inv = 1.0f / sum;
+        for (int s = 0; s < S; s++) row[s] *= inv;
+    }
+    nt_blas_mm(out, scores, V, T, S, d);          /* out[T,d] = scores[T,S] @ V[S,d] */
+    free(scores);
+    return 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

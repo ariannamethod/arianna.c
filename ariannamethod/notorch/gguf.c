@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 // ── Reading primitives ───────────────────────────────────────────────────────
 
@@ -71,6 +72,15 @@ gguf_file* gguf_open(const char* path) {
     read_u32(f, &gf->version);
     read_u64(f, &gf->n_tensors);
     read_u64(f, &gf->n_kv);
+
+    // The tensor-info table is fixed-size. With more tensors than it holds, the
+    // info loop stops early and data_offset (computed from ftell after the loop)
+    // lands mid-header, silently corrupting every tensor read. Fail loud instead.
+    if (gf->n_tensors > GGUF_MAX_TENSORS) {
+        fprintf(stderr, "gguf: %llu tensors exceeds GGUF_MAX_TENSORS=%d (%s); refusing to load\n",
+                (unsigned long long)gf->n_tensors, GGUF_MAX_TENSORS, path);
+        fclose(f); free(gf); return NULL;
+    }
 
     // Parse metadata
     gf->n_kv_parsed = 0;
@@ -150,8 +160,13 @@ gguf_file* gguf_open(const char* path) {
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     long data_size = fsize - gf->data_offset;
-    gf->data = (uint8_t*)malloc(data_size);
-    if (!gf->data) { fclose(f); free(gf); return NULL; }
+    // Page-align the tensor block so the Metal backend can wrap it as one
+    // zero-copy NoCopy MTLBuffer (resident weights). free() stays valid.
+    size_t pg = (size_t)getpagesize();
+    size_t alloc = ((size_t)data_size + pg - 1) & ~(pg - 1);
+    gf->data = NULL;
+    if (posix_memalign((void**)&gf->data, pg, alloc) != 0 || !gf->data) { fclose(f); free(gf); return NULL; }
+    gf->data_size = (uint64_t)alloc;
     fseek(f, gf->data_offset, SEEK_SET);
     fread(gf->data, 1, data_size, f);
     fclose(f);
@@ -177,6 +192,41 @@ const gguf_kv* gguf_get_kv(const gguf_file* gf, const char* key) {
     for (int i = 0; i < gf->n_kv_parsed; i++)
         if (strcmp(gf->kv[i].key, key) == 0) return &gf->kv[i];
     return NULL;
+}
+
+// Read a GGUF type-9 array of strings (e.g. tokenizer.ggml.tokens / .merges) by key.
+// Arrays are skipped during gguf_open, so this re-scans the file. Returns a malloc'd
+// char** of *out_n strdup'd strings, or NULL if the key/array is absent. Caller frees
+// each string and the array.
+char** gguf_read_str_array(const char* path, const char* key, int* out_n) {
+    if (out_n) *out_n = 0;
+    FILE* f = fopen(path, "rb");
+    if (!f) return NULL;
+    uint32_t magic;
+    if (!read_u32(f, &magic) || magic != GGUF_MAGIC) { fclose(f); return NULL; }
+    uint32_t version; uint64_t n_tensors, n_kv;
+    read_u32(f, &version); read_u64(f, &n_tensors); read_u64(f, &n_kv);
+    char** result = NULL;
+    for (uint64_t i = 0; i < n_kv; i++) {
+        char k[512] = {0};
+        uint32_t vtype;
+        if (!read_string(f, k, sizeof(k)) || !read_u32(f, &vtype)) break;
+        if (strcmp(k, key) == 0 && vtype == 9) {
+            uint32_t atype; uint64_t alen;
+            if (!read_u32(f, &atype) || !read_u64(f, &alen) || atype != 8) break;
+            result = (char**)calloc(alen ? alen : 1, sizeof(char*));
+            for (uint64_t j = 0; j < alen; j++) {
+                char buf[2048] = {0};
+                if (!read_string(f, buf, sizeof(buf))) break;
+                result[j] = strdup(buf);
+            }
+            if (out_n) *out_n = (int)alen;
+            break;
+        }
+        if (!skip_value(f, vtype)) break;
+    }
+    fclose(f);
+    return result;
 }
 
 // ── Dequantization ───────────────────────────────────────────────────────────
@@ -267,17 +317,21 @@ static void dequant_q6_k(const uint8_t *data, float *out, uint64_t n) {
         const uint8_t *ql = b, *qh = b + 128;
         const int8_t *sc = (const int8_t*)(b + 192);
         float d = f16_to_f32(b[208] | (b[209] << 8));
+        // Per ggml dequantize_row_q6_K: two 128-elem halves; per half ql+=64, qh+=32, sc+=8.
         for (int n_ = 0; n_ < 256; n_ += 128) {
+            const uint8_t *qlh = ql + (n_/128)*64;
+            const uint8_t *qhh = qh + (n_/128)*32;
+            const int8_t  *sch = sc + (n_/128)*8;
             for (int l = 0; l < 32; l++) {
-                int is_ = n_/128*2;
-                uint8_t q0 = ql[n_/2+l] & 0xF, q1 = ql[n_/2+l] >> 4;
-                uint8_t q2 = ql[n_/2+l+32] & 0xF, q3 = ql[n_/2+l+32] >> 4;
-                uint8_t h0 = (qh[n_/4+l] >> 0) & 3, h1 = (qh[n_/4+l] >> 2) & 3;
-                uint8_t h2 = (qh[n_/4+l] >> 4) & 3, h3 = (qh[n_/4+l] >> 6) & 3;
-                out[i*256 + n_ + l]      = d * sc[is_+0] * ((int)(q0 | (h0<<4)) - 32);
-                out[i*256 + n_ + l + 32] = d * sc[is_+1] * ((int)(q1 | (h1<<4)) - 32);
-                out[i*256 + n_ + l + 64] = d * sc[is_+2] * ((int)(q2 | (h2<<4)) - 32);
-                out[i*256 + n_ + l + 96] = d * sc[is_+3] * ((int)(q3 | (h3<<4)) - 32);
+                int is = l/16;
+                int q1 = (int)((qlh[l]      & 0x0F) | (((qhh[l] >> 0) & 3) << 4)) - 32;
+                int q2 = (int)((qlh[l + 32] & 0x0F) | (((qhh[l] >> 2) & 3) << 4)) - 32;
+                int q3 = (int)((qlh[l]      >> 4)   | (((qhh[l] >> 4) & 3) << 4)) - 32;
+                int q4 = (int)((qlh[l + 32] >> 4)   | (((qhh[l] >> 6) & 3) << 4)) - 32;
+                out[i*256 + n_ + l]      = d * sch[is + 0] * q1;
+                out[i*256 + n_ + l + 32] = d * sch[is + 2] * q2;
+                out[i*256 + n_ + l + 64] = d * sch[is + 4] * q3;
+                out[i*256 + n_ + l + 96] = d * sch[is + 6] * q4;
             }
         }
     }
@@ -303,6 +357,13 @@ static void dequant_q5_0(const uint8_t *data, float *out, uint64_t n) {
 float* gguf_dequant(const gguf_file* gf, int tensor_idx) {
     if (!gf || tensor_idx < 0 || tensor_idx >= (int)gf->n_tensors) return NULL;
     const gguf_tensor_info* ti = &gf->tensors[tensor_idx];
+    // ti->offset comes from the file; reject an offset past the data buffer so a
+    // malformed/oversized GGUF can't drive an out-of-bounds read from here.
+    if (ti->offset >= gf->data_size) {
+        fprintf(stderr, "gguf: tensor '%s' offset %llu out of bounds (data_size %llu)\n",
+                ti->name, (unsigned long long)ti->offset, (unsigned long long)gf->data_size);
+        return NULL;
+    }
     const uint8_t* src = gf->data + ti->offset;
 
     float* dst = (float*)malloc(ti->n_elements * sizeof(float));

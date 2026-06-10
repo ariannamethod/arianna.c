@@ -19,7 +19,7 @@
 #define GGUF_TYPE_Q4_K 12
 #define GGUF_TYPE_Q6_K 14
 
-#define GGUF_MAX_TENSORS 512
+#define GGUF_MAX_TENSORS 2048   // covers Llama-70B-class (~723 tensors); loader fails loud beyond this
 #define GGUF_MAX_NAME    128
 #define GGUF_MAX_KV      128
 
@@ -58,8 +58,9 @@ typedef struct {
     gguf_tensor_info tensors[GGUF_MAX_TENSORS];
 
     // Data section
-    uint8_t*       data;          // mmap'd or loaded raw bytes
+    uint8_t*       data;          // page-aligned (posix_memalign) raw tensor bytes
     uint64_t       data_offset;   // file offset where tensor data starts
+    uint64_t       data_size;     // page-rounded byte size of `data` (for Metal NoCopy)
 
     // Architecture params (extracted from metadata)
     int  n_layers;
@@ -89,6 +90,11 @@ float* gguf_dequant(const gguf_file* gf, int tensor_idx);
 
 // Get metadata value by key. Returns NULL if not found.
 const gguf_kv* gguf_get_kv(const gguf_file* gf, const char* key);
+
+// Read a GGUF type-9 string array (e.g. "tokenizer.ggml.tokens" / ".merges") by key.
+// Re-scans the file (arrays are skipped during gguf_open). Returns malloc'd char**
+// of *out_n strdup'd strings, or NULL if absent. Caller frees each string + the array.
+char** gguf_read_str_array(const char* path, const char* key, int* out_n);
 
 // Print GGUF summary
 void gguf_print_info(const gguf_file* gf);

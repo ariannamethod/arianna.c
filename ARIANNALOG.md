@@ -602,3 +602,16 @@ the seven header injections (`arianna.aml` ×5, `arianna_resonance.aml` ×2) mig
 both clean; Janus speaks Arianna at 50 tok/s, Resonance at 59 tok/s (the F16-packed NEON path holds);
 AML canon 509/509. The B2-roadmap field code (cooc / consolidate / learn_delta / delta sidecar)
 survived the core re-vendor intact.
+
+## notorch re-vendor to canon + kept NEON F16 (2026-06-11)
+
+The vendored notorch was behind canon by ~348 lines. Re-synced `notorch.{c,h}`, `gguf.{c,h}`,
+`notorch_simd.h` to canon `0b1d67e` (the Fable 5 / Mythos hardening pass, the threaded matvec,
+and the image-op set). One deliberate exception kept on top: `nt_f16_rows` carries the NEON F16
+dot (native `vcvt_f32_f16` + FMA, four accumulators) — canon's version is scalar and on this
+per-token matvec dropped Arianna to ~10 tok/s, so the NEON kernel stays vendored ahead of canon
+until it lands upstream. So: vendored == canon `0b1d67e` except that one function.
+
+**Verified (tool):** both voices build clean; notorch `test_qmatvec` F16 vs the dequant→cblas
+oracle **rel 2.3e-07 PASS**; Resonance **65–69 tok/s** (the canon threading and the NEON dot
+compound), peak RSS **564 MB** (the F16-packed half); AML canon 509/509.
