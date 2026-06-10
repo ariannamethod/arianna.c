@@ -643,3 +643,20 @@ coherently with the seed in place (57.9 tok/s); H-2 behavioural check — Janus 
 only grows within a run, inheriting Janus's 216 would force ≥216, so the clear is demonstrably
 working and Resonance starts from its own empty table. M-1/M-2 + loader-hardening + the Janus
 packed-F16 symmetry follow per the audit's fix order.
+
+## Mythos audit fixes — M-1 + M-2 (Janus arch validation) (2026-06-11)
+
+**M-1 — Janus had zero GGUF arch validation.** `yent_read_cfg` (`tools/yent_forward.h`) read
+V/E/H/D/B/M/T/R and checked none, while Resonance validated its arch (`resonance_forward.h`). A
+wrong or crafted GGUF could smash the fixed forward stack buffers: `gs[16][3]` (H>16),
+`w->b[MBL=24]` (B>24), the `[1024]` arrays x/xn/qa/cat/ao/mo (E>1024), `mid/c_out/r_out[128]`
+(D/R>128), `r_scores/r_attn/attn[2048]` (T>2048), `mg/mu[2048]` (M>2048). Fix: mirror the
+Resonance bounds check in `yent_read_cfg` with Janus's tighter limits (H≤16, B≤MBL) before any
+allocation; return 1 on violation. **M-2 — `H*D == E` was enforced on neither side**: H·D>E reads
+KV rows out of range and writes the per-head blend past E. Added the `H * D != E` conjunct to both
+Janus and Resonance arch checks.
+
+**Verified (tool):** both build clean; Janus loads our arch (`V=32768 E=640 H=10 D=64 B=20 M=1664
+T=1024 R=64`, H·D=640==E) and speaks; Resonance loads (`E=768 H=12 D=64`, 768==E) and speaks — the
+valid weights pass the stricter check, no false rejection. Header-only (Arianna's forwards, not the
+AML core) → vendored==canon untouched.

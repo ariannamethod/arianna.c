@@ -485,8 +485,9 @@ static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {
     /* Validate arch against fixed forward buffers (forward_token stack arrays
      * x/xn[1024], mg/mu/attn/r_attn[2048], temp/out[128]; Weights b[32]). */
     if (V <= 0 || E <= 0 || E > 1024 || H <= 0 || H > 64 || D <= 0 || D > 128 ||
-        B <= 0 || B > 32 || M <= 0 || M > 2048 || T <= 0 || T > 2048 || R <= 0 || R > 128) {
-        fprintf(stderr, "[resonance] GGUF arch out of bounds: V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n",
+        B <= 0 || B > 32 || M <= 0 || M > 2048 || T <= 0 || T > 2048 || R <= 0 || R > 128 ||
+        H * D != E) {  /* M-2: H*D must equal E (KV row stride / blend over E) */
+        fprintf(stderr, "[resonance] GGUF arch out of bounds (H*D must==E): V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n",
                 V, E, H, D, B, M, T, R);
         gguf_close(gf); return 1;
     }

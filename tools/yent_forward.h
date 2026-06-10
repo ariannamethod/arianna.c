@@ -315,6 +315,18 @@ static int yent_read_cfg(const char *path) {
     READ_U32("janus.context_length",       T);
     READ_U32("janus.rrpram.rank",          R);
 #undef READ_U32
+    /* M-1/M-2: validate arch against the fixed forward stack buffers before any
+     * allocation/forward. gs[16][3] => H<=16; x/xn/qa/.../cat/ao/mo[1024] => E<=1024;
+     * mid/c_out/r_out[128] => D<=128 and R<=128; r_scores/r_attn/attn[2048] => T<=2048;
+     * mg/mu[2048] => M<=2048; Weights b[MBL]. H*D must equal E (KV row stride). A wrong
+     * or crafted GGUF would otherwise smash these arrays on load/forward. */
+    if (V <= 0 || E <= 0 || E > 1024 || H <= 0 || H > 16 || D <= 0 || D > 128 ||
+        B <= 0 || B > MBL || M <= 0 || M > 2048 || T <= 0 || T > 2048 ||
+        R <= 0 || R > 128 || H * D != E) {
+        fprintf(stderr, "yent: GGUF arch out of bounds (H*D must==E): "
+                "V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n", V, E, H, D, B, M, T, R);
+        gguf_close(gf); return 1;
+    }
     gguf_close(gf);
     return 0;
 }
