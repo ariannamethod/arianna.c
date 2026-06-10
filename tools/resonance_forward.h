@@ -382,21 +382,36 @@ static int resonance_load(ResonanceCtx *ctx, const char *path) {
     if (!f) { fprintf(stderr, "[resonance] cannot open '%s'\n", path); return 1; }
 
     uint32_t magic;
-    fread(&magic, 4, 1, f);
+    if (fread(&magic, 4, 1, f) != 1) { fclose(f); return 1; }  /* M-5: check fread rc */
     if (magic != 0x52533032) {
         fprintf(stderr, "[resonance] bad magic 0x%08x (expected 'RS02')\n", magic);
         fclose(f); return 1;
     }
     int hdr[9];
-    fread(hdr, 4, 9, f);
+    if (fread(hdr, 4, 9, f) != 9) {
+        fprintf(stderr, "[resonance] RS02 short header read\n"); fclose(f); return 1;
+    }
     E = hdr[0]; B = hdr[1]; T = hdr[2]; H = hdr[3]; D = hdr[4];
     R = hdr[5]; M = hdr[6]; V = hdr[7];
+    /* M-5: the RS02 header feeds the same fixed forward stack buffers as the GGUF
+     * path, so validate its arch with the same bounds (E<=1024 etc., H*D==E)
+     * before allocating — a crafted .bin would otherwise overflow on forward. */
+    if (V <= 0 || E <= 0 || E > 1024 || H <= 0 || H > 64 || D <= 0 || D > 128 ||
+        B <= 0 || B > 32 || M <= 0 || M > 2048 || T <= 0 || T > 2048 || R <= 0 || R > 128 ||
+        H * D != E) {
+        fprintf(stderr, "[resonance] RS02 arch out of bounds (H*D must==E): V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n",
+                V, E, H, D, B, M, T, R);
+        fclose(f); return 1;
+    }
     fprintf(stderr, "[resonance] V=%d E=%d H=%d D=%d B=%d M=%d T=%d R=%d\n",
             V, E, H, D, B, M, T, R);
 
     uint32_t n_merges;
-    fread(&n_merges, 4, 1, f);
+    if (fread(&n_merges, 4, 1, f) != 1 || n_merges > (1u << 20)) {
+        fprintf(stderr, "[resonance] RS02 bad n_merges\n"); fclose(f); return 1;
+    }
     ctx->merges = malloc((size_t)n_merges * 2 * sizeof(int));
+    if (!ctx->merges) { fclose(f); return 1; }
     for (uint32_t mi = 0; mi < n_merges; mi++) {
         int triple[3];
         fread(triple, 4, 3, f);
@@ -461,7 +476,17 @@ static const uint8_t *_rload_packed(gguf_file *gf, const char *name) {
                 name, gf->tensors[idx].dtype);
         return NULL;
     }
-    return gf->data + gf->tensors[idx].offset;
+    /* M-3: bounds the packed F16 span (2 bytes/elem) inside gf->data before
+     * handing a raw pointer to nt_qmatvec — the packed path otherwise had no
+     * check at all and a crafted GGUF could point past the buffer. */
+    const gguf_tensor_info *t = &gf->tensors[idx];
+    if (t->offset >= gf->data_size || t->n_elements * 2 > gf->data_size - t->offset) {
+        fprintf(stderr, "[resonance] '%s' packed F16 out of bounds (off %llu + %llu*2, data_size %llu)\n",
+                name, (unsigned long long)t->offset, (unsigned long long)t->n_elements,
+                (unsigned long long)gf->data_size);
+        return NULL;
+    }
+    return gf->data + t->offset;
 }
 
 static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {

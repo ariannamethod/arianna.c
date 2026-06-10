@@ -67,8 +67,9 @@ BLOOD COMPILE arianna_sample {
 /* Nucleus (top-p) sampler with rep_penalty + no-repeat-3-gram + AML
  * Dario field overlay. Yent.aml lineage (sampler block lines 25-148).
  * Used by both single mode and per-step in chain mode.
- * 2026-05-14 garbage-trim: TOPK_CAP 256 → 100 cuts long-tail noise
- * (mid-word truncations, dangling glyphs) without losing voice. */
+ * 2026-05-14 garbage-trim: TOPK_CAP 256 bounds the top-k scan; the effective
+ * long-tail cut is the nucleus nuc<=40 below (mid-word truncations, dangling
+ * glyphs trimmed there) without losing voice. */
 #define ARIANNA_TOPK_CAP 256
 
 typedef struct { float p; int idx; } _ProbIdx;

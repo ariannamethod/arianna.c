@@ -660,3 +660,27 @@ Janus and Resonance arch checks.
 T=1024 R=64`, H·D=640==E) and speaks; Resonance loads (`E=768 H=12 D=64`, 768==E) and speaks — the
 valid weights pass the stricter check, no false rejection. Header-only (Arianna's forwards, not the
 AML core) → vendored==canon untouched.
+
+## Mythos audit fixes — M-3 / M-4 / M-5 loader hardening + L-1 (2026-06-11)
+
+**M-3** — `_rload_packed` (the F16 packed path, `tools/resonance_forward.h`) handed `nt_qmatvec` a
+raw pointer into `gf->data` with no bounds check; a crafted GGUF could point it past the buffer.
+Added an `offset + n_elements*2 <= data_size` check before returning the pointer.
+
+**M-4** — `gguf_dequant` (`ariannamethod/notorch/gguf.c`) rejected an offset past the data buffer but
+not a tensor starting just below the end (`offset + on-disk-bytes > data_size`). Added
+`gguf_dtype_nbytes` (strides matching the `dequant_*` block layouts: F32 4 / F16 2 / Q4_0 18 /
+Q5_0 22 / Q8_0 34 per 32; Q4_K 144 / Q6_K 210 per 256) and check `offset + nbytes <= data_size`.
+Canon-side — mirrored to the notorch repo, vendored == canon.
+
+**M-5** — the RS02 legacy `.bin` loader (`resonance_load`) trusted the file: `fread` return codes
+ignored (magic/header/n_merges), header dims unvalidated (E>1024 → forward stack overflow), merges
+`malloc` unchecked. Added rc checks, the same arch bounds as the GGUF path (E≤1024 etc., H*D==E), an
+`n_merges` sanity cap, and a NULL check on the merges `malloc`.
+
+**L-1** — `arianna.aml` comment claimed "TOPK_CAP 256 → 100" while the define is 256; aligned the
+comment with the code (the cap is 256; the effective long-tail cut is the nucleus `nuc<=40`).
+
+**Verified (tool):** both voices build clean and load the real GGUF weights through the tightened
+bounds (Resonance E=768, Janus V=32768 — valid arch passes, no false rejection) and speak coherently;
+notorch canon `make test` **73/73, 0 failed** (M-4 does not break valid tensors).
