@@ -684,3 +684,19 @@ comment with the code (the cap is 256; the effective long-tail cut is the nucleu
 **Verified (tool):** both voices build clean and load the real GGUF weights through the tightened
 bounds (Resonance E=768, Janus V=32768 — valid arch passes, no false rejection) and speak coherently;
 notorch canon `make test` **73/73, 0 failed** (M-4 does not break valid tensors).
+
+## M-4 hardening — uint64 overflow guard in gguf_dtype_nbytes (2026-06-11)
+
+Follow-up to M-4. `gguf_dtype_nbytes` multiplied the file-supplied `n_elements` (n*4 for F32, n*2 for
+F16, (n/block)*stride for quantized) without overflow detection — a crafted GGUF with a huge
+`n_elements` could wrap the product to a tiny value that slips through the `nbytes <= data_size -
+offset` bounds check, defeating the very guard M-4 added. Made the byte computation overflow-safe
+(`n > UINT64_MAX/k` guards on F32/F16; `blocks > UINT64_MAX/per` on the quantized paths) and turned a
+0 return into a HARD REJECT in `gguf_dequant` (unknown dtype / overflow / sub-block n) — removing the
+`nbytes > 0` escape hatch so the dequant switch default is no longer the only guard. The
+`(n/block)*stride` form still bounds the *actual* read precisely (the dequant loops read only full
+blocks), so no valid model is newly rejected.
+
+**Verified (tool):** both build clean; the real F16 weights load through the guard (Resonance E=768,
+Janus V=32768, no false reject) and both voices speak; notorch canon `make test` **73/73, 0 failed**.
+Canon-side notorch; vendored == canon.
