@@ -6783,6 +6783,13 @@ int am_copy_state(float* out) {
 // Co-occurrence telemetry (H-term word circulation): live edge count.
 int am_cooc_count(void) { return G.cooc_n; }
 
+// Clear the co-occurrence field in G. Used when a per-voice cooc sidecar is
+// absent (first run of a voice): the shared soma carries cooc inside AM_State,
+// so without a sidecar to overwrite it the voice would inherit the OTHER voice's
+// edges (foreign token-ids) and bake the contamination into its own sidecar at
+// SAVE. Clearing on a failed am_cooc_load keeps the "cooc stays per-voice" invariant.
+void am_cooc_clear(void) { G.cooc_n = 0; G.cooc_total = 0; G.ctx_ring_n = 0; }
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // LOGIT MANIPULATION API — apply field state to generation
 // Ported from arianna_dsl.c, ariannamethod.lang/src/field.js

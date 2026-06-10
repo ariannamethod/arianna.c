@@ -58,7 +58,7 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
         fprintf(stderr, "[resonance] am_exec rc=%d (%s)\n", rc, am_get_error());
     /* Per-voice co-occurrence: load AFTER the shared soma (overwrites whatever
      * cross-vocab cooc the soma carried). Resonance's own vocab edges only. */
-    am_cooc_load("weights/arianna.cooc.r");
+    if (am_cooc_load("weights/arianna.cooc.r") != 0) am_cooc_clear();  /* H-2: no sidecar → drop shared-soma cooc, don't inherit Janus's edges */
     fprintf(stderr, "[resonance] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }

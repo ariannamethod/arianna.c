@@ -187,7 +187,7 @@ static int arianna_init(const char *gguf_path, Weights *w) {
             g_bpe.vocab_size, g_bpe.n_merges,
             (int)((size_t)B * T * E * 3 * 4 / 1024 / 1024));
     /* Per-voice co-occurrence: load AFTER shared soma (Janus's own vocab edges). */
-    am_cooc_load("weights/arianna.cooc.j");
+    if (am_cooc_load("weights/arianna.cooc.j") != 0) am_cooc_clear();  /* H-2: no sidecar → drop shared-soma cooc, don't inherit Resonance's edges */
     if (!g_delta_A) {                     /* B2-B.2: per-voice δ sidecar A/B, load if present */
         g_delta_A = (float*)calloc((size_t)E * g_delta_rank, sizeof(float));
         g_delta_B = (float*)calloc((size_t)g_delta_rank * E, sizeof(float));

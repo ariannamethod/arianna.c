@@ -615,3 +615,31 @@ until it lands upstream. So: vendored == canon `0b1d67e` except that one functio
 **Verified (tool):** both voices build clean; notorch `test_qmatvec` F16 vs the dequant→cblas
 oracle **rel 2.3e-07 PASS**; Resonance **65–69 tok/s** (the canon threading and the NEON dot
 compound), peak RSS **564 MB** (the F16-packed half); AML canon 509/509.
+
+## Mythos audit fixes — H-1 + H-2 (the two HIGH blockers) (2026-06-11)
+
+A read-only audit by Fable 5 / Mythos against `01ac873` found two HIGH issues that hit the
+correctness of the field experiment itself; Opus re-verified both against the code before fixing.
+Report: `~/arianna/_notes/MYTHOS_AUDIT_arianna_2026-06-11.md`.
+
+**H-1 — Janus RRPRAM mid never seeded.** `prefill_batch` (`tools/yent_forward.h`) computed the
+per-head RRPRAM intermediate `mid` but never wrote it to `kv_rrpram_mid`; the reference
+`dario/infer_v4.c:233-238` seeds it (`mid_cache[r] = mid[r]`). Without the seed, generation ran the
+RRPRAM attention channel from a zero state (no prompt contribution), and in a persistent daemon the
+channel would accumulate across turns with no reset. Fix: port the 3-line seed into the prefill
+per-head loop (`if (i==0)`, `mid` is invariant in `i`); the `=` doubles as the per-prefill reset.
+
+**H-2 — first-run cooc contamination.** The shared `weights/arianna.soma` carries the co-occurrence
+table inside `AM_State` (`am_field_save` writes all of `G`), and the per-voice sidecar load
+(`am_cooc_load`) is what keeps cooc per-voice — but its return code was unchecked. On a voice's first
+run the sidecar is absent, the load fails, and `G` silently kept the *other* voice's edges (foreign
+token-ids), tilting this voice's logits and baking the contamination into its own sidecar at SAVE.
+Fix: `am_cooc_clear()` in the AML core (zeroes the cooc fields), called when `am_cooc_load` returns
+non-zero in both `.aml` inits. Per `vendored == canon`, the core change lands in `ariannamethod.ai` too.
+
+**Verified (tool):** both voices build clean; AML canon **509/509** (core touched); Janus speaks
+coherently with the seed in place (57.9 tok/s); H-2 behavioural check — Janus seeds the soma with
+`cooc edges=216`, then Resonance (no sidecar) runs and ends at `cooc edges=137` < 216 — since cooc
+only grows within a run, inheriting Janus's 216 would force ≥216, so the clear is demonstrably
+working and Resonance starts from its own empty table. M-1/M-2 + loader-hardening + the Janus
+packed-F16 symmetry follow per the audit's fix order.

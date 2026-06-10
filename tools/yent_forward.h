@@ -454,6 +454,15 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
                     for (int r = 0; r < R; r++)
                         for (int e = 0; e < E; e++)
                             mid[r] += rns[t*E+e] * wr_a_h[e*R+r];
+                /* H-1: seed kv_rrpram_mid from the prompt sum so autoregressive
+                 * continuation (forward_token does mid_cache[r] += ... per new pos)
+                 * starts from the prompt's RRPRAM state instead of zero; the `=`
+                 * also resets it per prefill for the daemon path. mid is invariant
+                 * in i, so seed once. Port of dario/infer_v4.c:233-238. */
+                if (i == 0) {
+                    float *mid_cache = kv_rrpram_mid + ((size_t)bl * H + h) * R;
+                    for (int r = 0; r < R; r++) mid_cache[r] = mid[r];
+                }
                 /* scores = mid @ wr_b * sc, broadcast */
                 float r_scores[2048];
                 for (int j = 0; j < n; j++) {
