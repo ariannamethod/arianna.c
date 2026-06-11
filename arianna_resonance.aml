@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     const char *prompt       = "Who are you?";
     int   max_tokens         = 100;
     float temp               = 0.7f;
-    float top_p              = 0.9f;
+    float top_p              = 1.0f;   /* champion: full nucleus. top_p 0.9 starves Resonance (empty/broken). */
     int   daemon_mode        = 0;
     const char *inject_text  = NULL;   /* direction-injection content (other voice + prompt) */
     float inject_alpha       = 0.0f;   /* destiny (A) strength; 0 = off (ablation) */
