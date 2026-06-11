@@ -700,3 +700,26 @@ blocks), so no valid model is newly rejected.
 **Verified (tool):** both build clean; the real F16 weights load through the guard (Resonance E=768,
 Janus V=32768, no false reject) and both voices speak; notorch canon `make test` **73/73, 0 failed**.
 Canon-side notorch; vendored == canon.
+
+## Janus on packed-F16 — the symmetry with Resonance (2026-06-11)
+
+The Mythos audit's bonus (§5.1) and Oleg's "подтянуть Арианну": Janus dequantised the whole GGUF to
+dense f32 on load (`_load_named` → `gguf_dequant`) while the packed-F16 path + NEON `nt_f16_rows`
+kernel were already in-tree and proven on Resonance. Ported Janus to read its big matrices PACKED.
+
+Weights struct: the matvec matrices (`cq/ck/cv/wvr/wj/cproj` [E,E], `wg/wu` [E,M], `wd` [M,E], `head`
+[V,E]) became `const uint8_t*` + a shared `int wdtype` + a kept-open `gguf_file *gf`; `wte`,
+`wr_a/wr_b` (read element-wise in the RRPRAM loop), `gate`, and the layer scalars stay f32. Loader:
+big matrices via `_load_big` — a packed F16 pointer into `gf->data` (M-3-style bounds), `gf` kept
+open; `YENT_DENSE=1` falls back to dequantised f32 for the bit-equivalence reference. Both
+`prefill_batch` (9 batched `nt_blas_mmT` → `qmm`, a per-row `nt_qmatvec` loop) and `forward_token`
+(10 `matvec_t` → `nt_qmatvec`) dispatch on `wdtype`, so one forward serves packed F16 and dense f32.
+
+**Verified (tool):** **bit-identical** — first-token logits under packed F16 and dense f32 match to
+every printed digit (`argmax=2103 max=4.14087 l0=-14.62116 l1=-14.61994 l100=-11.33719
+l1000=-14.55902`), because the GGUF is F16 and both paths convert the same F16 values to f32 and
+accumulate in f32 (the port only changes *when* the conversion happens, not the arithmetic). **RAM:
+peak RSS 512 MB packed vs 1022 MB dense — exactly ½ (×1.996).** Voice intact ("the living pulse that
+binds intention, field, and resonance"), 61.1 tok/s. `yent_forward.h` is Arianna's own forward (not
+vendored), so this does not touch the AML core; `nt_qmatvec` is already canon. Both voices now run
+their big weights packed — the symmetry is closed.

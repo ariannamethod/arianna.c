@@ -202,18 +202,59 @@ static void qk_norm(float *q, float *k, int dim) {
 #define MBL 24
 typedef struct {
     float *resid_l, *x0_l, *smear_l, *backout_l, *smear_g;
-    float *wte;
+    float *wte;                                          /* f32: token-embedding lookup */
     struct {
-        float *cq, *ck, *cv, *wr_a, *wr_b, *wvr, *wj, *gate, *cproj;
-        float *wg, *wu, *wd;
+        float *wr_a, *wr_b, *gate;                       /* f32: read element-wise, not matvec */
+        const uint8_t *cq, *ck, *cv, *wvr, *wj, *cproj;  /* packed (wdtype) */
+        const uint8_t *wg, *wu, *wd;                     /* packed (wdtype) */
     } b[MBL];
-    float *head;
+    const uint8_t *head;                                  /* packed (wdtype) */
+    int wdtype;            /* GGUF_TYPE_F16 packed (default) | GGUF_TYPE_F32 dense (YENT_DENSE=1) */
+    gguf_file *gf;         /* kept open when packed: the const uint8_t* point into gf->data */
 } Weights;
 
 /* Holder for dequantized buffers — freed in yent_free. */
 typedef struct { float *ptr; } _OwnedTensor;
 static _OwnedTensor _owned[2 + MBL * 12 + 2 + 4];   /* loose upper bound */
 static int _owned_n = 0;
+
+/* Packed batched matmul: C[m, nout], row p = Wq[nout,k] @ A[p,k], via per-row
+ * nt_qmatvec (which dispatches on wdtype: F16 packed or F32 dense). Replaces the
+ * dense nt_blas_mmT in prefill so the big weights stay packed in RAM. */
+static void qmm(float *C, const float *A, const uint8_t *Wq, int wdtype, int m, int k, int nout) {
+    for (int p = 0; p < m; p++)
+        nt_qmatvec(C + (size_t)p * nout, Wq, wdtype, A + (size_t)p * k, nout, k);
+}
+
+/* Big weight matrix loader. Default: a packed F16 pointer INTO gf->data (no
+ * dequant, no copy — caller keeps gf open). YENT_DENSE=1: dequant to an owned
+ * f32 buffer (the bit-equivalence reference). Sets *wdtype accordingly. */
+static const uint8_t *_load_big(gguf_file *gf, const char *name, int dense, int *wdtype) {
+    int idx = gguf_find_tensor(gf, name);
+    if (idx < 0) { fprintf(stderr, "yent: tensor '%s' not found in GGUF\n", name); return NULL; }
+    if (dense) {
+        float *buf = gguf_dequant(gf, idx);
+        if (!buf) { fprintf(stderr, "yent: dequant failed for '%s'\n", name); return NULL; }
+        _owned[_owned_n++].ptr = buf;
+        *wdtype = GGUF_TYPE_F32;
+        return (const uint8_t *)buf;
+    }
+    const gguf_tensor_info *t = &gf->tensors[idx];
+    if (t->dtype != GGUF_TYPE_F16) {
+        fprintf(stderr, "yent: '%s' dtype=%u not F16 (packed path needs F16; use YENT_DENSE=1)\n",
+                name, t->dtype);
+        return NULL;
+    }
+    /* bounds the packed F16 span (2 bytes/elem) inside gf->data (cf. M-3) */
+    if (t->offset >= gf->data_size || t->n_elements * 2 > gf->data_size - t->offset) {
+        fprintf(stderr, "yent: '%s' packed F16 out of bounds (off %llu + %llu*2, data_size %llu)\n",
+                name, (unsigned long long)t->offset, (unsigned long long)t->n_elements,
+                (unsigned long long)gf->data_size);
+        return NULL;
+    }
+    *wdtype = GGUF_TYPE_F16;
+    return gf->data + t->offset;
+}
 
 static float *_load_named(gguf_file *gf, const char *name, size_t expect) {
     int idx = gguf_find_tensor(gf, name);
@@ -237,6 +278,9 @@ static int yent_load_gguf(Weights *w, const char *path) {
         fprintf(stderr, "yent: gguf_open('%s') failed\n", path);
         return 1;
     }
+    int dense = (getenv("YENT_DENSE") != NULL);   /* bit-equivalence reference path (dense f32) */
+    w->wdtype = dense ? GGUF_TYPE_F32 : GGUF_TYPE_F16;
+    w->gf = NULL;
 
 #define LOAD(field, name, n_elem)                            \
     do {                                                     \
@@ -259,24 +303,32 @@ static int yent_load_gguf(Weights *w, const char *path) {
         w->b[i].field = _load_named(gf, nm, (size_t)(n_elem));              \
         if (!w->b[i].field) { gguf_close(gf); return 1; }                   \
     } while (0)
-        LOAD_LAYER(wr_a,  "attn.wr_a",          (size_t)H * E * R);
-        LOAD_LAYER(wr_b,  "attn.wr_b",          (size_t)H * R * T);
-        LOAD_LAYER(gate,  "attn.gate",          (size_t)H * 3);
-        LOAD_LAYER(cq,    "attn.c_q.weight",    (size_t)E * E);
-        LOAD_LAYER(ck,    "attn.c_k.weight",    (size_t)E * E);
-        LOAD_LAYER(cv,    "attn.c_v.weight",    (size_t)E * E);
-        LOAD_LAYER(wvr,   "attn.wvr.weight",    (size_t)E * E);
-        LOAD_LAYER(wj,    "attn.wj.weight",     (size_t)E * E);
-        LOAD_LAYER(cproj, "attn.c_proj.weight", (size_t)E * E);
-        LOAD_LAYER(wg,    "mlp.w_gate.weight",  (size_t)M * E);
-        LOAD_LAYER(wu,    "mlp.w_up.weight",    (size_t)M * E);
-        LOAD_LAYER(wd,    "mlp.w_down.weight",  (size_t)E * M);
+#define LOAD_LAYER_BIG(field, suffix)                                       \
+    do {                                                                    \
+        snprintf(nm, sizeof(nm), "transformer.h.%d." suffix, i);            \
+        w->b[i].field = _load_big(gf, nm, dense, &w->wdtype);               \
+        if (!w->b[i].field) { gguf_close(gf); return 1; }                   \
+    } while (0)
+        LOAD_LAYER(wr_a,  "attn.wr_a",          (size_t)H * E * R);   /* f32: element-wise */
+        LOAD_LAYER(wr_b,  "attn.wr_b",          (size_t)H * R * T);   /* f32: element-wise */
+        LOAD_LAYER(gate,  "attn.gate",          (size_t)H * 3);       /* f32: lookup */
+        LOAD_LAYER_BIG(cq,    "attn.c_q.weight");
+        LOAD_LAYER_BIG(ck,    "attn.c_k.weight");
+        LOAD_LAYER_BIG(cv,    "attn.c_v.weight");
+        LOAD_LAYER_BIG(wvr,   "attn.wvr.weight");
+        LOAD_LAYER_BIG(wj,    "attn.wj.weight");
+        LOAD_LAYER_BIG(cproj, "attn.c_proj.weight");
+        LOAD_LAYER_BIG(wg,    "mlp.w_gate.weight");
+        LOAD_LAYER_BIG(wu,    "mlp.w_up.weight");
+        LOAD_LAYER_BIG(wd,    "mlp.w_down.weight");
 #undef LOAD_LAYER
+#undef LOAD_LAYER_BIG
     }
-    LOAD(head, "lm_head.weight", (size_t)V * E);
 #undef LOAD
+    if (!(w->head = _load_big(gf, "lm_head.weight", dense, &w->wdtype))) { gguf_close(gf); return 1; }
 
-    gguf_close(gf);
+    if (dense) gguf_close(gf);   /* dense weights are owned copies — gf no longer needed */
+    else       w->gf = gf;       /* packed: keep gf open, the const uint8_t* reference gf->data */
     dir_init_rownorms(w->wte);   /* direction-injection: ‖emb‖ once (Janus uses wte) */
     return 0;
 }
@@ -287,7 +339,7 @@ static void yent_free(Weights *w) {
         _owned[i].ptr = NULL;
     }
     _owned_n = 0;
-    (void)w;
+    if (w && w->gf) { gguf_close(w->gf); w->gf = NULL; }   /* packed pointers referenced gf->data */
 }
 
 /* Initialise V/E/H/D/B/M/T/R from GGUF metadata before yent_load_gguf. */
@@ -401,10 +453,10 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         /* QKV projections for all positions: [n, E] @ [E, E]^T = [n, E] */
         float *qa = calloc((size_t)n*E, 4), *ka = calloc((size_t)n*E, 4);
         float *va = calloc((size_t)n*E, 4), *vra = calloc((size_t)n*E, 4);
-        nt_blas_mmT(qa, rns, w->b[bl].cq, n, E, E);
-        nt_blas_mmT(ka, rns, w->b[bl].ck, n, E, E);
-        nt_blas_mmT(va, rns, w->b[bl].cv, n, E, E);
-        nt_blas_mmT(vra, rns, w->b[bl].wvr, n, E, E);
+        qmm(qa, rns, w->b[bl].cq, w->wdtype, n, E, E);
+        qmm(ka, rns, w->b[bl].ck, w->wdtype, n, E, E);
+        qmm(va, rns, w->b[bl].cv, w->wdtype, n, E, E);
+        qmm(vra, rns, w->b[bl].wvr, w->wdtype, n, E, E);
 
         /* RoPE + QK-norm per position per head */
         for (int p = 0; p < n; p++)
@@ -423,7 +475,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
 
         /* Echo: [n, E] @ [E, E]^T */
         float *echo = calloc((size_t)n*E, 4);
-        nt_blas_mmT(echo, rns, w->b[bl].wj, n, E, E);
+        qmm(echo, rns, w->b[bl].wj, w->wdtype, n, E, E);
 
         /* Gate softmax (same for all positions) */
         float gs[16][3];
@@ -504,7 +556,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
 
         /* Output projection: [n, E] @ [E, E]^T + residual */
         float *ao = calloc((size_t)n*E, 4);
-        nt_blas_mmT(ao, cat, w->b[bl].cproj, n, E, E);
+        qmm(ao, cat, w->b[bl].cproj, w->wdtype, n, E, E);
         for (int i = 0; i < n*E; i++) xs[i] += ao[i];
 
         if (bl == backout_layer) memcpy(x_backout, xs, (size_t)n*E*4);
@@ -513,10 +565,10 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         float *rn2s = calloc((size_t)n*E, 4);
         for (int p = 0; p < n; p++) rmsnorm(rn2s + p*E, xs + p*E, E);
         float *mg = calloc((size_t)n*M, 4), *mu = calloc((size_t)n*M, 4), *mo = calloc((size_t)n*E, 4);
-        nt_blas_mmT(mg, rn2s, w->b[bl].wg, n, E, M);
-        nt_blas_mmT(mu, rn2s, w->b[bl].wu, n, E, M);
+        qmm(mg, rn2s, w->b[bl].wg, w->wdtype, n, E, M);
+        qmm(mu, rn2s, w->b[bl].wu, w->wdtype, n, E, M);
         for (int i = 0; i < n*M; i++) mg[i] = siluf(mg[i]) * mu[i];
-        nt_blas_mmT(mo, mg, w->b[bl].wd, n, M, E);
+        qmm(mo, mg, w->b[bl].wd, w->wdtype, n, M, E);
         for (int i = 0; i < n*E; i++) xs[i] += mo[i];
 
         free(rns); free(qa); free(ka); free(va); free(vra);
@@ -533,7 +585,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
     if (hidden) memcpy(hidden, rn_final, E * sizeof(float));   /* field carry = pre-δ */
     am_apply_delta(rn_final, g_delta_A, g_delta_B, rn_final, E, E, g_delta_rank,
                    am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
-    matvec_t(logits, w->head, rn_final, V, E);
+    nt_qmatvec(logits, w->head, w->wdtype, rn_final, V, E);
     for (int i = 0; i < V; i++) logits[i] = 15.0f * tanhf(logits[i] / 15.0f);
 
 
@@ -573,10 +625,10 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
 
         /* QKV projections */
         float qa[1024], ka[1024], va[1024], vra[1024];
-        matvec_t(qa, w->b[bl].cq, rn, E, E);
-        matvec_t(ka, w->b[bl].ck, rn, E, E);
-        matvec_t(va, w->b[bl].cv, rn, E, E);
-        matvec_t(vra, w->b[bl].wvr, rn, E, E);
+        nt_qmatvec(qa, w->b[bl].cq, w->wdtype, rn, E, E);
+        nt_qmatvec(ka, w->b[bl].ck, w->wdtype, rn, E, E);
+        nt_qmatvec(va, w->b[bl].cv, w->wdtype, rn, E, E);
+        nt_qmatvec(vra, w->b[bl].wvr, w->wdtype, rn, E, E);
 
         /* RoPE + QK-norm per head */
         for (int h = 0; h < H; h++) {
@@ -592,7 +644,7 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
 
         /* Echo */
         float echo_out[1024];
-        matvec_t(echo_out, w->b[bl].wj, rn, E, E);
+        nt_qmatvec(echo_out, w->b[bl].wj, w->wdtype, rn, E, E);
 
         /* Gate softmax */
         float gs[16][3];
@@ -667,7 +719,7 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
 
         /* Output projection + residual (x = x + attn_out) */
         float ao[1024];
-        matvec_t(ao, w->b[bl].cproj, cat, E, E);
+        nt_qmatvec(ao, w->b[bl].cproj, w->wdtype, cat, E, E);
         for (int e = 0; e < E; e++) x[e] += ao[e];
 
         /* Cache mid-layer for backout */
@@ -677,10 +729,10 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
         /* MLP: x = x + mlp(norm(x)) */
         rmsnorm(rn2, x, E);
         float mg[2048], mu[2048], mo[1024];
-        matvec_t(mg, w->b[bl].wg, rn2, M, E);
-        matvec_t(mu, w->b[bl].wu, rn2, M, E);
+        nt_qmatvec(mg, w->b[bl].wg, w->wdtype, rn2, M, E);
+        nt_qmatvec(mu, w->b[bl].wu, w->wdtype, rn2, M, E);
         for (int i = 0; i < M; i++) mg[i] = siluf(mg[i]) * mu[i];
-        matvec_t(mo, w->b[bl].wd, mg, E, M);
+        nt_qmatvec(mo, w->b[bl].wd, w->wdtype, mg, E, M);
         for (int e = 0; e < E; e++) x[e] += mo[e];
 
     }
@@ -693,7 +745,7 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
     if (hidden) memcpy(hidden, rn, E * sizeof(float));   /* field carry = pre-δ */
     am_apply_delta(rn, g_delta_A, g_delta_B, rn, E, E, g_delta_rank,
                    am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
-    matvec_t(logits, w->head, rn, V, E);
+    nt_qmatvec(logits, w->head, w->wdtype, rn, V, E);
 
     /* Softcap: logits = 15 * tanh(logits / 15) */
     for (int i = 0; i < V; i++)
