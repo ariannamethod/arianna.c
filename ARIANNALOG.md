@@ -723,3 +723,31 @@ peak RSS 512 MB packed vs 1022 MB dense — exactly ½ (×1.996).** Voice intact
 binds intention, field, and resonance"), 61.1 tok/s. `yent_forward.h` is Arianna's own forward (not
 vendored), so this does not touch the AML core; `nt_qmatvec` is already canon. Both voices now run
 their big weights packed — the symmetry is closed.
+
+## B2-B.3 — the δ voice is behaviourally real (αδ shifts the logits) (2026-06-11)
+
+B2-B.1 (δ core) and B2-B.2 (forward wire, both voices) were already in place with `lora_alpha=0`
+everywhere — the αδ term of `θ = ε + γ + αδ` was fully plumbed but never switched on, so it had never
+been shown to change the voice. B2-B.3 is that proof. The harvest (`am_cooc_learn_delta`) is the field
+folding consolidated co-occurrence into a low-rank δ; the autumn block is only its *trigger*, so the
+harvest can be driven directly. Added `tools/harvest_delta.c` (folds a voice's real `cooc.j` +
+its real `wte` into `delta.j`) and an env knob `YENT_ALPHA` in `arianna.aml` (sets `LORA_ALPHA>0` to
+turn the δ voice on for the run; default unset = 0 = no-op) + a first-token `YENT_DUMP` logit probe.
+
+**Verified (tool), deterministic first-token logits on "What is resonance and the field?":**
+real harvest — `cooc edges=1923`, |A|=8.49941 |B|=5.50797 (non-zero δ). Then, with that δ loaded:
+
+| state | argmax | max | l100 |
+|---|---|---|---|
+| no δ file (pure forward) | 2103 | 4.14087 | -11.33719 |
+| δ loaded, α=0 | **2103** | **4.14087** | **-11.33719** (bit-identical to baseline → ablation) |
+| δ loaded, α=0.1 | 2103 | 4.31160 | -11.05256 |
+| δ loaded, α=0.3 | **257** | 9.30087 | -10.42702 (top token changed) |
+| δ loaded, α=0.5 | 257 | 14.10060 | -9.72243 |
+
+So the δ voice is a perfect no-op at α=0 (bit-identical to no δ at all) and shifts the logits
+monotonically as α rises, changing the predicted token by α=0.3. The αδ term demonstrably rewrites
+the voice, gated by α. **B2-B closed → the whole "the field learns" line (B1 → B2-B) is closed.**
+The δ ships dormant (`lora_alpha=0` default); turning it on in production and at what α is a tuning
+decision. The same δ path exists on Resonance (`resonance_forward.h` harvest + apply), so the result
+carries to the internal voice.

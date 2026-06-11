@@ -588,6 +588,12 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
     nt_qmatvec(logits, w->head, w->wdtype, rn_final, V, E);
     for (int i = 0; i < V; i++) logits[i] = 15.0f * tanhf(logits[i] / 15.0f);
 
+    if (getenv("YENT_DUMP")) {   /* B2-B.3 probe: first-token logits vs lora_alpha (δ voice) */
+        int am = 0; float mv = logits[0];
+        for (int i = 1; i < V; i++) if (logits[i] > mv) { mv = logits[i]; am = i; }
+        fprintf(stderr, "[yent-dump] wdtype=%d lora_alpha=%.3f argmax=%d max=%.5f | l0=%.5f l1=%.5f l100=%.5f l1000=%.5f\n",
+                w->wdtype, am_get_state()->lora_alpha, am, mv, logits[0], logits[1], logits[100], logits[1000]);
+    }
 
     free(xs); free(x0s); free(x_backout);
 }

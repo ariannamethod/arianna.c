@@ -194,6 +194,11 @@ static int arianna_init(const char *gguf_path, Weights *w) {
         g_delta_B = (float*)calloc((size_t)g_delta_rank * E, sizeof(float));
         am_delta_load("weights/arianna.delta.j", g_delta_A, g_delta_B, E, g_delta_rank);
     }
+    /* B2-B.3: env knob to turn the δ voice on (lora_alpha>0) for the behavioural
+     * run / ablation. Default unset = 0 = δ no-op (am_apply_delta early-returns). */
+    { const char *a = getenv("YENT_ALPHA");
+      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b);
+               fprintf(stderr, "[arianna] LORA_ALPHA=%s (δ voice on)\n", a); } }
     fprintf(stderr, "[arianna] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
