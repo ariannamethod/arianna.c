@@ -778,3 +778,19 @@ The δ ships dormant (`lora_dynamic=0` default). Note: in a short single-shot ru
 breathing range is narrow here — the wide swing needs a live multi-turn duet where resonance actually
 travels (0.5–0.94 observed across runs). The mechanism is correct and ablation-safe; the breath is an
 observation for the live orchestrator.
+
+## B2-B.5 — δ forgetting valve: adaptivity, not bounding (2026-06-11)
+
+`am_cooc_learn_delta` is a *converging* training step (am_notorch_step toward the cooc-implied
+direction, clamped ±10), so δ **self-bounds** — repeated harvests on a fixed cooc converge rather than
+grow (a 20-autumn probe gave |A| with decay 0.9 ≈ |A| without decay ≈ 0.16, ratio ~1.0). So
+`am_delta_decay` serves **adaptivity**, not bounding: applied before each autumn harvest it lets δ
+forget stale consolidations and track the recent dialogue. `G.delta_decay` (default 0.9, `DELTA_DECAY`
+directive, clamp 0.5..1) + the decay call wired before `am_cooc_learn_delta` in both voices
+(arianna.aml Janus, resonance_forward.h Resonance). vendored == canon.
+
+**Verified (tool):** target-switch unit `tools/test_delta_decay.c` — learn theme 0→1, then switch the
+cooc to 0→2; with decay 0.9 δ rotates to the new direction (`cos(δ, dir02)=0.996`), without decay it
+lingers on the old (`cos=0.507`). canon **509/509**; both voices build; voice intact (δ ships dormant
+at `lora_alpha=0`). Consequence: always-on needs no decay safety-gate — δ is already bounded; decay is
+the recency knob, on by default.

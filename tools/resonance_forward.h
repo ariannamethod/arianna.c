@@ -779,6 +779,7 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
             fprintf(stderr, "[resonance] autumn consolidate: pruned=%d edges=%d mean=%.3f max=%.3f\n",
                     pruned, am_cooc_count(), cmean, cmax);
             /* B2-B.2: harvest — fold the consolidated cooc into δ, persist the .r sidecar. */
+            am_delta_decay(g_delta_A, g_delta_B, E, g_delta_rank, am_get_state()->delta_decay);  /* B2-B.5: forget before learn */
             if (am_cooc_learn_delta(g_delta_A, g_delta_B, ctx->w.tok_emb, V, E, g_delta_rank) > 0)
                 am_delta_save("weights/arianna.delta.r", g_delta_A, g_delta_B, E, g_delta_rank);
         }

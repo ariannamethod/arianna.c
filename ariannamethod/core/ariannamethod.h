@@ -185,6 +185,7 @@ typedef struct {
   // LORA / DELTA VOICE — core
   float lora_alpha;         // delta blending: 0=identity, 1=base model
   int   lora_dynamic;       // B2-B.4: if set, effective alpha = lora_alpha * resonance (field-coherence-gated δ)
+  float delta_decay;        // B2-B.5: δ forgetting factor per autumn (0.5..1; default 0.9)
 
   // NOTORCH — runtime microlearning, core
   float notorch_lr;         // learning rate (default 0.001)
@@ -463,6 +464,7 @@ void am_cooc_stats(float* out_mean, float* out_max); // mean/max edge weight ove
 int  am_cooc_learn_delta(float* A, float* B, const float* emb, int vocab, int E, int rank); // fold cooc edges into low-rank delta (A=[E,rank],B=[rank,E])
 int  am_delta_save(const char* path, const float* A, const float* B, int E, int rank); // persist per-voice delta sidecar
 int  am_delta_load(const char* path, float* A, float* B, int E, int rank); // load per-voice delta sidecar (dim mismatch -> -3)
+void am_delta_decay(float* A, float* B, int E, int rank, float factor); // B2-B.5: scale δ before harvest (forgetting valve)
 
 // Full pipeline: apply all field effects to logits
 void am_apply_field_to_logits(float* logits, int n);
