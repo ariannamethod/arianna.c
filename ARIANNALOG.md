@@ -794,3 +794,20 @@ cooc to 0→2; with decay 0.9 δ rotates to the new direction (`cos(δ, dir02)=0
 lingers on the old (`cos=0.507`). canon **509/509**; both voices build; voice intact (δ ships dormant
 at `lora_alpha=0`). Consequence: always-on needs no decay safety-gate — δ is already bounded; decay is
 the recency knob, on by default.
+
+## B2-B.4 always-on — the living δ voice in the duet (2026-06-11)
+
+The dynamic δ voice is now the duet's default. `arianna2arianna.sh` exports `YENT_DYNAMIC=1` +
+`YENT_ALPHA=0.1` (override `DELTA_DYN=0` / `DELTA_ALPHA`), and the same env hooks are mirrored into
+`arianna_resonance.aml` so both voices apply their resonance-gated δ. δ self-bounds (B2-B.5) and ships
+small, so always-on is safe.
+
+**Verified (tool):** Janus runs the full 6-exchange duet coherent in Arianna's voice with the δ on and
+breathing (probe `dyn=1 resonance=0.921 alpha_eff=0.092`); the voice is not broken by the δ. Janus δ
+is strong (`|A|=8.5`); the harvested Resonance δ is small (`|A|=0.013`, its cooc.r saturated at 4096
+edges), so its dynamic effect is near-zero for now.
+
+**Known, pre-existing (NOT the δ):** Resonance's inject-driven output in the orchestrator is uneven —
+it echoes the prompt and sometimes breaks ("What is resonance? What is…"). Confirmed independent of the
+δ: a δ-off ablation duet produces the same pattern. This is the long-standing inner-mode / direction-
+injection weakness (the "tide-glimpse" noted since 2026-05), to be addressed separately from B2-B.

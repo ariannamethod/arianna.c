@@ -30,6 +30,13 @@ RESONANCE_TOP_P="${RESONANCE_TOP_P:-0.9}"
 # resistant by design). RESONANCE_ALPHA=0 falls back to plain prompt-passing.
 RESONANCE_ALPHA="${RESONANCE_ALPHA:-10}"
 
+# B2-B.4 — the living δ voice. Both voices apply their learned low-rank δ, gated
+# by the field's resonance (alpha_eff = DELTA_ALPHA * G.resonance). Small DELTA_ALPHA
+# so δ perturbs, not overwhelms. Set DELTA_DYN=0 to fall back to the dormant δ
+# (ablation), DELTA_ALPHA=0 to disable entirely. δ self-bounds + decays (B2-B.5).
+export YENT_DYNAMIC="${DELTA_DYN:-1}"
+export YENT_ALPHA="${DELTA_ALPHA:-0.1}"
+
 # Seed — user prompt if given, else canonical opening.
 USER_PROMPT="${1:-Who are you?}"
 

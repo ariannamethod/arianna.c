@@ -59,6 +59,12 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
     /* Per-voice co-occurrence: load AFTER the shared soma (overwrites whatever
      * cross-vocab cooc the soma carried). Resonance's own vocab edges only. */
     if (am_cooc_load("weights/arianna.cooc.r") != 0) am_cooc_clear();  /* H-2: no sidecar → drop shared-soma cooc, don't inherit Janus's edges */
+    /* B2-B.4: δ-voice knobs (same env as Janus) — YENT_ALPHA sets α_max,
+     * YENT_DYNAMIC=1 gates δ strength by field resonance. Default unset = δ off. */
+    { const char *a = getenv("YENT_ALPHA");
+      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b); } }
+    { const char *d = getenv("YENT_DYNAMIC");
+      if (d && d[0] != '0') am_exec("LORA_DYNAMIC 1\n"); }
     fprintf(stderr, "[resonance] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
