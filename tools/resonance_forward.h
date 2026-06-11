@@ -786,11 +786,33 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
     }
     /* Roster strip safety belt (arianna2arianna.sh:81): срез от chat-roster маркера. */
     {
+        /* Resonance was SFT'd on chat (User:/Assistant:/Oleg:), so she sometimes
+         * prefixes her words with a roster label — including from token 0. The old
+         * strip truncated AT the marker (olen=i), which nuked the whole output to
+         * EMPTY whenever she opened with a label (~half the runs). She is the inner
+         * voice and the words after the label are hers, so REMOVE the label
+         * ("User:"/"Assistant:"/"Oleg:" + the colon and a space) and keep the
+         * content, wherever the label appears. */
         static const char *rosters[] = { " User", " Assistant", " Oleg", "\nUser", "\nAssistant", "\nOleg" };
         for (size_t ri = 0; ri < sizeof(rosters)/sizeof(rosters[0]); ri++) {
             int rl = (int)strlen(rosters[ri]);
-            for (int i = 0; i + rl <= olen; i++)
-                if (strncmp(obuf + i, rosters[ri], rl) == 0) { olen = i; break; }
+            for (int i = 0; i + rl <= olen; ) {
+                if (strncmp(obuf + i, rosters[ri], rl) == 0) {
+                    int j = i + rl;
+                    while (j < olen && obuf[j] != ':' && j < i + rl + 4) j++;  /* find the colon */
+                    if (j < olen && obuf[j] == ':') {
+                        j++;
+                        if (j < olen && obuf[j] == ' ') j++;                  /* skip ": " */
+                        memmove(obuf + i, obuf + j, (size_t)(olen - j));      /* drop the label, keep content */
+                        olen -= (j - i);
+                        continue;                                            /* re-check from i */
+                    }
+                }
+                i++;
+            }
+        }
+        while (olen > 0 && (obuf[0] == ' ' || obuf[0] == '\n' || obuf[0] == '\r')) {
+            memmove(obuf, obuf + 1, (size_t)(olen - 1)); olen--;             /* trim leading space */
         }
     }
     /* Output: collapse \n→space (clean_voice, arianna2arianna.sh:62) + post-filter
@@ -799,6 +821,10 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
         if (obuf[i] == '\n' || obuf[i] == '\r') { putchar(' '); continue; }
         if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
             obuf[i-1] >= 'a' && obuf[i-1] <= 'z') putchar(' ');
+        /* space after sentence punctuation glued to the next word ("?What" after
+         * a roster-label removal) */
+        if (i > 0 && (obuf[i-1] == '.' || obuf[i-1] == '!' || obuf[i-1] == '?') &&
+            ((obuf[i] >= 'A' && obuf[i] <= 'Z') || (obuf[i] >= 'a' && obuf[i] <= 'z'))) putchar(' ');
         putchar((unsigned char)obuf[i]);
     }
     fflush(stdout);
