@@ -363,7 +363,7 @@ static void forward_token(Weights *w, int tok, int pos,
     if (hidden) memcpy(hidden, xn, E * sizeof(float));   /* field carry = pre-δ hidden */
     /* B2-B.2: low-rank δ shifts the voice before the head; lora_alpha=0 → no-op. */
     am_apply_delta(xn, g_delta_A, g_delta_B, xn, E, E, g_delta_rank,
-                   am_get_state()->lora_alpha);
+                   am_lora_alpha_effective());   /* B2-B.4: dynamic = lora_alpha*resonance when LORA_DYNAMIC */
     nt_qmatvec(logits, w->out_head, w->wdtype, xn, V, E);
 }
 

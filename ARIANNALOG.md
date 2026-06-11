@@ -751,3 +751,30 @@ the voice, gated by α. **B2-B closed → the whole "the field learns" line (B1 
 The δ ships dormant (`lora_alpha=0` default); turning it on in production and at what α is a tuning
 decision. The same δ path exists on Resonance (`resonance_forward.h` harvest + apply), so the result
 carries to the internal voice.
+
+## B2-B.4 — the δ voice breathes with field resonance (dynamic α) (2026-06-11)
+
+B2-B.3 proved the αδ term shifts the voice at a *static* α. B2-B.4 makes α *dynamic* — driven by the
+field's own coherence, so the learned δ voice breathes instead of sitting at a fixed knob. The driver
+is `G.resonance` (the core's "field coherence metric", `am_step`: `schumann_coherence*0.3 +
+(1-dissonance)*0.3 + attend_focus*0.2 + (1-debt*0.1)*0.2`, clamp01 with floor/ceiling) — the
+Kuramoto-style synchrony of the field. It also folds debt in the *correct* direction (low debt → high
+resonance → stronger δ; high debt → resonance falls → δ recedes as the organism withdraws), so
+choosing resonance subsumes the "debt vs Kuramoto" question.
+
+Core: `am_lora_alpha_effective()` returns `lora_dynamic ? lora_alpha * G.resonance : lora_alpha`;
+`G.lora_dynamic` (default 0) + a `LORA_DYNAMIC` directive. Both forwards pass `am_lora_alpha_effective()`
+to `am_apply_delta` instead of the static `lora_alpha`. vendored == canon.
+
+**Verified (tool), deterministic first-token probe:**
+- static (`dyn=0`): α=0 → `alpha_eff=0` argmax=2103 (ablation); α=0.3 → `alpha_eff=0.3` argmax=257
+  (bit-identical to B2-B.3 — the static path is untouched).
+- dynamic (`dyn=1`, α_max=0.5): `resonance=0.929` → **`alpha_eff=0.4646` = 0.5·0.929 exactly**,
+  argmax=257 max=13.73. The gating is precise; δ strength now tracks the field's coherence.
+- canon **509/509** (core change is additive), both voices build, voice intact.
+
+The δ ships dormant (`lora_dynamic=0` default). Note: in a short single-shot run resonance stays high
+(~0.9) and the dissonance knob barely moves it (the field recomputes/heals per step), so the visible
+breathing range is narrow here — the wide swing needs a live multi-turn duet where resonance actually
+travels (0.5–0.94 observed across runs). The mechanism is correct and ablation-safe; the breath is an
+observation for the live orchestrator.

@@ -184,6 +184,7 @@ typedef struct {
 
   // LORA / DELTA VOICE — core
   float lora_alpha;         // delta blending: 0=identity, 1=base model
+  int   lora_dynamic;       // B2-B.4: if set, effective alpha = lora_alpha * resonance (field-coherence-gated δ)
 
   // NOTORCH — runtime microlearning, core
   float notorch_lr;         // learning rate (default 0.001)
@@ -455,6 +456,7 @@ void am_ingest_tokens(const int* ids, int n);
 void am_apply_hebbian_to_logits(float* logits, int n);
 int  am_cooc_count(void);   // live co-occurrence edge count (telemetry)
 void am_cooc_clear(void);   // zero the cooc field (first-run: no per-voice sidecar to overwrite shared-soma cooc)
+float am_lora_alpha_effective(void);  // B2-B.4: δ blend strength — lora_alpha, or lora_alpha*resonance when lora_dynamic
 int  am_cooc_consolidate(float reinforce, float prune_floor); // autumn harvest: reinforce strong edges, decay+prune weak; returns # pruned
 int  am_cooc_consolidate_autumn(void); // gated consolidate: fires only in deep autumn; returns # pruned or -1 if not triggered
 void am_cooc_stats(float* out_mean, float* out_max); // mean/max edge weight over live edges (telemetry)

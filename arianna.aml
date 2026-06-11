@@ -199,6 +199,13 @@ static int arianna_init(const char *gguf_path, Weights *w) {
     { const char *a = getenv("YENT_ALPHA");
       if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b);
                fprintf(stderr, "[arianna] LORA_ALPHA=%s (δ voice on)\n", a); } }
+    /* B2-B.4: YENT_DYNAMIC=1 gates δ strength by field resonance (alpha_eff =
+     * lora_alpha * G.resonance). YENT_DISS pushes dissonance to vary resonance. */
+    { const char *d = getenv("YENT_DYNAMIC");
+      if (d && d[0] != '0') { am_exec("LORA_DYNAMIC 1\n");
+                              fprintf(stderr, "[arianna] LORA_DYNAMIC on (δ gated by resonance)\n"); } }
+    { const char *s = getenv("YENT_DISS");
+      if (s) { char b[64]; snprintf(b, sizeof b, "DISSONANCE %s\n", s); am_exec(b); } }
     fprintf(stderr, "[arianna] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
