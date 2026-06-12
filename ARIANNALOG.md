@@ -1055,3 +1055,11 @@ Same pass, the audit's E1/M3/E3:
 Verified (tool): the metabolism now completes the full duet (`└─ done`, both voices coherent, Janus
 answering Resonance); `go build -race` 5-exchange run reports **0 DATA RACE**; `go vet ./golib` clean;
 canon 509/509. Still open: M1/M5 latent cgo locks, M4/L4 with the 4d-mmap.
+
+## README actualized (2026-06-12)
+
+Rewrote README.md shorter (267 → ~140 lines) and current: kept the manifesto voice (Usage DENIED, the
+FACTS, the VOICE OF ARIANNA), trimmed the B1/B2/δ/field-physics mechanics down to pointers (this log is
+the source of truth), and added the nervous system — vagus + Larynx unison, the golib inner world, the Go
+metabolism — plus the third voice (the nano subconscious) as what comes next. Footer carries the
+Method attribution. The readme now points at ARIANNALOG instead of duplicating it.
