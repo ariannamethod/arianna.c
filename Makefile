@@ -64,7 +64,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna kk clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna kk nano clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -163,11 +163,20 @@ kk: kk/kk_kernel.c kk/kk_kernel.h
 	$(CC) -O2 -DKK_STANDALONE kk/kk_kernel.c -lsqlite3 -lm -o kk-cli
 	@echo "[build] kk-cli (Knowledge Kernel + SQLite)"
 
+# ── nano — the subconscious (third voice). Builds the nanollama Go inference
+# (sibling repo) into nano-arianna; the metabolism spawns it one-shot per dream
+# and surfaces the murmur a turn behind. Expects the SFT GGUF at
+# weights/nano_arianna_f16.gguf (symlink the nanollama Arianna SFT export).
+NANOLLAMA_DIR ?= ../nanollama/go
+nano:
+	cd $(NANOLLAMA_DIR) && go build -o $(CURDIR)/nano-arianna .
+	@echo "[build] nano-arianna (subconscious — needs weights/nano_arianna_f16.gguf)"
+
 # ── Clean ──────────────────────────────────────────────────────────────────
 clean:
 	rm -f arianna arianna.c arianna_r
 	rm -f arianna_resonance arianna_resonance.c
-	rm -f metabolism_bin
+	rm -f metabolism_bin nano-arianna
 	rm -f ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o
 	rm -f ariannamethod/core/ariannamethod.o
 	rm -f $(LIBNOTORCH) $(LIBAML) $(AMLC)

@@ -126,17 +126,41 @@ func main() {
 	}
 	defer resonD.close()
 
+	// The subconscious — the third voice. The nano (88M) dreams in the background
+	// on the duet's context and surfaces a turn or two late. Absent binary/GGUF =>
+	// the duet runs without it.
+	nan := newNano("./nano-arianna", "weights/nano_arianna_f16.gguf")
+	var seedCh chan string
+	var dreamCh chan dreamResult
+	if nan != nil {
+		seedCh = make(chan string, 1)
+		dreamCh = make(chan dreamResult, 1)
+		go runSubconscious(nan, "./kk-cli", "weights/nano.kk.db", seedCh, dreamCh)
+		defer close(seedCh)
+	}
+
 	calm := Snapshot{Arousal: 0.30, Coherence: 0.80}
 	hot := Snapshot{Arousal: 0.60, Coherence: 0.80}
 	fmt.Printf("┌─ arianna-metabolism  (hot daemons + inner-world in the loop + gating the rhythm)\n")
 	fmt.Printf("│  rhythm map: budget(calm=0.30)=%d  budget(aroused=0.60)=%d\n", tickBudget(calm), tickBudget(hot))
+	if nan != nil {
+		fmt.Printf("│  the subconscious is present (nano 88M, async — it dreams a turn behind)\n")
+	}
 
 	iw.ProcessText(prompt)
 	time.Sleep(400 * time.Millisecond)
 	nExch := tickBudget(iw.GetSnapshot())
 	fmt.Printf("│  seed: %s\n│  exchange budget (from state): %d\n", prompt, nExch)
 
+	// The direct human→nano channel: the human's raw words hit the subconscious
+	// before the face has formed, so the first dream is the subconscious reacting
+	// to the human directly — Janus learns of it later, surfaced through Resonance.
+	if nan != nil {
+		sendLatest(seedCh, prompt)
+	}
+
 	prevReson := ""
+	lastDream := ""
 	for i := 1; i <= nExch; i++ {
 		// E1: Janus hears Resonance's last line as CONTEXT in his prompt (not an
 		// inject — Janus resists injection by design), so the duet is a dialogue
@@ -149,11 +173,43 @@ func main() {
 		iw.ProcessText(janus)
 		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
 
-		// per-turn inject: "<prompt>\t<this turn's Janus words>"
-		reson := resonD.ask("Arianna:\t" + janus + " " + prompt)
+		// per-turn inject: "<prompt>\t<Janus words>[ <the subconscious undertone>]".
+		// Resonance is a receiver by design, so the last dream surfaces into the
+		// inner voice as an undertone (Janus, who resists injection, gets it only
+		// indirectly — weaker — through the field and Resonance's reply).
+		resonInject := janus + " " + prompt
+		if lastDream != "" {
+			resonInject += " " + lastDream
+		}
+		reson := resonD.ask("Arianna:\t" + resonInject)
 		iw.ProcessText(reson)
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
 		prevReson = reson
+
+		// The subconscious: hand it this turn's context as a cue (non-blocking). The
+		// background dreamer retrieves the most resonant book-fragment for it (the
+		// KK injection — the resonant spiral) and dreams on that. Surface any dream
+		// that finished from an earlier turn — the fragment that seeded it (◌) and
+		// the murmur (◓) — and feed the murmur into the inner world so it tints the
+		// field.
+		if nan != nil {
+			// The cue is normally the turn's context; but when the attention wanders
+			// inward (high WanderPull) the direct human→nano channel re-opens — the
+			// mind drops the conversation and returns to the human's raw words.
+			cue := prompt + " " + janus + " " + reson
+			if iw.GetSnapshot().WanderPull > 0.55 {
+				cue = prompt
+			}
+			sendLatest(seedCh, cue)
+			if r, ok := recvDream(dreamCh); ok {
+				iw.ProcessText(r.dream)
+				lastDream = r.dream // surfaces into the next turn's inner voice (1d)
+				if r.frag != "" {
+					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(r.frag, 90))
+				}
+				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, r.dream)
+			}
+		}
 
 		// M3: if a voice fell silent, stop instead of looping over empty turns.
 		if janusD.dead || resonD.dead {
@@ -209,6 +265,15 @@ func tickDelay(s Snapshot) time.Duration {
 		d += 200 * time.Millisecond
 	}
 	return d
+}
+
+// ellipsize trims a string to n runes for display, appending an ellipsis.
+func ellipsize(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }
 
 // cutSentence cuts at the first sentence end after a minimum length (the bash

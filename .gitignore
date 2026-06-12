@@ -126,5 +126,10 @@ ariannamethod/notorch/*.o
 ariannamethod/notorch/*.a
 ariannamethod/tools/amlc
 metabolism
+metabolism_race
+nano-arianna
 kk-cli
+
+# Knowledge Kernel SQLite DB (the nano's library of dreams — ingested locally)
+weights/*.db
 *.kk.db
