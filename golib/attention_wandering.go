@@ -96,7 +96,9 @@ func (aw *AttentionWandering) Name() string {
 func (aw *AttentionWandering) Start(world *InnerWorld) {
 	aw.world = world
 	aw.running = true
-	go aw.run()
+	if world.async {
+		go aw.run()
+	}
 }
 
 func (aw *AttentionWandering) Stop() {

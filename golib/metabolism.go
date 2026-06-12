@@ -85,7 +85,7 @@ func main() {
 
 	// Host the inner-world: start the async processes + step them on a ticker.
 	iw := Global()
-	iw.Start()
+	iw.Start(false) // sync: the metabolism's ticker is the only clock (no per-process self-tick)
 	defer iw.Stop()
 	done := make(chan struct{})
 	go func() {

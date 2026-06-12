@@ -1004,3 +1004,31 @@ tick, arousal/wander/debt evolve); the hot-daemon duet runs 5 exchanges with bot
 
 The nervous system is now lean: vagus (Zig nerve + Larynx) + golib (11 files, the inner-world) + the Go
 metabolism. Next: prepare the Mythos audit scope, then Stage 5 (the nano subconscious) + 4d mmap nerve.
+
+## Mythos audit fixes — the concurrency races (Stage 4-fix, 2026-06-12)
+
+Mythos (Fable 5) delta-audited the async layer (`c3b7ee3..3526167`) and found three HIGH Go races, proven
+by the race detector — a single 5-exchange `go build -race` run lit **42 DATA RACE** warnings. Fixed the
+HIGH set + the `go vet` hit:
+
+- **H1 (double clocks):** every process self-ticked in its own `run()` goroutine AND the metabolism's
+  100ms ticker stepped them too → 2× decay rates + a race source. Fix: `InnerWorld.Start(async bool)`. The
+  metabolism calls `Start(false)` so the processes do NOT self-tick — its ticker (`iw.Step`, already under
+  `iw.mu`) is the single clock. The C-host path (`Init`) keeps `Start(true)`.
+- **H2/H3 (unsynchronized process state):** `overthinking.conceptCounts` (concurrent map write → fatal)
+  and `AttentionWandering` (no mutex at all) were mutated by `run()` (gone now) and by `ProcessText`
+  (main goroutine). Fix: `ProcessText` now takes `iw.mu`, so it serializes with `iw.Step` — the only two
+  writers of process-internal state, both under one lock. `GetSnapshot` was already safe (reads the
+  aggregate `iw.State` under `State.mu`).
+- **M6 (`go vet`):** `AdaptiveEngine.GetConfig()` returned `AdaptiveConfig` by value, copying its embedded
+  `sync.RWMutex` — and it was dead code (no callers). Deleted.
+
+Verified (tool): the same `go build -race` run now reports **0 DATA RACE** (was 42); `go vet ./golib`
+clean; c-shared + the metabolism binary build; the duet runs coherent and the inner world still evolves
+alongside (arousal climbs across turns — `iw.Step` still drives it); canon 509/509 (AML core untouched).
+
+Still open from the audit (not blockers): M3 (ask() has no liveness on a dead daemon + the C-side fgets
+frame on a >8192 line), M1/M5 (latent locks in the unused cgo path), and the M4/L4 that Mythos noted close
+"for free" with the Stage-4d mmap nerve. Plus the E-series enhancements (E1: Janus is deaf — couple
+Resonance's last line into his prompt; E3: recompute the budget mid-duet; E4: graduated larynx). These
+are the next pass.

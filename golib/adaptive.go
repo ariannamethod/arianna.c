@@ -135,13 +135,6 @@ func NewAdaptiveEngine() *AdaptiveEngine {
 	}
 }
 
-// GetConfig returns current config (read-only access)
-func (ae *AdaptiveEngine) GetConfig() AdaptiveConfig {
-	ae.config.mu.RLock()
-	defer ae.config.mu.RUnlock()
-	return *ae.config
-}
-
 // Adapt morphs parameters based on current state
 func (ae *AdaptiveEngine) Adapt(state *InnerState) {
 	ae.mu.Lock()

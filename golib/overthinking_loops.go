@@ -71,7 +71,9 @@ func (ol *OverthinkingLoops) Name() string {
 func (ol *OverthinkingLoops) Start(world *InnerWorld) {
 	ol.world = world
 	ol.running = true
-	go ol.run()
+	if world.async {
+		go ol.run()
+	}
 }
 
 func (ol *OverthinkingLoops) Stop() {
