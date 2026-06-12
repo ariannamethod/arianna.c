@@ -64,7 +64,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna kk clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -155,6 +155,13 @@ weights:
 	    hf download ataeff/arianna2arianna arianna_resonance_v3_f16.gguf --repo-type model --local-dir weights/; \
 	fi
 	@echo "weights present: $$(ls -la weights/*.gguf)"
+
+# ── kk — the Knowledge Kernel (Dario's KK, vendored): the nano's library of
+# dreams. Ingests the books into a SQLite substrate and retrieves a fragment by
+# resonance. Standalone CLI; later linked into the nano as a library.
+kk: kk/kk_kernel.c kk/kk_kernel.h
+	$(CC) -O2 -DKK_STANDALONE kk/kk_kernel.c -lsqlite3 -lm -o kk-cli
+	@echo "[build] kk-cli (Knowledge Kernel + SQLite)"
 
 # ── Clean ──────────────────────────────────────────────────────────────────
 clean:

@@ -126,3 +126,5 @@ ariannamethod/notorch/*.o
 ariannamethod/notorch/*.a
 ariannamethod/tools/amlc
 metabolism
+kk-cli
+*.kk.db
