@@ -1214,3 +1214,31 @@ RACE** — the refactor regressed nothing.
 
 Next — Phase 2 (option A, decided): the organism learns from the subconscious. What surfaces in the live
 chat feeds the shared field's proven notorch δ (am_cooc_learn_delta → am_notorch_step), verify B grows.
+
+## Phase 2 (A) — the organism learns from the subconscious (2026-06-13)
+
+The field learns from what the subconscious surfaces. Through the whole `--chat` the dream surfaces into
+Resonance's inject (1d), so her co-occurrence grows carrying the subconscious's influence. At session end
+the metabolism runs the δ-harvest (`harvestField` in `golib/chat.go` spawns `./harvest_delta`, the existing
+B2-B tool): it loads Resonance's cooc sidecar + her token embeddings and folds the cooc into a low-rank δ
+via the notorch Hebbian (`am_cooc_learn_delta` → `am_notorch_step`), then saves it to her δ sidecar — async
+between turns, never mid-sentence (the DoE g_train=0 principle). The harvest reports |B|, the learning made
+visible. The wiring is by subprocess (the metabolism does not link the C core), consistent with how it
+spawns the voices, the nano, and the KK.
+
+Verified (tool): `go vet` clean; metabolism, c-shared libarianna, the `-race` binary, and `harvest_delta`
+(Makefile target) build. A fresh `-race` chat (cooc cleared first) runs the harvest at exit and reports a
+non-zero δ — "the organism consolidated what surfaced — δ |B|=0.05776" — with **0 DATA RACE**. The
+co-occurrence accumulates across sessions (sidecar 7176 → 25164 bytes). The harvested δ is dormant by
+default — Resonance applies it only when LORA_ALPHA>0, so the generation is bit-identical until the field
+raises the blend (`resonance_forward.h:153`); a greedy A/B confirms the loop closes — LORA_ALPHA=0 gives one
+continuation, LORA_ALPHA=0.15 a different one, so the harvested δ really shapes the voice when activated.
+
+Honest caveat (the B-growth claim): the harvest grows B from zero to a non-zero, D-H1-healthy δ (B does not
+collapse to 0 — the Oja-rule fix holds), but |B| is **not** monotonic in conversation length (0.058 after 2
+turns, 0.033 after 6). `am_cooc_learn_delta` is a converging step into a rank-8 δ; a larger, more diffuse
+cooc projects onto the dominant directions with a smaller norm. "B grows" here means B learns a real
+non-zero transform from the field, not that |B| increases with every turn. The monotonic memory is the cooc
+itself (which only accumulates); the δ is its low-rank consolidation.
+
+Next: to Mythos for the audit (bugs + whatever insight the fresh eyes bring), then merge to main.
