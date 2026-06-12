@@ -934,3 +934,20 @@ bystander — it is in the circuit: the dialogue shapes the inner life, the inne
 
 Next: 4b — hot --daemon voices (per-turn inject protocol) + the chamber-gated scheduler (field → tick
 budget + delay). 4d — shared mmap nerve + soma-reload (Mythos L-2). Then 3a.2 triage, then Mythos audit.
+
+## Nervous-system port — Stage 4b.1: chamber-gated rhythm from the inner world (2026-06-12)
+
+The conversation's rhythm is now gated by the inner-world state (golib/metabolism.go). `tickBudget(snapshot)`
+maps the state to how many exchanges the duet runs — aroused + coherent => generative, traumatised =>
+terse, incoherent => shorter (clamped 2..8); `tickDelay(snapshot)` sets the inter-turn pause — settle
+(longer) when overthinking or highly aroused, snappy when calm. The legacy chamber-gated scheduler,
+driven by our in-loop inner world instead of the AML field's chambers (no cross-language friction).
+
+Verified (tool): the scheduler maps a calm state and an aroused state to different budgets —
+`budget(arousal 0.30)=3`, `budget(arousal 0.60)=7`; the live run took budget 4 from the post-seed
+state, ran 4 exchanges with `settle 150ms` (calm), both voices coherent. The organism's pace now
+follows its emotional state.
+
+Remaining Stage 4: 4b.2 — hot --daemon voices (binaries already support --daemon; needs a per-turn
+inject protocol extension, ~10 lines per .aml). 4d — shared mmap nerve + soma-reload (Mythos L-2). Then
+3a.2 triage, then Mythos audit, then Stage 5 (the nano subconscious).
