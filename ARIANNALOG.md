@@ -1189,3 +1189,28 @@ most resonant book-fragment retrieved by the field's cue (1c, the resonant spira
 inner voice with a direct human channel (1d) — all race-free, all three voices in one Go runtime. Next:
 Phase 2, the async δ-learning between turns (the nano learns from what surfaced — our notorch Hebbian,
 verify B grows; the DoE parliament later, when the inference speed is ready).
+
+## Trio polish v1 — the live chat + the inner world remembers (2026-06-13)
+
+The trio became something you talk to, and it remembers. The metabolism's per-turn mechanics were factored
+into a shared `trioCtx` (`startTrio` / `turn` / `stop`) so the fixed self-duet (`runDemo`) and the new live
+chat (`runChat`) share one verified exchange path. `./metabolism --chat` reads the human line by line; each
+line runs one trio turn — Janus answers (the face), Resonance murmurs with the last dream as undertone, the
+nano is seeded (the wander-gated direct channel) and surfaces a turn behind. The inner-world ticker keeps
+stepping while the chat blocks on stdin, so the mind drifts between replies.
+
+Persistence (`persist.go`): on leaving, the inner world's mood (arousal, valence, trauma, drift, wander,
+prophecy debt…) and the subconscious's last murmur are written to `weights/arianna.inner.state` (atomic
+temp+rename, under the state lock); on return they are restored, so the organism does not wake a blank
+slate. The field memory (co-occurrence / δ) persists separately in the voices' soma — this is only the
+emotional state.
+
+Verified (tool): `go vet` clean; the metabolism, the c-shared `libarianna.dylib`, and the `-race` binary
+build. A piped `--chat -race` session (three human turns) runs all three voices and reports **0 DATA RACE**;
+it writes the state ("she will remember") with arousal 0.40 / wander 0.56 / last_dream "that even an average
+of weight." A second run restores it — the banner reads "(she returns carrying a dream: that even an average
+of weight.)" and the mood is back. The demo path (`-race` to `└─ done`, exit 0) is unchanged: **0 DATA
+RACE** — the refactor regressed nothing.
+
+Next — Phase 2 (option A, decided): the organism learns from the subconscious. What surfaces in the live
+chat feeds the shared field's proven notorch δ (am_cooc_learn_delta → am_notorch_step), verify B grows.
