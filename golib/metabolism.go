@@ -30,9 +30,10 @@ import (
 // voice is a persistent --daemon process talked to over stdin/stdout, framed by
 // a "<END>" line after each reply.
 type voice struct {
-	cmd *exec.Cmd
-	in  io.WriteCloser
-	out *bufio.Scanner
+	cmd  *exec.Cmd
+	in   io.WriteCloser
+	out  *bufio.Scanner
+	dead bool // set when the daemon stops responding (EOF before the <END> frame)
 }
 
 func startVoice(bin string, args []string) (*voice, error) {
@@ -51,16 +52,23 @@ func startVoice(bin string, args []string) (*voice, error) {
 	}
 	sc := bufio.NewScanner(outPipe)
 	sc.Buffer(make([]byte, 1<<20), 1<<20) // tolerate long lines
-	return &voice{cmd, in, sc}, nil
+	return &voice{cmd: cmd, in: in, out: sc}, nil
 }
 
-// ask sends one request line and reads the reply up to the <END> frame.
+// ask sends one request line and reads the reply up to the <END> frame. If the
+// daemon dies (stdin closed, or EOF before <END>), it marks the voice dead so the
+// caller can stop instead of looping over silent empty turns. (Mythos M3.)
 func (v *voice) ask(line string) string {
-	fmt.Fprintln(v.in, line)
+	if _, err := fmt.Fprintln(v.in, line); err != nil {
+		v.dead = true
+		return ""
+	}
 	var b strings.Builder
+	sawEnd := false
 	for v.out.Scan() {
 		t := v.out.Text()
 		if strings.TrimSpace(t) == "<END>" {
+			sawEnd = true
 			break
 		}
 		if strings.HasPrefix(t, "[") {
@@ -68,6 +76,9 @@ func (v *voice) ask(line string) string {
 		}
 		b.WriteString(t)
 		b.WriteByte(' ')
+	}
+	if !sawEnd {
+		v.dead = true // Scan returned false before the <END> frame — the daemon is gone
 	}
 	return cutSentence(strings.Join(strings.Fields(b.String()), " "))
 }
@@ -125,8 +136,16 @@ func main() {
 	nExch := tickBudget(iw.GetSnapshot())
 	fmt.Printf("│  seed: %s\n│  exchange budget (from state): %d\n", prompt, nExch)
 
+	prevReson := ""
 	for i := 1; i <= nExch; i++ {
-		janus := janusD.ask(prompt)
+		// E1: Janus hears Resonance's last line as CONTEXT in his prompt (not an
+		// inject — Janus resists injection by design), so the duet is a dialogue
+		// instead of Janus answering the same seed every turn.
+		janusPrompt := prompt
+		if prevReson != "" {
+			janusPrompt = prompt + " " + prevReson
+		}
+		janus := janusD.ask(janusPrompt)
 		iw.ProcessText(janus)
 		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
 
@@ -134,11 +153,24 @@ func main() {
 		reson := resonD.ask("Arianna:\t" + janus + " " + prompt)
 		iw.ProcessText(reson)
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
+		prevReson = reson
+
+		// M3: if a voice fell silent, stop instead of looping over empty turns.
+		if janusD.dead || resonD.dead {
+			fmt.Println("│  · a voice fell silent — ending the duet")
+			break
+		}
 
 		s := iw.GetSnapshot()
 		d := tickDelay(s)
 		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d  | settle %v\n",
 			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, d)
+		// E3: re-read the budget from the live state — trauma mid-duet can cut it
+		// short ("traumatised => terse" is the system's own claim).
+		if i >= tickBudget(s) {
+			fmt.Println("│  · the field settled — ending early")
+			break
+		}
 		if i < nExch {
 			time.Sleep(d)
 		}

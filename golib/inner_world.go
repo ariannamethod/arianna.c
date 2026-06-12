@@ -181,11 +181,11 @@ func (iw *InnerWorld) processCommand(cmd Command) {
 // PROCESS ACCESS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// GetProcess returns a process by name
+// GetProcess returns a process by name. No lock: iw.processes is immutable during
+// a run (appended in Start, cleared in Stop, both under iw.mu) and is only read
+// here and in Step — concurrent reads don't race. Taking iw.mu here would re-enter
+// it when called from ProcessText (which already holds iw.mu) and deadlock.
 func (iw *InnerWorld) GetProcess(name string) Process {
-	iw.mu.Lock()
-	defer iw.mu.Unlock()
-
 	for _, proc := range iw.processes {
 		if proc.Name() == name {
 			return proc

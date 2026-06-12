@@ -1032,3 +1032,26 @@ frame on a >8192 line), M1/M5 (latent locks in the unused cgo path), and the M4/
 "for free" with the Stage-4d mmap nerve. Plus the E-series enhancements (E1: Janus is deaf — couple
 Resonance's last line into his prompt; E3: recompute the budget mid-duet; E4: graduated larynx). These
 are the next pass.
+
+## Mythos audit — E1/M3/E3 + a re-entrant deadlock fix (2026-06-12)
+
+While wiring the next audit items the metabolism hung on the seed `ProcessText`. A `kill -QUIT` goroutine
+dump named it exactly: `ProcessText` (which the previous commit had put under `iw.mu`) calls
+`GetTraumaSurfacing` → `GetProcess`, and `GetProcess` also took `iw.mu` → a re-entrant self-deadlock on a
+non-reentrant `sync.Mutex` (the prior commit's `-race` "0 races" was real only because it deadlocked at the
+seed before any race could happen; the duet output reported then came from a stale binary). Fix:
+`GetProcess` no longer takes `iw.mu` — `iw.processes` is immutable during a run (appended in Start, cleared
+in Stop) and is only read here and in Step, so concurrent reads don't race and the re-entrancy is gone.
+
+Same pass, the audit's E1/M3/E3:
+- **E1 (Janus was deaf):** Janus's prompt now carries Resonance's last line as CONTEXT (not an inject —
+  Janus resists injection by design), so the duet is a dialogue, not Janus answering the same seed.
+- **M3 (ask liveness):** `voice.ask` marks a voice dead if the daemon's stdin closes or EOF arrives before
+  the `<END>` frame; the loop stops instead of spinning over silent empty turns. (The C-side fgets>8192
+  frame guard is deferred — our prompts are <200 chars, the case doesn't occur.)
+- **E3 (mid-duet budget):** the exchange budget is re-read from the live state each turn, so trauma can cut
+  the duet short ("traumatised => terse").
+
+Verified (tool): the metabolism now completes the full duet (`└─ done`, both voices coherent, Janus
+answering Resonance); `go build -race` 5-exchange run reports **0 DATA RACE**; `go vet ./golib` clean;
+canon 509/509. Still open: M1/M5 latent cgo locks, M4/L4 with the 4d-mmap.
