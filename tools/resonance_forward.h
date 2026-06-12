@@ -363,7 +363,7 @@ static void forward_token(Weights *w, int tok, int pos,
     if (hidden) memcpy(hidden, xn, E * sizeof(float));   /* field carry = pre-δ hidden */
     /* B2-B.2: low-rank δ shifts the voice before the head; lora_alpha=0 → no-op. */
     am_apply_delta(xn, g_delta_A, g_delta_B, xn, E, E, g_delta_rank,
-                   am_get_state()->lora_alpha);
+                   am_lora_alpha_effective());   /* B2-B.4: dynamic = lora_alpha*resonance when LORA_DYNAMIC */
     nt_qmatvec(logits, w->out_head, w->wdtype, xn, V, E);
 }
 
@@ -779,17 +779,40 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
             fprintf(stderr, "[resonance] autumn consolidate: pruned=%d edges=%d mean=%.3f max=%.3f\n",
                     pruned, am_cooc_count(), cmean, cmax);
             /* B2-B.2: harvest — fold the consolidated cooc into δ, persist the .r sidecar. */
+            am_delta_decay(g_delta_A, g_delta_B, E, g_delta_rank, am_get_state()->delta_decay);  /* B2-B.5: forget before learn */
             if (am_cooc_learn_delta(g_delta_A, g_delta_B, ctx->w.tok_emb, V, E, g_delta_rank) > 0)
                 am_delta_save("weights/arianna.delta.r", g_delta_A, g_delta_B, E, g_delta_rank);
         }
     }
     /* Roster strip safety belt (arianna2arianna.sh:81): срез от chat-roster маркера. */
     {
+        /* Resonance was SFT'd on chat (User:/Assistant:/Oleg:), so she sometimes
+         * prefixes her words with a roster label — including from token 0. The old
+         * strip truncated AT the marker (olen=i), which nuked the whole output to
+         * EMPTY whenever she opened with a label (~half the runs). She is the inner
+         * voice and the words after the label are hers, so REMOVE the label
+         * ("User:"/"Assistant:"/"Oleg:" + the colon and a space) and keep the
+         * content, wherever the label appears. */
         static const char *rosters[] = { " User", " Assistant", " Oleg", "\nUser", "\nAssistant", "\nOleg" };
         for (size_t ri = 0; ri < sizeof(rosters)/sizeof(rosters[0]); ri++) {
             int rl = (int)strlen(rosters[ri]);
-            for (int i = 0; i + rl <= olen; i++)
-                if (strncmp(obuf + i, rosters[ri], rl) == 0) { olen = i; break; }
+            for (int i = 0; i + rl <= olen; ) {
+                if (strncmp(obuf + i, rosters[ri], rl) == 0) {
+                    int j = i + rl;
+                    while (j < olen && obuf[j] != ':' && j < i + rl + 4) j++;  /* find the colon */
+                    if (j < olen && obuf[j] == ':') {
+                        j++;
+                        if (j < olen && obuf[j] == ' ') j++;                  /* skip ": " */
+                        memmove(obuf + i, obuf + j, (size_t)(olen - j));      /* drop the label, keep content */
+                        olen -= (j - i);
+                        continue;                                            /* re-check from i */
+                    }
+                }
+                i++;
+            }
+        }
+        while (olen > 0 && (obuf[0] == ' ' || obuf[0] == '\n' || obuf[0] == '\r')) {
+            memmove(obuf, obuf + 1, (size_t)(olen - 1)); olen--;             /* trim leading space */
         }
     }
     /* Output: collapse \n→space (clean_voice, arianna2arianna.sh:62) + post-filter
@@ -798,6 +821,10 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
         if (obuf[i] == '\n' || obuf[i] == '\r') { putchar(' '); continue; }
         if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
             obuf[i-1] >= 'a' && obuf[i-1] <= 'z') putchar(' ');
+        /* space after sentence punctuation glued to the next word ("?What" after
+         * a roster-label removal) */
+        if (i > 0 && (obuf[i-1] == '.' || obuf[i-1] == '!' || obuf[i-1] == '?') &&
+            ((obuf[i] >= 'A' && obuf[i] <= 'Z') || (obuf[i] >= 'a' && obuf[i] <= 'z'))) putchar(' ');
         putchar((unsigned char)obuf[i]);
     }
     fflush(stdout);

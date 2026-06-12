@@ -26,6 +26,7 @@ BLOOD INCLUDE "tools/yent_forward.h"
 BLOOD INCLUDE "tools/jannus_calendar.h"
 BLOOD INCLUDE "tools/jannus_spa.h"
 BLOOD INCLUDE "tools/jannus_split.h"
+BLOOD INCLUDE "vagus/larynx.h"
 
 BLOOD COMPILE arianna_headers {
 #include <stdio.h>
@@ -194,6 +195,18 @@ static int arianna_init(const char *gguf_path, Weights *w) {
         g_delta_B = (float*)calloc((size_t)g_delta_rank * E, sizeof(float));
         am_delta_load("weights/arianna.delta.j", g_delta_A, g_delta_B, E, g_delta_rank);
     }
+    /* B2-B.3: env knob to turn the δ voice on (lora_alpha>0) for the behavioural
+     * run / ablation. Default unset = 0 = δ no-op (am_apply_delta early-returns). */
+    { const char *a = getenv("YENT_ALPHA");
+      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b);
+               fprintf(stderr, "[arianna] LORA_ALPHA=%s (δ voice on)\n", a); } }
+    /* B2-B.4: YENT_DYNAMIC=1 gates δ strength by field resonance (alpha_eff =
+     * lora_alpha * G.resonance). YENT_DISS pushes dissonance to vary resonance. */
+    { const char *d = getenv("YENT_DYNAMIC");
+      if (d && d[0] != '0') { am_exec("LORA_DYNAMIC 1\n");
+                              fprintf(stderr, "[arianna] LORA_DYNAMIC on (δ gated by resonance)\n"); } }
+    { const char *s = getenv("YENT_DISS");
+      if (s) { char b[64]; snprintf(b, sizeof b, "DISSONANCE %s\n", s); am_exec(b); } }
     fprintf(stderr, "[arianna] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
@@ -308,6 +321,20 @@ static void arianna_generate_single(Weights *w, const char *prompt,
      * co-occurrence field (persisted in soma) so the dialogue accumulates and
      * the H-term tilts future turns toward what co-occurred. */
     if (len > gen_start) am_ingest_tokens(ctx + gen_start, len - gen_start);
+    /* Larynx (B2-vagus): measure the TEXTURE of what Janus just spoke —
+     * entropy + pattern strength over this turn's tokens — and persist it to the
+     * nerve-file so Resonance can shape its reply to HOW Janus spoke, not only to
+     * the words. The unison coupling: outer voice's texture reaches the inner. */
+    if (len > gen_start) {
+        larynx_reset();
+        for (int li = gen_start; li < len; li++) larynx_ingest_token((unsigned int)ctx[li]);
+        float lx_ent = 0.0f, lx_pat = 0.0f, lx_coh = 0.0f, lx_alpha = 0.0f;
+        larynx_get_signal(&lx_ent, &lx_pat, &lx_coh, &lx_alpha);
+        fprintf(stderr, "[yent-larynx] entropy=%.3f pattern=%.3f coherence=%.3f\n",
+                lx_ent, lx_pat, lx_coh);
+        FILE *nf = fopen("weights/arianna.nerve", "w");
+        if (nf) { fprintf(nf, "%.6f %.6f %.6f\n", lx_ent, lx_pat, lx_coh); fclose(nf); }
+    }
     /* End-of-turn autumn consolidation (B2-A): in deep autumn the field
      * harvests — strong edges reinforced, the weak tail forgotten. No-op
      * outside autumn, so default behaviour is identical to B1. */
@@ -318,6 +345,7 @@ static void arianna_generate_single(Weights *w, const char *prompt,
             fprintf(stderr, "[arianna] autumn consolidate: pruned=%d edges=%d mean=%.3f max=%.3f\n",
                     pruned, am_cooc_count(), cmean, cmax);
             /* B2-B.2: harvest — fold consolidated cooc into δ, persist .j sidecar. */
+            am_delta_decay(g_delta_A, g_delta_B, E, g_delta_rank, am_get_state()->delta_decay);  /* B2-B.5: forget before learn */
             if (am_cooc_learn_delta(g_delta_A, g_delta_B, w->wte, V, E, g_delta_rank) > 0)
                 am_delta_save("weights/arianna.delta.j", g_delta_A, g_delta_B, E, g_delta_rank);
         } else {

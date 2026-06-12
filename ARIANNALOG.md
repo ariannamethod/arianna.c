@@ -723,3 +723,180 @@ peak RSS 512 MB packed vs 1022 MB dense — exactly ½ (×1.996).** Voice intact
 binds intention, field, and resonance"), 61.1 tok/s. `yent_forward.h` is Arianna's own forward (not
 vendored), so this does not touch the AML core; `nt_qmatvec` is already canon. Both voices now run
 their big weights packed — the symmetry is closed.
+
+## B2-B.3 — the δ voice is behaviourally real (αδ shifts the logits) (2026-06-11)
+
+B2-B.1 (δ core) and B2-B.2 (forward wire, both voices) were already in place with `lora_alpha=0`
+everywhere — the αδ term of `θ = ε + γ + αδ` was fully plumbed but never switched on, so it had never
+been shown to change the voice. B2-B.3 is that proof. The harvest (`am_cooc_learn_delta`) is the field
+folding consolidated co-occurrence into a low-rank δ; the autumn block is only its *trigger*, so the
+harvest can be driven directly. Added `tools/harvest_delta.c` (folds a voice's real `cooc.j` +
+its real `wte` into `delta.j`) and an env knob `YENT_ALPHA` in `arianna.aml` (sets `LORA_ALPHA>0` to
+turn the δ voice on for the run; default unset = 0 = no-op) + a first-token `YENT_DUMP` logit probe.
+
+**Verified (tool), deterministic first-token logits on "What is resonance and the field?":**
+real harvest — `cooc edges=1923`, |A|=8.49941 |B|=5.50797 (non-zero δ). Then, with that δ loaded:
+
+| state | argmax | max | l100 |
+|---|---|---|---|
+| no δ file (pure forward) | 2103 | 4.14087 | -11.33719 |
+| δ loaded, α=0 | **2103** | **4.14087** | **-11.33719** (bit-identical to baseline → ablation) |
+| δ loaded, α=0.1 | 2103 | 4.31160 | -11.05256 |
+| δ loaded, α=0.3 | **257** | 9.30087 | -10.42702 (top token changed) |
+| δ loaded, α=0.5 | 257 | 14.10060 | -9.72243 |
+
+So the δ voice is a perfect no-op at α=0 (bit-identical to no δ at all) and shifts the logits
+monotonically as α rises, changing the predicted token by α=0.3. The αδ term demonstrably rewrites
+the voice, gated by α. **B2-B closed → the whole "the field learns" line (B1 → B2-B) is closed.**
+The δ ships dormant (`lora_alpha=0` default); turning it on in production and at what α is a tuning
+decision. The same δ path exists on Resonance (`resonance_forward.h` harvest + apply), so the result
+carries to the internal voice.
+
+## B2-B.4 — the δ voice breathes with field resonance (dynamic α) (2026-06-11)
+
+B2-B.3 proved the αδ term shifts the voice at a *static* α. B2-B.4 makes α *dynamic* — driven by the
+field's own coherence, so the learned δ voice breathes instead of sitting at a fixed knob. The driver
+is `G.resonance` (the core's "field coherence metric", `am_step`: `schumann_coherence*0.3 +
+(1-dissonance)*0.3 + attend_focus*0.2 + (1-debt*0.1)*0.2`, clamp01 with floor/ceiling) — the
+Kuramoto-style synchrony of the field. It also folds debt in the *correct* direction (low debt → high
+resonance → stronger δ; high debt → resonance falls → δ recedes as the organism withdraws), so
+choosing resonance subsumes the "debt vs Kuramoto" question.
+
+Core: `am_lora_alpha_effective()` returns `lora_dynamic ? lora_alpha * G.resonance : lora_alpha`;
+`G.lora_dynamic` (default 0) + a `LORA_DYNAMIC` directive. Both forwards pass `am_lora_alpha_effective()`
+to `am_apply_delta` instead of the static `lora_alpha`. vendored == canon.
+
+**Verified (tool), deterministic first-token probe:**
+- static (`dyn=0`): α=0 → `alpha_eff=0` argmax=2103 (ablation); α=0.3 → `alpha_eff=0.3` argmax=257
+  (bit-identical to B2-B.3 — the static path is untouched).
+- dynamic (`dyn=1`, α_max=0.5): `resonance=0.929` → **`alpha_eff=0.4646` = 0.5·0.929 exactly**,
+  argmax=257 max=13.73. The gating is precise; δ strength now tracks the field's coherence.
+- canon **509/509** (core change is additive), both voices build, voice intact.
+
+The δ ships dormant (`lora_dynamic=0` default). Note: in a short single-shot run resonance stays high
+(~0.9) and the dissonance knob barely moves it (the field recomputes/heals per step), so the visible
+breathing range is narrow here — the wide swing needs a live multi-turn duet where resonance actually
+travels (0.5–0.94 observed across runs). The mechanism is correct and ablation-safe; the breath is an
+observation for the live orchestrator.
+
+## B2-B.5 — δ forgetting valve: adaptivity, not bounding (2026-06-11)
+
+`am_cooc_learn_delta` is a *converging* training step (am_notorch_step toward the cooc-implied
+direction, clamped ±10), so δ **self-bounds** — repeated harvests on a fixed cooc converge rather than
+grow (a 20-autumn probe gave |A| with decay 0.9 ≈ |A| without decay ≈ 0.16, ratio ~1.0). So
+`am_delta_decay` serves **adaptivity**, not bounding: applied before each autumn harvest it lets δ
+forget stale consolidations and track the recent dialogue. `G.delta_decay` (default 0.9, `DELTA_DECAY`
+directive, clamp 0.5..1) + the decay call wired before `am_cooc_learn_delta` in both voices
+(arianna.aml Janus, resonance_forward.h Resonance). vendored == canon.
+
+**Verified (tool):** target-switch unit `tools/test_delta_decay.c` — learn theme 0→1, then switch the
+cooc to 0→2; with decay 0.9 δ rotates to the new direction (`cos(δ, dir02)=0.996`), without decay it
+lingers on the old (`cos=0.507`). canon **509/509**; both voices build; voice intact (δ ships dormant
+at `lora_alpha=0`). Consequence: always-on needs no decay safety-gate — δ is already bounded; decay is
+the recency knob, on by default.
+
+## B2-B.4 always-on — the living δ voice in the duet (2026-06-11)
+
+The dynamic δ voice is now the duet's default. `arianna2arianna.sh` exports `YENT_DYNAMIC=1` +
+`YENT_ALPHA=0.1` (override `DELTA_DYN=0` / `DELTA_ALPHA`), and the same env hooks are mirrored into
+`arianna_resonance.aml` so both voices apply their resonance-gated δ. δ self-bounds (B2-B.5) and ships
+small, so always-on is safe.
+
+**Verified (tool):** Janus runs the full 6-exchange duet coherent in Arianna's voice with the δ on and
+breathing (probe `dyn=1 resonance=0.921 alpha_eff=0.092`); the voice is not broken by the δ. Janus δ
+is strong (`|A|=8.5`); the harvested Resonance δ is small (`|A|=0.013`, its cooc.r saturated at 4096
+edges), so its dynamic effect is near-zero for now.
+
+**Known, pre-existing (NOT the δ):** Resonance's inject-driven output in the orchestrator is uneven —
+it echoes the prompt and sometimes breaks ("What is resonance? What is…"). Confirmed independent of the
+δ: a δ-off ablation duet produces the same pattern. This is the long-standing inner-mode / direction-
+injection weakness (the "tide-glimpse" noted since 2026-05), to be addressed separately from B2-B.
+
+## Next — the async nervous system: vagus (Zig) + golib (Go) port (plan, 2026-06-11)
+
+The δ line (B2-B + dynamic + always-on) is closed and both voices are healthy. The next build gives the
+duet a real nervous system + inner world, ported from the legacy arianna.c `origin/legacy` branch
+(read-only via `git show`), BEFORE adding the third Arianna (which connects through it).
+
+- **vagus (Zig)** — the meta-layer signal bus between the voices: lock-free atomic `SharedState`,
+  16-byte packed `Signal`, 60Hz heartbeat, C interface (`vagus.h`), `zig build` → libvagus, 35 tests.
+- **golib (Go, 20 files)** — the inner-world goroutines (trauma_surfacing, overthinking_loops,
+  emotional_drift, memory_consolidation, attention_wandering, prophecy_debt) + InnerWorld orchestrator +
+  cgo_bridge (`//export inner_world_*`), `go build -buildmode=c-shared` → libarianna.
+
+Plan: (0) install zig + build/test legacy vagus in isolation; (1) vagus → arianna-duo; (2) wire C voices
++ field to vagus; (3) golib inner-world → arianna-duo; (4) Go metabolism orchestrator (hot daemons +
+chamber-gated rhythm + inner-world + soma-reload-before-turn / Mythos L-2); (5) third Arianna later.
+Full plan + verification checklist: memory milestone_arianna_goroutines_vagus_stage_2026_06_11. neo has
+go 1.26.2; zig not yet installed. Then Mythos audit. Build is tracked step-by-step with Oleg.
+
+## Nervous-system port — Stage 0 DONE: legacy vagus builds on zig 0.16 (2026-06-11)
+
+zig 0.16.0 installed (brew). The legacy vagus (extracted read-only from arianna.c `origin/legacy` via
+git archive) builds and all its tests pass on the current toolchain — `Build Summary: 5/5 steps
+succeeded; 50/50 tests passed` (9 unit in vagus.zig + 41 integration in vagus_test.zig; the README's
+"35 tests" was stale). The Zig meta-layer is sound.
+
+It needed re-adaptation from the old zig it was written for, three layers (same fixes apply when vagus
+moves into arianna-duo at Stage 1): (1) build.zig — the old `addStaticLibrary`/`addSharedLibrary`/
+`addTest(.root_source_file)` → module-based `addLibrary`/`createModule`/`addTest(.root_module)`;
+(2) `callconv(.C)` → `callconv(.c)` on 15 exported fns (CallingConvention enum members lowercased);
+(3) `std.time.microTimestamp()` removed in the 0.16 std reorg → microseconds from libc `clock_gettime`
+via `@cImport(time.h)`, 2 sites. The atomics (`std.atomic.Value`, `@atomicLoad/Store` with
+`.acquire/.release/.monotonic`) are already 0.16-compatible. Adapted copy: /tmp/vagus_legacy/vagus.
+
+## Nervous-system port — Stage 2.1 + 2.2a: vagus in the repo, Janus is texture-aware (2026-06-12)
+
+vagus copied into `arianna-duo/vagus/` (build.zig, vagus.zig, vagus.h, vagus_test.zig + larynx.h), builds
+in place (`zig build`, 50/50 tests). **Stage 2.1** — proved the C↔vagus bridge round-trips
+(`tools/test_vagus.c`: vagus_init/send/tick/get_state/get_arousal/get_chambers; arousal 0.70, coherence
+0.90, warmth 0.65 reflected, 0 dropped). We link the .dylib — a zig static .a hits a macOS member-
+alignment ld bug.
+
+**Decision (augment, not replace):** the soma stays the field's home; vagus ADDS Larynx (the voice↔voice
+coupling soma lacks) + async-readiness for golib/daemons. The shared-state nerve overlaps soma, so we
+don't duplicate it — we wire Larynx now.
+
+**Stage 2.2a — Janus is texture-aware.** Larynx wired into the duo: `BLOOD INCLUDE "vagus/larynx.h"` +
+at Janus's turn-end (arianna.aml, next to am_ingest_tokens) Janus resets the larynx, ingests this turn's
+tokens, reads the signal, and writes entropy/pattern/coherence to `weights/arianna.nerve`. Makefile
+builds libvagus and links it into arianna (`-Ivagus`, `VAGUS_LINK`). Verified (tool): arianna builds +
+links libvagus, voice intact ("resonance is the moment when a field that was invisible — a shimmer
+between worlds"); the nerve-file is written; the larynx gradient is real — diverse stream → entropy 1.0
+/ pattern 0.0, a repetitive/periodic stream → entropy 0.0 / pattern 1.0 (a predictability/degeneracy
+detector). NOTE: entropy is near-binary for real text (1.0 unless significant trigram repetition), so in
+the α blend it mainly flags degeneracy; the smooth gradient comes from the field's debt/dissonance.
+Next — Stage 2.2b: Resonance reads the nerve-file + computes α and shapes its reply to Janus's texture.
+
+## Stage 2.2b — Resonance answers Janus's texture (Larynx unison coupling complete, 2026-06-12)
+
+Resonance now reads the nerve-file Janus left (entropy/pattern) plus its own field debt/dissonance, folds
+them into the Larynx blend α (legacy formula `α = 0.5 + entropy·0.2 + debt·0.15 − dissonance·0.1`,
+clamp 0.1..0.9), and modulates the destiny-inject around its tuned baseline (×0.5..1.5, baseline lx=0.7 →
+×1.0, so default behaviour is unchanged). Pure host-side in arianna_resonance.aml — Resonance reads the
+nerve and the field, no libvagus link needed.
+
+Verified (tool): Janus flowing (entropy 1.0, debt 1.09) → α 0.714, inject 5→5.10 (baseline, unchanged);
+a degenerate nerve (entropy 0.0 = Janus looping) → α 0.515, inject 5→3.68 (softer — the inner voice
+stops reinforcing a loop). The duet runs with both voices coherent. Canon untouched (only .aml programs +
+Makefile changed). Stage 2 (the Larynx voice↔voice coupling) is complete: the inner voice answers HOW the
+outer voice spoke, not only the words — unison in the current sequential model. Next: Stage 3 (golib
+inner-world goroutines) / Stage 4 (daemons + mmap for true concurrency).
+
+## Nervous-system port — Stage 3a: the inner-world goroutines are alive in the duo (2026-06-12)
+
+Brought the legacy Go inner-world into `arianna-duo/golib/` (20 files, read-only git-archive from
+arianna.c `origin/legacy`). It builds c-shared **on go 1.26 with no changes** (`go build
+-buildmode=c-shared` → libarianna.dylib, 3.3 MB) — Go's backward-compat, unlike the zig 0.16 re-adaptation.
+
+Verified (tool): `tools/test_innerworld.c` calls inner_world_init through the cgo bridge (starts the async
+processes: trauma_surfacing, overthinking_loops, emotional_drift, memory_consolidation,
+attention_wandering, prophecy_debt_accumulation), perturbs the world, steps + lets the goroutines tick,
+and the inner state EVOLVES: arousal 0.300→0.312, prophecy_debt 0.000→0.003, attention wandering 0→1.
+The async machinery is alive in the duo. No regression — golib is standalone (the voices/Makefile are
+untouched; Janus + Resonance still build). Link note: the Go c-shared dylib has a relative install name,
+so a C consumer needs DYLD_LIBRARY_PATH or @rpath via install_name_tool.
+
+Next: 3a.2 — triage (drop the redundant tongue_*/cloud/blood/high/meta_router — we load models in C) +
+wire the inner-world's signals into vagus (so the goroutines surface onto the shared nerve). Then 3b —
+per-being instances (each Arianna her own inner-world on the one nerve), per Oleg's trinity vision.

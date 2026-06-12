@@ -584,10 +584,17 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
     rmsnorm(rn_final, xs + (n-1)*E, E);
     if (hidden) memcpy(hidden, rn_final, E * sizeof(float));   /* field carry = pre-δ */
     am_apply_delta(rn_final, g_delta_A, g_delta_B, rn_final, E, E, g_delta_rank,
-                   am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
+                   am_lora_alpha_effective());   /* B2-B.4: lora_alpha, or lora_alpha*resonance when LORA_DYNAMIC */
     nt_qmatvec(logits, w->head, w->wdtype, rn_final, V, E);
     for (int i = 0; i < V; i++) logits[i] = 15.0f * tanhf(logits[i] / 15.0f);
 
+    if (getenv("YENT_DUMP")) {   /* B2-B.3/.4 probe: first-token logits vs the δ voice strength */
+        int am = 0; float mv = logits[0];
+        for (int i = 1; i < V; i++) if (logits[i] > mv) { mv = logits[i]; am = i; }
+        fprintf(stderr, "[yent-dump] wdtype=%d alpha_max=%.3f dyn=%d resonance=%.3f alpha_eff=%.4f argmax=%d max=%.5f | l0=%.5f l100=%.5f l1000=%.5f\n",
+                w->wdtype, am_get_state()->lora_alpha, am_get_state()->lora_dynamic, am_get_state()->resonance,
+                am_lora_alpha_effective(), am, mv, logits[0], logits[100], logits[1000]);
+    }
 
     free(xs); free(x0s); free(x_backout);
 }
@@ -744,7 +751,7 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
     rmsnorm(rn, x, E);
     if (hidden) memcpy(hidden, rn, E * sizeof(float));   /* field carry = pre-δ */
     am_apply_delta(rn, g_delta_A, g_delta_B, rn, E, E, g_delta_rank,
-                   am_get_state()->lora_alpha);   /* B2-B.2: δ before head (alpha=0 no-op) */
+                   am_lora_alpha_effective());   /* B2-B.4: lora_alpha, or lora_alpha*resonance when LORA_DYNAMIC */
     nt_qmatvec(logits, w->head, w->wdtype, rn, V, E);
 
     /* Softcap: logits = 15 * tanh(logits / 15) */

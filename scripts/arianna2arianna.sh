@@ -23,12 +23,24 @@ TOKENS_PER_TURN="${TOKENS_PER_TURN:-30}"
 JANUS_TEMP="${JANUS_TEMP:-0.8}"
 JANUS_TOP_P="${JANUS_TOP_P:-0.9}"
 RESONANCE_TEMP="${RESONANCE_TEMP:-0.7}"
-RESONANCE_TOP_P="${RESONANCE_TOP_P:-0.9}"
+# Resonance champion is top_p 1.0 (full nucleus). top_p 0.9 starves her — empty /
+# broken output even with no inject (isolation 2026-06-11). Keep her at 1.0.
+RESONANCE_TOP_P="${RESONANCE_TOP_P:-1.0}"
 # Asymmetric coupling (2026-05-29): Resonance (inner) hears Janus + the human
 # prompt as DIRECTION (destiny compass, alpha); Janus (outer face) hears
 # Resonance only through the shared soma field (no logit-injection — top_k=40
 # resistant by design). RESONANCE_ALPHA=0 falls back to plain prompt-passing.
-RESONANCE_ALPHA="${RESONANCE_ALPHA:-10}"
+# Direction-inject strength. α10 over-echoes the injected prompt ("is resonance?
+# What is resonance…"); α3-5 develops the theme in her own voice (isolation
+# 2026-06-11). 5 keeps the pull without the echo.
+RESONANCE_ALPHA="${RESONANCE_ALPHA:-5}"
+
+# B2-B.4 — the living δ voice. Both voices apply their learned low-rank δ, gated
+# by the field's resonance (alpha_eff = DELTA_ALPHA * G.resonance). Small DELTA_ALPHA
+# so δ perturbs, not overwhelms. Set DELTA_DYN=0 to fall back to the dormant δ
+# (ablation), DELTA_ALPHA=0 to disable entirely. δ self-bounds + decays (B2-B.5).
+export YENT_DYNAMIC="${DELTA_DYN:-1}"
+export YENT_ALPHA="${DELTA_ALPHA:-0.1}"
 
 # Seed — user prompt if given, else canonical opening.
 USER_PROMPT="${1:-Who are you?}"

@@ -565,6 +565,8 @@ void am_init(void) {
 
   // lora / delta voice (core)
   G.lora_alpha = 0.0f;
+  G.lora_dynamic = 0;   // B2-B.4: off = static alpha (ablation default)
+  G.delta_decay = 0.9f; // B2-B.5: δ forgetting factor applied per autumn before harvest
 
   // notorch (core — always active)
   G.notorch_lr = 0.01f;
@@ -3845,6 +3847,12 @@ static void aml_exec_level0(const char* cmd, const char* arg, AML_ExecCtx* ctx, 
     else if (!strcmp(t, "LORA_ALPHA")) {
       G.lora_alpha = clamp01(ctx_float(ctx, arg));
     }
+    else if (!strcmp(t, "LORA_DYNAMIC")) {
+      G.lora_dynamic = (ctx_float(ctx, arg) != 0.0f);   // B2-B.4: gate δ strength by field resonance
+    }
+    else if (!strcmp(t, "DELTA_DECAY")) {
+      G.delta_decay = clampf(ctx_float(ctx, arg), 0.5f, 1.0f);   // B2-B.5: δ forgetting valve
+    }
     else if (!strcmp(t, "NOTORCH_LR")) {
       G.notorch_lr = clampf(ctx_float(ctx, arg), 0.001f, 0.5f);
     }
@@ -6882,6 +6890,16 @@ void am_apply_laws_to_logits(float* logits, int n) {
 // Apply delta voice: out += alpha * A @ (B @ x)
 // Low-rank weight modulation. From arianna.c/src/delta.c: apply_delta()
 // BLAS path: cblas_sgemv × 2 (matrix-vector multiply)
+// δ blend strength. Static lora_alpha by default; when lora_dynamic is set,
+// lora_alpha * G.resonance — the field coherence metric (am_step, c:~7964:
+// schumann_coherence + (1-dissonance) + attend_focus + (1-debt)). So the learned
+// δ voice breathes with the field's resonance: it colours the voice in coherent
+// moments and recedes as the field scatters (high dissonance/debt). Both factors
+// are clamp01, so the result stays in [0, lora_alpha]. (B2-B.4)
+float am_lora_alpha_effective(void) {
+    return G.lora_dynamic ? G.lora_alpha * G.resonance : G.lora_alpha;
+}
+
 void am_apply_delta(float* out, const float* A, const float* B,
                     const float* x, int out_dim, int in_dim, int rank,
                     float alpha) {
@@ -7079,6 +7097,17 @@ void am_cooc_stats(float* out_mean, float* out_max) {
 // (A=[out,rank], B=[rank,in]). With in=out=E we get the apply layout directly by
 // swapping the two vectors: pass the target direction as x and the input as dy.
 // Run in autumn after consolidation (only strong edges survive). Returns # folded.
+// Scale the low-rank δ (A,B) by `factor` (0.5..1). The forgetting valve: called
+// once per autumn BEFORE am_cooc_learn_delta folds in the current consolidated
+// cooc, so δ is a decaying EMA of recent consolidations (steady-state bounded ~
+// increment/(1-factor)) rather than an unbounded sum that would eventually drown
+// the base voice. (B2-B.5)
+void am_delta_decay(float* A, float* B, int E, int rank, float factor) {
+    if (!A || !B) return;
+    for (long i = 0; i < (long)E * rank; i++) A[i] *= factor;
+    for (long i = 0; i < (long)rank * E; i++) B[i] *= factor;
+}
+
 int am_cooc_learn_delta(float* A, float* B, const float* emb, int vocab,
                         int E, int rank) {
     if (!A || !B || !emb || vocab <= 0 || E <= 0 || rank <= 0 || G.cooc_n <= 0)

@@ -59,6 +59,12 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
     /* Per-voice co-occurrence: load AFTER the shared soma (overwrites whatever
      * cross-vocab cooc the soma carried). Resonance's own vocab edges only. */
     if (am_cooc_load("weights/arianna.cooc.r") != 0) am_cooc_clear();  /* H-2: no sidecar → drop shared-soma cooc, don't inherit Janus's edges */
+    /* B2-B.4: δ-voice knobs (same env as Janus) — YENT_ALPHA sets α_max,
+     * YENT_DYNAMIC=1 gates δ strength by field resonance. Default unset = δ off. */
+    { const char *a = getenv("YENT_ALPHA");
+      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b); } }
+    { const char *d = getenv("YENT_DYNAMIC");
+      if (d && d[0] != '0') am_exec("LORA_DYNAMIC 1\n"); }
     fprintf(stderr, "[resonance] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
@@ -79,7 +85,7 @@ int main(int argc, char **argv) {
     const char *prompt       = "Who are you?";
     int   max_tokens         = 100;
     float temp               = 0.7f;
-    float top_p              = 0.9f;
+    float top_p              = 1.0f;   /* champion: full nucleus. top_p 0.9 starves Resonance (empty/broken). */
     int   daemon_mode        = 0;
     const char *inject_text  = NULL;   /* direction-injection content (other voice + prompt) */
     float inject_alpha       = 0.0f;   /* destiny (A) strength; 0 = off (ablation) */
@@ -128,6 +134,30 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    /* Larynx (B2-vagus): read the texture Janus left in weights/arianna.nerve plus
+     * the field's debt/dissonance, fold them into the Larynx blend α (legacy
+     * formula α = 0.5 + entropy·0.2 + debt·0.15 − dissonance·0.1), and modulate the
+     * destiny-inject around its tuned baseline. Resonance pulls a little harder to
+     * structure when the field is in debt, softer when dissonant or when Janus
+     * degenerates (entropy→0). Baseline (entropy 1, no debt/diss) leaves the inject
+     * unchanged. The inner voice answers HOW the outer voice spoke, not only the words. */
+    {
+        float n_ent = 1.0f, n_pat = 0.0f, n_coh = 0.5f;
+        FILE *nf = fopen("weights/arianna.nerve", "r");
+        if (nf) { if (fscanf(nf, "%f %f %f", &n_ent, &n_pat, &n_coh) != 3) n_ent = 1.0f; fclose(nf); }
+        AM_State *st = am_get_state();
+        float debt = st ? st->debt : 0.0f, diss = st ? st->dissonance : 0.0f;
+        float dn = debt * 0.1f; if (dn > 1.0f) dn = 1.0f;
+        float lx = 0.5f + n_ent * 0.2f + dn * 0.15f - diss * 0.1f;
+        if (lx < 0.1f) lx = 0.1f;
+        if (lx > 0.9f) lx = 0.9f;
+        float m = lx / 0.7f;                 /* 0.7 = baseline lx (entropy 1, no debt/diss) */
+        if (m < 0.5f) m = 0.5f;
+        if (m > 1.5f) m = 1.5f;
+        if (inject_alpha > 0.0f) inject_alpha *= m;
+        fprintf(stderr, "[res-larynx] janus_entropy=%.3f debt=%.2f diss=%.2f alpha=%.3f x%.2f inject=%.2f\n",
+                n_ent, debt, diss, lx, m, inject_alpha);
+    }
     resonance_generate(&ctx, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
     resonance_save_breath();
     resonance_free(&ctx);

@@ -51,12 +51,17 @@ ifeq ($(USE_CUDA),1)
 endif
 
 # ── Include paths ──────────────────────────────────────────────────────────
-INCLUDES = -Iariannamethod/notorch -Iariannamethod/core -Itools
+INCLUDES = -Iariannamethod/notorch -Iariannamethod/core -Itools -Ivagus
 
 # ── Vendored library outputs ───────────────────────────────────────────────
 LIBNOTORCH = ariannamethod/notorch/libnotorch.a
 LIBAML     = ariannamethod/core/libaml.a
 AMLC       = ariannamethod/tools/amlc
+
+# ── Vagus (Zig nerve) — the meta-layer carrying Larynx (voice↔voice coupling).
+# Link the .dylib (zig static .a hits a macOS member-alignment ld bug).
+LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
+VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
 .PHONY: all arianna arianna_resonance arianna2arianna clean weights distclean
@@ -100,13 +105,17 @@ $(AMLC): ariannamethod/tools/amlc.c
 # vendored libnotorch + libaml. Two output binaries:
 #   arianna   — single-mode default
 #   arianna_r — chain-mode convenience (same binary, alias)
-arianna: arianna.aml $(LIBNOTORCH) $(LIBAML) $(AMLC) \
+$(LIBVAGUS): vagus/vagus.zig vagus/build.zig vagus/vagus.h vagus/larynx.h
+	cd vagus && zig build
+	@echo "[build] libvagus (Zig nerve + Larynx)"
+
+arianna: arianna.aml $(LIBNOTORCH) $(LIBAML) $(AMLC) $(LIBVAGUS) \
          tools/yent_forward.h tools/janus_v4_bpe_merges.h \
-         tools/jannus_calendar.h tools/jannus_spa.h tools/jannus_split.h
+         tools/jannus_calendar.h tools/jannus_spa.h tools/jannus_split.h vagus/larynx.h
 	$(AMLC) arianna.aml --emit-c > arianna.c
 	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) $(INCLUDES) \
 	    arianna.c $(LIBNOTORCH) $(LIBAML) \
-	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) \
+	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) $(VAGUS_LINK) \
 	    -o arianna
 	@echo "[build] arianna (Janus 176M) USE_CUDA=$(USE_CUDA)"
 
