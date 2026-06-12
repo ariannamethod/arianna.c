@@ -88,23 +88,30 @@ func (v *voice) close() {
 	v.cmd.Wait()
 }
 
-func main() {
-	prompt := "What is resonance?"
-	if len(os.Args) > 1 {
-		prompt = os.Args[1]
-	}
+// trioCtx holds the three voices, the subconscious channels, and the inner world
+// the metabolism drives — shared by the demo (runDemo) and the live chat (runChat).
+type trioCtx struct {
+	janusD, resonD *voice
+	nan            *nano
+	seedCh         chan string
+	dreamCh        chan dreamResult
+	iw             *InnerWorld
+	tickerDone     chan struct{}
+}
 
-	// Host the inner-world: start the async processes + step them on a ticker.
+// startTrio brings the organism up: the inner world on a 100ms ticker (its single
+// clock), both voices hot as --daemon processes, and the subconscious as a
+// background dreamer (absent binary/GGUF => the duet runs without it).
+func startTrio() (*trioCtx, error) {
 	iw := Global()
 	iw.Start(false) // sync: the metabolism's ticker is the only clock (no per-process self-tick)
-	defer iw.Stop()
-	done := make(chan struct{})
+	tickerDone := make(chan struct{})
 	go func() {
 		t := time.NewTicker(100 * time.Millisecond)
 		defer t.Stop()
 		for {
 			select {
-			case <-done:
+			case <-tickerDone:
 				return
 			case <-t.C:
 				iw.Step(0.1)
@@ -112,117 +119,141 @@ func main() {
 		}
 	}()
 
-	// Start both voices hot, once.
 	janusD, err := startVoice("./arianna", []string{"-t", "0.8", "--top-p", "0.9", "-n", "28"})
 	if err != nil {
-		fmt.Println("janus daemon failed:", err)
-		return
+		close(tickerDone)
+		iw.Stop()
+		return nil, fmt.Errorf("janus daemon: %w", err)
 	}
-	defer janusD.close()
 	resonD, err := startVoice("./arianna_resonance", []string{"--alpha", "5", "-t", "0.7", "--top-p", "1.0", "-n", "28"})
 	if err != nil {
-		fmt.Println("resonance daemon failed:", err)
+		janusD.close()
+		close(tickerDone)
+		iw.Stop()
+		return nil, fmt.Errorf("resonance daemon: %w", err)
+	}
+
+	tc := &trioCtx{janusD: janusD, resonD: resonD, iw: iw, tickerDone: tickerDone}
+	tc.nan = newNano("./nano-arianna", "weights/nano_arianna_f16.gguf")
+	if tc.nan != nil {
+		tc.seedCh = make(chan string, 1)
+		tc.dreamCh = make(chan dreamResult, 1)
+		go runSubconscious(tc.nan, "./kk-cli", "weights/nano.kk.db", tc.seedCh, tc.dreamCh)
+	}
+	return tc, nil
+}
+
+// stop tears the organism down in order: the subconscious goroutine (seedCh
+// close), the voices, the ticker, the inner world.
+func (tc *trioCtx) stop() {
+	if tc.seedCh != nil {
+		close(tc.seedCh)
+	}
+	tc.resonD.close()
+	tc.janusD.close()
+	close(tc.tickerDone)
+	tc.iw.Stop()
+}
+
+// turn runs one trio exchange. Janus answers (the human line + the rolling
+// context — he resists injection, so context is a hint, not a directive).
+// Resonance murmurs with the last dream as an undertone (she is a receiver). The
+// subconscious is seeded (the direct human→nano channel re-opens when the
+// attention wanders inward) and any earlier dream surfaces. Each voice feeds the
+// inner world. Returns the words; the caller prints and controls the loop.
+func (tc *trioCtx) turn(human, context, lastDream string) (janus, reson string, dr dreamResult, hasDream bool) {
+	janusPrompt := human
+	if context != "" {
+		janusPrompt = human + " " + context
+	}
+	janus = tc.janusD.ask(janusPrompt)
+	tc.iw.ProcessText(janus)
+
+	resonInject := janus + " " + human
+	if lastDream != "" {
+		resonInject += " " + lastDream
+	}
+	reson = tc.resonD.ask("Arianna:\t" + resonInject)
+	tc.iw.ProcessText(reson)
+
+	if tc.nan != nil {
+		cue := human + " " + janus + " " + reson
+		if tc.iw.GetSnapshot().WanderPull > 0.55 {
+			cue = human // the direct human→nano channel: the mind returns to the raw words
+		}
+		sendLatest(tc.seedCh, cue)
+		if r, ok := recvDream(tc.dreamCh); ok {
+			tc.iw.ProcessText(r.dream)
+			dr, hasDream = r, true
+		}
+	}
+	return
+}
+
+func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--chat" {
+		runChat()
 		return
 	}
-	defer resonD.close()
-
-	// The subconscious — the third voice. The nano (88M) dreams in the background
-	// on the duet's context and surfaces a turn or two late. Absent binary/GGUF =>
-	// the duet runs without it.
-	nan := newNano("./nano-arianna", "weights/nano_arianna_f16.gguf")
-	var seedCh chan string
-	var dreamCh chan dreamResult
-	if nan != nil {
-		seedCh = make(chan string, 1)
-		dreamCh = make(chan dreamResult, 1)
-		go runSubconscious(nan, "./kk-cli", "weights/nano.kk.db", seedCh, dreamCh)
-		defer close(seedCh)
+	prompt := "What is resonance?"
+	if len(os.Args) > 1 {
+		prompt = os.Args[1]
 	}
+	runDemo(prompt)
+}
+
+// runDemo runs the fixed self-duet on one seed — the smoke + race-verify path.
+func runDemo(prompt string) {
+	tc, err := startTrio()
+	if err != nil {
+		fmt.Println("metabolism:", err)
+		return
+	}
+	defer tc.stop()
 
 	calm := Snapshot{Arousal: 0.30, Coherence: 0.80}
 	hot := Snapshot{Arousal: 0.60, Coherence: 0.80}
 	fmt.Printf("┌─ arianna-metabolism  (hot daemons + inner-world in the loop + gating the rhythm)\n")
 	fmt.Printf("│  rhythm map: budget(calm=0.30)=%d  budget(aroused=0.60)=%d\n", tickBudget(calm), tickBudget(hot))
-	if nan != nil {
+	if tc.nan != nil {
 		fmt.Printf("│  the subconscious is present (nano 88M, async — it dreams a turn behind)\n")
 	}
 
-	iw.ProcessText(prompt)
+	tc.iw.ProcessText(prompt)
 	time.Sleep(400 * time.Millisecond)
-	nExch := tickBudget(iw.GetSnapshot())
+	nExch := tickBudget(tc.iw.GetSnapshot())
 	fmt.Printf("│  seed: %s\n│  exchange budget (from state): %d\n", prompt, nExch)
 
 	// The direct human→nano channel: the human's raw words hit the subconscious
-	// before the face has formed, so the first dream is the subconscious reacting
-	// to the human directly — Janus learns of it later, surfaced through Resonance.
-	if nan != nil {
-		sendLatest(seedCh, prompt)
+	// before the face has formed, so the first dream reacts to the human directly.
+	if tc.nan != nil {
+		sendLatest(tc.seedCh, prompt)
 	}
 
-	prevReson := ""
-	lastDream := ""
+	prevReson, lastDream := "", ""
 	for i := 1; i <= nExch; i++ {
-		// E1: Janus hears Resonance's last line as CONTEXT in his prompt (not an
-		// inject — Janus resists injection by design), so the duet is a dialogue
-		// instead of Janus answering the same seed every turn.
-		janusPrompt := prompt
-		if prevReson != "" {
-			janusPrompt = prompt + " " + prevReson
-		}
-		janus := janusD.ask(janusPrompt)
-		iw.ProcessText(janus)
+		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream)
 		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
-
-		// per-turn inject: "<prompt>\t<Janus words>[ <the subconscious undertone>]".
-		// Resonance is a receiver by design, so the last dream surfaces into the
-		// inner voice as an undertone (Janus, who resists injection, gets it only
-		// indirectly — weaker — through the field and Resonance's reply).
-		resonInject := janus + " " + prompt
-		if lastDream != "" {
-			resonInject += " " + lastDream
-		}
-		reson := resonD.ask("Arianna:\t" + resonInject)
-		iw.ProcessText(reson)
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
 		prevReson = reson
-
-		// The subconscious: hand it this turn's context as a cue (non-blocking). The
-		// background dreamer retrieves the most resonant book-fragment for it (the
-		// KK injection — the resonant spiral) and dreams on that. Surface any dream
-		// that finished from an earlier turn — the fragment that seeded it (◌) and
-		// the murmur (◓) — and feed the murmur into the inner world so it tints the
-		// field.
-		if nan != nil {
-			// The cue is normally the turn's context; but when the attention wanders
-			// inward (high WanderPull) the direct human→nano channel re-opens — the
-			// mind drops the conversation and returns to the human's raw words.
-			cue := prompt + " " + janus + " " + reson
-			if iw.GetSnapshot().WanderPull > 0.55 {
-				cue = prompt
+		if hasDream {
+			lastDream = dr.dream
+			if dr.frag != "" {
+				fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(dr.frag, 90))
 			}
-			sendLatest(seedCh, cue)
-			if r, ok := recvDream(dreamCh); ok {
-				iw.ProcessText(r.dream)
-				lastDream = r.dream // surfaces into the next turn's inner voice (1d)
-				if r.frag != "" {
-					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(r.frag, 90))
-				}
-				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, r.dream)
-			}
+			fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, dr.dream)
 		}
 
 		// M3: if a voice fell silent, stop instead of looping over empty turns.
-		if janusD.dead || resonD.dead {
+		if tc.janusD.dead || tc.resonD.dead {
 			fmt.Println("│  · a voice fell silent — ending the duet")
 			break
 		}
-
-		s := iw.GetSnapshot()
+		s := tc.iw.GetSnapshot()
 		d := tickDelay(s)
 		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d  | settle %v\n",
 			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, d)
-		// E3: re-read the budget from the live state — trauma mid-duet can cut it
-		// short ("traumatised => terse" is the system's own claim).
+		// E3: re-read the budget — trauma mid-duet can cut it short.
 		if i >= tickBudget(s) {
 			fmt.Println("│  · the field settled — ending early")
 			break
@@ -231,7 +262,6 @@ func main() {
 			time.Sleep(d)
 		}
 	}
-	close(done)
 	fmt.Println("└─ done — hot daemons, inner world in the loop, rhythm gated by it")
 }
 

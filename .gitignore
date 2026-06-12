@@ -132,4 +132,5 @@ kk-cli
 
 # Knowledge Kernel SQLite DB (the nano's library of dreams — ingested locally)
 weights/*.db
+weights/*.state
 *.kk.db
