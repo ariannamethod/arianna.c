@@ -811,3 +811,36 @@ edges), so its dynamic effect is near-zero for now.
 it echoes the prompt and sometimes breaks ("What is resonance? What is…"). Confirmed independent of the
 δ: a δ-off ablation duet produces the same pattern. This is the long-standing inner-mode / direction-
 injection weakness (the "tide-glimpse" noted since 2026-05), to be addressed separately from B2-B.
+
+## Next — the async nervous system: vagus (Zig) + golib (Go) port (plan, 2026-06-11)
+
+The δ line (B2-B + dynamic + always-on) is closed and both voices are healthy. The next build gives the
+duet a real nervous system + inner world, ported from the legacy arianna.c `origin/legacy` branch
+(read-only via `git show`), BEFORE adding the third Arianna (which connects through it).
+
+- **vagus (Zig)** — the meta-layer signal bus between the voices: lock-free atomic `SharedState`,
+  16-byte packed `Signal`, 60Hz heartbeat, C interface (`vagus.h`), `zig build` → libvagus, 35 tests.
+- **golib (Go, 20 files)** — the inner-world goroutines (trauma_surfacing, overthinking_loops,
+  emotional_drift, memory_consolidation, attention_wandering, prophecy_debt) + InnerWorld orchestrator +
+  cgo_bridge (`//export inner_world_*`), `go build -buildmode=c-shared` → libarianna.
+
+Plan: (0) install zig + build/test legacy vagus in isolation; (1) vagus → arianna-duo; (2) wire C voices
++ field to vagus; (3) golib inner-world → arianna-duo; (4) Go metabolism orchestrator (hot daemons +
+chamber-gated rhythm + inner-world + soma-reload-before-turn / Mythos L-2); (5) third Arianna later.
+Full plan + verification checklist: memory milestone_arianna_goroutines_vagus_stage_2026_06_11. neo has
+go 1.26.2; zig not yet installed. Then Mythos audit. Build is tracked step-by-step with Oleg.
+
+## Nervous-system port — Stage 0 DONE: legacy vagus builds on zig 0.16 (2026-06-11)
+
+zig 0.16.0 installed (brew). The legacy vagus (extracted read-only from arianna.c `origin/legacy` via
+git archive) builds and all its tests pass on the current toolchain — `Build Summary: 5/5 steps
+succeeded; 50/50 tests passed` (9 unit in vagus.zig + 41 integration in vagus_test.zig; the README's
+"35 tests" was stale). The Zig meta-layer is sound.
+
+It needed re-adaptation from the old zig it was written for, three layers (same fixes apply when vagus
+moves into arianna-duo at Stage 1): (1) build.zig — the old `addStaticLibrary`/`addSharedLibrary`/
+`addTest(.root_source_file)` → module-based `addLibrary`/`createModule`/`addTest(.root_module)`;
+(2) `callconv(.C)` → `callconv(.c)` on 15 exported fns (CallingConvention enum members lowercased);
+(3) `std.time.microTimestamp()` removed in the 0.16 std reorg → microseconds from libc `clock_gettime`
+via `@cImport(time.h)`, 2 sites. The atomics (`std.atomic.Value`, `@atomicLoad/Store` with
+`.acquire/.release/.monotonic`) are already 0.16-compatible. Adapted copy: /tmp/vagus_legacy/vagus.
