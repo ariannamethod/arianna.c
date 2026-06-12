@@ -116,7 +116,9 @@ func (ed *EmotionalDrift) Start(world *InnerWorld) {
 	ed.position.Valence = world.State.Valence
 	ed.position.Arousal = world.State.Arousal
 
-	go ed.run()
+	if world.async {
+		go ed.run()
+	}
 }
 
 func (ed *EmotionalDrift) Stop() {

@@ -108,7 +108,9 @@ func (pd *ProphecyDebtAccumulation) Start(world *InnerWorld) {
 		pd.wormholeChance = world.State.WormholeChance
 	}
 
-	go pd.run()
+	if world.async {
+		go pd.run()
+	}
 }
 
 func (pd *ProphecyDebtAccumulation) Stop() {

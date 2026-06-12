@@ -700,6 +700,29 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
     }
     fprintf(stderr, "[resonance] prompt: \"%s\" → %d tokens\n", prompt, len);
 
+    /* Larynx (B2-vagus): read Janus's texture from the nerve-file + the field's
+     * debt/dissonance, fold into the blend α (legacy formula), and modulate the
+     * destiny-inject around its tuned baseline — Resonance answers HOW Janus spoke,
+     * not only the words. Inside the forward so BOTH the daemon and one-shot paths
+     * get it (baseline entropy 1, no debt/diss leaves the inject unchanged). */
+    if (inject_alpha > 0.0f) {
+        float n_ent = 1.0f, n_pat = 0.0f, n_coh = 0.5f;
+        FILE *nf = fopen("weights/arianna.nerve", "r");
+        if (nf) { if (fscanf(nf, "%f %f %f", &n_ent, &n_pat, &n_coh) != 3) n_ent = 1.0f; fclose(nf); }
+        AM_State *st = am_get_state();
+        float debt = st ? st->debt : 0.0f, diss = st ? st->dissonance : 0.0f;
+        float dn = debt * 0.1f; if (dn > 1.0f) dn = 1.0f;
+        float lx = 0.5f + n_ent * 0.2f + dn * 0.15f - diss * 0.1f;
+        if (lx < 0.1f) lx = 0.1f;
+        if (lx > 0.9f) lx = 0.9f;
+        float m = lx / 0.7f;
+        if (m < 0.5f) m = 0.5f;
+        if (m > 1.5f) m = 1.5f;
+        inject_alpha *= m;
+        fprintf(stderr, "[res-larynx] janus_entropy=%.3f debt=%.2f diss=%.2f alpha=%.3f x%.2f inject=%.2f\n",
+                n_ent, debt, diss, lx, m, inject_alpha);
+    }
+
     /* DIRECTION injection: the other voice's words + the human prompt become a
      * destiny compass (A) + prophecy targets (F) that tilt the whole distribution
      * by embedding cosine — field pressure, NOT pasted tokens (dario.c:1327/1531).

@@ -41,14 +41,18 @@ var registeredProcesses = []func() Process{
 // INNER WORLD METHODS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Start begins all async processes
-func (iw *InnerWorld) Start() {
+// Start begins the inner world. async=true: each process self-ticks in its own
+// goroutine (for a standalone / C-host run). async=false: the processes do NOT
+// self-tick — the caller drives everything through iw.Step on a single clock, so
+// Step/ProcessText (both under iw.mu) are the only writers and there is no race.
+func (iw *InnerWorld) Start(async bool) {
 	iw.mu.Lock()
 	defer iw.mu.Unlock()
 
 	if iw.running {
 		return
 	}
+	iw.async = async
 
 	// Recreate channels on restart (fixes channel reuse after Stop)
 	iw.stopChan = make(chan struct{})
@@ -177,11 +181,11 @@ func (iw *InnerWorld) processCommand(cmd Command) {
 // PROCESS ACCESS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// GetProcess returns a process by name
+// GetProcess returns a process by name. No lock: iw.processes is immutable during
+// a run (appended in Start, cleared in Stop, both under iw.mu) and is only read
+// here and in Step — concurrent reads don't race. Taking iw.mu here would re-enter
+// it when called from ProcessText (which already holds iw.mu) and deadlock.
 func (iw *InnerWorld) GetProcess(name string) Process {
-	iw.mu.Lock()
-	defer iw.mu.Unlock()
-
 	for _, proc := range iw.processes {
 		if proc.Name() == name {
 			return proc
@@ -309,6 +313,8 @@ func (iw *InnerWorld) GetSnapshot() Snapshot {
 // ProcessText runs text through all text-processing components
 // Returns aggregated analysis
 func (iw *InnerWorld) ProcessText(text string) TextAnalysis {
+	iw.mu.Lock()
+	defer iw.mu.Unlock()
 	var analysis TextAnalysis
 
 	// Trauma check
@@ -387,7 +393,7 @@ func Global() *InnerWorld {
 
 // Init initializes and starts the global inner world
 func Init() {
-	Global().Start()
+	Global().Start(true) // C-host path: processes self-tick
 }
 
 // Shutdown stops the global inner world

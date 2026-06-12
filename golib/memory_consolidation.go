@@ -87,7 +87,9 @@ func (mc *MemoryConsolidation) Name() string {
 func (mc *MemoryConsolidation) Start(world *InnerWorld) {
 	mc.world = world
 	mc.running = true
-	go mc.run()
+	if world.async {
+		go mc.run()
+	}
 }
 
 func (mc *MemoryConsolidation) Stop() {

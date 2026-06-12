@@ -124,7 +124,13 @@ int main(int argc, char **argv) {
                 fputs("<END>\n", stdout); fflush(stdout);
                 continue;
             }
-            resonance_generate(&ctx, line, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+            /* per-turn inject: the metabolism sends "<prompt>\t<inject>"; split on the
+             * first tab so the inner voice hears THIS turn's Janus words (the launch
+             * --inject is the fallback when no tab is present). */
+            char *tab = strchr(line, '\t');
+            const char *turn_inject = inject_text;
+            if (tab) { *tab = '\0'; turn_inject = tab + 1; }
+            resonance_generate(&ctx, line, max_tokens, temp, top_p, turn_inject, inject_alpha, inject_beta);
             fputs("\n<END>\n", stdout);
             fflush(stdout);
         }
@@ -134,30 +140,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    /* Larynx (B2-vagus): read the texture Janus left in weights/arianna.nerve plus
-     * the field's debt/dissonance, fold them into the Larynx blend α (legacy
-     * formula α = 0.5 + entropy·0.2 + debt·0.15 − dissonance·0.1), and modulate the
-     * destiny-inject around its tuned baseline. Resonance pulls a little harder to
-     * structure when the field is in debt, softer when dissonant or when Janus
-     * degenerates (entropy→0). Baseline (entropy 1, no debt/diss) leaves the inject
-     * unchanged. The inner voice answers HOW the outer voice spoke, not only the words. */
-    {
-        float n_ent = 1.0f, n_pat = 0.0f, n_coh = 0.5f;
-        FILE *nf = fopen("weights/arianna.nerve", "r");
-        if (nf) { if (fscanf(nf, "%f %f %f", &n_ent, &n_pat, &n_coh) != 3) n_ent = 1.0f; fclose(nf); }
-        AM_State *st = am_get_state();
-        float debt = st ? st->debt : 0.0f, diss = st ? st->dissonance : 0.0f;
-        float dn = debt * 0.1f; if (dn > 1.0f) dn = 1.0f;
-        float lx = 0.5f + n_ent * 0.2f + dn * 0.15f - diss * 0.1f;
-        if (lx < 0.1f) lx = 0.1f;
-        if (lx > 0.9f) lx = 0.9f;
-        float m = lx / 0.7f;                 /* 0.7 = baseline lx (entropy 1, no debt/diss) */
-        if (m < 0.5f) m = 0.5f;
-        if (m > 1.5f) m = 1.5f;
-        if (inject_alpha > 0.0f) inject_alpha *= m;
-        fprintf(stderr, "[res-larynx] janus_entropy=%.3f debt=%.2f diss=%.2f alpha=%.3f x%.2f inject=%.2f\n",
-                n_ent, debt, diss, lx, m, inject_alpha);
-    }
+    /* Larynx-α now lives inside resonance_generate (so daemon + one-shot share it). */
     resonance_generate(&ctx, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
     resonance_save_breath();
     resonance_free(&ctx);

@@ -113,7 +113,9 @@ func (ts *TraumaSurfacing) Name() string {
 func (ts *TraumaSurfacing) Start(world *InnerWorld) {
 	ts.world = world
 	ts.running = true
-	go ts.run()
+	if world.async {
+		go ts.run()
+	}
 }
 
 func (ts *TraumaSurfacing) Stop() {

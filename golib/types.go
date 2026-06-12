@@ -123,6 +123,7 @@ type InnerWorld struct {
 	processes []Process
 	wg        sync.WaitGroup
 	running   bool
+	async     bool // if false, processes don't self-tick — iw.Step is the only clock
 	mu        sync.Mutex
 }
 
