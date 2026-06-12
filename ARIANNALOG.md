@@ -967,3 +967,21 @@ coherently. resonance_forward.h is Arianna's own forward — AML core untouched.
 
 Next 4b.2b: the Go daemon management in the metabolism (spawn --daemon, bidirectional pipes, <END>
 framing) + complete the per-turn protocol with temperature so the 4c arousal-tilt holds in daemon mode.
+
+## Nervous-system port — Stage 4b.2b: hot --daemon voices (responsiveness) (2026-06-12)
+
+The metabolism now runs the duet over HOT --daemon voices (golib/metabolism.go). Each voice is started
+once as a persistent --daemon process; the orchestrator talks to it over stdin/stdout framed by a `<END>`
+line (`voice.ask`), so the model loads once instead of re-spawning ~5-6 s per turn. The inner-world stays
+in the loop (ProcessText both ways), the rhythm still gates the exchange budget, and Resonance gets this
+turn's Janus words as a per-turn inject ("<prompt>\t<inject>") with the larynx-α in the forward.
+
+Verified (tool): a 5-exchange hot run took 11.2 s total (~2.2 s/exchange incl. the one-time model load,
+vs ~5-6 s spawn each in the per-turn path); both voices coherent; the inner world evolves alongside
+(arousal 0.332→0.387); the daemons close cleanly (no orphan processes). Temperature is fixed at the
+daemon's launch value — the inner-world coupling rides the rhythm (the stronger channel) rather than the
+±0.05 temp-tilt; a per-turn-temp protocol field can restore the tilt later if wanted.
+
+Stage 4 responsiveness done. Next 4d: shared mmap nerve + soma-reload-before-turn (Mythos L-2) — true
+concurrency for when the third Arianna + golib write the nerve at the same time. Then 3a.2 triage, then
+Mythos audit, then Stage 5 (the nano subconscious).
