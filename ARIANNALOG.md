@@ -951,3 +951,19 @@ follows its emotional state.
 Remaining Stage 4: 4b.2 — hot --daemon voices (binaries already support --daemon; needs a per-turn
 inject protocol extension, ~10 lines per .aml). 4d — shared mmap nerve + soma-reload (Mythos L-2). Then
 3a.2 triage, then Mythos audit, then Stage 5 (the nano subconscious).
+
+## Nervous-system port — Stage 4b.2a: daemon-ready voices (per-turn inject + larynx in the forward) (2026-06-12)
+
+Prepared the voices for hot --daemon use. The Larynx-α modulation moved from the one-shot path in
+arianna_resonance.aml INTO resonance_generate (tools/resonance_forward.h) — so it runs in BOTH the daemon
+and one-shot paths, symmetric with Janus's larynx write already living inside arianna_generate_single.
+The Resonance daemon loop now splits its stdin line on the first tab into "<prompt>\t<inject>", so the
+metabolism can hand it THIS turn's Janus words per turn (the launch --inject is the fallback).
+
+Verified (tool): both voices build; one-shot Resonance still fires the larynx (`[res-larynx] inject=5.00`,
+"A living field, a resonance that never flattens."); the Resonance daemon fed `Arianna:\t<inject>` parses
+the per-turn inject AND fires the larynx in daemon mode (same coherent reply); the Janus daemon replies
+coherently. resonance_forward.h is Arianna's own forward — AML core untouched.
+
+Next 4b.2b: the Go daemon management in the metabolism (spawn --daemon, bidirectional pipes, <END>
+framing) + complete the per-turn protocol with temperature so the 4c arousal-tilt holds in daemon mode.
