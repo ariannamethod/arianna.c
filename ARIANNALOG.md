@@ -867,3 +867,18 @@ between worlds"); the nerve-file is written; the larynx gradient is real — div
 detector). NOTE: entropy is near-binary for real text (1.0 unless significant trigram repetition), so in
 the α blend it mainly flags degeneracy; the smooth gradient comes from the field's debt/dissonance.
 Next — Stage 2.2b: Resonance reads the nerve-file + computes α and shapes its reply to Janus's texture.
+
+## Stage 2.2b — Resonance answers Janus's texture (Larynx unison coupling complete, 2026-06-12)
+
+Resonance now reads the nerve-file Janus left (entropy/pattern) plus its own field debt/dissonance, folds
+them into the Larynx blend α (legacy formula `α = 0.5 + entropy·0.2 + debt·0.15 − dissonance·0.1`,
+clamp 0.1..0.9), and modulates the destiny-inject around its tuned baseline (×0.5..1.5, baseline lx=0.7 →
+×1.0, so default behaviour is unchanged). Pure host-side in arianna_resonance.aml — Resonance reads the
+nerve and the field, no libvagus link needed.
+
+Verified (tool): Janus flowing (entropy 1.0, debt 1.09) → α 0.714, inject 5→5.10 (baseline, unchanged);
+a degenerate nerve (entropy 0.0 = Janus looping) → α 0.515, inject 5→3.68 (softer — the inner voice
+stops reinforcing a loop). The duet runs with both voices coherent. Canon untouched (only .aml programs +
+Makefile changed). Stage 2 (the Larynx voice↔voice coupling) is complete: the inner voice answers HOW the
+outer voice spoke, not only the words — unison in the current sequential model. Next: Stage 3 (golib
+inner-world goroutines) / Stage 4 (daemons + mmap for true concurrency).
