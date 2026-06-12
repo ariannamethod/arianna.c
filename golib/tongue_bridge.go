@@ -546,7 +546,6 @@ func argmax(logits []float32, n int) int {
 }
 
 // ============================================================
-// Required for c-shared build
+// main() lives in metabolism.go (the orchestrator). -buildmode=c-shared ignores
+// the body, so libarianna still builds.
 // ============================================================
-
-func main() {}

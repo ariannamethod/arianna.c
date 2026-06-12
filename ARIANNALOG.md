@@ -900,3 +900,21 @@ so a C consumer needs DYLD_LIBRARY_PATH or @rpath via install_name_tool.
 Next: 3a.2 — triage (drop the redundant tongue_*/cloud/blood/high/meta_router — we load models in C) +
 wire the inner-world's signals into vagus (so the goroutines surface onto the shared nerve). Then 3b —
 per-being instances (each Arianna her own inner-world on the one nerve), per Oleg's trinity vision.
+
+## Nervous-system port — Stage 4a: the Go metabolism hosts the inner-world (2026-06-12)
+
+The metabolism orchestrator is born in Go (`golib/metabolism.go`, package main — `-buildmode=c-shared`
+ignores the body so libarianna still builds; the empty stub main() moved out of tongue_bridge.go). It
+starts the inner-world (`Global().Start()`) and steps it on a 100 ms ticker so the async goroutines keep
+breathing, then runs the Janus↔Resonance duet (spawn-per-turn for now, like bash) and prints the inner-
+world snapshot each turn.
+
+Verified (tool): `go build -buildmode=c-shared` still builds libarianna; `go build -o metabolism ./golib`
+builds the orchestrator; a 4-exchange run has both voices coherent AND the inner-world living alongside —
+arousal rises across the turns 0.338→0.363→0.362→0.395, wander_pull oscillates 0.546→0.544→0.570→0.508
+(the goroutines are ticking during the conversation), `└─ done`, exit 0. The inner-world is no longer
+just alive-in-a-test — it breathes alongside the duet.
+
+Next: 4b — hot --daemon voices (the binaries already support --daemon; needs a per-turn inject protocol
+extension) + the chamber-gated scheduler (field → tick budget + delay). 4c — surface the inner-world's
+signals into the nerve so the voices feel it. 4d — shared nerve (mmap) + soma-reload (Mythos L-2).
