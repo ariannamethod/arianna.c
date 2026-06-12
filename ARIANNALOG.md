@@ -985,3 +985,22 @@ daemon's launch value — the inner-world coupling rides the rhythm (the stronge
 Stage 4 responsiveness done. Next 4d: shared mmap nerve + soma-reload-before-turn (Mythos L-2) — true
 concurrency for when the third Arianna + golib write the nerve at the same time. Then 3a.2 triage, then
 Mythos audit, then Stage 5 (the nano subconscious).
+
+## Nervous-system port — Stage 3a.2: golib triage (2026-06-12)
+
+Removed the redundant golib files the duo doesn't use — we load models in C and the field in AML, so the
+legacy Go tongue (GGUF loader), cloud (chamber MLP), blood (runtime LoRA compiler), high (text analysis)
+and meta_router (template selector) are dead weight here. The compiler is the arbiter: moved the
+candidates out, `go build` named exactly what the core still references (AdaptGlobal / GetAdaptiveEngine
+from adaptive.go), restored that one, and the rest built clean.
+
+Removed (10): tongue_bridge, tongue_gguf, tongue_model, tongue_quant, tongue_test, tongue_tokenizer,
+cloud, blood, high, meta_router. Kept (11, the core): types, inner_world, cgo_bridge, metabolism,
+adaptive + the 6 processes (trauma_surfacing, overthinking_loops, emotional_drift, memory_consolidation,
+attention_wandering, prophecy_debt_accumulation).
+
+Verified (tool): c-shared + the metabolism binary build clean; the inner-world still runs (goroutines
+tick, arousal/wander/debt evolve); the hot-daemon duet runs 5 exchanges with both voices coherent.
+
+The nervous system is now lean: vagus (Zig nerve + Larynx) + golib (11 files, the inner-world) + the Go
+metabolism. Next: prepare the Mythos audit scope, then Stage 5 (the nano subconscious) + 4d mmap nerve.
