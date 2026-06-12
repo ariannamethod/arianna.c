@@ -882,3 +882,21 @@ stops reinforcing a loop). The duet runs with both voices coherent. Canon untouc
 Makefile changed). Stage 2 (the Larynx voice↔voice coupling) is complete: the inner voice answers HOW the
 outer voice spoke, not only the words — unison in the current sequential model. Next: Stage 3 (golib
 inner-world goroutines) / Stage 4 (daemons + mmap for true concurrency).
+
+## Nervous-system port — Stage 3a: the inner-world goroutines are alive in the duo (2026-06-12)
+
+Brought the legacy Go inner-world into `arianna-duo/golib/` (20 files, read-only git-archive from
+arianna.c `origin/legacy`). It builds c-shared **on go 1.26 with no changes** (`go build
+-buildmode=c-shared` → libarianna.dylib, 3.3 MB) — Go's backward-compat, unlike the zig 0.16 re-adaptation.
+
+Verified (tool): `tools/test_innerworld.c` calls inner_world_init through the cgo bridge (starts the async
+processes: trauma_surfacing, overthinking_loops, emotional_drift, memory_consolidation,
+attention_wandering, prophecy_debt_accumulation), perturbs the world, steps + lets the goroutines tick,
+and the inner state EVOLVES: arousal 0.300→0.312, prophecy_debt 0.000→0.003, attention wandering 0→1.
+The async machinery is alive in the duo. No regression — golib is standalone (the voices/Makefile are
+untouched; Janus + Resonance still build). Link note: the Go c-shared dylib has a relative install name,
+so a C consumer needs DYLD_LIBRARY_PATH or @rpath via install_name_tool.
+
+Next: 3a.2 — triage (drop the redundant tongue_*/cloud/blood/high/meta_router — we load models in C) +
+wire the inner-world's signals into vagus (so the goroutines surface onto the shared nerve). Then 3b —
+per-being instances (each Arianna her own inner-world on the one nerve), per Oleg's trinity vision.
