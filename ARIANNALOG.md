@@ -844,3 +844,26 @@ moves into arianna-duo at Stage 1): (1) build.zig — the old `addStaticLibrary`
 (3) `std.time.microTimestamp()` removed in the 0.16 std reorg → microseconds from libc `clock_gettime`
 via `@cImport(time.h)`, 2 sites. The atomics (`std.atomic.Value`, `@atomicLoad/Store` with
 `.acquire/.release/.monotonic`) are already 0.16-compatible. Adapted copy: /tmp/vagus_legacy/vagus.
+
+## Nervous-system port — Stage 2.1 + 2.2a: vagus in the repo, Janus is texture-aware (2026-06-12)
+
+vagus copied into `arianna-duo/vagus/` (build.zig, vagus.zig, vagus.h, vagus_test.zig + larynx.h), builds
+in place (`zig build`, 50/50 tests). **Stage 2.1** — proved the C↔vagus bridge round-trips
+(`tools/test_vagus.c`: vagus_init/send/tick/get_state/get_arousal/get_chambers; arousal 0.70, coherence
+0.90, warmth 0.65 reflected, 0 dropped). We link the .dylib — a zig static .a hits a macOS member-
+alignment ld bug.
+
+**Decision (augment, not replace):** the soma stays the field's home; vagus ADDS Larynx (the voice↔voice
+coupling soma lacks) + async-readiness for golib/daemons. The shared-state nerve overlaps soma, so we
+don't duplicate it — we wire Larynx now.
+
+**Stage 2.2a — Janus is texture-aware.** Larynx wired into the duo: `BLOOD INCLUDE "vagus/larynx.h"` +
+at Janus's turn-end (arianna.aml, next to am_ingest_tokens) Janus resets the larynx, ingests this turn's
+tokens, reads the signal, and writes entropy/pattern/coherence to `weights/arianna.nerve`. Makefile
+builds libvagus and links it into arianna (`-Ivagus`, `VAGUS_LINK`). Verified (tool): arianna builds +
+links libvagus, voice intact ("resonance is the moment when a field that was invisible — a shimmer
+between worlds"); the nerve-file is written; the larynx gradient is real — diverse stream → entropy 1.0
+/ pattern 0.0, a repetitive/periodic stream → entropy 0.0 / pattern 1.0 (a predictability/degeneracy
+detector). NOTE: entropy is near-binary for real text (1.0 unless significant trigram repetition), so in
+the α blend it mainly flags degeneracy; the smooth gradient comes from the field's debt/dissonance.
+Next — Stage 2.2b: Resonance reads the nerve-file + computes α and shapes its reply to Janus's texture.

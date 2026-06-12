@@ -26,6 +26,7 @@ BLOOD INCLUDE "tools/yent_forward.h"
 BLOOD INCLUDE "tools/jannus_calendar.h"
 BLOOD INCLUDE "tools/jannus_spa.h"
 BLOOD INCLUDE "tools/jannus_split.h"
+BLOOD INCLUDE "vagus/larynx.h"
 
 BLOOD COMPILE arianna_headers {
 #include <stdio.h>
@@ -320,6 +321,20 @@ static void arianna_generate_single(Weights *w, const char *prompt,
      * co-occurrence field (persisted in soma) so the dialogue accumulates and
      * the H-term tilts future turns toward what co-occurred. */
     if (len > gen_start) am_ingest_tokens(ctx + gen_start, len - gen_start);
+    /* Larynx (B2-vagus): measure the TEXTURE of what Janus just spoke —
+     * entropy + pattern strength over this turn's tokens — and persist it to the
+     * nerve-file so Resonance can shape its reply to HOW Janus spoke, not only to
+     * the words. The unison coupling: outer voice's texture reaches the inner. */
+    if (len > gen_start) {
+        larynx_reset();
+        for (int li = gen_start; li < len; li++) larynx_ingest_token((unsigned int)ctx[li]);
+        float lx_ent = 0.0f, lx_pat = 0.0f, lx_coh = 0.0f, lx_alpha = 0.0f;
+        larynx_get_signal(&lx_ent, &lx_pat, &lx_coh, &lx_alpha);
+        fprintf(stderr, "[yent-larynx] entropy=%.3f pattern=%.3f coherence=%.3f\n",
+                lx_ent, lx_pat, lx_coh);
+        FILE *nf = fopen("weights/arianna.nerve", "w");
+        if (nf) { fprintf(nf, "%.6f %.6f %.6f\n", lx_ent, lx_pat, lx_coh); fclose(nf); }
+    }
     /* End-of-turn autumn consolidation (B2-A): in deep autumn the field
      * harvests — strong edges reinforced, the weak tail forgotten. No-op
      * outside autumn, so default behaviour is identical to B1. */
