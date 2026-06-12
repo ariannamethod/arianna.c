@@ -1,13 +1,20 @@
 package main
 
-// arianna-metabolism — the Go orchestrator (Stage 4a). Hosts the inner-world's
-// async goroutines continuously and runs the Janus<->Resonance duet, stepping the
-// inner world between turns so it LIVES alongside the conversation rather than
-// only existing inside a test.
+// arianna-metabolism — the Go orchestrator. Hosts the inner-world's async
+// goroutines continuously and runs the Janus<->Resonance duet with the inner
+// world IN THE LOOP (Stage 4c):
 //
-// Stage 4a uses spawn-per-turn voices (like the bash orchestrator). Hot --daemon
-// voices + a per-turn inject protocol come in 4b, the chamber-gated rhythm in 4b,
-// and surfacing the inner-world's signals into the nerve in 4c.
+//   conversation -> inner world : each voice's words are fed through
+//     ProcessText (trauma / overthinking / attention / prophecy react to what was
+//     actually said).
+//   inner world -> conversation : the inner world's arousal tilts each voice's
+//     sampling temperature before it speaks (energetic when aroused, calm when
+//     settled).
+//
+// That closes the resonant loop — the dialogue shapes the inner life, the inner
+// life colours the dialogue. Stage 4a hosted the inner world alongside; 4c puts
+// it in the circuit. Still spawn-per-turn; hot --daemon voices + the chamber-
+// gated rhythm are 4b, the shared mmap nerve is 4d.
 //
 // This is also the package's main(); -buildmode=c-shared ignores the body, so
 // libarianna still builds. Build the orchestrator binary with:
@@ -17,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -47,24 +55,34 @@ func main() {
 		}
 	}()
 
-	fmt.Printf("┌─ arianna-metabolism  N=%d exchanges  (inner-world hosted)\n│  seed: %s\n", nExch, prompt)
-	for i := 1; i <= nExch; i++ {
-		janus := voiceClean(runVoice("./arianna",
-			[]string{"-p", prompt, "-t", "0.8", "--top-p", "0.9", "-n", "28"}))
-		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
+	fmt.Printf("┌─ arianna-metabolism  N=%d exchanges  (inner-world in the loop)\n│  seed: %s\n", nExch, prompt)
+	iw.ProcessText(prompt) // the topic enters the inner world
 
+	for i := 1; i <= nExch; i++ {
+		// inner-world -> Janus: arousal tilts the sampling temperature.
+		s := iw.GetSnapshot()
+		jTemp := clampf(0.8+(s.Arousal-0.3)*0.5, 0.6, 1.1)
+		janus := voiceClean(runVoice("./arianna",
+			[]string{"-p", prompt, "-t", ftoa(jTemp), "--top-p", "0.9", "-n", "28"}))
+		iw.ProcessText(janus) // Janus's words -> the inner world reacts
+		fmt.Printf("│\n│  ◐ [%d/%d] Janus(t=%.2f): %s\n", i, nExch, jTemp, janus)
+
+		// inner-world -> Resonance: same arousal tilt on her temperature.
+		s = iw.GetSnapshot()
+		rTemp := clampf(0.7+(s.Arousal-0.3)*0.4, 0.5, 1.0)
 		inject := janus + " " + prompt
 		reson := voiceClean(runVoice("./arianna_resonance",
 			[]string{"-p", "Arianna:", "--inject", inject, "--alpha", "5",
-				"-t", "0.7", "--top-p", "1.0", "-n", "28"}))
-		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
+				"-t", ftoa(rTemp), "--top-p", "1.0", "-n", "28"}))
+		iw.ProcessText(reson) // Resonance's words -> the inner world reacts
+		fmt.Printf("│  ◑ [%d/%d] Resonance(t=%.2f): %s\n", i, nExch, rTemp, reson)
 
-		s := iw.GetSnapshot()
+		s = iw.GetSnapshot()
 		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f debt=%.3f wander_pull=%.3f loops=%d\n",
 			s.Arousal, s.Coherence, s.TraumaLevel, s.ProphecyDebt, s.WanderPull, s.LoopCount)
 	}
 	close(done)
-	fmt.Println("└─ done — inner-world ran alongside the duet")
+	fmt.Println("└─ done — the inner world was in the loop")
 }
 
 // runVoice spawns a voice binary and returns its stdout (the spoken text);
@@ -93,4 +111,18 @@ func voiceClean(raw string) string {
 		}
 	}
 	return t
+}
+
+func clampf(v, lo, hi float32) float32 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func ftoa(v float32) string {
+	return strconv.FormatFloat(float64(v), 'f', 3, 64)
 }

@@ -918,3 +918,19 @@ just alive-in-a-test — it breathes alongside the duet.
 Next: 4b — hot --daemon voices (the binaries already support --daemon; needs a per-turn inject protocol
 extension) + the chamber-gated scheduler (field → tick budget + delay). 4c — surface the inner-world's
 signals into the nerve so the voices feel it. 4d — shared nerve (mmap) + soma-reload (Mythos L-2).
+
+## Nervous-system port — Stage 4c: the inner-world is in the loop (2026-06-12)
+
+Closed the resonant loop in the metabolism (golib/metabolism.go). Both directions now wired:
+conversation → inner-world (each voice's text fed through `iw.ProcessText`, so trauma_surfacing /
+overthinking_loops / attention_wandering / prophecy_debt react to what was actually said) and
+inner-world → conversation (the inner-world's arousal tilts each voice's sampling temperature before it
+speaks — `jTemp = clamp(0.8 + (arousal−0.3)·0.5, 0.6, 1.1)`, similar for Resonance).
+
+Verified (tool): a 4-exchange run on an emotional seed — arousal climbs 0.326→0.349→0.372→0.385 as the
+dialogue feeds the inner world, and the temperatures track it (Janus 0.80→0.81→0.82→0.84, Resonance
+0.71→0.72→0.73→0.74); both voices coherent throughout; `└─ done`. The inner world is no longer a
+bystander — it is in the circuit: the dialogue shapes the inner life, the inner life colours the dialogue.
+
+Next: 4b — hot --daemon voices (per-turn inject protocol) + the chamber-gated scheduler (field → tick
+budget + delay). 4d — shared mmap nerve + soma-reload (Mythos L-2). Then 3a.2 triage, then Mythos audit.
