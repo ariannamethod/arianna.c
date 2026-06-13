@@ -165,8 +165,13 @@ func (tc *trioCtx) stop() {
 		case <-time.After(dreamTimeout + 5*time.Second):
 		}
 	}
-	tc.resonD.close()
+	// F-8 palliative (until the 4d-mmap nerve merges the field for real): both
+	// daemons rewrite the shared soma at exit, so the last to close wins. Close
+	// Janus (the face, which holds form) FIRST, so Resonance (the inner voice — the
+	// field's carrier, whom the subconscious teaches) writes the soma LAST and keeps
+	// the field overnight.
 	tc.janusD.close()
+	tc.resonD.close()
 	close(tc.tickerDone)
 	tc.iw.Stop()
 }

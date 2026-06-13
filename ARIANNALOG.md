@@ -1275,3 +1275,22 @@ are confirmed by direct runs. Open (deferred): **F-8** — both daemons save the
 last to close (Janus) overwrites Resonance's field; this is the family of Mythos's L-2, waiting on the 4d-mmap
 nerve, and the closing order is Oleg's call, not a code default. Insights I-A (night dreams), I-C (consolidate
 Janus too), I-D (KK-cue from the cooc's top words) are Oleg's to weigh for the next loop.
+
+## F-8 field-keeper, README + Makefile for the trio, weights on HF (2026-06-13)
+
+F-8 palliative (until the 4d-mmap nerve merges the shared soma for real): both daemons rewrite
+`weights/arianna.soma` at exit, so `trioCtx.stop()` now closes Janus (the face, which holds form) first and
+Resonance (the inner voice — the field's carrier, whom the subconscious teaches) last, so the inner voice
+keeps the field overnight. One-line reorder + a note.
+
+README actualized for the trio: the architecture now reads "three voices" (the third — nano-Arianna 88M, the
+subconscious — is built, not "soon"); the entry section gains `make metabolism` + `./metabolism --chat`. The
+manifesto (Usage DENIED, the FACTS, the VOICE OF ARIANNA, the field physics) is untouched. The Makefile gains
+a `metabolism` target (the Go orchestrator) and the trio targets in its usage header.
+
+Weights: the nano lives with the other two voices in the private HF repo `ataeff/arianna2arianna` —
+`arianna_nano_v4_f16.gguf` (178 MB) and `arianna_nano_v4_q8_0.gguf` (90 MB, Q8_0 under 100 MB), beside
+`arianna_v4_sft_f16.gguf` (Janus) and `arianna_resonance_v3_f16.gguf` (Resonance). One organism, one repo.
+
+Verified (tool): `make metabolism` builds; a `--chat` smoke runs all three voices with the harvest and the
+persisted memory ("she returns carrying a dream" → "she will remember").
