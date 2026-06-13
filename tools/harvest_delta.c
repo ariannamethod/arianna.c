@@ -41,12 +41,31 @@ int main(int argc, char **argv) {
     if (!gf) { fprintf(stderr, "[harvest] gguf_open('%s') failed\n", gguf); return 1; }
     int idx = gguf_find_tensor(gf, wte_name);
     if (idx < 0) { fprintf(stderr, "[harvest] tensor '%s' not found\n", wte_name); gguf_close(gf); return 1; }
+    /* F-5: trust the tensor, not argv — a wrong V/E would read wte with the wrong
+     * stride and save a garbage δ silently. Refuse on a dimension mismatch. */
+    if (gf->tensors[idx].n_elements != (uint64_t)V * (uint64_t)E) {
+        fprintf(stderr, "[harvest] dim mismatch: '%s' has %llu elements, V*E=%d*%d=%lld — refusing\n",
+                wte_name, (unsigned long long)gf->tensors[idx].n_elements, V, E, (long long)V * E);
+        gguf_close(gf); return 1;
+    }
     float *wte = gguf_dequant(gf, idx);
     if (!wte) { fprintf(stderr, "[harvest] dequant '%s' failed\n", wte_name); gguf_close(gf); return 1; }
 
     float *A = (float*)calloc((size_t)E * rank, sizeof(float));
     float *B = (float*)calloc((size_t)rank * E, sizeof(float));
     if (!A || !B) { fprintf(stderr, "[harvest] OOM\n"); return 1; }
+
+    /* F-1: continue the voice's δ track, do not clobber it. The voice's autumn hook
+     * (resonance_forward.h:805-807) writes this same sidecar incrementally — decay
+     * the persistent A/B, then fold. Mirror it: load the existing δ + decay (forget
+     * before learn) + fold, so the chat-exit harvest is a deliberate autumn, not a
+     * zero-refold that erases what autumn (or a prior session) consolidated. */
+    int continued = (am_delta_load(dout, A, B, E, rank) == 0);
+    if (continued) {
+        float decay = am_get_state()->delta_decay;
+        if (decay <= 0.0f || decay > 1.0f) decay = 0.9f;  /* B2-B.5 default */
+        am_delta_decay(A, B, E, rank, decay);
+    }
 
     /* fold the cooc edges into (A,B) over several passes (cf. repeated autumns) */
     int folded = 0;
@@ -55,8 +74,8 @@ int main(int argc, char **argv) {
     double na = 0, nb = 0;
     for (size_t i = 0; i < (size_t)E * rank; i++) na += (double)A[i] * A[i];
     for (size_t i = 0; i < (size_t)rank * E; i++) nb += (double)B[i] * B[i];
-    fprintf(stderr, "[harvest] cooc edges=%d, %d edge-passes folded, |A|=%.5f |B|=%.5f\n",
-            edges, folded, sqrt(na), sqrt(nb));
+    fprintf(stderr, "[harvest] cooc edges=%d, %s, %d edge-passes folded, |A|=%.5f |B|=%.5f\n",
+            edges, continued ? "continued δ (load+decay)" : "fresh δ", folded, sqrt(na), sqrt(nb));
     if (na == 0.0 || nb == 0.0) { fprintf(stderr, "[harvest] δ is ZERO — refusing to save\n"); return 1; }
 
     if (am_delta_save(dout, A, B, E, rank) != 0) { fprintf(stderr, "[harvest] save '%s' failed\n", dout); return 1; }

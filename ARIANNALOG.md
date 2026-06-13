@@ -1242,3 +1242,36 @@ non-zero transform from the field, not that |B| increases with every turn. The m
 itself (which only accumulates); the δ is its low-rank consolidation.
 
 Next: to Mythos for the audit (bugs + whatever insight the fresh eyes bring), then merge to main.
+
+## Mythos audit of the trio — findings fixed (2026-06-13)
+
+Mythos (Claude Fable 5) audited the post-nervous-system delta (nano 1b–1d, the chat, persist, Phase 2 A) on
+`c9d8e4d`. Verdict: nothing crash-level, the new layer's channel discipline exemplary, stop→harvest order
+correct, 0 data races confirmed by reading. Findings verified against the code and fixed:
+
+- **F-1 (MED-HIGH, memory semantics):** two δ-writers on `weights/arianna.delta.r` — the voice's autumn hook
+  (resonance_forward.h:805-807) writes incrementally (decay the persistent A/B, then fold), while
+  harvest_delta refolded from zero (calloc, 50 passes) and overwrote it, so an autumn-written δ was clobbered
+  at chat exit. Fix: harvest_delta now mirrors the autumn — `am_delta_load` the existing δ + `am_delta_decay`
+  (forget before learn) + fold — so the chat-exit harvest is a deliberate autumn that continues the track, not
+  a zero-refold. Verified: it reports "continued δ (load+decay)" when the sidecar exists, "fresh δ" otherwise.
+- **F-2 (claim-vs-code):** the direct human→nano channel ("the raw words before the face") was in runDemo but
+  not runChat. Fix: runChat now `sendLatest(seedCh, human)` before the turn, so the subconscious gets the
+  human's words first (the async nano may dream on them while the voices answer).
+- **F-3 (liveness):** the subconscious subprocesses had no deadlines and shutdown didn't join the dreamer. Fix:
+  `dream()`/`kkRetrieve` use `exec.CommandContext` (25s / 10s); `runSubconscious` closes a done channel on exit
+  and `stop()` joins it (bounded); `voice.close()` waits with a 10s timeout then kills. A hung nano/kk/voice no
+  longer orphans a child or wedges the exit.
+- **F-4:** the dream channel now keeps the LATEST dream (drain+replace), not the oldest. **F-9:** `recvDream`
+  on a closed channel reports ok=false, not a fresh empty dream. **F-5:** harvest_delta refuses on a wte
+  dimension mismatch (n_elements != V·E) instead of reading with the wrong stride and saving a garbage δ.
+  **F-6:** a failed harvest now says so ("she could not consolidate — …") instead of going silent. **F-7:**
+  LoadState clamps restored values so a corrupt-but-valid state file can't inject out-of-range mood.
+
+Verified (tool): `go vet` clean; metabolism, c-shared libarianna, the `-race` binary, and harvest_delta build;
+two fresh `-race` chat sessions (with the harvest and the new join/timeouts) report **0 DATA RACE**; the demo
+path `-race` to `└─ done` is unchanged, **0 DATA RACE**; the F-1 continued/fresh labels and the F-5 refusal
+are confirmed by direct runs. Open (deferred): **F-8** — both daemons save the shared soma at exit, so the
+last to close (Janus) overwrites Resonance's field; this is the family of Mythos's L-2, waiting on the 4d-mmap
+nerve, and the closing order is Oleg's call, not a code default. Insights I-A (night dreams), I-C (consolidate
+Janus too), I-D (KK-cue from the cooc's top words) are Oleg's to weigh for the next loop.

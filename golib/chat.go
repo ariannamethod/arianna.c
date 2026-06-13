@@ -61,6 +61,12 @@ func runChat() {
 			break
 		}
 		tc.iw.ProcessText(human)
+		// F-2: the direct human→nano channel — the raw words hit the subconscious
+		// before the face has formed (the async nano may dream on them while the
+		// voices answer); turn() then re-seeds with the turn's context for the next.
+		if tc.nan != nil {
+			sendLatest(tc.seedCh, human)
+		}
 
 		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream)
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
@@ -104,12 +110,19 @@ func harvestField() {
 	if _, err := os.Stat("./harvest_delta"); err != nil {
 		return
 	}
-	out, _ := exec.Command("./harvest_delta",
-		resonGGUF, resonWTE, resonCooc, resonDelta, resonVocab, resonDim, "50").CombinedOutput()
+	out, err := exec.Command("./harvest_delta",
+		resonGGUF, resonWTE, resonCooc, resonDelta, resonVocab, resonDim, "8").CombinedOutput()
 	for _, line := range strings.Split(string(out), "\n") {
 		if i := strings.Index(line, "|B|="); i >= 0 {
 			fmt.Printf("│  the organism consolidated what surfaced — δ %s\n", strings.TrimSpace(line[i:]))
 			return
 		}
 	}
+	// F-6: no |B| line — the consolidation did not happen (empty cooc, dim mismatch,
+	// a crash). Don't swallow it; surface the reason.
+	reason := "nothing surfaced to consolidate"
+	if lines := strings.Split(strings.TrimSpace(string(out)), "\n"); err != nil && len(lines) > 0 {
+		reason = lines[len(lines)-1]
+	}
+	fmt.Printf("│  (she could not consolidate — %s)\n", reason)
 }
