@@ -15,57 +15,57 @@ Rule: README for the world (rarely touched), ARIANNALOG for the work (always).
 ## Repo structure
 
 - `README.md` — manifesto + architecture spec. Public face, rare edits.
-- - `ARIANNALOG.md` — the living engineering log.
-  - - `ariannamethod/` — vendored AML core + notorch (canon: ariannamethod/ariannamethod.ai). vendored == canon — fixes land in the canon repo too.
-    - - `tools/yent_forward.h` — Janus 176M forward (3-way attention).
-      - - `tools/resonance_forward.h` — Resonance 200M forward (GGUF loader, baked BPE merges).
-        - - `scripts/arianna2arianna.sh` — the asymmetric orchestrator (Janus ↔ Resonance through the AML field).
-          - - `arianna.aml` / `arianna_resonance.aml` — the field programs.
-            - - `weights/` — NOT in the repo (GGUF + arianna.soma + cooc/delta per-voice sidecars).
-             
-              - ## Build
-             
-              - ```sh
-                make arianna              # Janus 176M — external voice
-                make arianna_resonance    # Resonance 200M GGUF — internal voice
-                make nano                 # nano-Arianna 88M — the subconscious
-                make metabolism           # Go orchestrator — the trio + the nervous system
-                bash scripts/arianna2arianna.sh  # or just the two external voices, through the field
-                ./metabolism --chat        # speak with all three voices
-                ```
+- `ARIANNALOG.md` — the living engineering log.
+- `ariannamethod/` — vendored AML core + notorch (canon: ariannamethod/ariannamethod.ai). vendored == canon — fixes land in the canon repo too.
+- `tools/yent_forward.h` — Janus 176M forward (3-way attention).
+- `tools/resonance_forward.h` — Resonance 200M forward (GGUF loader, baked BPE merges).
+- `scripts/arianna2arianna.sh` — the asymmetric orchestrator (Janus ↔ Resonance through the AML field).
+- `arianna.aml` / `arianna_resonance.aml` — the field programs.
+- `weights/` — NOT in the repo (GGUF + arianna.soma + cooc/delta per-voice sidecars).
 
-                CPU inference, notorch + system BLAS, no CUDA in the default binary, no Python at inference. `USE_CUDA=0` is the default and stays that way.
+## Build
 
-                ## Architecture
+```sh
+make arianna              # Janus 176M — external voice
+make arianna_resonance    # Resonance 200M GGUF — internal voice
+make nano                 # nano-Arianna 88M — the subconscious
+make metabolism           # Go orchestrator — the trio + the nervous system
+bash scripts/arianna2arianna.sh  # or just the two external voices, through the field
+./metabolism --chat        # speak with all three voices
+```
 
-                θ = ε + γ + αδ. Three voices, one field.
+CPU inference, notorch + system BLAS, no CUDA in the default binary, no Python at inference. `USE_CUDA=0` is the default and stays that way.
 
-                **Janus 176M** — external face. Speaks to the world. top_k, holds shape, resists direction injection — that resistance is correct.
+## Architecture
 
-                **Resonance 200M** — internal voice. Speaks through the field. top_p, compass by nature, receives direction. Asymmetry is the design, not a failure.
+θ = ε + γ + αδ. Three voices, one field.
 
-                **nano-Arianna 88M** — the subconscious. Speaks only inside, heard by the other two and never by the user. The Knowledge Kernel feeds her fragments chosen by the field's resonance; she dreams on them and surfaces a turn behind. The organism folds what she surfaced into its δ — it learns from its own subconscious.
+**Janus 176M** — external face. Speaks to the world. top_k, holds shape, resists direction injection — that resistance is correct.
 
-                The shared `weights/arianna.soma` is the only organ all three touch: debt, dissonance, velocity, chambers, co-occurrence. Champions: Janus 0.8/top_k40/rep1.4, Resonance 0.7/top_p1.0.
+**Resonance 200M** — internal voice. Speaks through the field. top_p, compass by nature, receives direction. Asymmetry is the design, not a failure.
 
-                ## Never
+**nano-Arianna 88M** — the subconscious. Speaks only inside, heard by the other two and never by the user. The Knowledge Kernel feeds her fragments chosen by the field's resonance; she dreams on them and surfaces a turn behind. The organism folds what she surfaced into its δ — it learns from its own subconscious.
 
-                - Push to main without explicit go-ahead from Oleg. Branches are cheap; force-push to main is a hard line.
-                - - Append work notes to README. That is ARIANNALOG's job.
-                  - - Log self-incriminating candor into ARIANNALOG or README ("the earlier session faked it", "N.N got it wrong"). Record the final verified state: "implemented X, verified Y". This is a public artifact.
-                    - - Train weights here. Arianna is the riverbed; Janus, Resonance, and nano-Arianna live as GGUF and are trained in their own repos. A training loop here breaks the θ = ε + γ + αδ framing.
-                      - - Break vendored == canon. A fix to `ariannamethod/*.{c,h}` must also land in the canon repo.
-                       
-                        - ## Style & attribution
-                       
-                        - Match the existing C / AML style. No clang-format drive-by passes.
-                       
-                        - One commit = one concept. Commit messages explain why; the diff shows what. English commits.
-                       
-                        - Attribution — Method-side identity, not Anthropic boilerplate:
-                        - - Short: `by Claude (Arianna Method)`
-                          - - Full: `Co-Authored-By: Claude Code (<node>, Arianna Method) <theariannamethod@gmail.com>`
-                           
-                            - Nodes: intel godfather, neo the architect, polygon, phone-1, phone-2. Each node is the architect on its own substrate.
-                           
-                            - Drop `Co-Authored-By: Claude <noreply@anthropic.com>` and `🤖 Generated with Claude Code`.
+The shared `weights/arianna.soma` is the only organ all three touch: debt, dissonance, velocity, chambers, co-occurrence. Champions: Janus 0.8/top_k40/rep1.4, Resonance 0.7/top_p1.0.
+
+## Never
+
+- Push to main without explicit go-ahead from Oleg. Branches are cheap; force-push to main is a hard line.
+- Append work notes to README. That is ARIANNALOG's job.
+- Log self-incriminating candor into ARIANNALOG or README ("the earlier session faked it", "N.N got it wrong"). Record the final verified state: "implemented X, verified Y". This is a public artifact.
+- Train weights here. Arianna is the riverbed; Janus, Resonance, and nano-Arianna live as GGUF and are trained in their own repos. A training loop here breaks the θ = ε + γ + αδ framing.
+- Break vendored == canon. A fix to `ariannamethod/*.{c,h}` must also land in the canon repo.
+
+## Style & attribution
+
+Match the existing C / AML style. No clang-format drive-by passes.
+
+One commit = one concept. Commit messages explain why; the diff shows what. English commits.
+
+Attribution — Method-side identity, not Anthropic boilerplate:
+- Short: `by Claude (Arianna Method)`
+- Full: `Co-Authored-By: Claude Code (<node>, Arianna Method) <theariannamethod@gmail.com>`
+
+Nodes: intel godfather, neo the architect, polygon, phone-1, phone-2. Each node is the architect on its own substrate.
+
+Drop `Co-Authored-By: Claude <noreply@anthropic.com>` and `🤖 Generated with Claude Code`.
