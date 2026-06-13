@@ -84,8 +84,16 @@ func (v *voice) ask(line string) string {
 }
 
 func (v *voice) close() {
-	v.in.Close()
-	v.cmd.Wait()
+	v.in.Close() // EOF → the daemon saves its sidecars and exits
+	// F-3: don't hang the shutdown on a wedged daemon — wait briefly, then kill.
+	done := make(chan struct{})
+	go func() { v.cmd.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		_ = v.cmd.Process.Kill()
+		<-done
+	}
 }
 
 // trioCtx holds the three voices, the subconscious channels, and the inner world
@@ -95,6 +103,7 @@ type trioCtx struct {
 	nan            *nano
 	seedCh         chan string
 	dreamCh        chan dreamResult
+	subDone        chan struct{} // closed by runSubconscious on exit (F-3 join)
 	iw             *InnerWorld
 	tickerDone     chan struct{}
 }
@@ -138,16 +147,23 @@ func startTrio() (*trioCtx, error) {
 	if tc.nan != nil {
 		tc.seedCh = make(chan string, 1)
 		tc.dreamCh = make(chan dreamResult, 1)
-		go runSubconscious(tc.nan, "./kk-cli", "weights/nano.kk.db", tc.seedCh, tc.dreamCh)
+		tc.subDone = make(chan struct{})
+		go runSubconscious(tc.nan, "./kk-cli", "weights/nano.kk.db", tc.seedCh, tc.dreamCh, tc.subDone)
 	}
 	return tc, nil
 }
 
-// stop tears the organism down in order: the subconscious goroutine (seedCh
-// close), the voices, the ticker, the inner world.
+// stop tears the organism down in order: signal the subconscious goroutine
+// (close seedCh) and join it (F-3 — bounded, so an in-flight dream can finish or
+// hit its own deadline without wedging shutdown), then the voices, the ticker,
+// the inner world.
 func (tc *trioCtx) stop() {
 	if tc.seedCh != nil {
 		close(tc.seedCh)
+		select {
+		case <-tc.subDone:
+		case <-time.After(dreamTimeout + 5*time.Second):
+		}
 	}
 	tc.resonD.close()
 	tc.janusD.close()

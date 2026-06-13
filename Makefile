@@ -64,7 +64,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna kk nano clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna kk nano harvest_delta clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -172,11 +172,20 @@ nano:
 	cd $(NANOLLAMA_DIR) && go build -o $(CURDIR)/nano-arianna .
 	@echo "[build] nano-arianna (subconscious — needs weights/nano_arianna_f16.gguf)"
 
+# ── harvest_delta — Phase 2 (A): the organism learns from the subconscious. The
+# chat, tinted by the subconscious's surfacing, grows Resonance's co-occurrence;
+# this folds it into her δ via the notorch Hebbian (am_cooc_learn_delta) and
+# reports |B| — the learning made visible. The metabolism runs it at chat exit.
+harvest_delta: tools/harvest_delta.c $(LIBNOTORCH) $(LIBAML)
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) -Iariannamethod/notorch -Iariannamethod/core \
+	    tools/harvest_delta.c $(LIBAML) $(LIBNOTORCH) $(BLAS_LIBS) $(LDFLAGS) -o harvest_delta
+	@echo "[build] harvest_delta (Phase 2 A — δ from cooc, reports |B|)"
+
 # ── Clean ──────────────────────────────────────────────────────────────────
 clean:
 	rm -f arianna arianna.c arianna_r
 	rm -f arianna_resonance arianna_resonance.c
-	rm -f metabolism_bin nano-arianna
+	rm -f metabolism_bin nano-arianna harvest_delta
 	rm -f ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o
 	rm -f ariannamethod/core/ariannamethod.o
 	rm -f $(LIBNOTORCH) $(LIBAML) $(AMLC)

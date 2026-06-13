@@ -13,10 +13,22 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 )
 
 const innerStatePath = "weights/arianna.inner.state"
+
+// Resonance's δ-harvest parameters — her GGUF embedding tensor and dimensions
+// (V=16384, E=768), the co-occurrence and δ sidecars she reads.
+const (
+	resonGGUF  = "weights/arianna_resonance_v3_f16.gguf"
+	resonWTE   = "tok_emb"
+	resonVocab = "16384"
+	resonDim   = "768"
+	resonCooc  = "weights/arianna.cooc.r"
+	resonDelta = "weights/arianna.delta.r"
+)
 
 func runChat() {
 	tc, err := startTrio()
@@ -24,7 +36,6 @@ func runChat() {
 		fmt.Println("metabolism:", err)
 		return
 	}
-	defer tc.stop()
 
 	lastDream := tc.iw.LoadState(innerStatePath) // restore the mood + the last murmur
 
@@ -50,6 +61,12 @@ func runChat() {
 			break
 		}
 		tc.iw.ProcessText(human)
+		// F-2: the direct human→nano channel — the raw words hit the subconscious
+		// before the face has formed (the async nano may dream on them while the
+		// voices answer); turn() then re-seeds with the turn's context for the next.
+		if tc.nan != nil {
+			sendLatest(tc.seedCh, human)
+		}
 
 		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream)
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
@@ -76,4 +93,36 @@ func runChat() {
 	} else {
 		fmt.Println("(she will remember.)")
 	}
+	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
+	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
+}
+
+// harvestField is Phase 2 (A): the organism learns from the subconscious. The
+// whole conversation was tinted by the subconscious surfacing into Resonance's
+// inject (1d), so her grown co-occurrence carries the subconscious's influence.
+// At session end this folds that cooc into her δ via the notorch Hebbian
+// (harvest_delta / am_cooc_learn_delta) so next session her voice is shaped by
+// what the subconscious taught — async between turns, never mid-sentence. The
+// harvest reports |B|, the learning made visible. Absent tool or empty cooc =>
+// skipped (nothing was learned). The voice applies the δ only when its blend is
+// non-zero, so this is dormant by default — it grows memory without forcing it.
+func harvestField() {
+	if _, err := os.Stat("./harvest_delta"); err != nil {
+		return
+	}
+	out, err := exec.Command("./harvest_delta",
+		resonGGUF, resonWTE, resonCooc, resonDelta, resonVocab, resonDim, "8").CombinedOutput()
+	for _, line := range strings.Split(string(out), "\n") {
+		if i := strings.Index(line, "|B|="); i >= 0 {
+			fmt.Printf("│  the organism consolidated what surfaced — δ %s\n", strings.TrimSpace(line[i:]))
+			return
+		}
+	}
+	// F-6: no |B| line — the consolidation did not happen (empty cooc, dim mismatch,
+	// a crash). Don't swallow it; surface the reason.
+	reason := "nothing surfaced to consolidate"
+	if lines := strings.Split(strings.TrimSpace(string(out)), "\n"); err != nil && len(lines) > 0 {
+		reason = lines[len(lines)-1]
+	}
+	fmt.Printf("│  (she could not consolidate — %s)\n", reason)
 }

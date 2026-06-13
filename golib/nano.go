@@ -12,11 +12,20 @@ package main
 // the subconscious (graceful degradation to two voices).
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 	"unicode"
+)
+
+// subprocess deadlines (F-3): a hung nanollama / kk-cli must not wedge the
+// subconscious goroutine or orphan a child at shutdown.
+const (
+	dreamTimeout = 25 * time.Second
+	kkTimeout    = 10 * time.Second
 )
 
 // nano spawns the nanollama Go inference one-shot per dream.
@@ -44,14 +53,16 @@ func newNano(bin, gguf string) *nano {
 // dream spawns the nano on a seed and returns its murmur (the text after the
 // "[<n> tokens ...]" frame line, label-stripped and sentence-cut). "" on failure.
 func (n *nano) dream(seed string) string {
-	cmd := exec.Command(n.bin,
+	ctx, cancel := context.WithTimeout(context.Background(), dreamTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, n.bin,
 		"--model", n.gguf,
 		"--prompt", seed,
 		"--max-tokens", n.maxTok,
 		"--temp", n.temp,
 		"--top-p", n.topP,
 	)
-	out, err := cmd.Output() // stdout only
+	out, err := cmd.Output() // stdout only; a hung nano is killed at the deadline
 	if err != nil {
 		return ""
 	}
@@ -121,7 +132,9 @@ func kkRetrieve(cli, db, cue string) string {
 	if q == "" {
 		return ""
 	}
-	out, err := exec.Command(cli, "query", db, q, "public", "1", "compressed").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), kkTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, cli, "query", db, q, "public", "1", "compressed").Output()
 	if err != nil {
 		return ""
 	}
@@ -155,8 +168,10 @@ func sanitizeCue(s string) string {
 // cue, retrieves the resonant book-fragment for it (the KK injection), dreams on
 // the fragment, and publishes the result. seedCh and dreamCh are each single-slot
 // (buffered 1) with one producer and one consumer, so neither side blocks and the
-// dream naturally lags the duet. Exits + closes dreamCh when seedCh closes.
-func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan<- dreamResult) {
+// dream naturally lags the duet. On close(seedCh) it finishes any in-flight dream
+// (bounded by dreamTimeout), closes dreamCh, and closes done so stop() can join.
+func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan dreamResult, done chan<- struct{}) {
+	defer close(done)
 	for cue := range seedCh {
 		frag := kkRetrieve(cli, db, cue)
 		seed := cue
@@ -167,12 +182,20 @@ func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan
 		if d == "" {
 			continue
 		}
-		// publish (non-blocking). The consumer drains every turn, so the single slot
-		// is normally free; an unread dream is dropped rather than queued — the
-		// subconscious does not back up.
+		// publish the LATEST dream (F-4): drain any unread previous one, then send —
+		// the subconscious surfaces with its newest state, not a stale backlog.
+		r := dreamResult{frag: frag, dream: d}
 		select {
-		case dreamCh <- dreamResult{frag: frag, dream: d}:
+		case dreamCh <- r:
 		default:
+			select {
+			case <-dreamCh:
+			default:
+			}
+			select {
+			case dreamCh <- r:
+			default:
+			}
 		}
 	}
 	close(dreamCh)
@@ -195,11 +218,12 @@ func sendLatest(ch chan string, v string) {
 	}
 }
 
-// recvDream returns the latest dream if one is ready (non-blocking).
+// recvDream returns the latest dream if one is ready (non-blocking). A closed
+// channel reports ok=false (F-9) — it is not a fresh empty dream.
 func recvDream(ch chan dreamResult) (dreamResult, bool) {
 	select {
-	case r := <-ch:
-		return r, true
+	case r, ok := <-ch:
+		return r, ok
 	default:
 		return dreamResult{}, false
 	}

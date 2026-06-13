@@ -69,6 +69,14 @@ func (iw *InnerWorld) SaveState(path, lastDream string) error {
 	return os.Rename(tmp, path)
 }
 
+// maxInt returns the larger of a and b (for clamping persisted counters >= 0).
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // LoadState restores the inner world's mood from path and returns the last dream.
 // A missing or unreadable file leaves the defaults (a fresh mind) and returns "".
 func (iw *InnerWorld) LoadState(path string) string {
@@ -82,15 +90,17 @@ func (iw *InnerWorld) LoadState(path string) string {
 	}
 	s := iw.State
 	s.mu.Lock()
-	s.Arousal, s.Valence, s.Entropy, s.Coherence = ps.Arousal, ps.Valence, ps.Entropy, ps.Coherence
-	s.TraumaLevel = ps.TraumaLevel
+	// F-7: clamp restored values — a corrupt-but-valid JSON must not inject
+	// out-of-range state the inner-world dynamics would take a long time to recover.
+	s.Arousal, s.Valence, s.Entropy, s.Coherence = clamp(ps.Arousal, 0, 1), clamp(ps.Valence, -1, 1), clamp(ps.Entropy, 0, 1), clamp(ps.Coherence, 0, 1)
+	s.TraumaLevel = clamp(ps.TraumaLevel, 0, 1)
 	if ps.TraumaAnchors != nil {
 		s.TraumaAnchors = ps.TraumaAnchors
 	}
-	s.LoopCount, s.AbstractionDepth, s.SelfRefCount = ps.LoopCount, ps.AbstractionDepth, ps.SelfRefCount
-	s.DriftDirection, s.DriftSpeed = ps.DriftDirection, ps.DriftSpeed
-	s.MemoryPressure, s.FocusStrength, s.WanderPull = ps.MemoryPressure, ps.FocusStrength, ps.WanderPull
-	s.ProphecyDebt, s.DestinyPull, s.WormholeChance = ps.ProphecyDebt, ps.DestinyPull, ps.WormholeChance
+	s.LoopCount, s.AbstractionDepth, s.SelfRefCount = maxInt(ps.LoopCount, 0), maxInt(ps.AbstractionDepth, 0), maxInt(ps.SelfRefCount, 0)
+	s.DriftDirection, s.DriftSpeed = clamp(ps.DriftDirection, -1, 1), clamp(ps.DriftSpeed, 0, 1)
+	s.MemoryPressure, s.FocusStrength, s.WanderPull = clamp(ps.MemoryPressure, 0, 1), clamp(ps.FocusStrength, 0, 1), clamp(ps.WanderPull, 0, 1)
+	s.ProphecyDebt, s.DestinyPull, s.WormholeChance = clamp(ps.ProphecyDebt, 0, 10), clamp(ps.DestinyPull, 0, 1), clamp(ps.WormholeChance, 0, 1)
 	s.mu.Unlock()
 	return ps.LastDream
 }

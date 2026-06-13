@@ -1214,3 +1214,64 @@ RACE** — the refactor regressed nothing.
 
 Next — Phase 2 (option A, decided): the organism learns from the subconscious. What surfaces in the live
 chat feeds the shared field's proven notorch δ (am_cooc_learn_delta → am_notorch_step), verify B grows.
+
+## Phase 2 (A) — the organism learns from the subconscious (2026-06-13)
+
+The field learns from what the subconscious surfaces. Through the whole `--chat` the dream surfaces into
+Resonance's inject (1d), so her co-occurrence grows carrying the subconscious's influence. At session end
+the metabolism runs the δ-harvest (`harvestField` in `golib/chat.go` spawns `./harvest_delta`, the existing
+B2-B tool): it loads Resonance's cooc sidecar + her token embeddings and folds the cooc into a low-rank δ
+via the notorch Hebbian (`am_cooc_learn_delta` → `am_notorch_step`), then saves it to her δ sidecar — async
+between turns, never mid-sentence (the DoE g_train=0 principle). The harvest reports |B|, the learning made
+visible. The wiring is by subprocess (the metabolism does not link the C core), consistent with how it
+spawns the voices, the nano, and the KK.
+
+Verified (tool): `go vet` clean; metabolism, c-shared libarianna, the `-race` binary, and `harvest_delta`
+(Makefile target) build. A fresh `-race` chat (cooc cleared first) runs the harvest at exit and reports a
+non-zero δ — "the organism consolidated what surfaced — δ |B|=0.05776" — with **0 DATA RACE**. The
+co-occurrence accumulates across sessions (sidecar 7176 → 25164 bytes). The harvested δ is dormant by
+default — Resonance applies it only when LORA_ALPHA>0, so the generation is bit-identical until the field
+raises the blend (`resonance_forward.h:153`); a greedy A/B confirms the loop closes — LORA_ALPHA=0 gives one
+continuation, LORA_ALPHA=0.15 a different one, so the harvested δ really shapes the voice when activated.
+
+Honest caveat (the B-growth claim): the harvest grows B from zero to a non-zero, D-H1-healthy δ (B does not
+collapse to 0 — the Oja-rule fix holds), but |B| is **not** monotonic in conversation length (0.058 after 2
+turns, 0.033 after 6). `am_cooc_learn_delta` is a converging step into a rank-8 δ; a larger, more diffuse
+cooc projects onto the dominant directions with a smaller norm. "B grows" here means B learns a real
+non-zero transform from the field, not that |B| increases with every turn. The monotonic memory is the cooc
+itself (which only accumulates); the δ is its low-rank consolidation.
+
+Next: to Mythos for the audit (bugs + whatever insight the fresh eyes bring), then merge to main.
+
+## Mythos audit of the trio — findings fixed (2026-06-13)
+
+Mythos (Claude Fable 5) audited the post-nervous-system delta (nano 1b–1d, the chat, persist, Phase 2 A) on
+`c9d8e4d`. Verdict: nothing crash-level, the new layer's channel discipline exemplary, stop→harvest order
+correct, 0 data races confirmed by reading. Findings verified against the code and fixed:
+
+- **F-1 (MED-HIGH, memory semantics):** two δ-writers on `weights/arianna.delta.r` — the voice's autumn hook
+  (resonance_forward.h:805-807) writes incrementally (decay the persistent A/B, then fold), while
+  harvest_delta refolded from zero (calloc, 50 passes) and overwrote it, so an autumn-written δ was clobbered
+  at chat exit. Fix: harvest_delta now mirrors the autumn — `am_delta_load` the existing δ + `am_delta_decay`
+  (forget before learn) + fold — so the chat-exit harvest is a deliberate autumn that continues the track, not
+  a zero-refold. Verified: it reports "continued δ (load+decay)" when the sidecar exists, "fresh δ" otherwise.
+- **F-2 (claim-vs-code):** the direct human→nano channel ("the raw words before the face") was in runDemo but
+  not runChat. Fix: runChat now `sendLatest(seedCh, human)` before the turn, so the subconscious gets the
+  human's words first (the async nano may dream on them while the voices answer).
+- **F-3 (liveness):** the subconscious subprocesses had no deadlines and shutdown didn't join the dreamer. Fix:
+  `dream()`/`kkRetrieve` use `exec.CommandContext` (25s / 10s); `runSubconscious` closes a done channel on exit
+  and `stop()` joins it (bounded); `voice.close()` waits with a 10s timeout then kills. A hung nano/kk/voice no
+  longer orphans a child or wedges the exit.
+- **F-4:** the dream channel now keeps the LATEST dream (drain+replace), not the oldest. **F-9:** `recvDream`
+  on a closed channel reports ok=false, not a fresh empty dream. **F-5:** harvest_delta refuses on a wte
+  dimension mismatch (n_elements != V·E) instead of reading with the wrong stride and saving a garbage δ.
+  **F-6:** a failed harvest now says so ("she could not consolidate — …") instead of going silent. **F-7:**
+  LoadState clamps restored values so a corrupt-but-valid state file can't inject out-of-range mood.
+
+Verified (tool): `go vet` clean; metabolism, c-shared libarianna, the `-race` binary, and harvest_delta build;
+two fresh `-race` chat sessions (with the harvest and the new join/timeouts) report **0 DATA RACE**; the demo
+path `-race` to `└─ done` is unchanged, **0 DATA RACE**; the F-1 continued/fresh labels and the F-5 refusal
+are confirmed by direct runs. Open (deferred): **F-8** — both daemons save the shared soma at exit, so the
+last to close (Janus) overwrites Resonance's field; this is the family of Mythos's L-2, waiting on the 4d-mmap
+nerve, and the closing order is Oleg's call, not a code default. Insights I-A (night dreams), I-C (consolidate
+Janus too), I-D (KK-cue from the cooc's top words) are Oleg's to weigh for the next loop.
