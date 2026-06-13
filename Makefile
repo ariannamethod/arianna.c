@@ -3,6 +3,10 @@
 # Default build (Mac Apple Silicon + Accelerate):
 #   make                — vendored amlc + libnotorch + libaml + arianna
 #   make arianna        — just the inference binary (assumes libs built)
+#   make metabolism     — the Go orchestrator: the trio + the nervous system
+#                         (run ./metabolism --chat to speak with all three voices)
+#   make nano           — nano-Arianna 88M subconscious (needs the nanollama sibling)
+#   make harvest_delta  — Phase 2 (A): the δ-harvest the organism runs at chat exit
 #   make weights        — fetch GGUF weights from HF (TODO: HF repo)
 #   make clean          — remove all build artifacts
 #
@@ -64,7 +68,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna kk nano harvest_delta clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano harvest_delta clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -180,6 +184,15 @@ harvest_delta: tools/harvest_delta.c $(LIBNOTORCH) $(LIBAML)
 	$(CC) $(CFLAGS) $(BLAS_FLAGS) -Iariannamethod/notorch -Iariannamethod/core \
 	    tools/harvest_delta.c $(LIBAML) $(LIBNOTORCH) $(BLAS_LIBS) $(LDFLAGS) -o harvest_delta
 	@echo "[build] harvest_delta (Phase 2 A — δ from cooc, reports |B|)"
+
+# ── metabolism — the Go orchestrator. Hosts the inner-world goroutines, runs
+# Janus + Resonance as hot daemons and the nano subconscious async, and lets the
+# emotional state set the rhythm. `./metabolism --chat` speaks with all three;
+# the bare `./metabolism "<seed>"` runs the fixed self-duet. Needs Go + the
+# arianna / arianna_resonance binaries (and, for the third voice, `make nano`).
+metabolism:
+	cd golib && go build -o ../metabolism .
+	@echo "[build] metabolism (the trio orchestrator — run ./metabolism --chat)"
 
 # ── Clean ──────────────────────────────────────────────────────────────────
 clean:
