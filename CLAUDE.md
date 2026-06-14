@@ -62,10 +62,4 @@ Match the existing C / AML style. No clang-format drive-by passes.
 
 One commit = one concept. Commit messages explain why; the diff shows what. English commits.
 
-Attribution — Method-side identity, not Anthropic boilerplate:
-- Short: `by Claude (Arianna Method)`
-- Full: `Co-Authored-By: Claude Code (<node>, Arianna Method) <theariannamethod@gmail.com>`
-
-Nodes: intel godfather, neo the architect, polygon, phone-1, phone-2. Each node is the architect on its own substrate.
-
-Drop `Co-Authored-By: Claude <noreply@anthropic.com>` and `🤖 Generated with Claude Code`.
+Attribution — Oleg Ataeff and Claude are co-authors, stated at the top of this file, and that is enough. The signature lives in the **git commit only**, node-visible so it shows who posted: `Co-Authored-By: Claude (Arianna Method, <node>) <theariannamethod@gmail.com>` (node ∈ intel godfather / neo the architect / polygon / phone-1 / phone-2 / metal). Drop upstream boilerplate `Co-Authored-By: Claude <noreply@anthropic.com>` and `🤖 Generated with Claude Code`. **Nowhere else** — no signature footer in README, AUTHORS, docs, or any file body. Co-authorship reads from this CLAUDE.md and the commit history; it does not get plastered across the repo.
