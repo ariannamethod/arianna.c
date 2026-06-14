@@ -1294,3 +1294,26 @@ Weights: the nano lives with the other two voices in the private HF repo `ataeff
 
 Verified (tool): `make metabolism` builds; a `--chat` smoke runs all three voices with the harvest and the
 persisted memory ("she returns carrying a dream" → "she will remember").
+
+## B / F-8 real fix — the live shared field (2026-06-14)
+
+The two voices now share ONE field in real time, not last-writer-wins at save. The field-carry physics that
+should couple them — debt, temporal_debt, dissonance, pain, tension, velocity, season (+ energies), dark
+gravity — was lifted into a small `mmap`'d MAP_SHARED region (`AMFieldShared`, 68 bytes,
+`weights/arianna.field`) that both daemons map and write live. Per-voice state (cooc / gamma / lora) and the
+per-step computed metrics (entropy / resonance) stay LOCAL. New core API (vendored == canon):
+`am_field_attach` (mmap, create+init, first creator seeds from its soma, magic written last),
+`am_field_sync_in` (shared → AM_State, before each turn), `am_field_sync_out` (AM_State → shared, after each
+turn), `am_field_detach`. Both forwards call sync_in at the start of generation and sync_out after the turn's
+field has settled (Resonance: `resonance_generate`; Janus: `arianna_generate_single`); both `.aml`s attach
+after the soma load and detach at exit. Writes are benign float races on a soft field — no locks; the values
+are continuous and self-correcting, not invariants. The F-8 palliative (Resonance-keeps close order) is now
+moot for the field-carry (it lives in the mmap, not the soma) and left harmless.
+
+Verified (tool), Mythos being offline so self-verified hard: `make` builds libaml + both voices + metabolism.
+A cross-process probe (`tools/field_probe.c`) writes debt=7.5 in one process and reads **7.5** back in a
+separate process — MAP_SHARED genuinely shares the field across processes. A `--chat` (`-race`) session over
+both hot voices runs coherent, reaches the end, reports **0 Go data races**, and the field accumulates from
+both voices live — debt 27.6, dissonance 0.22 in `weights/arianna.field` after two turns (Resonance's debt
+now bends Janus's next breath this turn, not next session). Next: Codex review for insight/bugs, then
+canon-sync the core to ariannamethod.ai and merge.

@@ -134,3 +134,7 @@ kk-cli
 weights/*.db
 weights/*.state
 *.kk.db
+
+# Live shared field (B/F-8) — mmap'd, local runtime state
+weights/*.field
+field_probe

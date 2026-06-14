@@ -686,6 +686,7 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
                                int max_gen, float temp, float top_p,
                                const char *inject_text, float inject_alpha,
                                float inject_beta) {
+    am_field_sync_in();  /* B/F-8: read the live shared field (the other voice's debt/season/dissonance) before this turn */
     int cctx[4096];
     int len = nt_bpe_encode(&ctx->bpe, prompt, (int)strlen(prompt), cctx, 4096);
     /* Clamp prompt to the context window. KV cache (kv_k/kv_v) and the attn /
@@ -807,6 +808,7 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
                 am_delta_save("weights/arianna.delta.r", g_delta_A, g_delta_B, E, g_delta_rank);
         }
     }
+    am_field_sync_out();  /* B/F-8: publish this turn's field-carry (debt/dissonance/season) to the live shared field */
     /* Roster strip safety belt (arianna2arianna.sh:81): срез от chat-roster маркера. */
     {
         /* Resonance was SFT'd on chat (User:/Assistant:/Oleg:), so she sometimes

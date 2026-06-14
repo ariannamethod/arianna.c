@@ -44,6 +44,7 @@
 #include <fcntl.h>     // for open(), O_RDONLY, O_WRONLY, O_NONBLOCK
 #include <unistd.h>    // for read(), write(), close(), unlink()
 #include <sys/stat.h>  // for mkfifo()
+#include <sys/mman.h>  // for mmap() — the live shared field (B / F-8)
 #include <errno.h>     // for EAGAIN, ENXIO
 #endif
 
@@ -931,6 +932,73 @@ int am_field_load(const char* path) {
   }
   fclose(f);
   return 0;
+}
+
+// ── Live shared field (B / F-8) ────────────────────────────────────────────
+// mmap'd MAP_SHARED region carrying only the field-carry physics that should
+// couple the two voices in real time. Both daemons map the same file; writes are
+// benign float races on a soft field (no locks — the values are continuous and
+// self-correcting, not invariants). See AMFieldShared in the header.
+#define AM_FIELD_MAGIC   0x44464d41u  /* 'A','M','F','D' little-endian */
+#define AM_FIELD_VERSION 1u
+static AMFieldShared* g_field_shared = NULL;
+
+int am_field_attached(void) { return g_field_shared != NULL; }
+
+void am_field_sync_out(void) {
+  AMFieldShared* s = g_field_shared;
+  if (!s) return;
+  s->debt = G.debt;                     s->temporal_debt = G.temporal_debt;
+  s->dissonance = G.dissonance;         s->pain = G.pain;          s->tension = G.tension;
+  s->velocity_mode = G.velocity_mode;   s->velocity_magnitude = G.velocity_magnitude;
+  s->season = G.season;                 s->season_phase = G.season_phase;
+  s->season_intensity = G.season_intensity;
+  s->spring_energy = G.spring_energy;   s->summer_energy = G.summer_energy;
+  s->autumn_energy = G.autumn_energy;   s->winter_energy = G.winter_energy;
+  s->dark_gravity = G.dark_gravity;
+}
+
+void am_field_sync_in(void) {
+  AMFieldShared* s = g_field_shared;
+  if (!s || s->magic != AM_FIELD_MAGIC) return;
+  G.debt = s->debt;                     G.temporal_debt = s->temporal_debt;
+  G.dissonance = s->dissonance;         G.pain = s->pain;          G.tension = s->tension;
+  G.velocity_mode = s->velocity_mode;   G.velocity_magnitude = s->velocity_magnitude;
+  G.season = s->season;                 G.season_phase = s->season_phase;
+  G.season_intensity = s->season_intensity;
+  G.spring_energy = s->spring_energy;   G.summer_energy = s->summer_energy;
+  G.autumn_energy = s->autumn_energy;   G.winter_energy = s->winter_energy;
+  G.dark_gravity = s->dark_gravity;
+}
+
+int am_field_attach(const char* path) {
+  if (!path || !path[0]) return -1;
+  size_t sz = sizeof(AMFieldShared);
+  int fd = open(path, O_RDWR | O_CREAT, 0644);
+  if (fd < 0) { fprintf(stderr, "[am_field_attach] open '%s' failed\n", path); return -2; }
+  struct stat st;
+  if (fstat(fd, &st) != 0) { close(fd); return -3; }
+  if ((size_t)st.st_size < sz) {
+    if (ftruncate(fd, (off_t)sz) != 0) { close(fd); return -3; }
+  }
+  void* p = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  close(fd);
+  if (p == MAP_FAILED) { fprintf(stderr, "[am_field_attach] mmap '%s' failed\n", path); return -4; }
+  g_field_shared = (AMFieldShared*)p;
+  // First creator seeds the region from this voice's current field; subsequent
+  // attachers find the magic set and read the live field via sync_in. (The
+  // create+init race between two cold-starting daemons is benign — both seed from
+  // their own G; the field is soft.)
+  if (g_field_shared->magic != AM_FIELD_MAGIC) {
+    am_field_sync_out();
+    g_field_shared->version = AM_FIELD_VERSION;
+    g_field_shared->magic = AM_FIELD_MAGIC;  // magic last: a reader treats unset magic as not-ready
+  }
+  return 0;
+}
+
+void am_field_detach(void) {
+  if (g_field_shared) { munmap(g_field_shared, sizeof(AMFieldShared)); g_field_shared = NULL; }
 }
 
 // ── Co-occurrence sidecar (per-voice) ──────────────────────────────────────

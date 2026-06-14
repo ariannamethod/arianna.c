@@ -59,6 +59,12 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
     /* Per-voice co-occurrence: load AFTER the shared soma (overwrites whatever
      * cross-vocab cooc the soma carried). Resonance's own vocab edges only. */
     if (am_cooc_load("weights/arianna.cooc.r") != 0) am_cooc_clear();  /* H-2: no sidecar → drop shared-soma cooc, don't inherit Janus's edges */
+    /* B/F-8: attach the LIVE shared field AFTER the soma load. The field-carry
+     * (debt/dissonance/season) now lives in an mmap'd region both voices write;
+     * per-turn sync_in/out inside resonance_generate keep the field merged in real
+     * time instead of last-writer-wins at save. First creator seeds it from here. */
+    if (am_field_attach("weights/arianna.field") == 0)
+        fprintf(stderr, "[resonance] live shared field attached (weights/arianna.field)\n");
     /* B2-B.4: δ-voice knobs (same env as Janus) — YENT_ALPHA sets α_max,
      * YENT_DYNAMIC=1 gates δ strength by field resonance. Default unset = δ off. */
     { const char *a = getenv("YENT_ALPHA");
@@ -76,6 +82,7 @@ static void resonance_save_breath(void) {
         fprintf(stderr, "[resonance] field state saved → weights/arianna.soma\n");
     else
         fprintf(stderr, "[resonance] field SAVE FAILED rc=%d (%s)\n", rc, am_get_error());
+    am_field_detach();  /* B/F-8: unmap the live shared field (the mmap file persists it) */
 }
 }
 
