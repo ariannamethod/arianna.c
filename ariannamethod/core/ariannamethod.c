@@ -232,6 +232,7 @@ static int clampi(int x, int a, int b) {
 #define AM_METONIC_YEARS    19        // years per cycle
 #define AM_METONIC_LEAPS    7         // leap years per cycle
 #define AM_MAX_UNCORRECTED  33.0f     // max drift before correction (~3yr × 11.25)
+#define AM_VELOCITY_INERTIA 2.0f      // debt cost of switching the velocity mode (the body resists; D4 at debt>5 forces NOMOVE)
 
 static const int g_metonic_leap_years[7] = {3, 6, 8, 11, 14, 17, 19};
 static time_t g_epoch_t = 0;
@@ -459,6 +460,7 @@ static void update_effective_temp(void) {
     case AM_VEL_WALK:     vel_mult = 0.85f; G.time_direction = 1.0f;  break;
     case AM_VEL_RUN:      vel_mult = 1.2f;  G.time_direction = 1.0f;  break;
     case AM_VEL_BACKWARD: vel_mult = 0.7f;  G.time_direction = -1.0f; break;
+    case AM_VEL_BREATHE:  vel_mult = 0.6f;  G.time_direction = 1.0f;  break;
     default:              vel_mult = 1.0f;  G.time_direction = 1.0f;
   }
   float vel_temp = base * vel_mult;
@@ -985,7 +987,7 @@ void am_field_sync_in(void) {
   if (!ok) return;
   if (isfinite(snap.debt))             G.debt = snap.debt < 0 ? 0 : snap.debt;
   if (isfinite(snap.temporal_debt))    G.temporal_debt = snap.temporal_debt;
-  if (snap.velocity_mode >= -1 && snap.velocity_mode <= 2) G.velocity_mode = snap.velocity_mode;
+  if (snap.velocity_mode >= -1 && snap.velocity_mode <= 3) G.velocity_mode = snap.velocity_mode;  // -1..3 incl. BREATHE
   if (isfinite(snap.velocity_magnitude)) G.velocity_magnitude = clamp01(snap.velocity_magnitude);
   if (snap.season >= 0 && snap.season <= 3) G.season = snap.season;
   if (isfinite(snap.season_phase))     G.season_phase = clamp01(snap.season_phase);
@@ -3712,11 +3714,20 @@ static void aml_exec_level0(const char* cmd, const char* arg, AML_ExecCtx* ctx, 
       snprintf(argup, sizeof(argup), "%.31s", arg);
       upcase(argup);
 
+      int prev_vel = G.velocity_mode;
       if (!strcmp(argup, "RUN")) G.velocity_mode = AM_VEL_RUN;
       else if (!strcmp(argup, "WALK")) G.velocity_mode = AM_VEL_WALK;
-      else if (!strcmp(argup, "NOMOVE")) G.velocity_mode = AM_VEL_NOMOVE;
+      else if (!strcmp(argup, "NOMOVE") || !strcmp(argup, "STOP")) G.velocity_mode = AM_VEL_NOMOVE;
       else if (!strcmp(argup, "BACKWARD")) G.velocity_mode = AM_VEL_BACKWARD;
-      else G.velocity_mode = clampi(safe_atoi(arg), -1, 2);
+      else if (!strcmp(argup, "BREATHE")) G.velocity_mode = AM_VEL_BREATHE;
+      else G.velocity_mode = clampi(safe_atoi(arg), -1, 3);
+
+      // INERTIA (from the canon's velocity work) — the body resists changing its
+      // gait. Switching the velocity mode costs (adds to debt); re-stating the same
+      // mode is free. Over-switching exhausts the field, and the D4 recovery rule
+      // (debt > 5 in am_step) then forces NOMOVE — a mood that holds and resists.
+      if (G.velocity_mode != prev_vel)
+        G.debt = clampf(G.debt + AM_VELOCITY_INERTIA, 0.0f, 100.0f);
 
       update_effective_temp();
     }

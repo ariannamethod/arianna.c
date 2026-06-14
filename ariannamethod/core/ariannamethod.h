@@ -47,6 +47,8 @@ void am_free_compiled(void* cs);
 #define AM_VEL_WALK     1   // balanced (temp = 0.85)
 #define AM_VEL_RUN      2   // high entropy chaos (temp = 1.2)
 #define AM_VEL_BACKWARD (-1) // time rewind, debt forgiveness
+#define AM_VEL_BREATHE  3   // settling exhale — a somatic operator from Leo (temp = 0.6)
+#define AM_VEL_STOP     AM_VEL_NOMOVE // somatic alias: the held, cold-observer state
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SCHUMANN CONSTANTS — Sierra Nevada ELF Station 2013-2017
@@ -148,7 +150,7 @@ typedef struct {
 
   // MOVEMENT
   int   pending_jump;       // queued jump (sim steps)
-  int   velocity_mode;      // NOMOVE=0, WALK=1, RUN=2, BACKWARD=-1
+  int   velocity_mode;      // NOMOVE=0, WALK=1, RUN=2, BACKWARD=-1, BREATHE=3 (STOP=NOMOVE)
   float velocity_magnitude; // current speed (0..1)
   float base_temperature;   // base temp before velocity modulation
   float effective_temp;     // computed: base + velocity + expert blend

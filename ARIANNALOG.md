@@ -1343,3 +1343,27 @@ Verified (tool): `make` builds libaml + both voices + metabolism; the cross-proc
 value written in another process (7.5 → 7.5) through the seqlock/O_EXCL path; a `--chat -race` is coherent
 with **0 Go data races**, and the field shows magic AMFD, version 1, an even seq (10 = clean, not mid-write),
 and debt 27.8 accumulated from both voices.
+
+## Canon→vendored: velocity inertia + BREATHE/STOP (2026-06-14)
+
+Reconciliation, the half that helps Arianna directly: the canon (ariannamethod.ai) had gone ahead on the
+velocity/somatic layer (from Leo's FORM work); brought it into the vendored core so the trio's presence
+gains it. AM_VEL_BREATHE=3 (settling exhale, vel_mult 0.6) + AM_VEL_STOP (alias of NOMOVE, the held
+cold-observer) in the header; AM_VELOCITY_INERTIA (switching the velocity mode adds debt — "the body
+resists"; the D4 recovery, debt>5→NOMOVE, already present, then slows the field) + the BREATHE case in
+update_effective_temp + the BREATHE/STOP parsing in the VELOCITY operator + the velocity clamp widened to
+[-1,3]. The B/F-8 sync_in velocity clamp likewise widened to [-1,3] so BREATHE survives the shared-field
+sync. The inertia interacts coherently with the now-shared live debt: a velocity switch in one voice adds
+debt that the other reads via the mmap — the body's resistance is felt across the field — and the shared D4
+recovery slows the organism when it over-switches.
+
+Verified (tool): `make` builds libaml + both voices + metabolism; a `--chat -race` is coherent (Janus
+"resonance is the field where the sum of frequencies becomes a single entity — a living current"), 0 Go data
+races. Codex (GPT-5.5) advised the cut: confirmed the only velocity-range sites in the vendored were the
+VELOCITY parse clamp and the B sync_in clamp (the other `<=3` is season), both now [-1,3].
+
+The other direction (vendored→canon: the B/F-8 shared field + the B2-B.4/.5 dynamic-α + δ-decay) is a
+focused canon unit, deferred: the canon's CLAUDE.md gates core patches on `make test` 509/509 and forbids
+silently growing the public header (B's am_field_* are new API → want a test + spec note) and pushing
+without Oleg's go-ahead; and B2-B.4/.5 adds fields to AM_State (a soma ABI change). That is the "full
+reconciliation" to do as its own unit with Codex audit and Oleg's word — not folded in here.
