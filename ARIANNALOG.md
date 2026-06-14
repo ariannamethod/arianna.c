@@ -1367,3 +1367,18 @@ focused canon unit, deferred: the canon's CLAUDE.md gates core patches on `make 
 silently growing the public header (B's am_field_* are new API → want a test + spec note) and pushing
 without Oleg's go-ahead; and B2-B.4/.5 adds fields to AM_State (a soma ABI change). That is the "full
 reconciliation" to do as its own unit with Codex audit and Oleg's word — not folded in here.
+
+## B hardened by a second Codex pass (the canon-sync audit) (2026-06-14)
+
+Closing the B series, a Codex (GPT-5.5) audit of the canon port surfaced fixes that apply to the same code
+here in the vendored core too: sync_in now refreshes derived state (`update_effective_temp()` after committing
+the synced velocity, so effective_temp/time_direction aren't stale until the next am_step) and clamps the
+accumulators to the field's own caps (debt ≤ 100, temporal_debt ≤ 10); `am_field_attach` now FAILS (returns
+<0, unmaps) when a non-creator times out waiting for the file size or the magic, instead of mapping a
+short/uninitialised region and reporting success; and the whole shared-field implementation is wrapped in
+`#ifndef AM_IO_DISABLED` with no-op stubs, so that build mode links. The seqlock is single-writer by design
+(the metabolism serializes the two voices) — documented; a true concurrent-writer lock would be B v2.
+
+Verified: `make` builds libaml + both voices + metabolism; `-DAM_IO_DISABLED` compiles (stub path); a
+`--chat -race` is coherent, 0 Go data races; the cross-process probe reads back a value written in another
+process (9.0 → 9.0) through the hardened path.

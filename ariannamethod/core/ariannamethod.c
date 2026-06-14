@@ -943,6 +943,7 @@ int am_field_load(const char* path) {
 // self-correcting, not invariants). See AMFieldShared in the header.
 #define AM_FIELD_MAGIC   0x44464d41u  /* 'A','M','F','D' little-endian */
 #define AM_FIELD_VERSION 1u
+#ifndef AM_IO_DISABLED
 static AMFieldShared* g_field_shared = NULL;
 
 int am_field_attached(void) { return g_field_shared != NULL; }
@@ -985,8 +986,10 @@ void am_field_sync_in(void) {
     if (s->seq == seq1) { ok = 1; break; }  // unchanged across the read → consistent
   }
   if (!ok) return;
-  if (isfinite(snap.debt))             G.debt = snap.debt < 0 ? 0 : snap.debt;
-  if (isfinite(snap.temporal_debt))    G.temporal_debt = snap.temporal_debt;
+  // Commit through finite + range guards (match the field's own caps: debt<=100,
+  // temporal_debt<=10) so a corrupt mmap or torn read can't inject bad state.
+  if (isfinite(snap.debt))             G.debt = clampf(snap.debt, 0.0f, 100.0f);
+  if (isfinite(snap.temporal_debt))    G.temporal_debt = clampf(snap.temporal_debt, 0.0f, 10.0f);
   if (snap.velocity_mode >= -1 && snap.velocity_mode <= 3) G.velocity_mode = snap.velocity_mode;  // -1..3 incl. BREATHE
   if (isfinite(snap.velocity_magnitude)) G.velocity_magnitude = clamp01(snap.velocity_magnitude);
   if (snap.season >= 0 && snap.season <= 3) G.season = snap.season;
@@ -996,6 +999,7 @@ void am_field_sync_in(void) {
   if (isfinite(snap.summer_energy))    G.summer_energy = clamp01(snap.summer_energy);
   if (isfinite(snap.autumn_energy))    G.autumn_energy = clamp01(snap.autumn_energy);
   if (isfinite(snap.winter_energy))    G.winter_energy = clamp01(snap.winter_energy);
+  update_effective_temp();              // refresh effective_temp / time_direction from the synced gait
 }
 
 int am_field_attach(const char* path) {
@@ -1012,8 +1016,9 @@ int am_field_attach(const char* path) {
   } else {
     fd = open(path, O_RDWR, 0644);
     if (fd < 0) { fprintf(stderr, "[am_field_attach] open '%s' failed\n", path); return -2; }
-    struct stat st;  // wait for the creator to size the file
-    for (int i = 0; i < 2000; i++) { if (fstat(fd, &st) == 0 && (size_t)st.st_size >= sz) break; usleep(1000); }
+    struct stat st; int sized = 0;  // wait for the creator to size the file
+    for (int i = 0; i < 2000; i++) { if (fstat(fd, &st) == 0 && (size_t)st.st_size >= sz) { sized = 1; break; } usleep(1000); }
+    if (!sized) { close(fd); return -3; }  // creator never sized it — don't map a short region
   }
   void* p = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   close(fd);
@@ -1026,7 +1031,9 @@ int am_field_attach(const char* path) {
     __sync_synchronize();                      // release: payload+version before magic
     g_field_shared->magic = AM_FIELD_MAGIC;    // magic last gates readers
   } else {
-    for (int i = 0; i < 2000 && g_field_shared->magic != AM_FIELD_MAGIC; i++) usleep(1000);
+    int ready = 0;
+    for (int i = 0; i < 2000; i++) { if (g_field_shared->magic == AM_FIELD_MAGIC) { ready = 1; break; } usleep(1000); }
+    if (!ready) { munmap(g_field_shared, sz); g_field_shared = NULL; return -5; }  // creator never published — unusable
   }
   return 0;
 }
@@ -1034,6 +1041,13 @@ int am_field_attach(const char* path) {
 void am_field_detach(void) {
   if (g_field_shared) { munmap(g_field_shared, sizeof(AMFieldShared)); g_field_shared = NULL; }
 }
+#else  /* AM_IO_DISABLED — no mmap/file IO; stubs so consumers still link */
+int  am_field_attached(void) { return 0; }
+void am_field_sync_out(void) {}
+void am_field_sync_in(void) {}
+int  am_field_attach(const char* path) { (void)path; return -1; }
+void am_field_detach(void) {}
+#endif /* AM_IO_DISABLED */
 
 // ── Co-occurrence sidecar (per-voice) ──────────────────────────────────────
 // cooc edges are token-ids in a voice's OWN vocab (Janus 32759 / Resonance 16128),
