@@ -1317,3 +1317,29 @@ both hot voices runs coherent, reaches the end, reports **0 Go data races**, and
 both voices live — debt 27.6, dissonance 0.22 in `weights/arianna.field` after two turns (Resonance's debt
 now bends Janus's next breath this turn, not next session). Next: Codex review for insight/bugs, then
 canon-sync the core to ariannamethod.ai and merge.
+
+## B / F-8 — hardened after a Codex review (2026-06-14)
+
+A Codex (GPT-5.5) review of the live shared field sharpened the protocol; the field-carry set was narrowed
+and the cross-process mechanics hardened:
+- The shared set is now only the unambiguously field-LEVEL carry — debt, temporal_debt, velocity, season
+  (+ the four energies). dissonance / pain / tension carried per-voice components (Janus's calendar + personal
+  dissonance, the YENT_DISS knob) that a shared write would clobber; dark_gravity is derived per-voice from
+  autumn_energy. They stay LOCAL now (no clobber, no cross-voice contamination).
+- Single-owner init: `am_field_attach` uses `O_CREAT|O_EXCL` — the creator sizes + seeds + publishes magic
+  last (with a release fence); everyone else opens the existing file and waits for magic. No
+  last-initializer-wins race.
+- A seqlock (odd seq = write in progress) + `__sync_synchronize` release/acquire fences around sync_out /
+  sync_in, plus a version check, so a reader never commits a half-written or stale-versioned struct on a
+  weakly ordered CPU. sync_in commits into AM_State through finite/range guards (NaN/inf and out-of-range
+  rejected). The two voices run serialized in the metabolism (Janus.ask blocks, then Resonance.ask), so
+  writes never actually overlap — the seqlock makes the protocol correct if they ever do (a true
+  concurrent-increment merge for the accumulators would be B v2).
+- `resonance_save_breath` now sync_in's before snapshotting the soma, so the soma's field-carry matches the
+  mmap (which stays the source of truth on reload). Chain mode (arianna-r) is outside the live field by
+  design — it is not the trio-duet path.
+
+Verified (tool): `make` builds libaml + both voices + metabolism; the cross-process probe still reads back a
+value written in another process (7.5 → 7.5) through the seqlock/O_EXCL path; a `--chat -race` is coherent
+with **0 Go data races**, and the field shows magic AMFD, version 1, an even seq (10 = clean, not mid-write),
+and debt 27.8 accumulated from both voices.

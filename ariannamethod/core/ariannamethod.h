@@ -505,25 +505,26 @@ int am_field_load(const char* path);
 // Resonance's accumulated debt bends Janus's next breath, this turn, not next
 // session. Per-voice state (cooc / gamma / lora) and per-step computed metrics
 // (entropy / resonance) stay LOCAL. Writes are benign float races on a soft field.
+// Only the unambiguously field-LEVEL carry is shared. Excluded on purpose:
+// dissonance / pain / tension carry per-voice components (Janus's calendar +
+// personal dissonance, YENT_DISS) and would clobber them; dark_gravity is derived
+// per-voice from autumn_energy; cooc / gamma / lora are per-voice; entropy /
+// resonance are recomputed each step. (Codex review 2026-06-14.)
 typedef struct {
   unsigned int magic;
   unsigned int version;
-  // SUFFERING / DEBT — the accumulators last-writer-wins used to drop
+  unsigned int seq;     // publication counter — bumped around each write (torn-read guard)
+  // DEBT — the prophecy-debt accumulators last-writer-wins used to drop
   float debt;
   float temporal_debt;
-  float dissonance;
-  float pain;
-  float tension;
-  // MOVEMENT
+  // MOVEMENT — the field's gait
   int   velocity_mode;
   float velocity_magnitude;
-  // SEASON (Async Field Forever)
+  // SEASON (Async Field Forever) — the one organism's cycle
   int   season;
   float season_phase;
   float season_intensity;
   float spring_energy, summer_energy, autumn_energy, winter_energy;
-  // DARK MATTER
-  float dark_gravity;
 } AMFieldShared;
 
 int  am_field_attach(const char* path); // mmap MAP_SHARED (create+init if absent); 0 ok, <0 error

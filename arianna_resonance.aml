@@ -76,6 +76,7 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
 }
 
 static void resonance_save_breath(void) {
+    am_field_sync_in();   /* B/F-8: pull the live field before snapshotting soma, so the soma's field-carry matches the mmap (the mmap stays the source of truth on reload) */
     am_cooc_save("weights/arianna.cooc.r");   /* per-voice cooc sidecar */
     int rc = am_exec("SAVE \"weights/arianna.soma\"\n");
     if (rc == 0)

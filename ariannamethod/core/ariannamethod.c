@@ -945,54 +945,86 @@ static AMFieldShared* g_field_shared = NULL;
 
 int am_field_attached(void) { return g_field_shared != NULL; }
 
+// am_field_sync_out — publish G's field-carry under a seqlock: bump seq odd
+// (write in progress), fence, write the payload, fence, bump seq even (done). A
+// reader that catches an odd seq, or a seq that changed mid-read, retries — so it
+// never commits a half-written struct. NOTE: the metabolism runs the two voices
+// serialized (Janus.ask blocks, then Resonance.ask), so writes never actually
+// overlap; the seqlock + fences make the protocol correct if they ever do.
 void am_field_sync_out(void) {
   AMFieldShared* s = g_field_shared;
   if (!s) return;
+  s->seq |= 1u;                         // odd → write in progress
+  __sync_synchronize();
   s->debt = G.debt;                     s->temporal_debt = G.temporal_debt;
-  s->dissonance = G.dissonance;         s->pain = G.pain;          s->tension = G.tension;
   s->velocity_mode = G.velocity_mode;   s->velocity_magnitude = G.velocity_magnitude;
   s->season = G.season;                 s->season_phase = G.season_phase;
   s->season_intensity = G.season_intensity;
   s->spring_energy = G.spring_energy;   s->summer_energy = G.summer_energy;
   s->autumn_energy = G.autumn_energy;   s->winter_energy = G.winter_energy;
-  s->dark_gravity = G.dark_gravity;
+  __sync_synchronize();
+  s->seq = (s->seq & ~1u) + 2u;         // even → done (advance the counter)
 }
 
+// am_field_sync_in — read a consistent snapshot under the seqlock, then commit it
+// into G with finite/range guards (a corrupt mmap or a torn read can't inject
+// NaN/inf or out-of-range state). Leaves G unchanged if it can't get a clean read.
 void am_field_sync_in(void) {
   AMFieldShared* s = g_field_shared;
-  if (!s || s->magic != AM_FIELD_MAGIC) return;
-  G.debt = s->debt;                     G.temporal_debt = s->temporal_debt;
-  G.dissonance = s->dissonance;         G.pain = s->pain;          G.tension = s->tension;
-  G.velocity_mode = s->velocity_mode;   G.velocity_magnitude = s->velocity_magnitude;
-  G.season = s->season;                 G.season_phase = s->season_phase;
-  G.season_intensity = s->season_intensity;
-  G.spring_energy = s->spring_energy;   G.summer_energy = s->summer_energy;
-  G.autumn_energy = s->autumn_energy;   G.winter_energy = s->winter_energy;
-  G.dark_gravity = s->dark_gravity;
+  if (!s || s->magic != AM_FIELD_MAGIC || s->version != AM_FIELD_VERSION) return;
+  AMFieldShared snap;
+  int ok = 0;
+  for (int tries = 0; tries < 16; tries++) {
+    unsigned int seq1 = s->seq;
+    if (seq1 & 1u) continue;            // a writer is mid-publish — retry
+    __sync_synchronize();
+    snap = *s;                          // copy the whole region
+    __sync_synchronize();
+    if (s->seq == seq1) { ok = 1; break; }  // unchanged across the read → consistent
+  }
+  if (!ok) return;
+  if (isfinite(snap.debt))             G.debt = snap.debt < 0 ? 0 : snap.debt;
+  if (isfinite(snap.temporal_debt))    G.temporal_debt = snap.temporal_debt;
+  if (snap.velocity_mode >= -1 && snap.velocity_mode <= 2) G.velocity_mode = snap.velocity_mode;
+  if (isfinite(snap.velocity_magnitude)) G.velocity_magnitude = clamp01(snap.velocity_magnitude);
+  if (snap.season >= 0 && snap.season <= 3) G.season = snap.season;
+  if (isfinite(snap.season_phase))     G.season_phase = clamp01(snap.season_phase);
+  if (isfinite(snap.season_intensity)) G.season_intensity = clamp01(snap.season_intensity);
+  if (isfinite(snap.spring_energy))    G.spring_energy = clamp01(snap.spring_energy);
+  if (isfinite(snap.summer_energy))    G.summer_energy = clamp01(snap.summer_energy);
+  if (isfinite(snap.autumn_energy))    G.autumn_energy = clamp01(snap.autumn_energy);
+  if (isfinite(snap.winter_energy))    G.winter_energy = clamp01(snap.winter_energy);
 }
 
 int am_field_attach(const char* path) {
   if (!path || !path[0]) return -1;
   size_t sz = sizeof(AMFieldShared);
-  int fd = open(path, O_RDWR | O_CREAT, 0644);
-  if (fd < 0) { fprintf(stderr, "[am_field_attach] open '%s' failed\n", path); return -2; }
-  struct stat st;
-  if (fstat(fd, &st) != 0) { close(fd); return -3; }
-  if ((size_t)st.st_size < sz) {
+  // Single-owner init: the creator (O_EXCL wins) sizes + seeds + publishes magic
+  // last; everyone else opens the existing file and waits for magic. No
+  // last-initializer-wins race (Codex High-2/H-3).
+  int created = 0;
+  int fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0644);
+  if (fd >= 0) {
+    created = 1;
     if (ftruncate(fd, (off_t)sz) != 0) { close(fd); return -3; }
+  } else {
+    fd = open(path, O_RDWR, 0644);
+    if (fd < 0) { fprintf(stderr, "[am_field_attach] open '%s' failed\n", path); return -2; }
+    struct stat st;  // wait for the creator to size the file
+    for (int i = 0; i < 2000; i++) { if (fstat(fd, &st) == 0 && (size_t)st.st_size >= sz) break; usleep(1000); }
   }
   void* p = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   close(fd);
   if (p == MAP_FAILED) { fprintf(stderr, "[am_field_attach] mmap '%s' failed\n", path); return -4; }
   g_field_shared = (AMFieldShared*)p;
-  // First creator seeds the region from this voice's current field; subsequent
-  // attachers find the magic set and read the live field via sync_in. (The
-  // create+init race between two cold-starting daemons is benign — both seed from
-  // their own G; the field is soft.)
-  if (g_field_shared->magic != AM_FIELD_MAGIC) {
-    am_field_sync_out();
+  if (created) {
+    g_field_shared->seq = 0;
+    am_field_sync_out();                       // seed the payload from this voice's soma
     g_field_shared->version = AM_FIELD_VERSION;
-    g_field_shared->magic = AM_FIELD_MAGIC;  // magic last: a reader treats unset magic as not-ready
+    __sync_synchronize();                      // release: payload+version before magic
+    g_field_shared->magic = AM_FIELD_MAGIC;    // magic last gates readers
+  } else {
+    for (int i = 0; i < 2000 && g_field_shared->magic != AM_FIELD_MAGIC; i++) usleep(1000);
   }
   return 0;
 }
