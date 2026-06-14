@@ -495,6 +495,44 @@ void am_apply_field_to_logits(float* logits, int n);
 int am_field_save(const char* path);
 int am_field_load(const char* path);
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// LIVE SHARED FIELD (B / F-8 real fix) — θ as ONE field across the two voices.
+// am_field_save/load persist the whole AM_State per voice, so two daemons writing
+// the same soma at exit is last-writer-wins (one voice's field-carry is lost).
+// Instead, the field-carry physics that should COUPLE the voices in real time —
+// debt, suffering, movement, season, dark gravity — lives in a small mmap'd
+// MAP_SHARED region both processes read+write live, so the field genuinely merges:
+// Resonance's accumulated debt bends Janus's next breath, this turn, not next
+// session. Per-voice state (cooc / gamma / lora) and per-step computed metrics
+// (entropy / resonance) stay LOCAL. Writes are benign float races on a soft field.
+// Only the unambiguously field-LEVEL carry is shared. Excluded on purpose:
+// dissonance / pain / tension carry per-voice components (Janus's calendar +
+// personal dissonance, YENT_DISS) and would clobber them; dark_gravity is derived
+// per-voice from autumn_energy; cooc / gamma / lora are per-voice; entropy /
+// resonance are recomputed each step. (Codex review 2026-06-14.)
+typedef struct {
+  unsigned int magic;
+  unsigned int version;
+  unsigned int seq;     // publication counter — bumped around each write (torn-read guard)
+  // DEBT — the prophecy-debt accumulators last-writer-wins used to drop
+  float debt;
+  float temporal_debt;
+  // MOVEMENT — the field's gait
+  int   velocity_mode;
+  float velocity_magnitude;
+  // SEASON (Async Field Forever) — the one organism's cycle
+  int   season;
+  float season_phase;
+  float season_intensity;
+  float spring_energy, summer_energy, autumn_energy, winter_energy;
+} AMFieldShared;
+
+int  am_field_attach(const char* path); // mmap MAP_SHARED (create+init if absent); 0 ok, <0 error
+void am_field_detach(void);             // munmap the shared region
+void am_field_sync_in(void);            // shared → AM_State (read the live field)
+void am_field_sync_out(void);           // AM_State → shared (publish this voice's contribution)
+int  am_field_attached(void);           // 1 if a shared field is mapped
+
 // Co-occurrence sidecar (per-voice) — cooc edges are voice-local token-ids, kept
 // out of the shared soma to avoid cross-vocab contamination. Load after the soma
 // LOAD (overwrites contaminated cooc), save on exit. Missing file = fresh.

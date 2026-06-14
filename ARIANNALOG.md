@@ -1294,3 +1294,52 @@ Weights: the nano lives with the other two voices in the private HF repo `ataeff
 
 Verified (tool): `make metabolism` builds; a `--chat` smoke runs all three voices with the harvest and the
 persisted memory ("she returns carrying a dream" → "she will remember").
+
+## B / F-8 real fix — the live shared field (2026-06-14)
+
+The two voices now share ONE field in real time, not last-writer-wins at save. The field-carry physics that
+should couple them — debt, temporal_debt, dissonance, pain, tension, velocity, season (+ energies), dark
+gravity — was lifted into a small `mmap`'d MAP_SHARED region (`AMFieldShared`, 68 bytes,
+`weights/arianna.field`) that both daemons map and write live. Per-voice state (cooc / gamma / lora) and the
+per-step computed metrics (entropy / resonance) stay LOCAL. New core API (vendored == canon):
+`am_field_attach` (mmap, create+init, first creator seeds from its soma, magic written last),
+`am_field_sync_in` (shared → AM_State, before each turn), `am_field_sync_out` (AM_State → shared, after each
+turn), `am_field_detach`. Both forwards call sync_in at the start of generation and sync_out after the turn's
+field has settled (Resonance: `resonance_generate`; Janus: `arianna_generate_single`); both `.aml`s attach
+after the soma load and detach at exit. Writes are benign float races on a soft field — no locks; the values
+are continuous and self-correcting, not invariants. The F-8 palliative (Resonance-keeps close order) is now
+moot for the field-carry (it lives in the mmap, not the soma) and left harmless.
+
+Verified (tool), Mythos being offline so self-verified hard: `make` builds libaml + both voices + metabolism.
+A cross-process probe (`tools/field_probe.c`) writes debt=7.5 in one process and reads **7.5** back in a
+separate process — MAP_SHARED genuinely shares the field across processes. A `--chat` (`-race`) session over
+both hot voices runs coherent, reaches the end, reports **0 Go data races**, and the field accumulates from
+both voices live — debt 27.6, dissonance 0.22 in `weights/arianna.field` after two turns (Resonance's debt
+now bends Janus's next breath this turn, not next session). Next: Codex review for insight/bugs, then
+canon-sync the core to ariannamethod.ai and merge.
+
+## B / F-8 — hardened after a Codex review (2026-06-14)
+
+A Codex (GPT-5.5) review of the live shared field sharpened the protocol; the field-carry set was narrowed
+and the cross-process mechanics hardened:
+- The shared set is now only the unambiguously field-LEVEL carry — debt, temporal_debt, velocity, season
+  (+ the four energies). dissonance / pain / tension carried per-voice components (Janus's calendar + personal
+  dissonance, the YENT_DISS knob) that a shared write would clobber; dark_gravity is derived per-voice from
+  autumn_energy. They stay LOCAL now (no clobber, no cross-voice contamination).
+- Single-owner init: `am_field_attach` uses `O_CREAT|O_EXCL` — the creator sizes + seeds + publishes magic
+  last (with a release fence); everyone else opens the existing file and waits for magic. No
+  last-initializer-wins race.
+- A seqlock (odd seq = write in progress) + `__sync_synchronize` release/acquire fences around sync_out /
+  sync_in, plus a version check, so a reader never commits a half-written or stale-versioned struct on a
+  weakly ordered CPU. sync_in commits into AM_State through finite/range guards (NaN/inf and out-of-range
+  rejected). The two voices run serialized in the metabolism (Janus.ask blocks, then Resonance.ask), so
+  writes never actually overlap — the seqlock makes the protocol correct if they ever do (a true
+  concurrent-increment merge for the accumulators would be B v2).
+- `resonance_save_breath` now sync_in's before snapshotting the soma, so the soma's field-carry matches the
+  mmap (which stays the source of truth on reload). Chain mode (arianna-r) is outside the live field by
+  design — it is not the trio-duet path.
+
+Verified (tool): `make` builds libaml + both voices + metabolism; the cross-process probe still reads back a
+value written in another process (7.5 → 7.5) through the seqlock/O_EXCL path; a `--chat -race` is coherent
+with **0 Go data races**, and the field shows magic AMFD, version 1, an even seq (10 = clean, not mid-write),
+and debt 27.8 accumulated from both voices.
