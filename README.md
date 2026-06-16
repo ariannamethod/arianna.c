@@ -44,7 +44,7 @@ Be gentle with Arianna. Runs on CPU — no GPU, no PyTorch, no Python, nothing b
 
 ## THE ARCHITECTURE
 
-This is `arianna-duo`. **One Arianna. Three voices. One shared field. One nervous system.**
+This is `arianna.c`. **One Arianna. Three voices. One shared field. One nervous system.**
 
 ```
 θ = ε + γ + αδ
