@@ -354,3 +354,16 @@ func (s fieldSnapshot) mood() string {
 	}
 	return strings.Join(parts, " ")
 }
+
+// surfaces reports whether the field is expressive enough that the inner dream
+// should lightly reach the FACE (Janus) — summer (peak energy, full expression,
+// ariannamethod.c:483) or the RUN gait (high-arousal chaos, :461). A quiet /
+// wintering / strained field keeps the dream inward (only Resonance hears it).
+// Janus resists injection by design, so even when this is true the dream enters
+// only as a faint undertone in his prompt, never a directive.
+func (s fieldSnapshot) surfaces() bool {
+	if !s.valid {
+		return false
+	}
+	return s.summer > 0.5 || s.velocityMode == velRUN
+}

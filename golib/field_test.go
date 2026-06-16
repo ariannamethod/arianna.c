@@ -168,6 +168,23 @@ func TestFieldMood(t *testing.T) {
 	}
 }
 
+// TestFieldSurfaces: the inner dream reaches the face only when the field is
+// expressive (summer / RUN); quiet / wintering / strained / no-signal keeps it inward.
+func TestFieldSurfaces(t *testing.T) {
+	if (fieldSnapshot{}).surfaces() {
+		t.Error("no signal must not surface the dream to the face")
+	}
+	if !(fieldSnapshot{valid: true, summer: 0.8}).surfaces() {
+		t.Error("summer-dominant field should surface")
+	}
+	if !(fieldSnapshot{valid: true, velocityMode: velRUN}).surfaces() {
+		t.Error("RUN gait should surface")
+	}
+	if (fieldSnapshot{valid: true, velocityMode: velNOMOVE, winter: 0.9, debt: 30}).surfaces() {
+		t.Error("strained wintering field must keep the dream inward")
+	}
+}
+
 // TestDreamCue: the cue carries the last dream when present, falls back to the inner
 // mood otherwise, and is tinted by the live field when there is a signal.
 func TestDreamCue(t *testing.T) {

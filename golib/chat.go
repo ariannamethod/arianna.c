@@ -60,6 +60,12 @@ func runChat() {
 	breathDone := make(chan struct{})
 	go runBreathing(tc, &voiceMu, &lastDream, breathStop, breathDone)
 
+	// the human turn reads the live field too (its OWN reader — the breathing
+	// goroutine owns a separate one, so attach() never races): when the field is
+	// expressive, the inner dream lightly surfaces to Janus's face.
+	faceFR := newFieldReader(fieldPath)
+	defer faceFR.close()
+
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
 	prevReson := ""
@@ -82,7 +88,7 @@ func runChat() {
 			sendLatest(tc.seedCh, human)
 		}
 
-		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream)
+		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, faceFR.read().surfaces())
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson

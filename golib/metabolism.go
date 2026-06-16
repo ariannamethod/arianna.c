@@ -216,10 +216,17 @@ func (tc *trioCtx) stop() {
 // subconscious is seeded (the direct human→nano channel re-opens when the
 // attention wanders inward) and any earlier dream surfaces. Each voice feeds the
 // inner world. Returns the words; the caller prints and controls the loop.
-func (tc *trioCtx) turn(human, context, lastDream string) (janus, reson string, dr dreamResult, hasDream bool) {
+func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (janus, reson string, dr dreamResult, hasDream bool) {
 	janusPrompt := human
 	if context != "" {
 		janusPrompt = human + " " + context
+	}
+	// When the field is expressive (summer / running), the inner dream lightly
+	// SURFACES to the face — a faint undertone in Janus's prompt (ellipsized), not a
+	// directive. Janus resists injection by design, so it stays a trace; a quiet /
+	// wintering field keeps the dream inward (only Resonance hears it below).
+	if surfaceDream && lastDream != "" {
+		janusPrompt += " " + ellipsize(lastDream, 60)
 	}
 	janus = tc.janusD.ask(janusPrompt)
 	tc.iw.ProcessText(janus)
@@ -287,7 +294,7 @@ func runDemo(prompt string) {
 
 	prevReson, lastDream := "", ""
 	for i := 1; i <= nExch; i++ {
-		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream)
+		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream, false)
 		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
 		prevReson = reson

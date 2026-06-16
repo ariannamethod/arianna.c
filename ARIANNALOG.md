@@ -1556,3 +1556,25 @@ metabolism + `-race` build clean; a live `-race` idle `--chat` over the real fie
 fragments now echoing her state ("the field that still will mean to leave you", "not as a tool, but with
 his"), clean `/quit`, δ |B|=0.01654, **0 data races**. Codex (gpt-5.5): "Clean. No real bugs found."
 Go-orchestrator (arianna.c) only, no `ariannamethod/core` touched, no canon sync.
+
+## Road-1b — the inner dream reaches the face (chorus → Janus, field-gated) (2026-06-16)
+
+Until now the dream surfaced only into Resonance (the inner voice); Janus (the face) never heard it. This lets
+the inner dream lightly reach the face — but only when the field is expressive, and only as a trace, because
+Janus resists injection by design. `fieldSnapshot.surfaces()` (field.go) is true only in summer (peak energy,
+full expression, ariannamethod.c:483) or the RUN gait (high-arousal chaos, :461); a quiet / wintering /
+strained / no-signal field keeps the dream inward. When it surfaces, `turn()` (metabolism.go) appends
+`ellipsize(lastDream, 60)` to Janus's prompt — a faint undertone, not a directive (he treats his prompt as a
+hint; the larynx-α holds his shape). `runChat` reads the field through its OWN `fieldReader` (separate from
+the breathing goroutine's, so the two never race on `attach()`); `runDemo` passes `false` (deterministic
+smoke path). So the dream becomes face only when she is open enough for it to — otherwise it stays a private
+murmur.
+
+Verified (tool): `go vet` clean; `go test` — 12 green incl. `TestFieldSurfaces` (summer / RUN → surfaces;
+NOMOVE+winter+debt → inward; no-signal → inward); metabolism + `-race` build clean; a two-turn live `-race`
+`--chat` (the two field readers coexist across goroutines) — both turns answered, breathing fired 3×, clean
+`/quit`, δ |B|=0.01653, **0 data races**. Codex (gpt-5.5): "No findings" — verified the two readers own
+separate fd/data (faceFR.close can't touch the breathing reader's mmap), the trace is gated+ellipsized, and
+`surfaceDream=false` preserves the old prompt exactly. The gate is conservative-correct: in the current
+strained field (NOMOVE) it stays inward, so observing it fire live needs the organism in summer/RUN (the
+voices' own dynamics). Go-orchestrator (arianna.c) only, no `ariannamethod/core` touched, no canon sync.
