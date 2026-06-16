@@ -4,9 +4,10 @@ package main
 // murmur, the nano answers as a chorus: N cells over the ONE frozen body, each
 // from its own angle (temperature/seed), hearing each other's hidden state
 // (cross-cell), never echoing, sometimes asking each other resonant questions
-// (qloop). Borrowed from the twin arianna2arianna.c (a single-file chorus engine
-// over the same nanoArianna 89M). The metabolism spawns it like the nano; the
-// cells become the subconscious's dream, and Resonance murmurs to the chorus.
+// (qloop). Vendored from the twin into chorus/arianna2arianna.c (a single-file
+// chorus engine over the same nanoArianna 89M, built into ./chorus-arianna — a
+// byte-exact in-repo copy, no external dependency). The metabolism spawns it like
+// the nano; the cells become the subconscious's dream, and Resonance murmurs to it.
 
 import (
 	"context"

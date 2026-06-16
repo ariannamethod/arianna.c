@@ -1578,3 +1578,18 @@ separate fd/data (faceFR.close can't touch the breathing reader's mmap), the tra
 `surfaceDream=false` preserves the old prompt exactly. The gate is conservative-correct: in the current
 strained field (NOMOVE) it stays inward, so observing it fire live needs the organism in summer/RUN (the
 voices' own dynamics). Go-orchestrator (arianna.c) only, no `ariannamethod/core` touched, no canon sync.
+
+## Chorus engine vendored — the build is self-contained (2026-06-17)
+
+The chorus engine is now vendored into the repo: `chorus/arianna2arianna.c` is a byte-exact in-repo copy of
+the twin (md5 `d8dce3505fb179c41727528213282578`, 97541 bytes), and the `chorus` Makefile target compiles
+that vendored source — no external repo path, no `CHORUS_DIR` override. `chorus` is in `.PHONY` so the new
+`chorus/` directory can't shadow the target. `golib/chorus.go` exec's the built `./chorus-arianna` as before;
+the binary stays a build artifact (`.gitignore:141`), the source is tracked. This matches the repo's vendor
+pattern (`kk/`, `ariannamethod/`): a vendored unit lives in its own tracked dir, the upstream is only read.
+
+Verified (tool): vendored source md5 == the twin's; with `~/arianna/arianna2arianna` renamed away,
+`make chorus` builds `chorus-arianna` clean from the vendor alone (no external dependency); the binary emits
+the polyphony (`./chorus-arianna … field 4 16 1 0 0 0.3` → 4 cells); `make metabolism` + a `-race` idle
+`--chat` fires the chorus with **0 data races** (no regression); `make -n chorus` performs no read/write
+against the upstream repo. Codex (gpt-5.5): "Clean: no real file:line problems found."

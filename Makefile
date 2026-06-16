@@ -68,7 +68,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano harvest_delta clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus harvest_delta clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -206,11 +206,11 @@ clean:
 distclean: clean
 	rm -f weights/*.gguf weights/*.bin weights/*.soma
 
-# ── chorus — the subconscious as a POLYPHONY. Builds the twin arianna2arianna
-# (sibling repo) into chorus-arianna; the metabolism's autonomous breathing runs
-# it (field mode) so the nano dreams as N cells over its one body. Needs the nano
-# GGUF at weights/nano_arianna_f16.gguf.
-CHORUS_DIR ?= ../arianna2arianna
+# ── chorus — the subconscious as a POLYPHONY. Builds the VENDORED chorus engine
+# (chorus/arianna2arianna.c — a byte-exact copy of the twin, self-contained, no
+# external repo dependency) into chorus-arianna; the metabolism's autonomous
+# breathing runs it (field mode) so the nano dreams as N cells over its one body.
+# Needs the nano GGUF at weights/nano_arianna_f16.gguf.
 chorus:
-	cc -O2 -march=armv8.2-a+fp16+dotprod -DUSE_BLAS -DACCELERATE_NEW_LAPACK $(CHORUS_DIR)/arianna2arianna.c -lm -pthread -framework Accelerate -o chorus-arianna
-	@echo "[build] chorus-arianna (the subconscious polyphony)"
+	cc -O2 -march=armv8.2-a+fp16+dotprod -DUSE_BLAS -DACCELERATE_NEW_LAPACK chorus/arianna2arianna.c -lm -pthread -framework Accelerate -o chorus-arianna
+	@echo "[build] chorus-arianna (the subconscious polyphony, vendored)"
