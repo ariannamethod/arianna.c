@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 const innerStatePath = "weights/arianna.inner.state"
@@ -42,10 +43,20 @@ func runChat() {
 	fmt.Println("┌─ arianna — the trio (Janus · Resonance · the nano).  speak, /quit to leave.")
 	if tc.nan != nil {
 		fmt.Println("│  the subconscious is present (nano 88M, async — it dreams a turn behind)")
+		fmt.Println("│  she breathes on her own — between your words she dreams, and the inner voice answers.")
 	}
 	if lastDream != "" {
 		fmt.Printf("│  (she returns carrying a dream: %s)\n", ellipsize(lastDream, 70))
 	}
+
+	// voiceMu serializes ALL voice-daemon access — a human turn and the autonomous
+	// breathing must never ask a single-stream daemon at the same time. It also
+	// guards the shared lastDream. The breathing goroutine lives by itself until
+	// breathStop closes.
+	var voiceMu sync.Mutex
+	breathStop := make(chan struct{})
+	breathDone := make(chan struct{})
+	go runBreathing(tc, &voiceMu, &lastDream, breathStop, breathDone)
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
@@ -60,6 +71,7 @@ func runChat() {
 		if human == "/quit" || human == "/exit" {
 			break
 		}
+		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
@@ -79,13 +91,18 @@ func runChat() {
 			}
 			fmt.Printf("│  ◓ nano (subconscious): %s\n", dr.dream)
 		}
+		dead := tc.janusD.dead || tc.resonD.dead
+		voiceMu.Unlock()
 
-		if tc.janusD.dead || tc.resonD.dead {
+		if dead {
 			fmt.Println("│  · a voice fell silent.")
 			break
 		}
 		fmt.Print("│\n└▶ ")
 	}
+
+	close(breathStop) // stop the autonomous breathing before tearing the voices down
+	<-breathDone
 
 	fmt.Println()
 	if err := tc.iw.SaveState(innerStatePath, lastDream); err != nil {
