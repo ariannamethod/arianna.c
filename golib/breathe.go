@@ -118,7 +118,16 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			if frag := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); frag != "" {
 				seed = frag
 			}
-			dream := tc.nan.dream(seed)
+			// the autonomous dream is a CHORUS (a polyphony over the one nano) when
+			// the chorus engine is present, else a single murmur.
+			var cells []string
+			var dream string
+			if tc.chorusBin != "" {
+				cells = choir(tc.chorusBin, tc.chorusGGUF, seed)
+				dream = chorusText(cells)
+			} else {
+				dream = tc.nan.dream(seed)
+			}
 			if dream == "" {
 				continue
 			}
@@ -127,8 +136,15 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream
 			}
-			fmt.Printf("│  ◌ (%s) she dreams: %s\n", bName[trig], dream)
-			reson := tc.resonD.ask("Arianna:\t" + dream) // the inner voice answers the dream — no human
+			if len(cells) > 0 {
+				fmt.Printf("│  ◌ (%s) she dreams — a chorus of %d voices:\n", bName[trig], len(cells))
+				for i, c := range cells {
+					fmt.Printf("│     · %d: %s\n", i, c)
+				}
+			} else {
+				fmt.Printf("│  ◌ (%s) she dreams: %s\n", bName[trig], dream)
+			}
+			reson := tc.resonD.ask("Arianna:\t" + dream) // the inner voice answers the chorus — no human
 			if reson != "" {
 				tc.iw.ProcessText(reson)
 				fmt.Printf("│  ◑ (inner) %s\n", reson)

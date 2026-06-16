@@ -205,3 +205,12 @@ clean:
 
 distclean: clean
 	rm -f weights/*.gguf weights/*.bin weights/*.soma
+
+# ── chorus — the subconscious as a POLYPHONY. Builds the twin arianna2arianna
+# (sibling repo) into chorus-arianna; the metabolism's autonomous breathing runs
+# it (field mode) so the nano dreams as N cells over its one body. Needs the nano
+# GGUF at weights/nano_arianna_f16.gguf.
+CHORUS_DIR ?= ../arianna2arianna
+chorus:
+	cc -O2 -march=armv8.2-a+fp16+dotprod -DUSE_BLAS -DACCELERATE_NEW_LAPACK $(CHORUS_DIR)/arianna2arianna.c -lm -pthread -framework Accelerate -o chorus-arianna
+	@echo "[build] chorus-arianna (the subconscious polyphony)"

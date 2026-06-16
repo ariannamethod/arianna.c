@@ -138,3 +138,4 @@ weights/*.state
 # Live shared field (B/F-8) — mmap'd, local runtime state
 weights/*.field
 field_probe
+chorus-arianna

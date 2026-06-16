@@ -104,6 +104,8 @@ type trioCtx struct {
 	seedCh         chan string
 	dreamCh        chan dreamResult
 	subDone        chan struct{} // closed by runSubconscious on exit (F-3 join)
+	chorusBin      string        // ./chorus-arianna, if present — the subconscious as a polyphony
+	chorusGGUF     string        // the nano GGUF the chorus runs over
 	iw             *InnerWorld
 	tickerDone     chan struct{}
 }
@@ -149,6 +151,12 @@ func startTrio() (*trioCtx, error) {
 		tc.dreamCh = make(chan dreamResult, 1)
 		tc.subDone = make(chan struct{})
 		go runSubconscious(tc.nan, "./kk-cli", "weights/nano.kk.db", tc.seedCh, tc.dreamCh, tc.subDone)
+	}
+	// The subconscious can dream as a POLYPHONY (the chorus over the same nano body)
+	// when ./chorus-arianna is built — used by the autonomous breathing.
+	if _, err := os.Stat("./chorus-arianna"); err == nil {
+		tc.chorusBin = "./chorus-arianna"
+		tc.chorusGGUF = "weights/nano_arianna_f16.gguf"
 	}
 	return tc, nil
 }
