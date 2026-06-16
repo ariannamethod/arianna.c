@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -141,6 +142,47 @@ func TestFieldGuards(t *testing.T) {
 	}
 	if g.winter != 1.0 {
 		t.Errorf("out-of-range winter not clamped to 1: %v", g.winter)
+	}
+}
+
+// TestFieldMood: the live field yields an evocative dream cue tracking the dominant
+// seasonal energy + gait + debt; no signal yields "".
+func TestFieldMood(t *testing.T) {
+	if m := (fieldSnapshot{}).mood(); m != "" {
+		t.Errorf("no-signal mood must be empty, got %q", m)
+	}
+	// winter-dominant, NOMOVE, heavy debt → quiet/compression + still + held breath.
+	cold := fieldSnapshot{valid: true, velocityMode: velNOMOVE, winter: 0.8, spring: 0.1, debt: 30}.mood()
+	if !strings.Contains(cold, "winter") || !strings.Contains(cold, "still observer") || !strings.Contains(cold, "held breath") {
+		t.Errorf("cold field mood missing expected pulls: %q", cold)
+	}
+	// summer-dominant, RUN, no debt → flame + racing, no held-breath.
+	hot := fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9, debt: 0}.mood()
+	if !strings.Contains(hot, "summer") || !strings.Contains(hot, "racing") || strings.Contains(hot, "held breath") {
+		t.Errorf("hot field mood wrong: %q", hot)
+	}
+	// all energies at noise floor → no seasonal pull (only gait if any).
+	flat := fieldSnapshot{valid: true, velocityMode: velWALK}.mood()
+	if strings.Contains(flat, "spring") || strings.Contains(flat, "summer") {
+		t.Errorf("noise-floor energies must not assert a season: %q", flat)
+	}
+}
+
+// TestDreamCue: the cue carries the last dream when present, falls back to the inner
+// mood otherwise, and is tinted by the live field when there is a signal.
+func TestDreamCue(t *testing.T) {
+	fs := fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}
+	withDream := dreamCue(Snapshot{}, fs, "the tide remembers")
+	if !strings.Contains(withDream, "the tide remembers") || !strings.Contains(withDream, "summer") {
+		t.Errorf("cue must carry the dream + field tint: %q", withDream)
+	}
+	// no dream → inner mood word present; no field → no tint, still non-empty.
+	noField := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "")
+	if noField == "" {
+		t.Errorf("cue must never be empty (inner mood fallback): %q", noField)
+	}
+	if strings.Contains(noField, "summer") {
+		t.Errorf("no-field cue must not carry a field tint: %q", noField)
 	}
 }
 

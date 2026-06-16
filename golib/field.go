@@ -17,6 +17,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
@@ -307,4 +308,49 @@ func (s fieldSnapshot) describe() string {
 		season = seasonName[s.season]
 	}
 	return fmt.Sprintf("gait=%s season=%s debt=%.1f", gait, season, s.debt)
+}
+
+// mood turns the live field into a short evocative phrase — the dominant seasonal
+// energy, the gait, and the weight of debt — for the autonomous dream cue. The
+// book-fragment the nano dreams on is retrieved against this, so the dream tracks
+// what the organism is resonating with NOW (the resonant spiral made dynamic). The
+// dominant SEASON is read from the live energies (argmax), not the season int — the
+// energies are the homeostatic mood; "" when there is no field signal.
+func (s fieldSnapshot) mood() string {
+	if !s.valid {
+		return ""
+	}
+	var parts []string
+	energies := [4]struct {
+		e float32
+		w string
+	}{
+		{s.spring, "spring, the opening, growth"},
+		{s.summer, "summer, the field in full flame"},
+		{s.autumn, "autumn, the harvest, what settles"},
+		{s.winter, "winter, compression, the quiet"},
+	}
+	best := 0
+	for i := 1; i < len(energies); i++ {
+		if energies[i].e > energies[best].e {
+			best = i
+		}
+	}
+	if energies[best].e > 0.05 { // above the noise floor — a real seasonal pull
+		parts = append(parts, energies[best].w)
+	}
+	switch s.velocityMode {
+	case velRUN:
+		parts = append(parts, "racing, the field at speed")
+	case velNOMOVE:
+		parts = append(parts, "the still observer, holding")
+	case velBREATHE:
+		parts = append(parts, "the settling exhale")
+	case velBACKWARD:
+		parts = append(parts, "time folding back")
+	}
+	if s.debt > 5 { // past the recovery cliff — the held breath
+		parts = append(parts, "the held breath, the weight")
+	}
+	return strings.Join(parts, " ")
 }

@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -68,6 +69,25 @@ func (b *breath) tick(s Snapshot, now time.Time, tm, coolMult float64) int {
 	return -1
 }
 
+// dreamCue builds the KK query from her LIVE state — the carried dream (her last
+// murmur), her inner mood, and the live shared field (season / gait / debt). The
+// book-fragment the nano dreams on is retrieved against this, so the dream tracks
+// what she is resonating with NOW — the resonant spiral made dynamic, not a fixed
+// seed. (Phase-3 #6 follow-on: the field steers not just WHETHER she dreams but
+// WHAT she dreams on.)
+func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
+	parts := make([]string, 0, 2)
+	if lastDream != "" {
+		parts = append(parts, lastDream) // she dreams onward from her own last dream
+	} else {
+		parts = append(parts, moodWord(s)) // else from her inner feeling
+	}
+	if m := fs.mood(); m != "" {
+		parts = append(parts, m) // the live field tints the cue toward her season/gait
+	}
+	return strings.Join(parts, " ")
+}
+
 // moodWord turns the inner state into a short self-cue, so the autonomous dream
 // is born from inside (her feeling), not from a human prompt.
 func moodWord(s Snapshot) string {
@@ -121,16 +141,14 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			if trig < 0 {
 				continue
 			}
-			// seed from her own state (last dream, else a mood word) → a resonant
-			// book-fragment via the KK → the nano dreams on it. The dream itself is a
-			// one-shot spawn, done OUTSIDE the lock so a waiting human turn isn't held.
+			// seed from her own LIVE state (carried dream / inner mood, tinted by the
+			// live field's season+gait+debt) → a resonant book-fragment via the KK →
+			// the nano dreams on it. The dream itself is a one-shot spawn, done OUTSIDE
+			// the lock so a waiting human turn isn't held.
 			voiceMu.Lock()
 			prevLD := *lastDream
 			voiceMu.Unlock()
-			cue := prevLD
-			if cue == "" {
-				cue = moodWord(s)
-			}
+			cue := dreamCue(s, fs, prevLD)
 			seed := cue
 			if frag := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); frag != "" {
 				seed = frag
