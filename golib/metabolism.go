@@ -55,32 +55,58 @@ func startVoice(bin string, args []string) (*voice, error) {
 	return &voice{cmd: cmd, in: in, out: sc}, nil
 }
 
+// voiceTimeout bounds one ask: our voices emit a fixed token budget (-n 28), so a
+// reply that has not framed <END> in this long is a wedged daemon (computing with
+// no output and no EOF), not a slow one.
+const voiceTimeout = 30 * time.Second
+
 // ask sends one request line and reads the reply up to the <END> frame. If the
 // daemon dies (stdin closed, or EOF before <END>), it marks the voice dead so the
-// caller can stop instead of looping over silent empty turns. (Mythos M3.)
+// caller can stop instead of looping over silent empty turns (Mythos M3). The read
+// runs under a deadline: a daemon that wedges before <END> would otherwise hold
+// voiceMu forever (a human turn or the autonomous breathing stuck for good), so on
+// timeout the process is killed (which unblocks the read with EOF) and marked dead.
 func (v *voice) ask(line string) string {
 	if _, err := fmt.Fprintln(v.in, line); err != nil {
 		v.dead = true
 		return ""
 	}
-	var b strings.Builder
-	sawEnd := false
-	for v.out.Scan() {
-		t := v.out.Text()
-		if strings.TrimSpace(t) == "<END>" {
-			sawEnd = true
-			break
-		}
-		if strings.HasPrefix(t, "[") {
-			continue
-		}
-		b.WriteString(t)
-		b.WriteByte(' ')
+	type reply struct {
+		text   string
+		sawEnd bool
 	}
-	if !sawEnd {
-		v.dead = true // Scan returned false before the <END> frame — the daemon is gone
+	ch := make(chan reply, 1)
+	go func() {
+		var b strings.Builder
+		sawEnd := false
+		for v.out.Scan() {
+			t := v.out.Text()
+			if strings.TrimSpace(t) == "<END>" {
+				sawEnd = true
+				break
+			}
+			if strings.HasPrefix(t, "[") {
+				continue
+			}
+			b.WriteString(t)
+			b.WriteByte(' ')
+		}
+		ch <- reply{cutSentence(strings.Join(strings.Fields(b.String()), " ")), sawEnd}
+	}()
+	select {
+	case r := <-ch:
+		if !r.sawEnd {
+			v.dead = true // Scan returned false before the <END> frame — the daemon is gone
+		}
+		return r.text
+	case <-time.After(voiceTimeout):
+		v.dead = true
+		if v.cmd.Process != nil {
+			_ = v.cmd.Process.Kill() // closes the pipe → the read goroutine hits EOF and exits (no leak)
+		}
+		<-ch
+		return ""
 	}
-	return cutSentence(strings.Join(strings.Fields(b.String()), " "))
 }
 
 func (v *voice) close() {

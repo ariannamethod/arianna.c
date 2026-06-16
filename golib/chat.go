@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -105,7 +106,7 @@ func runChat() {
 	close(breathStop) // stop the autonomous breathing before tearing the voices down
 	select {
 	case <-breathDone:
-	case <-time.After(20 * time.Second): // H1: if it's stuck mid voice-ask, tc.stop's kill-timeout below unblocks it
+	case <-time.After(dreamTimeout + 5*time.Second): // > the fallback-dream deadline, so an in-flight dream finishes and the goroutine returns before SaveState/stop touch the voices
 	}
 
 	fmt.Println()
@@ -131,7 +132,11 @@ func harvestField() {
 	if _, err := os.Stat("./harvest_delta"); err != nil {
 		return
 	}
-	out, err := exec.Command("./harvest_delta",
+	// bound the consolidation like every other subprocess — a wedged harvest must
+	// not hang the exit after the voices are already stopped.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "./harvest_delta",
 		resonGGUF, resonWTE, resonCooc, resonDelta, resonVocab, resonDim, "8").CombinedOutput()
 	for _, line := range strings.Split(string(out), "\n") {
 		if i := strings.Index(line, "|B|="); i >= 0 {

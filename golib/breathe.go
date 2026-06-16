@@ -9,6 +9,7 @@ package main
 // lives with her subconscious even when no one is speaking to her. (Oleg's #2.)
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -91,6 +92,11 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 	if tc.nan == nil {
 		return
 	}
+	// /quit cancels any in-flight chorus so the join below is fast (the chorus can
+	// otherwise block up to chorusTimeout, far longer than the join would wait).
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { <-stop; cancel() }()
 	var b breath
 	t := time.NewTicker(1500 * time.Millisecond)
 	defer t.Stop()
@@ -119,17 +125,30 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				seed = frag
 			}
 			// the autonomous dream is a CHORUS (a polyphony over the one nano) when
-			// the chorus engine is present, else a single murmur.
-			var cells []string
+			// the chorus engine is present and produces cells.
+			var cells []chorusCell
 			var dream string
 			if tc.chorusBin != "" {
-				cells = choir(tc.chorusBin, tc.chorusGGUF, seed)
+				cells = choir(ctx, tc.chorusBin, tc.chorusGGUF, seed)
 				dream = chorusText(cells)
-			} else {
+			}
+			// if the chorus engine is absent, or it errored / timed out / parsed
+			// empty, fall back to a single nano murmur — the autonomous dream must
+			// not silently vanish when the polyphony fails.
+			if dream == "" {
 				dream = tc.nan.dream(seed)
+				cells = nil
 			}
 			if dream == "" {
 				continue
+			}
+			// the chorus / fallback may have taken tens of seconds; if /quit fired
+			// meanwhile, return now — don't touch the (tearing-down) voices or the
+			// shared lastDream.
+			select {
+			case <-stop:
+				return
+			default:
 			}
 			voiceMu.Lock()
 			tc.iw.ProcessText(dream)
@@ -137,9 +156,18 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				*lastDream = dream
 			}
 			if len(cells) > 0 {
-				fmt.Printf("│  ◌ (%s) she dreams — a chorus of %d voices:\n", bName[trig], len(cells))
+				voices, questions := chorusCounts(cells)
+				if questions > 0 {
+					fmt.Printf("│  ◌ (%s) she dreams — a chorus of %d voices (%d questions):\n", bName[trig], voices, questions)
+				} else {
+					fmt.Printf("│  ◌ (%s) she dreams — a chorus of %d voices:\n", bName[trig], voices)
+				}
 				for i, c := range cells {
-					fmt.Printf("│     · %d: %s\n", i, c)
+					mark := "·"
+					if c.qloop {
+						mark = "?"
+					}
+					fmt.Printf("│     %s %d: %s\n", mark, i, c.text)
 				}
 			} else {
 				fmt.Printf("│  ◌ (%s) she dreams: %s\n", bName[trig], dream)
@@ -149,6 +177,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				tc.iw.ProcessText(reson)
 				fmt.Printf("│  ◑ (inner) %s\n", reson)
 			}
+			// stamp the cooldown at COMPLETION, not at trigger time: a slow chorus
+			// (tens of seconds) must not immediately retrigger and spawn back-to-back.
+			b.lastTrigger[trig] = time.Now()
 			voiceMu.Unlock()
 		}
 	}

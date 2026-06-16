@@ -139,3 +139,8 @@ weights/*.state
 weights/*.field
 field_probe
 chorus-arianna
+harvest_delta
+
+# Chorus / dream runtime traces + local KK book corpus (not distribution)
+FIELDLOG.md
+reffs/

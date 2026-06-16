@@ -1438,3 +1438,49 @@ angles, then "◑ (inner) not a method, but an echo that ripples through every l
 Go data races**. How it sounds: four facets of one dream; how it affects the others: Resonance synthesizes
 the chorus into the inner voice. Next: connect it across the human turns too, then a Codex audit pass for
 bugs + opportunities (Oleg's call).
+
+## Phase 3 — Codex audit pass: hardening the breathing + chorus (2026-06-16)
+
+A Codex (gpt-5.5) audit of the phase-3 step 1+2 code (the autonomous breathing and the chorus) raised
+eleven candidate bugs. Verified each against the code; two were false positives (`routeSignals` touches no
+shared state and the `-race` runs are clean, so it cannot race `Step`; `LoadState` already locks the same
+`State.mu` the processes write under and runs in a sub-millisecond window before the 100ms ticker fires).
+The eight real ones, all fixed and re-verified:
+
+- **Chorus parse, colon truncation** (`chorus.go`): the cell text was taken after the *last* colon, so a
+  generated fragment containing a colon ("…he said: I would never…") was truncated. Now it keys on the
+  *structural* colon — `"):"` that closes the temperature for a cell, the colon after `score N` for a qloop
+  — so text colons survive. The trailing metrics are cut at the *first* `[` (cells carry two bracket blocks,
+  `[Δ_R^kv …]` then `[entropy=…]`; the first bracket is the true text boundary).
+- **Voice / qloop miscount** (`chorus.go` → `breathe.go`): cell fragments and cross-cell questions were
+  flattened into one slice, so "a chorus of N voices" counted the questions too. The parse now returns
+  structured `chorusCell{text, qloop}`; the breathing reports "N voices (M questions)" and marks questions
+  with `?`, voices with `·`.
+- **Unbounded dream persisted** (`chorus.go`): a long polyphony was joined whole into `lastDream` and saved.
+  Capped at 8 cells parsed and `maxDreamLen` chars folded.
+- **Chorus failure swallowed the dream** (`breathe.go`): if `chorus-arianna` was present but errored / timed
+  out / parsed empty, `dream` was "" and the autonomous dream vanished. Now it falls back to a single nano
+  murmur — the breath is never silently lost.
+- **Cooldown stamped at trigger, not completion** (`breathe.go`): a chorus can run tens of seconds while its
+  cooldown is only 3–6s, so it could retrigger immediately on finish and spawn back-to-back. The cooldown is
+  now stamped after the dream completes.
+- **Use-after-stop on `/quit`** (`breathe.go` + `chat.go`): the breathing join waited 20s but a chorus could
+  block 40s, so on a slow chorus the join timed out and `SaveState`/`stop` ran while the goroutine later
+  mutated `lastDream` and asked the (closing) voices. Fixed at the root: a context cancels any in-flight
+  chorus the instant `/quit` fires; a stop-check guards the post-dream voice work; and the join now waits
+  past the fallback-dream deadline so the goroutine returns first.
+- **No per-request voice timeout** (`metabolism.go`): `ask` read until `<END>` or EOF, so a daemon that
+  wedged (computing, no output, no EOF) would hold `voiceMu` forever. The read now runs under a 30s deadline;
+  on expiry the process is killed (which unblocks the read with EOF, no goroutine leak) and marked dead.
+- **No harvest timeout** (`chat.go`): the exit-time δ consolidation had no deadline, unlike every other
+  subprocess. Bounded at 30s.
+
+Verified (tool): `go vet` clean; `go test` — 3 new parser proofs green (`TestChorusBodyKeepsColonText`
+keeps a colon in text and leaks no metrics block, `TestChorusQloopSeparated` counts 3 voices + 1 question,
+`TestChorusTextCaps` bounds the persisted dream); metabolism + `-race` build clean; a `-race` demo run (the
+rewritten `ask`) and two idle `-race --chat` runs (48s silence — the chorus completes three times,
+well-spaced by the completion-cooldown, then a clean `/quit` with "she will remember" and δ |B|=0.01762) —
+all with **0 Go data races**. Live chorus now prints "a chorus of 4 voices (2 questions)" with the colon-in-
+text fragment intact. These are Go-orchestrator (arianna.c) fixes only — no `ariannamethod/core` touched, so
+no canon sync. Opportunities Codex surfaced (trigger-shaped dream seeds, feed the chorus to Janus, a tagged
+chorus→cooc path, the breathing reading the live mmap field) are left for Oleg's call as the next weave.

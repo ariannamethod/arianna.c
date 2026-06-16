@@ -15,54 +15,108 @@ import (
 	"time"
 )
 
-const chorusTimeout = 40 * time.Second
+const (
+	chorusTimeout  = 40 * time.Second
+	maxChorusCells = 8   // cap the polyphony folded into the dream (don't persist an unbounded run)
+	maxDreamLen    = 600 // cap the joined dream length carried into lastDream / state
+)
+
+// chorusCell is one parsed line of the polyphony: a voice fragment, or a qloop
+// question one cell asked another. Keeping them structured lets the dream count
+// the VOICES (not the questions) and surface the questions distinctly.
+type chorusCell struct {
+	text  string
+	qloop bool // a cross-cell resonant question, not a voice fragment
+}
 
 // choir spawns the chorus engine in field mode (4 cells, cross-cell on) and
-// returns the cells' fragments — the polyphonic dream. "" / nil on failure.
-func choir(bin, gguf, seed string) []string {
+// returns the parsed cells — the polyphonic dream. nil on failure. The ctx lets
+// the caller cancel a slow chorus at shutdown so it never outlives the join.
+func choir(ctx context.Context, bin, gguf, seed string) []chorusCell {
 	seed = strings.TrimSpace(seed)
 	if bin == "" || gguf == "" || seed == "" {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), chorusTimeout)
+	cctx, cancel := context.WithTimeout(ctx, chorusTimeout)
 	defer cancel()
 	// field <cells> <frag> <rounds> <alpha> <leap> <xcell>: 4 voices, 16 tokens
 	// each, one round, soma-alpha 0 (it does not earn resonance), cross-cell 0.3
 	// (the cells hear each other).
-	out, err := exec.CommandContext(ctx, bin, gguf, seed, "field", "4", "16", "1", "0", "0", "0.3").Output()
+	out, err := exec.CommandContext(cctx, bin, gguf, seed, "field", "4", "16", "1", "0", "0", "0.3").Output()
 	if err != nil {
 		return nil
 	}
-	var cells []string
+	var cells []chorusCell
 	for _, line := range strings.Split(string(out), "\n") {
 		// cell lines: "  r1 cell 0 (T=0.60):  <text>  [entropy=…]"
 		// qloop lines: "  ↳ qloop c3→c0 score 1.097:  <text>  [entropy=…]"
-		isCell := strings.Contains(line, "(T=")
 		isQloop := strings.Contains(line, "qloop")
+		isCell := strings.Contains(line, "(T=")
 		if !isCell && !isQloop {
 			continue
 		}
-		p := line
-		if b := strings.Index(p, "["); b >= 0 { // drop the trailing metrics
-			p = p[:b]
-		}
-		c := strings.LastIndex(p, ":") // text follows the last colon (cell "):" or "score N:")
-		if c < 0 {
-			continue
-		}
-		frag := strings.TrimSpace(p[c+1:])
-		frag = strings.TrimSpace(strings.TrimPrefix(frag, "A:"))
-		frag = strings.TrimSpace(strings.TrimPrefix(frag, "-"))
-		frag = strings.Join(strings.Fields(frag), " ")
+		frag := chorusBody(line, isQloop)
 		if len(frag) > 3 {
-			cells = append(cells, frag)
+			cells = append(cells, chorusCell{text: frag, qloop: isQloop})
+			if len(cells) >= maxChorusCells { // cap the parsed run
+				break
+			}
 		}
 	}
 	return cells
 }
 
+// chorusBody extracts the spoken text from one chorus line, cutting the leading
+// "cell N (T=…):" / "score N:" frame and the trailing "[entropy=…]" metrics. It
+// keys on the STRUCTURAL colon (the frame's), not the last colon, so generated
+// text that itself contains a colon is not truncated.
+func chorusBody(line string, isQloop bool) string {
+	p := line
+	if b := strings.Index(p, "["); b >= 0 { // cut at the first bracket — the metrics blocks (Δ_R^kv, entropy) all follow the text
+		p = p[:b]
+	}
+	head := 0
+	if isQloop {
+		// "… score 1.097:  <text>" — the colon right after the score number.
+		if s := strings.Index(p, "score "); s >= 0 {
+			if c := strings.IndexByte(p[s:], ':'); c >= 0 {
+				head = s + c + 1
+			}
+		}
+	} else if c := strings.Index(p, "):"); c >= 0 {
+		// "… (T=0.60):  <text>" — the colon that closes the temperature.
+		head = c + 2
+	}
+	frag := strings.TrimSpace(p[head:])
+	frag = strings.TrimSpace(strings.TrimPrefix(frag, "A:"))
+	frag = strings.TrimSpace(strings.TrimPrefix(frag, "-"))
+	return strings.Join(strings.Fields(frag), " ")
+}
+
 // chorusText folds the cells into one line for the inject / lastDream — the
-// chorus heard as a single resonant murmur by the inner voice.
-func chorusText(cells []string) string {
-	return strings.Join(cells, " / ")
+// chorus heard as a single resonant murmur, capped so an over-long polyphony is
+// not carried whole into the persisted state.
+func chorusText(cells []chorusCell) string {
+	parts := make([]string, 0, len(cells))
+	for _, c := range cells {
+		parts = append(parts, c.text)
+	}
+	s := strings.Join(parts, " / ")
+	if len(s) > maxDreamLen {
+		s = strings.TrimSpace(s[:maxDreamLen]) + "…"
+	}
+	return s
+}
+
+// chorusCounts splits a parsed chorus into voices vs. cross-cell questions, so the
+// breathing can report the polyphony honestly ("N voices", questions apart).
+func chorusCounts(cells []chorusCell) (voices, questions int) {
+	for _, c := range cells {
+		if c.qloop {
+			questions++
+		} else {
+			voices++
+		}
+	}
+	return
 }
