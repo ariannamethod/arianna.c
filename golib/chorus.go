@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,20 +30,28 @@ type chorusCell struct {
 	qloop bool // a cross-cell resonant question, not a voice fragment
 }
 
-// choir spawns the chorus engine in field mode (4 cells, cross-cell on) and
+// choir spawns the chorus engine in field mode (nCells voices, cross-cell on) and
 // returns the parsed cells — the polyphonic dream. nil on failure. The ctx lets
-// the caller cancel a slow chorus at shutdown so it never outlives the join.
-func choir(ctx context.Context, bin, gguf, seed string) []chorusCell {
+// the caller cancel a slow chorus at shutdown so it never outlives the join. nCells
+// is the live field's bloom↔collapse knob (the engine's own n_cells axis); it is
+// clamped to the engine's [1,8] range here.
+func choir(ctx context.Context, bin, gguf, seed string, nCells int) []chorusCell {
 	seed = strings.TrimSpace(seed)
 	if bin == "" || gguf == "" || seed == "" {
 		return nil
 	}
+	if nCells < 1 {
+		nCells = 1
+	}
+	if nCells > 8 {
+		nCells = 8 // engine hard cap (POP_MAX, arianna2arianna.c:1135)
+	}
 	cctx, cancel := context.WithTimeout(ctx, chorusTimeout)
 	defer cancel()
-	// field <cells> <frag> <rounds> <alpha> <leap> <xcell>: 4 voices, 16 tokens
+	// field <cells> <frag> <rounds> <alpha> <leap> <xcell>: nCells voices, 16 tokens
 	// each, one round, soma-alpha 0 (it does not earn resonance), cross-cell 0.3
 	// (the cells hear each other).
-	out, err := exec.CommandContext(cctx, bin, gguf, seed, "field", "4", "16", "1", "0", "0", "0.3").Output()
+	out, err := exec.CommandContext(cctx, bin, gguf, seed, "field", strconv.Itoa(nCells), "16", "1", "0", "0", "0.3").Output()
 	if err != nil {
 		return nil
 	}

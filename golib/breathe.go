@@ -38,8 +38,11 @@ type breath struct {
 }
 
 // tick returns the triggered observation (priority Drift > Silence > Thermograph
-// > Field, each gated by its cooldown), or -1 — the meta_router conditions.
-func (b *breath) tick(s Snapshot, now time.Time) int {
+// > Field, each gated by its cooldown), or -1 — the meta_router conditions. tm
+// scales the trigger thresholds and coolMult the cooldowns, both from the live
+// shared field (1.0/1.0 == no field signal == the tuned defaults): a strained or
+// wintering field raises both (breathe less, rest), a hot field lowers them.
+func (b *breath) tick(s Snapshot, now time.Time, tm, coolMult float64) int {
 	type trig struct {
 		id  int
 		hit bool
@@ -50,12 +53,12 @@ func (b *breath) tick(s Snapshot, now time.Time) int {
 	// never fire. Silence (wander) is the primary idle dreamer; the others flavor
 	// it as the state shifts. Priority Drift > Silence > Thermograph > Field.
 	for _, t := range []trig{
-		{bDrift, s.DriftSpeed > 0.06 || math.Abs(float64(s.DriftDirection)) > 0.15},
-		{bSilence, s.WanderPull > 0.45 || s.Entropy > 0.4},
-		{bThermo, math.Abs(float64(s.Arousal-0.5)) > 0.12 || s.Entropy > 0.35},
-		{bField, s.FocusStrength > 0.4 && s.DriftSpeed > 0.04 && s.Coherence > 0.5},
+		{bDrift, float64(s.DriftSpeed) > 0.06*tm || math.Abs(float64(s.DriftDirection)) > 0.15*tm},
+		{bSilence, float64(s.WanderPull) > 0.45*tm || float64(s.Entropy) > 0.4*tm},
+		{bThermo, math.Abs(float64(s.Arousal-0.5)) > 0.12*tm || float64(s.Entropy) > 0.35*tm},
+		{bField, float64(s.FocusStrength) > 0.4*tm && float64(s.DriftSpeed) > 0.04*tm && s.Coherence > 0.5},
 	} {
-		if !t.hit || now.Sub(b.lastTrigger[t.id]) < bCooldown[t.id] {
+		if !t.hit || now.Sub(b.lastTrigger[t.id]) < time.Duration(float64(bCooldown[t.id])*coolMult) {
 			continue
 		}
 		b.lastTrigger[t.id] = now
@@ -97,6 +100,12 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() { <-stop; cancel() }()
+	// the live shared field (B/F-8): the two C voices merge their gait/season/debt
+	// into weights/arianna.field; the breath reads it (read-only) and bends — rest
+	// when strained or wintering, bloom when it runs hot. Absent/not-ready => no
+	// signal, and modulate() returns the tuned defaults.
+	fr := newFieldReader(fieldPath)
+	defer fr.close()
 	var b breath
 	t := time.NewTicker(1500 * time.Millisecond)
 	defer t.Stop()
@@ -106,7 +115,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			return
 		case now := <-t.C:
 			s := tc.iw.GetSnapshot()
-			trig := b.tick(s, now)
+			fs := fr.read()
+			coolMult, threshMult, bloom := fs.modulate()
+			trig := b.tick(s, now, threshMult, coolMult)
 			if trig < 0 {
 				continue
 			}
@@ -129,7 +140,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			var cells []chorusCell
 			var dream string
 			if tc.chorusBin != "" {
-				cells = choir(ctx, tc.chorusBin, tc.chorusGGUF, seed)
+				cells = choir(ctx, tc.chorusBin, tc.chorusGGUF, seed, bloom)
 				dream = chorusText(cells)
 			}
 			// if the chorus engine is absent, or it errored / timed out / parsed
@@ -154,6 +165,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			tc.iw.ProcessText(dream)
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream
+			}
+			if tag := fs.describe(); tag != "" { // the live field bending the breath, made visible
+				fmt.Printf("│  ◍ (field) %s → cooldown×%.2f threshold×%.2f bloom=%d\n", tag, coolMult, threshMult, bloom)
 			}
 			if len(cells) > 0 {
 				voices, questions := chorusCounts(cells)

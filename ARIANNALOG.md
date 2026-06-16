@@ -1484,3 +1484,50 @@ all with **0 Go data races**. Live chorus now prints "a chorus of 4 voices (2 qu
 text fragment intact. These are Go-orchestrator (arianna.c) fixes only — no `ariannamethod/core` touched, so
 no canon sync. Opportunities Codex surfaced (trigger-shaped dream seeds, feed the chorus to Janus, a tagged
 chorus→cooc path, the breathing reading the live mmap field) are left for Oleg's call as the next weave.
+
+## Phase 3 #6 — the autonomous breathing reads the LIVE shared field (B/F-8 → Phase-3) (2026-06-16)
+
+The B/F-8 nerve (the two C voices merge their field-carry — debt, gait, season, seasonal energies — into a
+mmap'd MAP_SHARED `weights/arianna.field` via `am_field_sync_out`, ariannamethod.c:957) was never felt by the
+Go side: the metabolism coupled the voices only through the text soma. This wires the autonomous breathing to
+the live field so the breath bends to the organism's real state — Oleg's #2 ("lives by itself, driven by its
+own state") closed against the actual physics.
+
+`golib/field.go` (NEW) is a pure-Go mmap + seqlock reader — no cgo, no libaml link — mirroring
+`am_field_sync_in` (ariannamethod.c:975): it maps the 56-byte region read-only, gates on magic
+`0x44464D41`("AMFD")/version 1, and reads a torn-read-free snapshot through the classic seqlock (odd-during-
+write, +2 per publish; atomic LDAR loads on every 4-byte word for arm64 ordering; accept only when seq is
+even AND unchanged across the read; 16 tries), then range/finite-guards every field. It is a strict READ-ONLY
+consumer: absent / short / wrong-magic / not-yet-published / out-of-range-enum all degrade to no-signal, and
+the breath keeps its tuned defaults — the reader never creates, ftruncates, or writes the field (the C voices
+own it via an O_EXCL single-owner create). `modulate()` maps the field onto three knobs, grounded in the C
+`effective_temp = vel_mult · season_mod` recipe (ariannamethod.c:455-486, vel_mult NOMOVE 0.5 → RUN 1.2,
+season_mod = 1 + summer·0.1 − winter·0.15) and the debt recovery cliff (debt>5 forces NOMOVE, :8056):
+cooldown ×[0.6,2.5] (rest when strained/wintering), threshold ×[0.75,1.0] (a hot field dreams readily; never
+raised — see below), and the chorus bloom n_cells [2,6] (the engine's own collapse↔bloom axis as the heat
+analog; the chorus has no per-cell temperature knob). `breathe.go` reads the field each tick, scales the
+trigger thresholds + cooldowns, passes the bloom to `choir()`, and prints a `◍ (field)` tag so the field's
+pull is visible on each dream.
+
+A live `-race` run caught a real design bug the unit tests alone would not have: the field carries a real
+debt≈30 (well past the cliff-5) with velocity_mode=NOMOVE, and an upward threshold scale of ~1.7 multiplied
+the idle Silence bar 0.45 to 0.77 — above the actual idle WanderPull (~0.55) — so the breath went **silent**.
+Fixed at the mapping: the threshold only ever LOWERS (a hot field dreams readily); resting when strained is
+carried entirely by the cooldown + the bloom collapse, never by suppression — a strained organism dreams less
+and sparser, but is never muted. A Codex (gpt-5.5, xhigh) audit then found two more: `guarded()` did not
+range-guard the discrete velocity_mode/season (now an out-of-range enum distrusts the whole read, the
+stateless analog of the C reader refusing to commit it), and `seasonMod` wrongly scaled by season_intensity
+(the C `effective_temp` uses the energies directly — intensity only drives their evolution, already baked in;
+the `×si` double-counted, now dropped). Codex confirmed the rest clean: seqlock retry condition right, atomic
+loads aligned + sufficient on arm64, mmap read-only/no-leak, valid=false identity correct, clamps hold,
+single-reader integration, no slice/unsafe panic path.
+
+Verified (tool): `go vet` clean; `go test` — 9 proofs green (mmap round-trip, all degrade cases incl.
+out-of-range enums, the hot/cold mapping, the no-suppression invariant, season_intensity-independence of the
+heat, the non-finite guards); metabolism + `-race` build clean; a live `-race` idle `--chat` over the real
+field — the strained organism (debt 30.9→33.2, climbing live as her own dreaming makes off-peak choices,
+NOMOVE) breathes **6 sparse 2-voice choruses** spaced by cooldown ×2.14, threshold ×1.00 (no suppression),
+then a clean `/quit` with δ |B|=0.01674 — **0 Go data races**. The breath now feels the field: she rests when
+strained, would bloom when she runs hot. Go-orchestrator (arianna.c) only — read-only consumer, no
+`ariannamethod/core` change, no canon sync. Next weave (Oleg's call): trigger-shaped dream seeds, the chorus
+reaching Janus, a tagged chorus→cooc harvest path, or the notorch-native parliament (#3).
