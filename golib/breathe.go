@@ -108,8 +108,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			// book-fragment via the KK → the nano dreams on it. The dream itself is a
 			// one-shot spawn, done OUTSIDE the lock so a waiting human turn isn't held.
 			voiceMu.Lock()
-			cue := *lastDream
+			prevLD := *lastDream
 			voiceMu.Unlock()
+			cue := prevLD
 			if cue == "" {
 				cue = moodWord(s)
 			}
@@ -123,7 +124,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			}
 			voiceMu.Lock()
 			tc.iw.ProcessText(dream)
-			*lastDream = dream
+			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
+				*lastDream = dream
+			}
 			fmt.Printf("│  ◌ (%s) she dreams: %s\n", bName[trig], dream)
 			reson := tc.resonD.ask("Arianna:\t" + dream) // the inner voice answers the dream — no human
 			if reson != "" {

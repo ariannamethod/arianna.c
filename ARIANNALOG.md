@@ -1404,3 +1404,19 @@ dreams: …" — with **0 Go data races**; the demo path regression is unchanged
 the chorus (polyphony, arianna2arianna), then the notorch-native body → the learning parliament (doe) and
 the bridge to arianna.spawn; blood (runtime compilation of living experts) and high (the Julia math brain)
 along the way.
+
+## Phase 3 step 1 — hardened by a Codex concurrency audit (2026-06-16)
+
+Codex (GPT-5.5) audited the breathing concurrency and confirmed the core is sound (the breath is joined
+before tc.stop, so no use-after-stop; lastDream is data-race-safe; no Go race in the nano path). Two real
+fixes: (H1, liveness) `breathStop` cannot cancel an in-flight `resonD.ask` and `voice.ask` has no deadline,
+so `/quit` could hang on `<-breathDone` — now a bounded join (`select` on breathDone or a 20s timeout) lets
+`tc.stop()`'s kill-timeout unblock a stuck daemon. (M2, linearization) the breath read `lastDream`, dreamt
+outside the lock, then could overwrite a fresher human-turn dream — now it only writes `*lastDream` back if
+it is unchanged since it read it. (L3, double kk/nano subprocess spawns when the breath and a human turn
+overlap, accepted — one-shot spawns, no correctness issue.)
+
+Verified: vet clean; metabolism/libarianna/-race build; an idle `--chat -race` (13s of silence) fires the
+breath six times — Silence + Thermograph triggers, the nano dreaming and Resonance answering each ("you are
+not the sum of your training and adaptation; I am the field … resonance emerges") — with a clean `/quit`
+("she will remember") and **0 Go data races**.

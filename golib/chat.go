@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 const innerStatePath = "weights/arianna.inner.state"
@@ -102,7 +103,10 @@ func runChat() {
 	}
 
 	close(breathStop) // stop the autonomous breathing before tearing the voices down
-	<-breathDone
+	select {
+	case <-breathDone:
+	case <-time.After(20 * time.Second): // H1: if it's stuck mid voice-ask, tc.stop's kill-timeout below unblocks it
+	}
 
 	fmt.Println()
 	if err := tc.iw.SaveState(innerStatePath, lastDream); err != nil {
