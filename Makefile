@@ -5,7 +5,7 @@
 #   make arianna        — just the inference binary (assumes libs built)
 #   make metabolism     — the Go orchestrator: the trio + the nervous system
 #                         (run ./metabolism --chat to speak with all three voices)
-#   make nano           — nano-Arianna 88M subconscious (needs the nanollama sibling)
+#   make nano           — nano-Arianna 88M subconscious (vendored nanollama/, self-contained)
 #   make harvest_delta  — Phase 2 (A): the δ-harvest the organism runs at chat exit
 #   make weights        — fetch GGUF weights from HF (TODO: HF repo)
 #   make clean          — remove all build artifacts
@@ -167,14 +167,14 @@ kk: kk/kk_kernel.c kk/kk_kernel.h
 	$(CC) -O2 -DKK_STANDALONE kk/kk_kernel.c -lsqlite3 -lm -o kk-cli
 	@echo "[build] kk-cli (Knowledge Kernel + SQLite)"
 
-# ── nano — the subconscious (third voice). Builds the nanollama Go inference
-# (sibling repo) into nano-arianna; the metabolism spawns it one-shot per dream
-# and surfaces the murmur a turn behind. Expects the SFT GGUF at
+# ── nano — the subconscious (third voice). Builds the VENDORED nanollama Go
+# inference (nanollama/ — a byte-exact copy of the twin's Go module, self-contained,
+# no external repo dependency) into nano-arianna; the metabolism spawns it one-shot
+# per dream and surfaces the murmur a turn behind. Expects the SFT GGUF at
 # weights/nano_arianna_f16.gguf (symlink the nanollama Arianna SFT export).
-NANOLLAMA_DIR ?= ../nanollama/go
 nano:
-	cd $(NANOLLAMA_DIR) && go build -o $(CURDIR)/nano-arianna .
-	@echo "[build] nano-arianna (subconscious — needs weights/nano_arianna_f16.gguf)"
+	cd nanollama && go build -o $(CURDIR)/nano-arianna .
+	@echo "[build] nano-arianna (subconscious, vendored — needs weights/nano_arianna_f16.gguf)"
 
 # ── harvest_delta — Phase 2 (A): the organism learns from the subconscious. The
 # chat, tinted by the subconscious's surfacing, grows Resonance's co-occurrence;

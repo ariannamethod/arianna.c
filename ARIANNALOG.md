@@ -1116,7 +1116,8 @@ the subconscious is async and occasional. `runSubconscious` hosts it on single-s
 (one producer, one consumer each), so neither side blocks and the dream surfaces a turn or two behind — the
 lag IS the design, the subconscious trailing the conscious duet. The metabolism seeds it each turn with the
 turn's context and surfaces any ready dream as `◓ nano (subconscious)`, feeding it into the inner world
-(`ProcessText`) so it tints the field. A `nano` Makefile target builds `../nanollama/go` → `nano-arianna`;
+(`ProcessText`) so it tints the field. A `nano` Makefile target builds `../nanollama/go` → `nano-arianna`
+(this external sibling path was vendored in-repo on 2026-06-17 — see the vendoring entry below);
 the GGUF is expected at `weights/nano_arianna_f16.gguf` (a symlink to the SFT export).
 
 Verified (tool): `go vet` clean; the metabolism binary, the c-shared `libarianna.dylib`, and the `-race`
@@ -1593,3 +1594,25 @@ Verified (tool): vendored source md5 == the twin's; with `~/arianna/arianna2aria
 the polyphony (`./chorus-arianna … field 4 16 1 0 0 0.3` → 4 cells); `make metabolism` + a `-race` idle
 `--chat` fires the chorus with **0 data races** (no regression); `make -n chorus` performs no read/write
 against the upstream repo. Codex (gpt-5.5): "Clean: no real file:line problems found."
+
+## nanollama inference vendored — the nano build is self-contained (2026-06-17)
+
+The nano subconscious (the third voice) runs via the nanollama Go inference (`nano-arianna`, spawned one-shot
+per dream by `golib/metabolism.go:174,179`; Janus and Resonance are C forwards and do not use it). Its `nano`
+Makefile target built from the external sibling `../nanollama/go`; it is now vendored. `nanollama/` is a
+byte-exact copy of the upstream Go module (8 `.go` + `go.mod` + `ui.html`; module
+`github.com/ariannamethod/nanollama`, no external deps, no `go.sum`; `serve.go` embeds `ui.html` via
+`//go:embed`). The `nano` target now `cd nanollama && go build …` — no `NANOLLAMA_DIR`, no `../` path. The
+full module is kept by decision (Oleg, 2026-06-17), web `serve.go`/`ui.html` included. `nano-arianna` stays a
+build artifact (`.gitignore:130`); the source is tracked. Same vendor pattern as `kk/`, `ariannamethod/`,
+`chorus/`.
+
+Verified (tool): `diff -rq nanollama ../nanollama/go` empty (byte-exact); with `~/arianna/nanollama` renamed
+away, `make nano` builds `nano-arianna` (9293698 bytes) from the vendor alone; the binary runs a one-shot
+dream (`--prompt "presence, the field" --max-tokens 16` → text, 34.2 tok/s); `make metabolism` + a `-race`
+idle `--chat` — the nano dreams 3× with **0 data races**; `git ls-files nanollama` → 10 files; `make -n nano`
+writes only the repo-local `nano-arianna`; `git -C ../nanollama status` empty (upstream untouched); the new
+IRON-rule grep (`git grep -nE '\$\(HOME\)|\.\./[a-zA-Z]'`) shows no sibling-source dependency (only the
+in-repo `../metabolism` output path). Codex (gpt-5.5) caught that the Makefile fix was initially unstaged
+(would have committed the vendored source while leaving the target external) and a stale historical claim —
+both corrected here before commit; otherwise clean.
