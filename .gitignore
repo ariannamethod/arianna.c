@@ -144,3 +144,8 @@ harvest_delta
 # Chorus / dream runtime traces + local KK book corpus (not distribution)
 FIELDLOG.md
 reffs/
+
+# doe — notorch-native nano engine + LoRA parliament (vendored source in doe/ IS
+# tracked; the built binary + the runtime mycelium spores are artifacts)
+doe_field
+doe_mycelium/

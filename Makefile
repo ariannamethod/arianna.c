@@ -68,7 +68,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus harvest_delta clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -214,3 +214,14 @@ distclean: clean
 chorus:
 	cc -O2 -march=armv8.2-a+fp16+dotprod -DUSE_BLAS -DACCELERATE_NEW_LAPACK chorus/arianna2arianna.c -lm -pthread -framework Accelerate -o chorus-arianna
 	@echo "[build] chorus-arianna (the subconscious polyphony, vendored)"
+
+# ── doe — the nano subconscious through the notorch-native engine + LoRA parliament.
+# Builds the VENDORED doe.c (doe/doe.c — a byte-exact copy of ~/arianna/doe, a
+# self-contained CPU monolith; only ./weights model-search is cwd-relative, no
+# external repo dependency) into doe_field. The metabolism runs the SAME nano GGUF
+# (Arianna's subconscious body) through it so the LoRA parliament can seat on it:
+# --lora-alpha 0 = parliament dormant (plain notorch-native forward, the #3 bridge),
+# --lora-alpha 0.1 = the parliament seats (experts vote / mitosis / apoptosis).
+doe_field:
+	cc -O2 doe/doe.c -lm -lpthread -o doe_field
+	@echo "[build] doe_field (notorch-native nano engine + LoRA parliament, CPU, vendored)"

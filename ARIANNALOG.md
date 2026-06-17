@@ -1638,3 +1638,29 @@ empty (core untouched). Codex (gpt-5.5): "Clean. No real bugs found." — verifi
 byte-identical, the extra loop matches `am_ingest_tokens`' window exactly (leaving `cooc_total`/`ctx_ring` to
 the normal ingest), the sentinel is stripped before encode, the 512-token cap holds, and the Go/C sentinels
 match.
+
+## #3 parliament step-1 — the nano runs notorch-native through doe (the bridge) (2026-06-17)
+
+The next depth (#3): the nano subconscious (Arianna's 88M body, unchanged) runs through doe's notorch-native
+C engine, so the living LoRA parliament can seat on it. doe.c is NOT a replacement for the nano — it is the
+inference engine + parliament; the body/voice stays Arianna's. Step-1 lands the bridge with the parliament
+DORMANT, proving the nano dreams notorch-native through doe before the parliament is seated.
+
+`doe/doe.c` + `doe/notorch_metal.h` are vendored byte-exact from `~/arianna/doe` (md5 `ad92a66…` /
+`eeb0aca…`; the canon stays read-only — "сверяться с дое" = the vendor is byte-identical to it). doe.c is a
+self-contained CPU monolith (`cc -O2 doe/doe.c -lm -lpthread`; Metal/BLAS are `#ifdef` opt-ins, the include
+`notorch_metal.h` is vendored, Metal calls compile out). A `doe_field` Makefile target builds it CPU-only;
+`doe_field` is in `.PHONY`; the binary + the runtime `doe_mycelium/` spores are gitignored, the `doe/` source
+is tracked. doe loads an arbitrary GGUF by metadata, so the nano F16 loads directly.
+
+Verified (tool): vendor md5 == canon; `make doe_field` builds (138552 bytes) and, with `~/arianna/doe` renamed
+away, still builds from the vendor alone (self-contained); `git grep '\$(HOME)|\.\./[a-z]'` finds no external
+source ref (the only `../` is `doe.c:4140`'s `../weights/` runtime GGUF search). The nano dreams through doe
+with the parliament dormant — `printf 'what is resonance?' | ./doe_field --model weights/nano_arianna_f16.gguf
+--lora-alpha 0` → `[doe] attached … (arch=llama dim=576 layers=13 heads=9 vocab=32000)`, `LoRA alpha=0.00
+experts=6/layer`, and a coherent nano-level dream ("…a living field or a body… resonance, not as of a
+'yes'…"). `~/arianna/doe` untouched (md5 unchanged). Codex (gpt-5.5): "Clean. No real problems found."
+NEXT: 1b — wire doe into the metabolism (a Go parser for doe's stdout) so the subconscious dreams via doe;
+then step-2 `--lora-alpha 0.1` seats the parliament (note: at alpha=0 the topology counter still tics
+`[life] deaths=N` but the LoRA inject is gated off at `doe.c:2961`, so the forward is plain — to be confirmed
+when the parliament is seated).
