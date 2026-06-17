@@ -1616,3 +1616,25 @@ IRON-rule grep (`git grep -nE '\$\(HOME\)|\.\./[a-zA-Z]'`) shows no sibling-sour
 in-repo `../metabolism` output path). Codex (gpt-5.5) caught that the Makefile fix was initially unstaged
 (would have committed the vendored source while leaving the target external) and a stale historical claim —
 both corrected here before commit; otherwise clean.
+
+## Road-1c — the subconscious teaches louder (weighted chorus → cooc → δ) (2026-06-17)
+
+Phase-2-A folds Resonance's co-occurrence into δ at chat exit (`harvestField` → `am_cooc_learn_delta`); the
+chorus dream already reaches that cooc via the inject (`tools/resonance_forward.h`, `am_ingest_tokens`, the
+daemon at `--alpha 5`). This makes the subconscious's words imprint the cooc *harder* than ordinary
+turn-circulation, so the dream shapes the harvested δ distinctly. The autonomous breathing marks its chorus
+inject with a sentinel `"[DREAM] "` (`golib/breathe.go` `dreamSentinel`); `resonance_generate` strips the
+marker before BPE-encode (generation + the direction-injection see only the clean dream) and, after the normal
+weight-1.0 `am_ingest_tokens`, adds `(AM_CHORUS_COOC_WEIGHT−1)=1.0` over the SAME windowed (±5,
+distance-weighted) edges via the public `am_cooc_update` — total edge delta `2.0/|i-j|`. The human turn
+(`golib/metabolism.go:238`) carries no sentinel → weight 1.0 (unchanged). **No core/canon change**: it reuses
+the already-public `am_cooc_update`, so `ariannamethod/core` is untouched (no `vendored==canon` impact).
+
+Verified (tool): `make arianna_resonance metabolism` build clean; a direct one-shot inject shows the marker
+stripped and the weight applied — `[resonance] direction: "the living field remembers" -> 5 toks (... w=2.0)`
+vs the same inject without the marker → `w=1.0` (default-off, byte-identical encode); a `-race` idle `--chat`
+— the chorus breathes with **0 DATA RACE**, clean `/quit`, harvest δ |B|=0.01609; `git diff ariannamethod/`
+empty (core untouched). Codex (gpt-5.5): "Clean. No real bugs found." — verified the no-sentinel path is
+byte-identical, the extra loop matches `am_ingest_tokens`' window exactly (leaving `cooc_total`/`ctx_ring` to
+the normal ingest), the sentinel is stripped before encode, the 512-token cap holds, and the Go/C sentinels
+match.

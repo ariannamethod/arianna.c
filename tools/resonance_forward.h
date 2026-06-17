@@ -682,6 +682,15 @@ static int sent_end_ok(const char *obuf, int pos) {
     return 1;
 }
 
+/* Road-1c: a chorus-dream inject is marked with this sentinel by the autonomous
+ * breathing (golib/breathe.go's dreamSentinel — the two MUST match). resonance_generate
+ * strips it before BPE-encode (so generation + the direction-injection see only the
+ * clean dream) and imprints the dream's words on the co-occurrence field
+ * AM_CHORUS_COOC_WEIGHT× harder, so the subconscious shapes the harvested δ more than
+ * ordinary turn-circulation. No sentinel → weight 1.0 (unchanged). */
+#define AM_DREAM_SENTINEL      "[DREAM] "
+#define AM_CHORUS_COOC_WEIGHT  2.0f
+
 static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
                                int max_gen, float temp, float top_p,
                                const char *inject_text, float inject_alpha,
@@ -730,14 +739,35 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
      * The injected tokens are seeded once before generation; they are NEVER put
      * into cctx (anti-fraud invariant). alpha/beta = injection strength; 0 = off. */
     if (inject_text && (inject_alpha > 0.0f || inject_beta > 0.0f)) {
+        /* Road-1c: strip the chorus-dream sentinel (if present) so generation + the
+         * direction see only the clean dream; mark the cooc weight so the subconscious
+         * imprints louder than ordinary circulation. */
+        const char *inj = inject_text;
+        float cooc_w = 1.0f;
+        if (strncmp(inj, AM_DREAM_SENTINEL, sizeof(AM_DREAM_SENTINEL) - 1) == 0) {
+            inj += sizeof(AM_DREAM_SENTINEL) - 1;
+            cooc_w = AM_CHORUS_COOC_WEIGHT;
+        }
         int inj_toks[512];
-        int n_inj = nt_bpe_encode(&ctx->bpe, inject_text, (int)strlen(inject_text), inj_toks, 512);
+        int n_inj = nt_bpe_encode(&ctx->bpe, inj, (int)strlen(inj), inj_toks, 512);
         if (n_inj > 512) n_inj = 512;
         dir_update(ctx->w.tok_emb, inj_toks, n_inj);   /* destiny EMA + prophecy targets */
         dir_recompute(ctx->w.tok_emb);                 /* rebuild A/F caches (one matvec) */
-        am_ingest_tokens(inj_toks, n_inj);             /* circulation: other voice's words -> cooc */
-        fprintf(stderr, "[resonance] direction: \"%s\" -> %d toks (alpha=%.2f beta=%.2f mag=%.3f)\n",
-                inject_text, n_inj, inject_alpha, inject_beta, g_dest_mag);
+        am_ingest_tokens(inj_toks, n_inj);             /* circulation: other voice's words -> cooc (weight 1.0) */
+        if (cooc_w > 1.0f) {
+            /* the subconscious imprints louder — add (w-1) over the SAME windowed (±5,
+             * distance-weighted) edges am_ingest_tokens just wrote, via the public
+             * am_cooc_update, so the total edge delta is w/|i-j| (no core change). */
+            float extra = cooc_w - 1.0f;
+            for (int i = 0; i < n_inj; i++) {
+                int s = (i - 5 > 0) ? i - 5 : 0;
+                int e = (i + 5 < n_inj) ? i + 5 : n_inj;
+                for (int j = s; j < e; j++)
+                    if (j != i) am_cooc_update(inj_toks[i], inj_toks[j], extra / (float)(abs(i - j)));
+            }
+        }
+        fprintf(stderr, "[resonance] direction: \"%s\" -> %d toks (alpha=%.2f beta=%.2f mag=%.3f w=%.1f)\n",
+                inj, n_inj, inject_alpha, inject_beta, g_dest_mag, cooc_w);
     }
 
     float *logits = calloc(V, sizeof(float));

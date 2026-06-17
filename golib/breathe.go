@@ -32,6 +32,12 @@ var bCooldown = [4]time.Duration{
 }
 var bName = [4]string{"thermograph", "silence", "drift", "field"}
 
+// dreamSentinel marks the autonomous chorus dream when it is injected into
+// Resonance, so the daemon imprints the subconscious's words on the co-occurrence
+// field harder (Road-1c — the subconscious shapes the harvested δ more than ordinary
+// turn-circulation). MUST match AM_DREAM_SENTINEL in tools/resonance_forward.h.
+const dreamSentinel = "[DREAM] "
+
 // breath ports the meta_router trigger logic: which observation, if any, fires.
 type breath struct {
 	lastTrigger [4]time.Time
@@ -204,7 +210,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			} else {
 				fmt.Printf("│  ◌ (%s) she dreams: %s\n", bName[trig], dream)
 			}
-			reson := tc.resonD.ask("Arianna:\t" + dream) // the inner voice answers the chorus — no human
+			// the inner voice answers the chorus — no human. The dreamSentinel marks
+			// this as the subconscious's dream so Resonance imprints its words on the
+			// cooc harder (Road-1c) — the daemon strips the marker before generation.
+			reson := tc.resonD.ask("Arianna:\t" + dreamSentinel + dream)
 			if reson != "" {
 				tc.iw.ProcessText(reson)
 				fmt.Printf("│  ◑ (inner) %s\n", reson)
