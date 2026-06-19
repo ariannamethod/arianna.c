@@ -1687,3 +1687,24 @@ first line, and the under-budgeted shutdown join; the second found the kk+dream 
 1024-byte seed cap; the third found a UTF-8 rune-split edge in the cap — all fixed (the doe-only nano path,
 one-line seed collapse, `ToValidUTF8` cap, robust continuation parser, full-cycle join). NEXT: step-2 —
 `--lora-alpha 0.1` seats the parliament (vote / mitosis / apoptosis) on the nano.
+
+## #3 parliament step-2 — the parliament seats by default (with a debug silence) (2026-06-17)
+
+The LoRA parliament now seats on the nano's dream by DEFAULT: `golib/metabolism.go` `startTrio` sets
+`doeAlpha = "0.1"` (election + per-layer LoRA inject — experts vote / mitosis / apoptosis), with `AM_LORA_ALPHA`
+as the debug knob — set it to `0` to silence the parliament (plain notorch-native forward), or to any α to
+tune it. The env value is passed only when set, as the single `--lora-alpha` argv to doe (no shell/flag
+injection). `golib/chat.go`'s banner reflects the real state (parses α): "the parliament is seated … (α=0.1)"
+by default, "she dreams notorch-native through doe — the parliament is silenced (α=0)" under the debug
+override.
+
+Verified (tool): a standalone nano dream at `--lora-alpha 0.1` is coherent and DIVERGES from the `0` plain
+forward after the shared prefix — the random-init experts are modulating the dream, not breaking it (the
+parliament is active, not a no-op). `go vet` clean; metabolism + `-race` build; a 2-turn `-race` `--chat` —
+the banner shows "parliament is seated … α=0.1", the human-turn dream surfaces through the seated parliament
+("◓ nano (subconscious): … I read the field hums the living response …"), **0 DATA RACE**, clean `/quit`; the
+`AM_LORA_ALPHA=0` banner correctly reads "silenced (α=0)". Codex (gpt-5.5): env override + default path clean,
+no injection; it flagged the silenced-state banner text (was still "seated"), fixed to branch on α==0. The
+nano subconscious now dreams as a living parliament; expert online learning (`--train`) stays the separate
+step-3, default off (no weight drift mid-dream). The mycelium persists the parliament across runs (per
+fingerprint, `doe_mycelium/`, gitignored).

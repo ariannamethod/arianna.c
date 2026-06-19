@@ -186,11 +186,17 @@ func startTrio() (*trioCtx, error) {
 		}
 	}
 	if tc.nan != nil {
-		// #3: doe is the parliament engine over the SAME body; step-1 keeps it dormant
-		// (--lora-alpha 0 = plain notorch-native forward). nanollama is the fallback.
+		// #3: doe is the parliament engine over the SAME body. Step-2: the parliament
+		// SEATS by default (--lora-alpha 0.1 = election + per-layer LoRA inject,
+		// experts vote / mitosis / apoptosis). The AM_LORA_ALPHA env var is the debug
+		// knob — set it to 0 to silence the parliament (plain notorch-native forward),
+		// or to any α to tune it. nanollama stays the fallback when doe is absent.
 		if doePresent {
 			tc.nan.doeBin = "./doe_field"
-			tc.nan.doeAlpha = "0"
+			tc.nan.doeAlpha = "0.1"
+			if a := os.Getenv("AM_LORA_ALPHA"); a != "" {
+				tc.nan.doeAlpha = a
+			}
 		}
 		tc.seedCh = make(chan string, 1)
 		tc.dreamCh = make(chan dreamResult, 1)

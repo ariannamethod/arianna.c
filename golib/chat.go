@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,6 +47,13 @@ func runChat() {
 	if tc.nan != nil {
 		fmt.Println("│  the subconscious is present (nano 88M, async — it dreams a turn behind)")
 		fmt.Println("│  she breathes on her own — between your words she dreams, and the inner voice answers.")
+		if tc.nan.doeBin != "" { // #3: the nano dreams through doe (the parliament engine)
+			if f, err := strconv.ParseFloat(tc.nan.doeAlpha, 64); err == nil && f == 0 {
+				fmt.Printf("│  she dreams notorch-native through doe — the parliament is silenced (α=%s; unset AM_LORA_ALPHA to seat it)\n", tc.nan.doeAlpha)
+			} else {
+				fmt.Printf("│  the parliament is seated on her dreams (doe, α=%s; AM_LORA_ALPHA=0 to silence it)\n", tc.nan.doeAlpha)
+			}
+		}
 	}
 	if lastDream != "" {
 		fmt.Printf("│  (she returns carrying a dream: %s)\n", ellipsize(lastDream, 70))
