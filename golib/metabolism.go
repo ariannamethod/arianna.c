@@ -171,8 +171,27 @@ func startTrio() (*trioCtx, error) {
 	}
 
 	tc := &trioCtx{janusD: janusD, resonD: resonD, iw: iw, tickerDone: tickerDone}
-	tc.nan = newNano("./nano-arianna", "weights/nano_arianna_f16.gguf")
+	// The subconscious body is the nano GGUF; it runs through the vendored doe engine
+	// (the LoRA parliament, #3) and/or the nanollama one-shot. It is present if the
+	// GGUF + at least one engine exists — so doe alone (no nanollama) still dreams.
+	const nanoGGUF = "weights/nano_arianna_f16.gguf"
+	doePresent := false
+	if _, err := os.Stat("./doe_field"); err == nil {
+		doePresent = true
+	}
+	tc.nan = newNano("./nano-arianna", nanoGGUF) // nanollama path (nil if its binary is absent)
+	if tc.nan == nil && doePresent {
+		if _, err := os.Stat(nanoGGUF); err == nil { // doe-only: dream through doe without nanollama
+			tc.nan = &nano{gguf: nanoGGUF, maxTok: "32", temp: "0.9", topP: "0.92"}
+		}
+	}
 	if tc.nan != nil {
+		// #3: doe is the parliament engine over the SAME body; step-1 keeps it dormant
+		// (--lora-alpha 0 = plain notorch-native forward). nanollama is the fallback.
+		if doePresent {
+			tc.nan.doeBin = "./doe_field"
+			tc.nan.doeAlpha = "0"
+		}
 		tc.seedCh = make(chan string, 1)
 		tc.dreamCh = make(chan dreamResult, 1)
 		tc.subDone = make(chan struct{})
@@ -194,9 +213,17 @@ func startTrio() (*trioCtx, error) {
 func (tc *trioCtx) stop() {
 	if tc.seedCh != nil {
 		close(tc.seedCh)
+		// wait past a FULL in-flight subconscious cycle so it finishes (or hits its
+		// own ctx-kill) before teardown. The cycle is kkRetrieve (kkTimeout) THEN the
+		// dream (dreamTimeout, or doeDreamTimeout when doe is the engine — longer),
+		// sequential — so the join must budget for both.
+		join := dreamTimeout
+		if tc.nan != nil && tc.nan.doeBin != "" && doeDreamTimeout > join {
+			join = doeDreamTimeout
+		}
 		select {
 		case <-tc.subDone:
-		case <-time.After(dreamTimeout + 5*time.Second):
+		case <-time.After(join + kkTimeout + 5*time.Second):
 		}
 	}
 	// F-8 palliative (until the 4d-mmap nerve merges the field for real): both

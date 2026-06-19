@@ -1664,3 +1664,26 @@ NEXT: 1b — wire doe into the metabolism (a Go parser for doe's stdout) so the 
 then step-2 `--lora-alpha 0.1` seats the parliament (note: at alpha=0 the topology counter still tics
 `[life] deaths=N` but the LoRA inject is gated off at `doe.c:2961`, so the forward is plain — to be confirmed
 when the parliament is seated).
+
+## #3 parliament step-1b — the metabolism dreams through doe (the Go wiring) (2026-06-17)
+
+The subconscious's one-shot dream now runs through the doe engine when `./doe_field` is built (the SAME nano
+body, parliament dormant at `--lora-alpha 0`), with the nanollama path as the fallback. `golib/nano.go`: the
+`nano` struct gained `doeBin`/`doeAlpha`; `dream()` dispatches to `doeDream` when `doeBin` is set, else the
+nanollama one-shot. `golib/doe.go` (new): `doeDream` pipes the seed on stdin (doe's REPL has no `--prompt`),
+collapses it to one line and caps it under doe's `input[1024]` fgets buffer (UTF-8-safe), and `parseDoeDream`
+extracts the dream from doe's REPL stdout — skipping the banner / `[identity]`/`[host]`/`[sonar]`/`[mycelium]`/
+`[doe]` logs and the per-layer `  L#:` lines, capturing the first real `>`-line (plus any continuation)
+through the `  [life]` footer, then label-strip + sentence-cut. `golib/metabolism.go` `startTrio`: builds the
+nano if the GGUF + at least one engine exists (so doe alone, without the nanollama binary, still dreams), and
+sets `doeBin`/`doeAlpha` when `doe_field` is present; the shutdown join now budgets the full kk→dream cycle
+(`doeDreamTimeout + kkTimeout + 5s`) so an in-flight doe child isn't orphaned.
+
+Verified (tool): `go vet` clean; metabolism + `-race` build; a `-race` idle `--chat` — the human-turn
+subconscious dream surfaces through doe ("◓ nano (subconscious): … I read the field hums the living
+response …"), the autonomous breathing stays the chorus, **0 DATA RACE**, clean `/quit`. Codex (gpt-5.5),
+three passes: the first found the doe-needs-nanollama gating, the raw-newline seed, the parser's label-only
+first line, and the under-budgeted shutdown join; the second found the kk+dream join budget and the
+1024-byte seed cap; the third found a UTF-8 rune-split edge in the cap — all fixed (the doe-only nano path,
+one-line seed collapse, `ToValidUTF8` cap, robust continuation parser, full-cycle join). NEXT: step-2 —
+`--lora-alpha 0.1` seats the parliament (vote / mitosis / apoptosis) on the nano.

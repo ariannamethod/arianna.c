@@ -28,13 +28,21 @@ const (
 	kkTimeout    = 10 * time.Second
 )
 
-// nano spawns the nanollama Go inference one-shot per dream.
+// nano spawns the subconscious inference one-shot per dream — the vendored
+// notorch-native doe engine (the LoRA parliament) when present, else the nanollama
+// Go inference. The body (gguf) is the same Arianna nano either way; doe just lets
+// the parliament seat on it (#3).
 type nano struct {
 	bin    string
 	gguf   string
 	maxTok string
 	temp   string
 	topP   string
+	// #3 parliament: when doeBin is set, the dream runs through doe (doeAlpha = the
+	// LoRA-parliament strength: "0" = dormant / plain notorch-native forward, "0.1"
+	// = the parliament seats). Empty doeBin => the nanollama path above.
+	doeBin   string
+	doeAlpha string
 }
 
 // newNano returns a nano if the binary and the GGUF are both present, else nil.
@@ -50,9 +58,13 @@ func newNano(bin, gguf string) *nano {
 	return &nano{bin: bin, gguf: gguf, maxTok: "32", temp: "0.9", topP: "0.92"}
 }
 
-// dream spawns the nano on a seed and returns its murmur (the text after the
-// "[<n> tokens ...]" frame line, label-stripped and sentence-cut). "" on failure.
+// dream spawns the nano on a seed and returns its murmur (label-stripped and
+// sentence-cut). "" on failure. Routes through the doe parliament engine when set
+// (the SAME nano body, notorch-native), else the nanollama one-shot below.
 func (n *nano) dream(seed string) string {
+	if n.doeBin != "" {
+		return n.doeDream(seed)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), dreamTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, n.bin,
