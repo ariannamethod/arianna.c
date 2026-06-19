@@ -25,7 +25,7 @@ const maxDoeSeedBytes = 1000
 // doeDream runs the seed through doe_field (the nano body + the parliament at
 // doeAlpha) and returns the dream murmur. "" on failure / empty seed. The seed is
 // fed on stdin (doe's REPL has no --prompt); stderr (timing) is discarded.
-func (n *nano) doeDream(seed string) string {
+func (n *nano) doeDream(parent context.Context, seed string) string {
 	// collapse to ONE line — doe's REPL is line-oriented, so embedded newlines in a
 	// KK fragment would become multiple prompts (extra generations, only the first
 	// line dreamt on). One line = one dream.
@@ -45,7 +45,7 @@ func (n *nano) doeDream(seed string) string {
 		// space was found before the cap — rare for word cues, but kept correct).
 		seed = strings.ToValidUTF8(seed[:cut], "")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), doeDreamTimeout)
+	ctx, cancel := context.WithTimeout(parent, doeDreamTimeout) // derive from parent so /quit kills the doe child
 	defer cancel()
 	train := n.doeTrain
 	if train == "" {

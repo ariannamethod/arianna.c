@@ -1738,3 +1738,37 @@ accumulation across train runs isn't monotonic. NEXT (deferred, the real "useful
 async-between-turns cadence — accumulate the turn's `(x, dy)` pairs and run `notorch_step` BETWEEN dreams, not
 per-token mid-generation — so the experts learn coherently. That is the step-3.5 refinement; step-3 ships the
 knob + the proven default-off + this measured finding for us to tune from.
+
+## Pipeline hardening — a Codex review of the whole trio→dream path + a regression test net (2026-06-17)
+
+A four-pass Codex review of the Go orchestrator (concurrency/shutdown, doe-parliament/harvest, field/breathing/
+chorus, persistence/turn/test-coverage) surfaced latent defects the happy path never hit, plus a 7.3%
+test-coverage floor. All confirmed real ones hardened (one Codex finding — the Road-1c cooc window — was
+verified a false positive: the extra loop matches `am_ingest_tokens`' exact `±5`/`j<end` window):
+
+- Shutdown lifecycle: the breathing join now budgets the full kk→dream cycle (doe up to `doeDreamTimeout`), the
+  breathing fallback dream is ctx-cancelled and stop-checked so no doe child is spawned/orphaned after `/quit`,
+  and `nano.dream` is serialized (one model-load at a time) and ctx-aware. `InnerWorld.Stop` releases `iw.mu`
+  before `wg.Wait()` (was a latent deadlock with `handleCommands`' CmdReset/CmdStep), `handleCommands` is joined,
+  and `routeSignals` (which discarded signals the processes needed) is no longer started.
+- Inner-world: the `Step`(iw.mu)→AdaptGlobal→globalMu vs `Shutdown`(globalMu)→Stop(iw.mu) lock inversion fixed
+  (Shutdown drops globalMu before Stop); cross-session mood restore is now atomic vs the ticker via
+  `RestoreMood` (LoadState+ResyncMood under iw.mu) + per-process `Resync()`, so a load isn't clobbered by the
+  defaults the processes snapshot at Start.
+- Robustness: `chorusText` and the persisted `LastDream` cap are rune-safe (no invalid UTF-8 in the inject);
+  `SaveState` is crash-durable (fsync temp + dir); the breathing cooldown is stamped even on total dream
+  failure; `surfaces()` keeps the dream inward when the field is strained (debt>5) or wintering; the
+  `resonance_forward.h` RS02 merges `fread` is checked.
+- Tests: a new `golib/pipeline_test.go` (the Codex P0/P1 plan) covers the previously-untested pure functions and
+  the fixed behaviors — surfaces() contract, chorusText rune-safety, SaveState/LoadState round-trip + cap,
+  parseDoeDream, breath.tick (cooldown/threshold scaling), moodWord/dreamCue, tickBudget/tickDelay, the nano
+  cleaners.
+
+Verified (tool): `go vet` clean; `go test` — **20 tests green**, coverage **7.3% → 13.6%**; metabolism +
+`-race` build; a multi-turn `-race` `--chat` over the full pipeline — Janus+Resonance converse, the field
+steers the breathing (debt 24.9→27.9, cooldown×2.13, bloom 2), the chorus + the nano parliament dream surface,
+the inner voice murmurs, KK book-fragments feed the cue, harvest δ |B|=0.01523, clean `/quit` — **0 DATA
+RACE**. Codex re-reviewed all 16 fixes: sound (the one residual — `runSubconscious` letting its in-flight
+human-turn dream finish to its own deadline — is joined by `tc.stop`, the intended F-3 graceful-finish, not an
+orphan). Pre-existing forward niceties left for a separate pass (the roster token-0 strip). Go-orchestrator +
+`tools/resonance_forward.h` only — no vendored/canon change.

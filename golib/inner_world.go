@@ -70,10 +70,12 @@ func (iw *InnerWorld) Start(async bool) {
 		proc.Start(iw)
 	}
 
-	// Start signal router
-	go iw.routeSignals()
+	// The processes read iw.Signals directly in their own Step()/run() select, so a
+	// separate routeSignals drainer would COMPETE with them and discard signals the
+	// intended process should have seen — it is not started. (Was: go routeSignals.)
 
-	// Start command handler
+	// Start command handler — joined on Stop (added to the waitgroup).
+	iw.wg.Add(1)
 	go iw.handleCommands()
 
 	iw.running = true
@@ -82,24 +84,19 @@ func (iw *InnerWorld) Start(async bool) {
 // Stop gracefully stops all processes
 func (iw *InnerWorld) Stop() {
 	iw.mu.Lock()
-	defer iw.mu.Unlock()
-
 	if !iw.running {
+		iw.mu.Unlock()
 		return
 	}
-
-	// Signal stop
-	close(iw.stopChan)
-
-	// Stop all processes
+	iw.running = false
+	close(iw.stopChan) // signal stop
 	for _, proc := range iw.processes {
 		proc.Stop()
 	}
-
-	// Wait for completion
+	iw.mu.Unlock()
+	// Join handleCommands OUTSIDE iw.mu — it may be mid-command (CmdReset/CmdStep)
+	// that needs iw.mu, so waiting while holding the lock would deadlock.
 	iw.wg.Wait()
-
-	iw.running = false
 }
 
 // Step performs a single synchronous step of all processes
@@ -133,6 +130,7 @@ func (iw *InnerWorld) routeSignals() {
 
 // handleCommands processes commands from C
 func (iw *InnerWorld) handleCommands() {
+	defer iw.wg.Done()
 	for {
 		select {
 		case <-iw.stopChan:
@@ -240,6 +238,31 @@ func (iw *InnerWorld) GetProphecyDebt() *ProphecyDebtAccumulation {
 		return p.(*ProphecyDebtAccumulation)
 	}
 	return nil
+}
+
+// ResyncMood re-syncs the mood processes' private state from the (just-loaded)
+// State, so a LoadState that runs AFTER Start() is not clobbered by the defaults the
+// processes snapshot at Start. Lock-free (GetProcess takes no lock), so it is safe
+// to call under iw.mu.
+func (iw *InnerWorld) ResyncMood() {
+	if ed := iw.GetEmotionalDrift(); ed != nil {
+		ed.Resync()
+	}
+	if pd := iw.GetProphecyDebt(); pd != nil {
+		pd.Resync()
+	}
+}
+
+// RestoreMood loads the persisted state and re-syncs the processes ATOMICALLY with
+// respect to the ticker — both run under iw.mu, which Step also takes, so no Step can
+// fire between the load and the resync and write a stale (default) private value back
+// into State. Returns the last dream. Use this instead of LoadState+ResyncMood.
+func (iw *InnerWorld) RestoreMood(path string) string {
+	iw.mu.Lock()
+	defer iw.mu.Unlock()
+	ld := iw.LoadState(path)
+	iw.ResyncMood()
+	return ld
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -398,12 +421,15 @@ func Init() {
 
 // Shutdown stops the global inner world
 func Shutdown() {
+	// take the world out under globalMu, then Stop it OUTSIDE the lock: Stop takes
+	// iw.mu, and Step (holding iw.mu) calls AdaptGlobal → Global() → globalMu, so
+	// holding globalMu across Stop would invert the lock order and can deadlock.
 	globalMu.Lock()
-	defer globalMu.Unlock()
-
-	if globalWorld != nil {
-		globalWorld.Stop()
-		globalWorld = nil
+	w := globalWorld
+	globalWorld = nil
+	globalMu.Unlock()
+	if w != nil {
+		w.Stop()
 	}
 }
 

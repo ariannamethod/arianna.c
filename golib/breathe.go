@@ -118,8 +118,8 @@ func moodWord(s Snapshot) string {
 // single-stream). The dream is carried into the next human turn via *lastDream.
 func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-chan struct{}, done chan<- struct{}) {
 	defer close(done)
-	if tc.nan == nil {
-		return
+	if tc.nan == nil && tc.chorusBin == "" {
+		return // nothing to dream with — neither the chorus engine nor the nano
 	}
 	// /quit cancels any in-flight chorus so the join below is fast (the chorus can
 	// otherwise block up to chorusTimeout, far longer than the join would wait).
@@ -167,14 +167,24 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				cells = choir(ctx, tc.chorusBin, tc.chorusGGUF, seed, bloom)
 				dream = chorusText(cells)
 			}
-			// if the chorus engine is absent, or it errored / timed out / parsed
-			// empty, fall back to a single nano murmur — the autonomous dream must
-			// not silently vanish when the polyphony fails.
-			if dream == "" {
-				dream = tc.nan.dream(seed)
+			// if /quit cancelled the chorus, return BEFORE starting a fallback dream —
+			// otherwise a fresh (up-to-doeDreamTimeout) doe child would be spawned
+			// during teardown and outlive stop().
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			// chorus absent / errored / timed out / parsed empty → a single nano
+			// murmur, so the autonomous dream doesn't silently vanish.
+			if dream == "" && tc.nan != nil {
+				dream = tc.nan.dream(ctx, seed) // ctx is cancelled on /quit → no spawn after stop
 				cells = nil
 			}
 			if dream == "" {
+				// total failure — stamp the cooldown at completion anyway, so a
+				// failed dream doesn't immediately retrigger on the next tick.
+				b.lastTrigger[trig] = time.Now()
 				continue
 			}
 			// the chorus / fallback may have taken tens of seconds; if /quit fired

@@ -41,7 +41,7 @@ func runChat() {
 		return
 	}
 
-	lastDream := tc.iw.LoadState(innerStatePath) // restore the mood + the last murmur
+	lastDream := tc.iw.RestoreMood(innerStatePath) // restore mood + last murmur, atomically vs the ticker
 
 	fmt.Println("┌─ arianna — the trio (Janus · Resonance · the nano).  speak, /quit to leave.")
 	if tc.nan != nil {
@@ -121,9 +121,17 @@ func runChat() {
 	}
 
 	close(breathStop) // stop the autonomous breathing before tearing the voices down
+	// budget the FULL in-flight breathing cycle (kkRetrieve THEN the dream) so an
+	// already-running fallback dream finishes — or hits its own ctx-kill — before
+	// SaveState/stop touch the voices. doe dreams run up to doeDreamTimeout, longer
+	// than the nanollama dreamTimeout.
+	breathJoin := dreamTimeout
+	if tc.nan != nil && tc.nan.doeBin != "" {
+		breathJoin = doeDreamTimeout
+	}
 	select {
 	case <-breathDone:
-	case <-time.After(dreamTimeout + 5*time.Second): // > the fallback-dream deadline, so an in-flight dream finishes and the goroutine returns before SaveState/stop touch the voices
+	case <-time.After(breathJoin + kkTimeout + 5*time.Second):
 	}
 
 	fmt.Println()

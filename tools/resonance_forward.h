@@ -414,7 +414,10 @@ static int resonance_load(ResonanceCtx *ctx, const char *path) {
     if (!ctx->merges) { fclose(f); return 1; }
     for (uint32_t mi = 0; mi < n_merges; mi++) {
         int triple[3];
-        fread(triple, 4, 3, f);
+        if (fread(triple, 4, 3, f) != 3) { /* truncated merges — fail cleanly, don't read uninitialized stack */
+            fprintf(stderr, "[resonance] RS02 truncated merges at %u/%u\n", mi, n_merges);
+            free(ctx->merges); ctx->merges = NULL; fclose(f); return 1;
+        }
         ctx->merges[mi][0] = triple[0];
         ctx->merges[mi][1] = triple[1];
     }

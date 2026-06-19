@@ -149,3 +149,6 @@ reffs/
 # tracked; the built binary + the runtime mycelium spores are artifacts)
 doe_field
 doe_mycelium/
+
+# stray binary from a bare `go build .` in golib/
+golib/golib

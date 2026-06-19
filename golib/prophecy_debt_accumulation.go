@@ -97,6 +97,21 @@ func (pd *ProphecyDebtAccumulation) Name() string {
 	return "prophecy_debt"
 }
 
+// Resync re-reads debt/destiny/wormhole from the shared State after a LoadState, so
+// a load after Start() is not overwritten by the defaults snapshotted at Start.
+func (pd *ProphecyDebtAccumulation) Resync() {
+	pd.mu.Lock()
+	defer pd.mu.Unlock()
+	if pd.world == nil {
+		return
+	}
+	pd.world.State.mu.RLock()
+	pd.currentDebt = pd.world.State.ProphecyDebt
+	pd.destinyStrength = pd.world.State.DestinyPull
+	pd.wormholeChance = pd.world.State.WormholeChance
+	pd.world.State.mu.RUnlock()
+}
+
 func (pd *ProphecyDebtAccumulation) Start(world *InnerWorld) {
 	pd.world = world
 	pd.running = true

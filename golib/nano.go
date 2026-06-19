@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -47,6 +48,10 @@ type nano struct {
 	doeBin   string
 	doeAlpha string
 	doeTrain string
+	// serialize the one-shot spawn: runSubconscious (the human-turn dream) and the
+	// autonomous breathing fallback both call dream() on the shared nano — without
+	// this, two full doe/nanollama model-loads could run at once (RSS/CPU spike).
+	mu sync.Mutex
 }
 
 // newNano returns a nano if the binary and the GGUF are both present, else nil.
@@ -65,11 +70,18 @@ func newNano(bin, gguf string) *nano {
 // dream spawns the nano on a seed and returns its murmur (label-stripped and
 // sentence-cut). "" on failure. Routes through the doe parliament engine when set
 // (the SAME nano body, notorch-native), else the nanollama one-shot below.
-func (n *nano) dream(seed string) string {
-	if n.doeBin != "" {
-		return n.doeDream(seed)
+func (n *nano) dream(parent context.Context, seed string) string {
+	n.mu.Lock() // one model-load at a time across the turn dream + the breathing fallback
+	defer n.mu.Unlock()
+	select {
+	case <-parent.Done(): // cancelled while waiting for the lock (e.g. /quit) — don't spawn
+		return ""
+	default:
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), dreamTimeout)
+	if n.doeBin != "" {
+		return n.doeDream(parent, seed)
+	}
+	ctx, cancel := context.WithTimeout(parent, dreamTimeout) // derive from parent so a cancel kills the spawn
 	defer cancel()
 	cmd := exec.CommandContext(ctx, n.bin,
 		"--model", n.gguf,
@@ -194,7 +206,7 @@ func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan
 		if frag != "" {
 			seed = frag // dream ON the resonant fragment (subscription), not the chatter
 		}
-		d := n.dream(seed)
+		d := n.dream(context.Background(), seed) // the human-turn dream runs to its own deadline; stop() joins it
 		if d == "" {
 			continue
 		}

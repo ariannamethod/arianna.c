@@ -105,6 +105,21 @@ func (ed *EmotionalDrift) Name() string {
 	return "emotional_drift"
 }
 
+// Resync re-reads the position from the shared State after a LoadState — so a load
+// that happens AFTER Start() (which snapshots the position from the then-default
+// State) is not clobbered back to defaults on the next Step.
+func (ed *EmotionalDrift) Resync() {
+	ed.mu.Lock()
+	defer ed.mu.Unlock()
+	if ed.world == nil {
+		return
+	}
+	ed.world.State.mu.RLock()
+	ed.position.Valence = ed.world.State.Valence
+	ed.position.Arousal = ed.world.State.Arousal
+	ed.world.State.mu.RUnlock()
+}
+
 func (ed *EmotionalDrift) Start(world *InnerWorld) {
 	ed.mu.Lock()
 	defer ed.mu.Unlock()

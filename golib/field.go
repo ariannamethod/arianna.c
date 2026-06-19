@@ -365,5 +365,8 @@ func (s fieldSnapshot) surfaces() bool {
 	if !s.valid {
 		return false
 	}
+	if s.debt > 5 || s.winter > 0.5 { // strained (past the recovery cliff) or wintering — keep the dream inward
+		return false
+	}
 	return s.summer > 0.5 || s.velocityMode == velRUN
 }

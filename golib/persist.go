@@ -11,7 +11,13 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"strings"
 )
+
+// maxPersistedDream caps the restored last-dream so a corrupt-but-valid state file
+// can't feed an unbounded string into the voice daemons' prompt/inject.
+const maxPersistedDream = 2000
 
 // persistState is the serialisable slice of InnerState — the mood, plus the last
 // dream. (The live memory queues and timestamps are not persisted; the mood is.)
@@ -62,11 +68,32 @@ func (iw *InnerWorld) SaveState(path, lastDream string) error {
 	if err != nil {
 		return err
 	}
+	// crash-durable: write the temp, fsync it, rename, then fsync the directory so a
+	// successful save survives a crash/power loss (os.WriteFile + Rename alone don't).
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0644); err != nil {
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	if d, derr := os.Open(filepath.Dir(path)); derr == nil { // fsync the dir (best-effort)
+		d.Sync()
+		d.Close()
+	}
+	return nil
 }
 
 // maxInt returns the larger of a and b (for clamping persisted counters >= 0).
@@ -102,5 +129,9 @@ func (iw *InnerWorld) LoadState(path string) string {
 	s.MemoryPressure, s.FocusStrength, s.WanderPull = clamp(ps.MemoryPressure, 0, 1), clamp(ps.FocusStrength, 0, 1), clamp(ps.WanderPull, 0, 1)
 	s.ProphecyDebt, s.DestinyPull, s.WormholeChance = clamp(ps.ProphecyDebt, 0, 10), clamp(ps.DestinyPull, 0, 1), clamp(ps.WormholeChance, 0, 1)
 	s.mu.Unlock()
-	return ps.LastDream
+	ld := ps.LastDream // cap a corrupt-but-valid huge last_dream (rune-safe)
+	if len(ld) > maxPersistedDream {
+		ld = strings.ToValidUTF8(ld[:maxPersistedDream], "")
+	}
+	return ld
 }

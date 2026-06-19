@@ -113,7 +113,9 @@ func chorusText(cells []chorusCell) string {
 	}
 	s := strings.Join(parts, " / ")
 	if len(s) > maxDreamLen {
-		s = strings.TrimSpace(s[:maxDreamLen]) + "…"
+		// ToValidUTF8 drops a multibyte rune split by the hard byte cut, so the
+		// capped dream that lands in lastDream / the Resonance inject stays valid UTF-8.
+		s = strings.TrimSpace(strings.ToValidUTF8(s[:maxDreamLen], "")) + "…"
 	}
 	return s
 }
