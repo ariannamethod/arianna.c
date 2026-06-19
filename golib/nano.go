@@ -40,9 +40,13 @@ type nano struct {
 	topP   string
 	// #3 parliament: when doeBin is set, the dream runs through doe (doeAlpha = the
 	// LoRA-parliament strength: "0" = dormant / plain notorch-native forward, "0.1"
-	// = the parliament seats). Empty doeBin => the nanollama path above.
+	// = the parliament seats). doeTrain ("1") turns on the proven online expert
+	// learning (notorch_step Oja, debt-driven) so the experts learn from the dream;
+	// "0" (default) = static experts (the proven yent config). Empty doeBin => the
+	// nanollama path above.
 	doeBin   string
 	doeAlpha string
+	doeTrain string
 }
 
 // newNano returns a nano if the binary and the GGUF are both present, else nil.

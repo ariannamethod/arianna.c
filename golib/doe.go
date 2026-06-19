@@ -47,7 +47,11 @@ func (n *nano) doeDream(seed string) string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), doeDreamTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, n.doeBin, "--model", n.gguf, "--lora-alpha", n.doeAlpha)
+	train := n.doeTrain
+	if train == "" {
+		train = "0" // proven default: static experts (no online weight drift)
+	}
+	cmd := exec.CommandContext(ctx, n.doeBin, "--model", n.gguf, "--lora-alpha", n.doeAlpha, "--train", train)
 	cmd.Stdin = strings.NewReader(seed + "\n")
 	out, err := cmd.Output() // stdout only; a hung doe is killed at the deadline
 	if err != nil {

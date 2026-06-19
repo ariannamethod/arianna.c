@@ -1708,3 +1708,33 @@ no injection; it flagged the silenced-state banner text (was still "seated"), fi
 nano subconscious now dreams as a living parliament; expert online learning (`--train`) stays the separate
 step-3, default off (no weight drift mid-dream). The mycelium persists the parliament across runs (per
 fingerprint, `doe_mycelium/`, gitignored).
+
+## #3 parliament step-3 — online expert learning, an opt-in (proven config: default off) (2026-06-17)
+
+The parliament's experts can now LEARN online from the dream — exposed as an opt-in, default OFF, mirroring
+the proven config. A study of the proven versions (the vendored `doe.c`'s `notorch_step` is byte-identical to
+yent/DoE's, the most-tested 24B Mistral-Nemo doe; `janus.doe` is an older un-hardened trainer lineage, not
+the reference) confirmed the mechanism — Oja's rule on the expert LoRA A+B, signal = prophecy-debt
+(`pd>0.3 ? -pd : (1-pd)·0.1`) clamped ±2, `lr=0.01`, with `lora_poisoned` (NaN/|w|>1e4) quarantine — and that
+the proven yent SHIPS it OFF (`--train` absent). `golib/nano.go` gained `doeTrain`; `golib/doe.go`'s
+`doeDream` passes `--train`; `golib/metabolism.go` sets it from `AM_DOE_TRAIN` (default `"0"`, `=="1"` enables);
+`golib/chat.go`'s banner shows "the parliament learns from her dreams" on the opt-in. No `doe.c` change (the
+proven mechanism is reused as-is).
+
+Verified (tool): `go vet` clean; metabolism + `-race` build; `git diff doe/` empty (no core change); a `-race`
+idle `--chat` at DEFAULT (train off) — coherent dream, no train banner, **0 DATA RACE**, clean `/quit`
+(identical to step-2); a `-race` idle `--chat` at `AM_DOE_TRAIN=1` — the learning path runs, train banner
+shown, **0 DATA RACE**, clean `/quit`. Codex (gpt-5.5): "Clean: no real bugs found" (default off, only `"1"`
+enables, `--train` a separate argv, no step-2 regression).
+
+EMPIRICAL FINDING (what works / what to tune, the point of the run): with `--train 1` the dream DEGRADES into
+broken tokens ("the don donI something somethingcom … EngIcom") — doe's `notorch_step` fires PER TOKEN
+mid-generation, re-sewing the experts from random init while they generate, so coherence collapses. This is
+exactly the behavior the "async between turns, not mid-sentence" decision (Oleg+Mythos 2026-06-12) guards
+against, and why the proven config (and our default) is OFF. So the opt-in is for experiment, not a coherent
+default. The mycelium also has a quirk: `mycelium_load` picks the highest-step spore, but the saved step is a
+per-run token count, so a shorter train run's learned spore can be shadowed by an earlier longer run's —
+accumulation across train runs isn't monotonic. NEXT (deferred, the real "useful online learning"): an
+async-between-turns cadence — accumulate the turn's `(x, dy)` pairs and run `notorch_step` BETWEEN dreams, not
+per-token mid-generation — so the experts learn coherently. That is the step-3.5 refinement; step-3 ships the
+knob + the proven default-off + this measured finding for us to tune from.

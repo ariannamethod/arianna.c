@@ -197,6 +197,13 @@ func startTrio() (*trioCtx, error) {
 			if a := os.Getenv("AM_LORA_ALPHA"); a != "" {
 				tc.nan.doeAlpha = a
 			}
+			// step-3: the experts LEARN from the dream (notorch_step Oja, debt-driven)
+			// only when opted in — default off (the proven yent config; no weight drift).
+			// The mycelium spore persists the learned experts across dreams.
+			tc.nan.doeTrain = "0"
+			if os.Getenv("AM_DOE_TRAIN") == "1" {
+				tc.nan.doeTrain = "1"
+			}
 		}
 		tc.seedCh = make(chan string, 1)
 		tc.dreamCh = make(chan dreamResult, 1)

@@ -53,6 +53,9 @@ func runChat() {
 			} else {
 				fmt.Printf("│  the parliament is seated on her dreams (doe, α=%s; AM_LORA_ALPHA=0 to silence it)\n", tc.nan.doeAlpha)
 			}
+			if tc.nan.doeTrain == "1" { // step-3: online expert learning opted in
+				fmt.Println("│  the parliament learns from her dreams (--train: the experts grow toward what surfaces)")
+			}
 		}
 	}
 	if lastDream != "" {
