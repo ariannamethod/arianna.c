@@ -204,6 +204,17 @@ func startTrio() (*trioCtx, error) {
 			if os.Getenv("AM_DOE_TRAIN") == "1" {
 				tc.nan.doeTrain = "1"
 			}
+			// cap the mycelium spore dir before the parliament loads (crash-safe: bounds
+			// it every startup regardless of a clean prior shutdown). Keeps the highest-
+			// step spores, so the one the parliament loads is never pruned.
+			pruneMycelium(myceliumDir, myceliumKeep)
+			// persistent daemon (perf + the parliament stays awake across dreams): start
+			// the REPL once and reuse it. AM_DOE_DAEMON=0 forces the one-shot spawn (the
+			// A/B knob). startDoeDaemon primes single-threaded here, BEFORE runSubconscious
+			// and the breathing goroutine can call dream(); nil on failure => one-shot.
+			if os.Getenv("AM_DOE_DAEMON") != "0" {
+				tc.nan.doeD = startDoeDaemon(tc.nan.doeBin, tc.nan.gguf, tc.nan.doeAlpha, tc.nan.doeTrain)
+			}
 		}
 		tc.seedCh = make(chan string, 1)
 		tc.dreamCh = make(chan dreamResult, 1)
@@ -238,6 +249,16 @@ func (tc *trioCtx) stop() {
 		case <-tc.subDone:
 		case <-time.After(join + kkTimeout + 5*time.Second):
 		}
+	}
+	// close the doe daemon — it saves its mycelium spore and exits before the rest tears
+	// down. Under nano.mu so it can NOT race an in-flight generate(): if the subDone
+	// join above timed out (a buffered cue can extend runSubconscious past the budget),
+	// a dream may still hold the daemon; mu serializes close behind it (generate runs
+	// under the same mu), and that dream's own ctx-deadline releases it.
+	if tc.nan != nil {
+		tc.nan.mu.Lock()
+		tc.nan.doeD.close() // nil-safe (daemon may never have started)
+		tc.nan.mu.Unlock()
 	}
 	// F-8 palliative (until the 4d-mmap nerve merges the field for real): both
 	// daemons rewrite the shared soma at exit, so the last to close wins. Close

@@ -1772,3 +1772,69 @@ RACE**. Codex re-reviewed all 16 fixes: sound (the one residual — `runSubconsc
 human-turn dream finish to its own deadline — is joined by `tc.stop`, the intended F-3 graceful-finish, not an
 orphan). Pre-existing forward niceties left for a separate pass (the roster token-0 strip). Go-orchestrator +
 `tools/resonance_forward.h` only — no vendored/canon change.
+
+## Persistent doe daemon — the parliament stays awake between dreams (2026-06-20)
+
+The subconscious dreamt through doe one-shot: every dream spawned `doe_field` fresh, paying a 169.8MB model
+reload (`ls -laL weights/nano_arianna_f16.gguf` = 178081792 bytes) plus the sonar profile and a mycelium spore
+save each time. doe is a REPL — its `while(1)` loop (`doe/doe.c:3463`) loads the host model and the spore ONCE
+before the loop and then reads prompt after prompt — so a one-shot-per-dream spawn was throwing that loaded
+state away every dream. This change keeps one `doe_field` REPL alive for the session: the model and the
+parliament load once, and each dream is one prompt over the same loaded body, so the field, the experts, and
+the prophecy-debt evolve continuously across the session's dreams (doe's native REPL mode) instead of resetting
+per dream. The mycelium spore still persists across sessions (loaded once at start, saved once at exit); within
+a session the parliament is now continuous rather than reborn each dream.
+
+The Go side (`golib/doe.go`) gained a `doeDaemon` mirroring the hot `voice` daemon: stdin/stdout pipes, talked
+to under the nano's mutex (one generation at a time, matching the single stream). doe prints no `<END>` frame,
+so the read-only `status` command (`doe/doe.c:3470` — it prints `[field] step=…` and `continue`s without
+generating, resetting the KV cache, or touching the experts) is sent after each seed as the end-of-generation
+sentinel. `startDoeDaemon` primes single-threaded in `startTrio` (draining the load banner up to the first
+sentinel) before the dreaming goroutines start; `tc.stop()` closes it under `nano.mu` after the subconscious
+goroutine joins, so the spore is saved and the process exits before teardown. The daemon is gated by
+`AM_DOE_DAEMON` (default on; `=0` forces the one-shot spawn — the A/B knob, in the idiom of `AM_LORA_ALPHA` and
+`AM_DOE_TRAIN`); if the daemon fails to start or dies, `doeDream` falls back to the one-shot spawn, so dreams
+never stop — they just pay the reload.
+
+Hardened across five Codex (gpt-5.5) review rounds before it was sound: (1) the daemon attempt and the one-shot
+fallback share ONE `context.WithTimeout(parent, doeDreamTimeout)`, so a fast daemon failure (down/EOF — budget
+left) falls through to a working one-shot while a daemon wedge (budget spent → `ctx.Err()!=nil`) is terminal
+for that dream — the worst-case dream latency is provably a single `doeDreamTimeout`, and `stop()`'s join budget
+(`doeDreamTimeout + kkTimeout + 5s`) covers the full kkRetrieve-then-dream cycle. (2) the status sentinel is
+matched structurally — after stripping doe's `> ` prompt the line must BEGIN with `[field] step=` and carry the
+full signature (`debt=`/`entropy=`/`resonance=`/`emergence=`, `doe/doe.c:3471`) — so a dream that merely emits
+those words is never mistaken for the frame. (3) a seed that is exactly a doe REPL command (`status`/`quit`/
+`exit`) is neutralized with a leading space (`neutralizeDoeSeed`), so it is dreamt on, not executed. (4) the
+process is reaped via a `sync.Once` on every death path and by `close()`, so a killed/dead daemon leaves no
+zombie. (5) `close()` runs under `nano.mu`, serialized behind any in-flight `generate()`, so a join that times
+out (a buffered `seedCh` cue can extend the subconscious past the budget) cannot race the daemon's pipes or its
+`dead`/`reaped` fields.
+
+Verified (tool): `go vet` clean; `go build` + `go build -race` clean; `go test -race` — 23 tests green (new
+`TestParseDoeDreamDaemonLeftover`, `TestDoeStatusSentinel`, `TestNeutralizeDoeSeed` cover the leftover-status
+skip, the structural sentinel, and the command neutralization), coverage 13.2%; final Codex pass confirmed the
+whole path race-free, deadlock-free, bounded, and clean. Go-orchestrator only (`golib/doe.go`, `nano.go`,
+`metabolism.go`, `chat.go`, `pipeline_test.go`) — no vendored/canon change (`git diff doe/` empty).
+
+## Roster token-0 strip + mycelium spore cap (2026-06-20)
+
+Two small hardening passes alongside the persistent daemon. **#14 roster strip (`tools/resonance_forward.h`):**
+Resonance was SFT'd on a chat roster, so she sometimes opens with a label. The existing strip caught labels
+prefixed by a space or newline (`" User"`, `"\nUser"`, …) but missed a BARE label at token 0 (`User:` with no
+leading char, ~the half of openings that begin a fresh line). A leading-only pass now strips the exact `User:`/
+`Assistant:`/`Oleg:` artifact at position 0 — the colon must follow the label name immediately, so legitimate
+leading content (`Users: …`, `Userland: …`, `User X: …`) is kept; the bounds are colon-gated and `olen`-tracked.
+Verified: `make arianna_resonance` clean (only the pre-existing unused-`mm_t` warning); Codex confirmed the
+over-strip cases are kept, the artifact cases strip, and the memmove bounds are safe.
+
+**Mycelium spore cap (`golib/doe.go` `pruneMycelium`):** the parliament persists its learned experts as
+`doe_mycelium/spore_<fingerprint>_s<step>.bin` (`doe.c:2500`); with the persistent daemon that is now one save
+per session rather than per dream, but across sessions the dir still grows. `pruneMycelium` caps it at the 8
+highest-step spores PER FINGERPRINT (the parliament loads the highest-step spore for the current host only,
+`doe.c:2547`, so a different host's spores can never crowd out this host's load target), called in `startTrio`
+before the daemon loads (crash-safe — it bounds the dir every startup regardless of a clean prior shutdown).
+The parse is strict (a canonical `spore_<16hex>_s<step>.bin` only; malformed / non-hex-fingerprint / negative
+or non-numeric step names are left untouched). No `doe/` canon change. Verified: `go test -race` — 24 tests
+green (new `TestPruneMycelium` covers the per-fingerprint grouping, the busy-other-host case, and the malformed
+names), coverage 14.7%; Codex confirmed the current host's load target always survives and there is no panic /
+OOB / wrong-deletion path.

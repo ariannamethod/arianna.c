@@ -110,6 +110,125 @@ func TestParseDoeDream(t *testing.T) {
 	}
 }
 
+// TestParseDoeDreamDaemonLeftover guards the persistent-daemon framing: each
+// exchange stops at its `[field] step=` sentinel, leaving the rest of that status
+// reply (`[field] season`/`[drift]`/`[experts]`/`[prophecy]`) buffered. The NEXT
+// dream's raw text therefore BEGINS with those leftover log lines before its `>`
+// dream line — parseDoeDream must skip them and still recover the dream. This is the
+// exact byte shape doeDaemon.exchange accumulates for the second dream onward.
+func TestParseDoeDreamDaemonLeftover(t *testing.T) {
+	raw := `[field] season=summer health=0.512 temp=0.83 velocity=walk
+[drift] d=0.104 stability=0.91 accel=0.0011 snapshots=3
+[experts] alive=12 consensus=0.80 elections=2
+[prophecy] avg_debt=0.214 total_debt=4.10
+>    the dream body flows here, soft and strange.
+  [life] births=1 deaths=0
+`
+	d := parseDoeDream(raw)
+	if d != "the dream body flows here, soft and strange." {
+		t.Errorf("leftover status lines must be skipped, got %q", d)
+	}
+	if strings.Contains(d, "[field]") || strings.Contains(d, "[drift]") || strings.Contains(d, "[experts]") || strings.Contains(d, "[life]") {
+		t.Errorf("parseDoeDream leaked a daemon log line: %q", d)
+	}
+}
+
+// TestDoeStatusSentinel guards the end-of-generation frame: only the FULL status line
+// (doe.c:3471) counts, so a dream that merely emits "[field] step=" is not mistaken
+// for the frame (which would truncate the dream + desync the next exchange).
+func TestDoeStatusSentinel(t *testing.T) {
+	// the real status reply, with doe's `> ` prompt prepended (no newline after it).
+	real := "> [field] step=42 debt=0.214 entropy=0.501 resonance=0.330 emergence=0.120"
+	if !isDoeStatusSentinel(real) {
+		t.Errorf("real status line must be the sentinel: %q", real)
+	}
+	// a dream that happens to contain the bare substring is NOT the sentinel.
+	for _, bogus := range []string{
+		"the oracle whispered [field] step= into the dark",
+		"[field] step=7", // partial — no debt/entropy/resonance/emergence
+		">    a soft murmur about a field that steps forward",
+		"  [life] births=1 deaths=0",
+		// the full signature but mid-sentence (no leading prompt) — structurally NOT
+		// the frame (doe always prints it right after its `> ` prompt).
+		"the dream said [field] step=1 debt=2 entropy=3 resonance=4 emergence=5 softly",
+	} {
+		if isDoeStatusSentinel(bogus) {
+			t.Errorf("non-status line wrongly matched the sentinel: %q", bogus)
+		}
+	}
+}
+
+// TestPruneMycelium: the dir is capped PER FINGERPRINT (doe.c loads the highest step
+// for the current host only), non-spore + malformed names are left alone, and a
+// fingerprint with <=keep spores is never touched — so a busy OTHER host can't crowd
+// out this host's load target.
+func TestPruneMycelium(t *testing.T) {
+	dir := t.TempDir()
+	fpA := "00000000deadbeef" // "this" host: 2 spores (both must survive at keep=3)
+	fpB := "1111111100000000" // a busy other host: 5 spores
+	write := func(name string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, s := range []string{"10", "20"} {
+		write("spore_" + fpA + "_s" + s + ".bin")
+	}
+	for _, s := range []string{"300", "100", "500", "50", "200"} {
+		write("spore_" + fpB + "_s" + s + ".bin")
+	}
+	// non-spore + malformed names — must all be untouched (not parsed as spores).
+	for _, n := range []string{"notes.txt", "spore_junk_s9.bin", "spore__s9.bin", "spore_" + fpA + "_sxx.bin"} {
+		write(n)
+	}
+	pruneMycelium(dir, 3)
+	survives := map[string]bool{}
+	ents, _ := os.ReadDir(dir)
+	for _, e := range ents {
+		survives[e.Name()] = true
+	}
+	// fpA has 2 <= 3 → both survive (a busy fpB must not delete this host's spores).
+	for _, s := range []string{"10", "20"} {
+		if !survives["spore_"+fpA+"_s"+s+".bin"] {
+			t.Errorf("per-fingerprint: fpA spore s%s must survive", s)
+		}
+	}
+	// fpB keeps its 3 highest (500, 300, 200); 100, 50 pruned.
+	for _, s := range []string{"500", "300", "200"} {
+		if !survives["spore_"+fpB+"_s"+s+".bin"] {
+			t.Errorf("fpB highest-step spore s%s must survive", s)
+		}
+	}
+	for _, s := range []string{"100", "50"} {
+		if survives["spore_"+fpB+"_s"+s+".bin"] {
+			t.Errorf("fpB low-step spore s%s must be pruned", s)
+		}
+	}
+	for _, n := range []string{"notes.txt", "spore_junk_s9.bin", "spore__s9.bin", "spore_" + fpA + "_sxx.bin"} {
+		if !survives[n] {
+			t.Errorf("non-spore/malformed name %q must be left alone", n)
+		}
+	}
+	// idempotent + safe on a missing dir.
+	pruneMycelium(filepath.Join(dir, "nope"), 3)
+}
+
+// TestNeutralizeDoeSeed guards against a seed that is exactly a doe REPL command
+// (status/quit/exit) being executed instead of dreamt on.
+func TestNeutralizeDoeSeed(t *testing.T) {
+	for _, cmd := range []string{"status", "quit", "exit"} {
+		if got := neutralizeDoeSeed(cmd); got != " "+cmd {
+			t.Errorf("reserved command %q must be neutralized, got %q", cmd, got)
+		}
+	}
+	// ordinary seeds pass through untouched (incl. ones that merely contain a command).
+	for _, ok := range []string{"the field hums", "quit the silence and speak", "status report of the soul", ""} {
+		if got := neutralizeDoeSeed(ok); got != ok {
+			t.Errorf("ordinary seed %q must pass through, got %q", ok, got)
+		}
+	}
+}
+
 // ── breath.tick: cooldown + threshold scaling ───────────────────────────────────
 func TestBreathTick(t *testing.T) {
 	var b breath

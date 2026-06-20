@@ -851,6 +851,23 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
          * voice and the words after the label are hers, so REMOVE the label
          * ("User:"/"Assistant:"/"Oleg:" + the colon and a space) and keep the
          * content, wherever the label appears. */
+        /* #14: a roster label at token 0 has no space/newline before it, so the
+         * prefixed patterns below miss it. Strip the BARE "Label:" SFT artifact at
+         * position 0 only — the colon must follow the label IMMEDIATELY, so legitimate
+         * leading content ("Users: …", "Userland: …", "User X: …") is kept. */
+        {
+            static const char *lead[] = { "User", "Assistant", "Oleg" };
+            for (size_t li = 0; li < sizeof(lead)/sizeof(lead[0]); li++) {
+                int rl = (int)strlen(lead[li]);
+                if (olen > rl && strncmp(obuf, lead[li], rl) == 0 && obuf[rl] == ':') {
+                    int j = rl + 1;
+                    if (j < olen && obuf[j] == ' ') j++;            /* skip ": " */
+                    memmove(obuf, obuf + j, (size_t)(olen - j));     /* drop the leading label */
+                    olen -= j;
+                    break;                                          /* at most one leading label */
+                }
+            }
+        }
         static const char *rosters[] = { " User", " Assistant", " Oleg", "\nUser", "\nAssistant", "\nOleg" };
         for (size_t ri = 0; ri < sizeof(rosters)/sizeof(rosters[0]); ri++) {
             int rl = (int)strlen(rosters[ri]);

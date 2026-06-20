@@ -56,6 +56,9 @@ func runChat() {
 			if tc.nan.doeTrain == "1" { // step-3: online expert learning opted in
 				fmt.Println("│  the parliament learns from her dreams (--train: the experts grow toward what surfaces)")
 			}
+			if tc.nan.doeD != nil { // persistent: one model load, the field evolves across dreams
+				fmt.Println("│  the parliament stays awake between dreams (one load — the field carries over; AM_DOE_DAEMON=0 to reload per dream)")
+			}
 		}
 	}
 	if lastDream != "" {

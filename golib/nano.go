@@ -48,6 +48,10 @@ type nano struct {
 	doeBin   string
 	doeAlpha string
 	doeTrain string
+	// doeD is the persistent doe REPL (the parliament stays awake — one model load,
+	// the field evolving across dreams). nil => doeDream falls back to a one-shot spawn
+	// per dream (graceful degradation). Talked to under mu (one generation at a time).
+	doeD *doeDaemon
 	// serialize the one-shot spawn: runSubconscious (the human-turn dream) and the
 	// autonomous breathing fallback both call dream() on the shared nano — without
 	// this, two full doe/nanollama model-loads could run at once (RSS/CPU spike).
