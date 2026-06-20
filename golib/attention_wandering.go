@@ -224,7 +224,7 @@ func (aw *AttentionWandering) wander() {
 
 	// Emit signal
 	if aw.world != nil {
-		aw.world.Signals <- Signal{
+		aw.world.emit(Signal{
 			Type:      SignalAttention,
 			Value:     1 - aw.focusStrength, // Higher = more wandering
 			Source:    aw.Name(),
@@ -234,7 +234,7 @@ func (aw *AttentionWandering) wander() {
 				"from_focus":   aw.currentFocus,
 				"focus_level":  aw.focusStrength,
 			},
-		}
+		})
 	}
 }
 

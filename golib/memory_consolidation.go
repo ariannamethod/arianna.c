@@ -233,7 +233,7 @@ func (mc *MemoryConsolidation) processConsolidation(dt float32) {
 
 	// Emit signal
 	if mc.world != nil {
-		mc.world.Signals <- Signal{
+		mc.world.emit(Signal{
 			Type:      SignalMemory,
 			Value:     candidate.Strength,
 			Source:    mc.Name(),
@@ -243,7 +243,7 @@ func (mc *MemoryConsolidation) processConsolidation(dt float32) {
 				"emotion":     candidate.Emotion,
 				"connections": len(candidate.Connections),
 			},
-		}
+		})
 	}
 }
 

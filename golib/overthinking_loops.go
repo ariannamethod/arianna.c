@@ -180,7 +180,7 @@ func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 
 		// Emit signal if overthinking detected
 		if result.TotalScore > 0.5 {
-			ol.world.Signals <- Signal{
+			ol.world.emit(Signal{
 				Type:      SignalOverthink,
 				Value:     result.TotalScore,
 				Source:    ol.Name(),
@@ -190,7 +190,7 @@ func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 					"abstraction": result.AbstractionScore,
 					"self_ref":    result.SelfRefScore,
 				},
-			}
+			})
 		}
 	}
 

@@ -1869,3 +1869,29 @@ ProcessText, inject) is fully closed. The remaining raw emitters are the separat
 direct-CLI stdout (doe.c canon; chorus + nanollama vendored) — the trio never shows those raw (it
 captures and sanitizes), so they are upstream concerns, not a trio leak. Go-orchestrator + the voices'
 own forwards only (`tools/*.h`, `arianna.aml`) — no `ariannamethod/core` or `doe/` canon change.
+
+## Inner-world hardening — non-blocking signals + dead-code removal (2026-06-21)
+
+The Codex pipeline audit flagged a latent deadlock and a layer of dead code in the ported inner-world.
+
+Non-blocking signals: the six processes emit Signals (trauma / attention / overthink / memory / drift /
+prophecy), but in the trio path nothing drains the channel — the per-process Signals-readers live in the
+run() loops, which the metabolism does not start (Start(false): iw.Step is the only clock). With a blocking
+send and a 100-slot buffer, a long session could fill it and wedge the sender, which runs under iw.mu via
+Step / ProcessText — a deadlock of the whole inner world. A new `iw.emit(sig)` does a non-blocking
+select-send with default-drop (signals are soft state-nudges; the field carries the truth), and the five
+blocking sends were converted to it; the C-host path (Start(true), run()-readers active) keeps the buffer
+drained as before.
+
+Dead-code removal: `routeSignals` (the disabled drainer, 0 callers) and the entire command subsystem —
+`handleCommands` + `processCommand` (the CmdPause/Resume/Query branches were empty stubs), the `iw.Commands`
+channel, the `Command` struct + `CommandType` + the `Cmd*` consts, the `iw.wg` WaitGroup (it only joined
+handleCommands), and the now-orphaned `stopChan` (its only readers were the two removed loops). All verified
+dead before cutting: no producer of `iw.Commands` anywhere, cgo_bridge does not touch the command system,
+the process goroutines are joined via `proc.Stop()` not `iw.wg`, and `stopChan` had no `<-` reader.
+
+Verified (tool): `go vet` clean; `go build` + `go build -buildmode=c-shared` (the cgo path) + `go build
+-race` all clean; `go test -race` — 27 tests green (new `TestEmitNonBlocking` proves emit drops on a full
+buffer instead of blocking), coverage 14.8% → 15.0% (the cut shrank the denominator); a `-race --chat`
+completes with a clean `/quit` and 0 DATA RACE (Stop without the wg.Wait is still correct). Codex (gpt-5.5):
+the emit fix is sound and the removal is safe + complete. Go-orchestrator only — no core/forward/canon change.

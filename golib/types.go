@@ -115,34 +115,14 @@ type InnerWorld struct {
 	State    *InnerState
 
 	// Channels for inter-process communication
-	Signals  chan Signal
-	Commands chan Command
-	stopChan chan struct{}
+	Signals chan Signal
 
 	// Process handles
 	processes []Process
-	wg        sync.WaitGroup
 	running   bool
 	async     bool // if false, processes don't self-tick — iw.Step is the only clock
 	mu        sync.Mutex
 }
-
-// Command sent to inner world from C
-type Command struct {
-	Type    CommandType
-	Payload any
-}
-
-type CommandType int
-
-const (
-	CmdPause CommandType = iota
-	CmdResume
-	CmdReset
-	CmdInject  // inject a signal
-	CmdQuery   // query state
-	CmdStep    // step all processes
-)
 
 // Process interface for all async processes
 type Process interface {
@@ -195,8 +175,6 @@ func NewInnerWorld() *InnerWorld {
 	return &InnerWorld{
 		State:     NewInnerState(),
 		Signals:   make(chan Signal, 100),
-		Commands:  make(chan Command, 10),
-		stopChan:  make(chan struct{}),
 		processes: make([]Process, 0),
 	}
 }

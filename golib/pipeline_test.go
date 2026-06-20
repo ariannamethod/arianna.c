@@ -163,6 +163,25 @@ func TestDreamDropsInvalidUTF8(t *testing.T) {
 	}
 }
 
+// TestEmitNonBlocking guards the inner-world deadlock fix: emit must never block on a
+// full Signals buffer (in the trio path nothing drains it — the run() readers are
+// dormant under Start(false) — and the sender runs under iw.mu via Step/ProcessText).
+func TestEmitNonBlocking(t *testing.T) {
+	iw := &InnerWorld{Signals: make(chan Signal, 2)}
+	iw.emit(Signal{})
+	iw.emit(Signal{}) // buffer now full (cap 2)
+	done := make(chan struct{})
+	go func() { iw.emit(Signal{}); close(done) }() // a blocking send would hang here
+	select {
+	case <-done: // returned → non-blocking, the 3rd signal was dropped
+	case <-time.After(2 * time.Second):
+		t.Fatal("emit blocked on a full Signals buffer (deadlock risk not fixed)")
+	}
+	if len(iw.Signals) != 2 {
+		t.Errorf("emit should have dropped the overflow signal, buffer len=%d (want 2)", len(iw.Signals))
+	}
+}
+
 // TestDoeStatusSentinel guards the end-of-generation frame: only the FULL status line
 // (doe.c:3471) counts, so a dream that merely emits "[field] step=" is not mistaken
 // for the frame (which would truncate the dream + desync the next exchange).

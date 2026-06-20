@@ -54,10 +54,8 @@ func (iw *InnerWorld) Start(async bool) {
 	}
 	iw.async = async
 
-	// Recreate channels on restart (fixes channel reuse after Stop)
-	iw.stopChan = make(chan struct{})
+	// Recreate the Signals channel on restart (fixes channel reuse after Stop)
 	iw.Signals = make(chan Signal, 100)
-	iw.Commands = make(chan Command, 10)
 
 	// Clear old processes
 	iw.processes = iw.processes[:0]
@@ -69,14 +67,9 @@ func (iw *InnerWorld) Start(async bool) {
 		// Start synchronously to set world field immediately
 		proc.Start(iw)
 	}
-
-	// The processes read iw.Signals directly in their own Step()/run() select, so a
-	// separate routeSignals drainer would COMPETE with them and discard signals the
-	// intended process should have seen — it is not started. (Was: go routeSignals.)
-
-	// Start command handler — joined on Stop (added to the waitgroup).
-	iw.wg.Add(1)
-	go iw.handleCommands()
+	// Nothing drains iw.Signals here: the Signals-readers live in the processes' own
+	// run() loops (async / C-host path only). The metabolism's senders use the
+	// non-blocking emit() — a full buffer drops rather than wedging the inner world.
 
 	iw.running = true
 }
@@ -89,14 +82,10 @@ func (iw *InnerWorld) Stop() {
 		return
 	}
 	iw.running = false
-	close(iw.stopChan) // signal stop
 	for _, proc := range iw.processes {
 		proc.Stop()
 	}
 	iw.mu.Unlock()
-	// Join handleCommands OUTSIDE iw.mu — it may be mid-command (CmdReset/CmdStep)
-	// that needs iw.mu, so waiting while holding the lock would deadlock.
-	iw.wg.Wait()
 }
 
 // Step performs a single synchronous step of all processes
@@ -114,64 +103,16 @@ func (iw *InnerWorld) Step(dt float32) {
 	AdaptGlobal()
 }
 
-// routeSignals distributes signals to appropriate processes
-func (iw *InnerWorld) routeSignals() {
-	for {
-		select {
-		case <-iw.stopChan:
-			return
-		case sig := <-iw.Signals:
-			// Log signal for debugging (processes read state directly)
-			_ = sig // Signals are processed through state updates
-			// Each process reads from shared state in their Step()
-		}
-	}
-}
-
-// handleCommands processes commands from C
-func (iw *InnerWorld) handleCommands() {
-	defer iw.wg.Done()
-	for {
-		select {
-		case <-iw.stopChan:
-			return
-		case cmd := <-iw.Commands:
-			iw.processCommand(cmd)
-		}
-	}
-}
-
-func (iw *InnerWorld) processCommand(cmd Command) {
-	switch cmd.Type {
-	case CmdPause:
-		// Pause all processes (they'll stop processing in next tick)
-		// Implementation: set a paused flag they check
-
-	case CmdResume:
-		// Resume all processes
-
-	case CmdReset:
-		// Reset state to defaults
-		iw.mu.Lock()
-		iw.State = NewInnerState()
-		iw.mu.Unlock()
-
-	case CmdInject:
-		// Inject a signal
-		if sig, ok := cmd.Payload.(Signal); ok {
-			iw.Signals <- sig
-		}
-
-	case CmdQuery:
-		// Query state - response through callback or channel
-
-	case CmdStep:
-		// Single step
-		if dt, ok := cmd.Payload.(float32); ok {
-			iw.Step(dt)
-		} else {
-			iw.Step(0.1)
-		}
+// emit posts a signal WITHOUT blocking. The processes' Signals-readers live in their
+// run() loops, which the metabolism does not start (Start(false): iw.Step is the only
+// clock) — so in the trio path nothing drains iw.Signals, and a blocking send would
+// wedge the sender, which runs under iw.mu via Step/ProcessText. Drop on a full buffer
+// (signals are soft state-nudges, the field carries the truth); in the C-host path
+// (Start(true)) a run()-reader keeps the buffer drained as before.
+func (iw *InnerWorld) emit(sig Signal) {
+	select {
+	case iw.Signals <- sig:
+	default: // buffer full / no drainer — drop, never block the inner world
 	}
 }
 

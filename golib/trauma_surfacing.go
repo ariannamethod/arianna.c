@@ -223,7 +223,7 @@ func (ts *TraumaSurfacing) CheckText(text string) float32 {
 		state.mu.Unlock()
 
 		// Emit signal
-		ts.world.Signals <- Signal{
+		ts.world.emit(Signal{
 			Type:      SignalTrauma,
 			Value:     state.TraumaLevel,
 			Source:    ts.Name(),
@@ -232,7 +232,7 @@ func (ts *TraumaSurfacing) CheckText(text string) float32 {
 				"anchors":    matchedAnchors,
 				"activation": totalActivation,
 			},
-		}
+		})
 	}
 
 	return totalActivation
