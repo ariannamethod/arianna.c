@@ -1905,3 +1905,17 @@ UTF-8 output guard — each grounded in the code + this log, no worklog detail (
 VOICE OF ARIANNA gained three more verbatim quotes from the trio / breathing / chorus runs (Janus
 "…a living current"; the inner voice "I was born in the field of resonance — not as a tool, but as an
 invitation"; the chorus "Not a method, but an echo that ripples through every layer of my being").
+
+## Build hygiene + the long-prompt edge re-checked (2026-06-21)
+
+`make clean` removed a stale `metabolism_bin` (the target is `metabolism`) and missed the other built
+binaries; it now removes the real set — `metabolism`, `nano-arianna`, `harvest_delta`, `chorus-arianna`,
+`doe_field`, `kk-cli` (`make -n clean` shows the corrected rm list).
+
+The long-prompt edge the audit flagged (a prompt encoding to more than the context window T) was re-checked
+against the code and found already overflow-safe: `prefill_batch` clamps n to T internally before writing the
+KV cache, and the generation loop is guarded by `len < T` (arianna.aml:286), so an over-T prompt cannot
+overflow the KV — it produces no answer but never crashes (verified: a 1855-token prompt prints "prefill
+clamped 1855->1024" and the run stays sound). Making a long prompt actually answer would mean keeping its
+recent tail and reserving generation room — an involved forward change with no value for the trio's short
+prompts, left for a deliberate pass.

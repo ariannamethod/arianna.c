@@ -198,7 +198,7 @@ metabolism:
 clean:
 	rm -f arianna arianna.c arianna_r
 	rm -f arianna_resonance arianna_resonance.c
-	rm -f metabolism_bin nano-arianna harvest_delta
+	rm -f metabolism nano-arianna harvest_delta chorus-arianna doe_field kk-cli
 	rm -f ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o
 	rm -f ariannamethod/core/ariannamethod.o
 	rm -f $(LIBNOTORCH) $(LIBAML) $(AMLC)
