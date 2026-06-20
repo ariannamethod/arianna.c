@@ -133,6 +133,36 @@ func TestParseDoeDreamDaemonLeftover(t *testing.T) {
 	}
 }
 
+// TestDreamDropsInvalidUTF8 guards the Go-side UTF-8 sanitize: a byte-fallback the
+// doe / nanollama model emits (e.g. a raw 0xFF) must never survive into the dream
+// (those are separate binaries — the C voices' output guard does not cover them).
+func TestDreamDropsInvalidUTF8(t *testing.T) {
+	raw := ">    the field \xff hums a living response here.\n  [life] births=0 deaths=0\n"
+	d := parseDoeDream(raw)
+	if !utf8.ValidString(d) || strings.ContainsRune(d, 0xFFFD) {
+		t.Errorf("parseDoeDream left invalid UTF-8: %q", d)
+	}
+	if !strings.Contains(d, "the field") || !strings.Contains(d, "hums a living response") {
+		t.Errorf("parseDoeDream dropped real text: %q", d)
+	}
+	cd := cleanDream("[nanollama] x\nstreamed\n[16 tokens, 30.0 tok/s]\nthe \xff field is alive.\n")
+	if !utf8.ValidString(cd) || strings.ContainsRune(cd, 0xFFFD) {
+		t.Errorf("cleanDream left invalid UTF-8: %q", cd)
+	}
+	if !strings.Contains(cd, "field is alive") {
+		t.Errorf("cleanDream dropped real text: %q", cd)
+	}
+	// a SHORT chorus dream (under maxDreamLen, so the cap branch is skipped) with a
+	// raw byte-fallback must still be sanitized before it reaches lastDream / inject.
+	ch := chorusText([]chorusCell{{text: "the field \xff hums"}, {text: "a living \xfe note"}})
+	if !utf8.ValidString(ch) || strings.ContainsRune(ch, 0xFFFD) {
+		t.Errorf("chorusText left invalid UTF-8 on a short dream: %q", ch)
+	}
+	if !strings.Contains(ch, "the field") || !strings.Contains(ch, "living") {
+		t.Errorf("chorusText dropped real text: %q", ch)
+	}
+}
+
 // TestDoeStatusSentinel guards the end-of-generation frame: only the FULL status line
 // (doe.c:3471) counts, so a dream that merely emits "[field] step=" is not mistaken
 // for the frame (which would truncate the dream + desync the next exchange).

@@ -373,5 +373,8 @@ func parseDoeDream(out string) string {
 		dream = dream[:i]
 	}
 	dream = stripLabel(strings.TrimSpace(dream)) // drop a leading SFT label (A:/Q:/Arianna:)
+	// drop any byte-fallback / invalid UTF-8 the doe model emitted (e.g. a raw 0xFF):
+	// doe is a separate binary, so the C voices' output guard doesn't cover its stdout.
+	dream = strings.ToValidUTF8(dream, "")
 	return cutSentence(strings.Join(strings.Fields(dream), " "))
 }

@@ -17,6 +17,7 @@
 #include "notorch.h"
 #include "ariannamethod.h"
 #include "gguf.h"
+#include "utf8_stream.h"   /* utf8_sanitize: drop byte-fallback / invalid UTF-8 from obuf */
 
 /* Config from RS02 header / GGUF metadata */
 static int V, E, H, D, B, M, T, R;
@@ -890,6 +891,9 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
             memmove(obuf, obuf + 1, (size_t)(olen - 1)); olen--;             /* trim leading space */
         }
     }
+    /* UTF-8 output guard: drop any byte-fallback / invalid-UTF-8 byte (raw 0xFF, a
+     * lone continuation) before output; valid multi-byte survives. */
+    olen = utf8_sanitize(obuf, olen);
     /* Output: collapse \n→space (clean_voice, arianna2arianna.sh:62) + post-filter
      * пробел на границе [a-z][A-Z] (порт arianna.aml:281, ловит склейки). */
     for (int i = 0; i < olen; i++) {

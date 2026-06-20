@@ -26,6 +26,7 @@ BLOOD INCLUDE "tools/yent_forward.h"
 BLOOD INCLUDE "tools/jannus_calendar.h"
 BLOOD INCLUDE "tools/jannus_spa.h"
 BLOOD INCLUDE "tools/jannus_split.h"
+BLOOD INCLUDE "tools/utf8_stream.h"
 BLOOD INCLUDE "vagus/larynx.h"
 
 BLOOD COMPILE arianna_headers {
@@ -359,6 +360,10 @@ static void arianna_generate_single(Weights *w, const char *prompt,
         }
     }
     am_field_sync_out();  /* B/F-8: publish this turn's field-carry (debt/dissonance/season) to the live shared field */
+    /* UTF-8 output guard: drop any byte-fallback / invalid-UTF-8 byte the model
+     * sampled (e.g. raw 0xFF) before it reaches the terminal. Whole-buffer pass over
+     * the accumulated reply; valid multi-byte (em-dash etc.) survives. */
+    olen = utf8_sanitize(obuf, olen);
     /* Post-decode space-guard over the WHOLE text: insert a space at every
      * [a-z][A-Z] boundary. BPE sometimes emits a word-token without its
      * leading space ("eConnected", and glue living INSIDE one token's decode
@@ -424,6 +429,7 @@ static int arianna_chain_step_gen(Weights *w, AriannaStep *step,
 
     int dn = nt_bpe_decode(&g_bpe, step->tokens, step->len,
                            step->text, sizeof(step->text) - 1);
+    dn = utf8_sanitize(step->text, dn);   /* drop byte-fallback / invalid UTF-8 before chain print */
     step->text[dn] = 0;
     *ctx_len_io = len;
     return produced;

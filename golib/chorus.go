@@ -100,7 +100,10 @@ func chorusBody(line string, isQloop bool) string {
 	frag := strings.TrimSpace(p[head:])
 	frag = strings.TrimSpace(strings.TrimPrefix(frag, "A:"))
 	frag = strings.TrimSpace(strings.TrimPrefix(frag, "-"))
-	return strings.Join(strings.Fields(frag), " ")
+	// sanitize per cell at the source — the chorus engine's SPM <0xXX> byte fallback
+	// decodes to raw bytes, and the cell is shown raw in the breathing display AND
+	// folded into the dream, so clean it here for both.
+	return strings.ToValidUTF8(strings.Join(strings.Fields(frag), " "), "")
 }
 
 // chorusText folds the cells into one line for the inject / lastDream — the
@@ -111,10 +114,13 @@ func chorusText(cells []chorusCell) string {
 	for _, c := range cells {
 		parts = append(parts, c.text)
 	}
-	s := strings.Join(parts, " / ")
+	// Drop any byte-fallback / invalid UTF-8 the chorus engine emitted (chorus is a
+	// separate binary; its SPM <0xXX> byte fallback decodes to raw bytes the C voices'
+	// output guard does not cover), ALWAYS — not only on the capped path — so a short
+	// chorus dream that lands in lastDream / the Resonance inject is also valid UTF-8.
+	s := strings.ToValidUTF8(strings.Join(parts, " / "), "")
 	if len(s) > maxDreamLen {
-		// ToValidUTF8 drops a multibyte rune split by the hard byte cut, so the
-		// capped dream that lands in lastDream / the Resonance inject stays valid UTF-8.
+		// the hard byte cut can split a multibyte rune — re-validate after slicing.
 		s = strings.TrimSpace(strings.ToValidUTF8(s[:maxDreamLen], "")) + "…"
 	}
 	return s

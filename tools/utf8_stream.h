@@ -98,6 +98,45 @@ static inline void utf8_stream_emit(utf8_stream_t *s, const char *src, int n) {
     }
 }
 
+/* In-place whole-buffer UTF-8 sanitizer (the obuf-final-pass guard, NOT the
+ * streaming path above): the voices accumulate the whole reply in obuf then emit
+ * it once, so a byte-fallback token the model samples — e.g. the raw 0xFF of BPE
+ * id 255, or a continuation byte without its lead — would otherwise reach the
+ * terminal as invalid UTF-8 ("The Meth"+0xFF). This drops every byte that is not
+ * part of a well-formed sequence (invalid lead 0x80-0xBF / 0xC0-0xC1 / 0xF5-0xFF,
+ * truncated tail, bad continuation) and keeps valid ASCII + valid multi-byte (the
+ * em-dash E2 80 94 survives intact). Returns the new length. */
+static inline int utf8_sanitize(char *buf, int len) {
+    int w = 0;
+    for (int i = 0; i < len; ) {
+        unsigned char c = (unsigned char)buf[i];
+        int seq;
+        if      (c < 0x80)               seq = 1;
+        else if (c >= 0xC2 && c <= 0xDF) seq = 2;
+        else if (c >= 0xE0 && c <= 0xEF) seq = 3;
+        else if (c >= 0xF0 && c <= 0xF4) seq = 4;
+        else { i++; continue; }                   /* invalid lead → drop the byte */
+        if (i + seq > len) { i++; continue; }      /* truncated tail → drop the lead */
+        /* The SECOND byte's valid range narrows for four lead bytes, which is what
+         * rejects overlong forms, UTF-16 surrogates, and code points > U+10FFFF. */
+        unsigned char lo = 0x80, hi = 0xBF;
+        if      (c == 0xE0) lo = 0xA0;             /* else 3-byte overlong */
+        else if (c == 0xED) hi = 0x9F;             /* else UTF-16 surrogate */
+        else if (c == 0xF0) lo = 0x90;             /* else 4-byte overlong */
+        else if (c == 0xF4) hi = 0x8F;             /* else > U+10FFFF */
+        int ok = 1;
+        for (int k = 1; k < seq; k++) {
+            unsigned char cc = (unsigned char)buf[i + k];
+            unsigned char klo = (k == 1) ? lo : 0x80, khi = (k == 1) ? hi : 0xBF;
+            if (cc < klo || cc > khi) { ok = 0; break; }
+        }
+        if (!ok) { i++; continue; }                /* bad continuation → drop the lead */
+        if (w != i) for (int k = 0; k < seq; k++) buf[w + k] = buf[i + k];
+        w += seq; i += seq;
+    }
+    return w;
+}
+
 /* Drain any held tail at end of generation (incomplete sequence is
  * emitted as-is — better than swallowing). */
 static inline void utf8_stream_flush(utf8_stream_t *s) {

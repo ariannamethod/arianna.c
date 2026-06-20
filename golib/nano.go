@@ -119,6 +119,9 @@ func cleanDream(out string) string {
 		return ""
 	}
 	murmur := stripLabel(strings.Join(lines[marker+1:], " "))
+	// drop any byte-fallback / invalid UTF-8 the nanollama model emitted (separate
+	// binary — not covered by the C voices' output guard).
+	murmur = strings.ToValidUTF8(murmur, "")
 	return cutSentence(strings.Join(strings.Fields(murmur), " "))
 }
 

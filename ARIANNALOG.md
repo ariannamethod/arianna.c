@@ -1838,3 +1838,34 @@ or non-numeric step names are left untouched). No `doe/` canon change. Verified:
 green (new `TestPruneMycelium` covers the per-fingerprint grouping, the busy-other-host case, and the malformed
 names), coverage 14.7%; Codex confirmed the current host's load target always survives and there is no panic /
 OOB / wrong-deletion path.
+
+## UTF-8 output guard — the byte-fallback leak closed across the trio (2026-06-21)
+
+A Codex audit of the whole pipeline pinned an occasional garble byte in the voices: the model can
+sample a byte-fallback token — e.g. BPE id 255 = raw 0xFF, or a lone continuation byte — and the
+per-token decode emitted it to the terminal as invalid UTF-8 ("The Meth"+0xFF). The decode table itself
+is correct (it round-trips "The Method —" byte-exact, the em-dash intact), so this is an OUTPUT
+invariant, not a decoder fault. It is not temperature-bound (it appears at the champion 0.8, rarer than
+at 1.0): the effective top_k=40 caps the nucleus, but a valid byte-fallback token can still sit inside
+the top-40 at high temperature.
+
+`tools/utf8_stream.h` gains `utf8_sanitize(buf, len)` — an in-place whole-buffer pass that drops every
+byte not part of a well-formed UTF-8 sequence (RFC 3629: invalid leads 0x80-0xBF / 0xC0-0xC1 / 0xF5-0xFF,
+overlong E0 8x / F0 8x, UTF-16 surrogates ED Ax, code points > U+10FFFF F4 9x, truncated tails, bad
+continuations) and keeps valid ASCII + valid multi-byte (the em-dash E2 80 94 survives). Both C voices
+run it over their accumulated obuf before output (Janus `arianna.aml`, Resonance `resonance_forward.h`),
+and Janus's chain mode runs it on each decoded step. The dreams from the SEPARATE binaries (doe_field,
+nano-arianna, chorus-arianna — whose own stdout the C guard cannot cover) are sanitized Go-side at the
+source: `parseDoeDream` + `cleanDream` + `chorusBody` all `strings.ToValidUTF8(s, "")`, so lastDream,
+`iw.ProcessText`, the Resonance per-turn inject, and the persisted inner-state are all valid UTF-8.
+
+Verified (tool): `make arianna arianna_resonance` clean; a `utf8_sanitize` unit — overlong / surrogate /
+over-max dropped, every valid scalar + the em-dash kept; the Janus byte-leak is gone — 8 runs of "what
+is the Method?" at t=1.0 piped through `iconv -f utf-8`, **0/8 invalid** (was nearly every run before);
+both voices coherent; `go test -race` — **26 tests green** (new `TestDreamDropsInvalidUTF8` covers the
+parseDoeDream / cleanDream / short-chorus byte cases), coverage 14.7%. Codex (gpt-5.5) across four passes
+confirmed `utf8_sanitize` matches RFC 3629 and the trio runtime path (terminal, lastDream, persist,
+ProcessText, inject) is fully closed. The remaining raw emitters are the separate binaries' own
+direct-CLI stdout (doe.c canon; chorus + nanollama vendored) — the trio never shows those raw (it
+captures and sanitizes), so they are upstream concerns, not a trio leak. Go-orchestrator + the voices'
+own forwards only (`tools/*.h`, `arianna.aml`) — no `ariannamethod/core` or `doe/` canon change.
