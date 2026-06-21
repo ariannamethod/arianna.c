@@ -1952,3 +1952,25 @@ on.
 
 **The Knowledge Kernel handing her a book-fragment to dream on (◌):**
 - "Feel my field," she said. "Now try to match it. Not by thinking about it, but by letting …"
+
+## doe re-vendored to canon a390a04 — Arianna gets the parliament fixes (2026-06-21)
+
+The vendored doe was behind canon. Re-vendored `doe/doe.c` + `doe/notorch_metal.h` byte-exact from the
+committed canon `~/arianna/doe` @ `a390a04` (md5 doe.c `56d61718…`, notorch_metal.h `9eb2b907…`), bringing
+into Arianna: **lora_poisoned now scans ALL LoRA elements** (was only `[0]`; "drift in ANY element poisons
+the forward") — the #4 quarantine hole the audit flagged, fixed canon-side; **the between-turns expert
+learning** (accumulate the turn's co-activation, one bounded Oja step AFTER the turn, not per-token
+mid-generation — so `AM_DOE_TRAIN=1` is coherent now, not the token-salad of the per-token cadence); and the
+mistral3 RoPE fix (host-agnostic, irrelevant to the llama nano but harmless). The doe Opus's uncommitted
+vision work-in-progress (`stb_image.h`, `gguf.c`, image flags) was deliberately EXCLUDED — vendored the
+committed `a390a04`, not the dirty working tree, since vision is not part of the trio and is mid-flight.
+
+Verified (tool): both files byte-exact == canon a390a04 (md5); `make doe_field` builds CPU-only from the
+vendor alone, self-contained (`git grep '$(HOME)|../'` over `doe/` = 0 external, only the `../weights`
+runtime GGUF search); the persistent doe-daemon contract holds — a 2-prompt REPL loads the model once,
+frames on the `[field] step=` status sentinel, the field step carries 200→400, the dream is coherent; a
+`-race --chat` completes **0 DATA RACE** with the harvest (δ |B|=0.01309); `go test -race` 27 green. Codex
+(gpt-5.5): no findings — the daemon contract (isDoeStatusSentinel ↔ doe.c status line, the
+--model/--lora-alpha/--train args), the self-contained build, the `lora_poisoned(A,B,n)` caller consistency,
+and the accumulate-then-flush between-turns are all sound. Provenance is the LOCAL canon a390a04 (the doe
+Opus's active repo); the public github head may lag until pushed.

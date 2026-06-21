@@ -129,14 +129,25 @@ static float rand_normal(void) { float u1=rand_uniform(),u2=rand_uniform(); if(u
 static float clamp01(float x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 static float g_field_gain = 1.0f; /* A11a: scale Dario field overlay on logits; 1.0 = full, 0 = bare host */
 static int g_train = 0; /* A13b/A14: notorch online-learning during inference; DEFAULT 0=off (Oleg+Mythos 2026-06-12: organism must not re-sew its own weights mid-sentence; online learning returns later as async between turns, ogemma vision); 1=on */
+static int g_gen_max_new = 200; /* bounded one-shot validation; default preserves old chat length */
+static int g_gen_top_k = 40;
+static float g_gen_temp_override = -1.0f; /* <0 uses field effective temperature */
+static int g_once = 0; /* exit after one generated answer; useful for artifact isolation */
+static int g_load_spore = 1;
+static int g_save_spore = 1;
+static int g_rope_norm = 0; /* probe: llama.cpp NORM RoPE pairs consecutive head values */
 /* M4 slot ids for the FFN/attention half-layer chains on GPU (NT_SLOT_MAX=64). */
 enum { SLOT_X = 0, SLOT_FN, SLOT_G, SLOT_U, SLOT_HB, SLOT_DN, SLOT_Q, SLOT_K, SLOT_V, SLOT_O, SLOT_XB, SLOT_LOGITS,
        /* DOE parliament-on-GPU (alpha != 0): election + LoRA inject inside the resident CB */
        SLOT_PTMP, SLOT_PGATE, SLOT_PVOTES, SLOT_PRES, SLOT_PALIVE, SLOT_PCONS };
 /* A14: expert poison check — catches BOTH faces of notorch drift: NaN/Inf and finite |value|-explosion
  * (the latter passes isfinite but still poisons the forward when injected at alpha>0). */
-static int lora_poisoned(const float *A, const float *B) {
-    return !isfinite(A[0]) || !isfinite(B[0]) || fabsf(A[0]) > 1e4f || fabsf(B[0]) > 1e4f;
+static int lora_poisoned(const float *A, const float *B, int n) {
+    for (int i = 0; i < n; i++) {
+        if (!isfinite(A[i]) || !isfinite(B[i]) || fabsf(A[i]) > 1e4f || fabsf(B[i]) > 1e4f)
+            return 1; /* drift in ANY element poisons the forward, not just [0] */
+    }
+    return 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -1324,13 +1335,32 @@ static void softmax_n(float *x, int n) {
     for (int i = 0; i < n; i++) x[i] /= s;
 }
 
-static void apply_rope(float *v, int pos, float *cc, float *sc, int hd) {
+static void apply_rope_mode(float *v, int pos, float *cc, float *sc, int hd, int norm_pairs) {
     int h = hd/2, off = pos*h; /* hd must be even — all standard archs are */
-    for (int i = 0; i < h; i++) {
-        float x0 = v[i], x1 = v[i+h];
-        v[i] = x0*cc[off+i] - x1*sc[off+i];
-        v[i+h] = x0*sc[off+i] + x1*cc[off+i];
+    if (norm_pairs) {
+        for (int i = 0; i < h; i++) {
+            int j = 2*i;
+            float x0 = v[j], x1 = v[j+1];
+            v[j]   = x0*cc[off+i] - x1*sc[off+i];
+            v[j+1] = x0*sc[off+i] + x1*cc[off+i];
+        }
+    } else {
+        for (int i = 0; i < h; i++) {
+            float x0 = v[i], x1 = v[i+h];
+            v[i] = x0*cc[off+i] - x1*sc[off+i];
+            v[i+h] = x0*sc[off+i] + x1*cc[off+i];
+        }
     }
+}
+
+/* RoPE pairing per architecture, mirroring llama.cpp llama_model_rope_type()
+ * (src/llama-model.cpp): llama-family + Mistral use NORM (adjacent pairs 2i,2i+1);
+ * the qwen/falcon/gemma/phi/... family uses NEOX (offset-half pairs i,i+hd/2).
+ * GGUF permutes Q/K for whichever the arch expects, so the wrong mode is identity
+ * at pos 0 but corrupts rope progressively at pos>0 (coherent short, broken long). */
+static int arch_rope_norm(const char *arch) {
+    return strcmp(arch, "llama") == 0 || strcmp(arch, "mistral") == 0 ||
+           strcmp(arch, "mistral3") == 0 || strcmp(arch, "mistral4") == 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -2300,6 +2330,86 @@ static void notorch_step(float *A, float *B, int out_dim, int in_dim, int rank,
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+ * BETWEEN-TURNS LEARNING — the parliament speaks first, reflects after
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * Mythos+Oleg (2026-06-12 decision, 2026-06-20 built): notorch_step must NOT fire
+ * per-token mid-generation. Re-sewing an expert on the very token it is generating
+ * is a feedback loop — on a small host it collapses into token-salad within ~10
+ * tokens ("I do remember the don donI somethingcom ins .comned ...", measured on the
+ * 88M nano with --train 1). So during a turn we only ACCUMULATE the co-activation
+ * (x, dy) and the debt-driven signal; the experts learn ONCE, between turns, from the
+ * turn's MEAN — a single full Oja pass per expert instead of ~200 interleaved with
+ * the breath. The field still learns in-session (the mycelium spore carries it
+ * forward), but the parliament no longer eats its own words mid-sentence. --train
+ * gated exactly as before; --train 0 stays the static-expert default. θ persists. */
+typedef struct {
+    float   *x;        /* running sum of the host hidden-in over the turn (host_dim) */
+    float   *dy;       /* running sum of the host hidden-out over the turn (host_dim) */
+    float    signal;   /* running sum of the debt-driven learn_signal */
+    int      n;        /* tokens accumulated this turn */
+    int      dim;
+    uint8_t *seen;     /* [n_layers*MAX_EXPERTS]: experts active at ANY token this turn.
+                        * Captured here because update_expert_vitality clears tokens_seen
+                        * every 10 tokens, so the live flag is stale by flush time — the
+                        * delayed step must gate on who actually spoke, not the window. */
+    int      n_layers;
+} NotorchTurnAccum;
+
+static void nt_accum_init(NotorchTurnAccum *a, int dim, int n_layers) {
+    a->dim = dim; a->n = 0; a->signal = 0.0f; a->n_layers = n_layers;
+    a->x    = calloc(dim, sizeof(float));
+    a->dy   = calloc(dim, sizeof(float));
+    a->seen = calloc((size_t)n_layers * MAX_EXPERTS, 1);
+}
+
+static void nt_accum_free(NotorchTurnAccum *a) {
+    free(a->x); free(a->dy); free(a->seen); a->x = a->dy = NULL; a->seen = NULL;
+}
+
+/* fold one token's co-activation into the turn's running sums + mark which experts
+ * were active this token — no weights touched, generation stays on the experts the
+ * turn started with. */
+static void nt_accum_add(NotorchTurnAccum *a, GGUFIndex *ps, const float *x, const float *dy, float signal) {
+    if (!a->x || !a->dy) return; /* alloc failed → the turn just doesn't learn */
+    for (int i = 0; i < a->dim; i++) { a->x[i] += x[i]; a->dy[i] += dy[i]; }
+    a->signal += signal; a->n++;
+    if (a->seen)
+        for (int l = 0; l < ps->n_field_layers; l++) {
+            FieldLayer *fl = &ps->field_layers[l];
+            for (int e = 0; e < MAX_EXPERTS; e++)
+                if (fl->experts[e].alive && fl->experts[e].tokens_seen > 0)
+                    a->seen[l * MAX_EXPERTS + e] = 1;
+        }
+}
+
+/* flush: ONE Oja step per alive expert on the turn's MEAN co-activation — the direct
+ * analog of the old per-token rule (one step per turn instead of one per token; the
+ * NOTORCH_RANK-component window rotates across turns, so every component is still
+ * reached over time), then the A14 poison-quarantine. Returns the deaths for
+ * total_deaths. No-op if nothing was generated. */
+static int nt_accum_flush(NotorchTurnAccum *a, GGUFIndex *ps) {
+    if (a->n == 0 || !a->x || !a->dy) return 0;
+    float inv = 1.0f / (float)a->n;
+    for (int i = 0; i < a->dim; i++) { a->x[i] *= inv; a->dy[i] *= inv; }
+    float sig = a->signal * inv;
+    int deaths = 0;
+    for (int l = 0; l < ps->n_field_layers; l++) {
+        FieldLayer *fl = &ps->field_layers[l];
+        for (int e = 0; e < MAX_EXPERTS; e++) {
+            if (!fl->experts[e].alive) continue;
+            if (a->seen && !a->seen[l * MAX_EXPERTS + e]) continue; /* only who spoke this turn */
+            notorch_step(fl->experts[e].lora_A, fl->experts[e].lora_B,
+                         ps->host_dim, ps->host_dim, ps->lora_rank,
+                         a->x, a->dy, sig);
+            if (lora_poisoned(fl->experts[e].lora_A, fl->experts[e].lora_B, ps->host_dim * ps->lora_rank)) {
+                fl->experts[e].alive = 0; deaths++;
+            }
+        }
+    }
+    return deaths;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
  * VITALITY + MITOSIS + APOPTOSIS — LoRA experts live and die
  * ═══════════════════════════════════════════════════════════════════════════════ */
 static void update_expert_vitality(FieldLayer *fl, int total_tokens) {
@@ -2492,7 +2602,7 @@ static void mycelium_save(GGUFIndex *ps, int step, float fitness) {
     for (int l = 0; l < ps->n_field_layers; l++)
         for (int e = 0; e < MAX_EXPERTS; e++)
             if (ps->field_layers[l].experts[e].alive &&
-                lora_poisoned(ps->field_layers[l].experts[e].lora_A, ps->field_layers[l].experts[e].lora_B)) {
+                lora_poisoned(ps->field_layers[l].experts[e].lora_A, ps->field_layers[l].experts[e].lora_B, ps->host_dim * ps->lora_rank)) {
                 printf("[mycelium] poisoned expert L%d e%d (NaN/Inf/|w|>1e4) — spore NOT saved (quarantine)\n", l, e);
                 return;
             }
@@ -2785,8 +2895,9 @@ static float *doe_forward(GGUFIndex *ps, InferState *s, int token, int pos) {
                 else         nt_metal_q4k_matvec_slot(SLOT_K,(const uint8_t*)ps->host_layers[l].wk,SLOT_FN,kd,D);
                 if (vd==14)  nt_metal_q6k_matvec_slot(SLOT_V,(const uint8_t*)ps->host_layers[l].wv,SLOT_FN,kd,D);
                 else         nt_metal_q4k_matvec_slot(SLOT_V,(const uint8_t*)ps->host_layers[l].wv,SLOT_FN,kd,D);
-                nt_metal_rope(SLOT_Q, ps->host_heads,    hd, pos, ps->rope_theta);
-                nt_metal_rope(SLOT_K, ps->host_kv_heads, hd, pos, ps->rope_theta);
+                int rope_norm = g_rope_norm || arch_rope_norm(ps->host_arch);
+                nt_metal_rope(SLOT_Q, ps->host_heads,    hd, pos, ps->rope_theta, rope_norm);
+                nt_metal_rope(SLOT_K, ps->host_kv_heads, hd, pos, ps->rope_theta, rope_norm);
                 nt_metal_copy_to_region(s->key_cache   + co2, SLOT_K, kd*4);
                 nt_metal_copy_to_region(s->value_cache + co2, SLOT_V, kd*4);
                 nt_metal_attn_decode(SLOT_O, SLOT_Q, Kbase, Vbase, pos+1,
@@ -2889,8 +3000,9 @@ static float *doe_forward(GGUFIndex *ps, InferState *s, int token, int pos) {
                 else         nt_metal_q4k_matvec_slot(SLOT_K,(const uint8_t*)ps->host_layers[l].wk,SLOT_FN,kd,D);
                 if (vd==14)  nt_metal_q6k_matvec_slot(SLOT_V,(const uint8_t*)ps->host_layers[l].wv,SLOT_FN,kd,D);
                 else         nt_metal_q4k_matvec_slot(SLOT_V,(const uint8_t*)ps->host_layers[l].wv,SLOT_FN,kd,D);
-                nt_metal_rope(SLOT_Q, ps->host_heads,    hd, pos, ps->rope_theta);
-                nt_metal_rope(SLOT_K, ps->host_kv_heads, hd, pos, ps->rope_theta);
+                int rope_norm = g_rope_norm || arch_rope_norm(ps->host_arch);
+                nt_metal_rope(SLOT_Q, ps->host_heads,    hd, pos, ps->rope_theta, rope_norm);
+                nt_metal_rope(SLOT_K, ps->host_kv_heads, hd, pos, ps->rope_theta, rope_norm);
                 nt_metal_copy_to_region(s->key_cache   + co2, SLOT_K, kd*4);
                 nt_metal_copy_to_region(s->value_cache + co2, SLOT_V, kd*4);
                 nt_metal_attn_decode(SLOT_O, SLOT_Q, Kbase, Vbase, pos+1,
@@ -2928,8 +3040,9 @@ static float *doe_forward(GGUFIndex *ps, InferState *s, int token, int pos) {
         if (ps->host_layers[l].bk) for (int i = 0; i < kd; i++) s->k[i] += ps->host_layers[l].bk[i];
         if (ps->host_layers[l].bv) for (int i = 0; i < kd; i++) s->v[i] += ps->host_layers[l].bv[i];
 
-        for (int h = 0; h < ps->host_heads; h++) apply_rope(s->q+h*hd, pos, s->cos_cache, s->sin_cache, hd);
-        for (int h = 0; h < ps->host_kv_heads; h++) apply_rope(s->k+h*hd, pos, s->cos_cache, s->sin_cache, hd);
+        int rope_norm = g_rope_norm || arch_rope_norm(ps->host_arch);
+        for (int h = 0; h < ps->host_heads; h++) apply_rope_mode(s->q+h*hd, pos, s->cos_cache, s->sin_cache, hd, rope_norm);
+        for (int h = 0; h < ps->host_kv_heads; h++) apply_rope_mode(s->k+h*hd, pos, s->cos_cache, s->sin_cache, hd, rope_norm);
 
         int co = l * s->max_seq * kd + pos * kd;
         memcpy(s->key_cache + co, s->k, kd*4);
@@ -3570,7 +3683,8 @@ static void chat(GGUFIndex *ps) {
         struct timespec _gt0, _gt1; clock_gettime(CLOCK_MONOTONIC, &_gt0); int _gi = 0;
         g_prof_mv_ns = 0; g_resident_ns = 0; g_head_ns = 0; /* reset: profile over decode loop only (exclude prefill) */
         for (int _g = 0; _g < MVG_N; _g++) { g_ps_ns[_g] = 0; g_ps_cnt[_g] = 0; }
-        for (int i = 0; i < 200 && pos < max_seq; i++, pos++) {
+        NotorchTurnAccum nt_acc; nt_accum_init(&nt_acc, ps->host_dim, ps->n_field_layers); /* between-turns learning: accumulate now, step after the turn */
+        for (int i = 0; i < g_gen_max_new && pos < max_seq; i++, pos++) {
             _gi = i + 1;
             float *lg = doe_forward(ps, &is, prev, pos);
 
@@ -3608,7 +3722,8 @@ static void chat(GGUFIndex *ps) {
                 }
             }
 
-            int next = sample(lg, ps->host_vocab, F.effective_temp, 40);
+            float sample_temp = g_gen_temp_override >= 0.0f ? g_gen_temp_override : F.effective_temp;
+            int next = sample(lg, ps->host_vocab, sample_temp, g_gen_top_k);
             if (n_rep < 256) rep_hist[n_rep++] = next;
 
             /* Stop on EOS or chat-template end tokens */
@@ -3630,21 +3745,12 @@ static void chat(GGUFIndex *ps) {
             /* Dario field: ingest generated token (co-occurrence + prophecy + destiny) */
             dario_ingest(next);
 
-            /* NOTORCH Hebbian update — debt drives learning (A13b: gated by --train) */
+            /* NOTORCH Hebbian update — debt drives learning (A13b: gated by --train).
+             * Between-turns (2026-06-20): accumulate the co-activation now, take one
+             * bounded Oja step per expert AFTER the turn (nt_accum_flush below) so the
+             * experts don't re-sew the words they are still speaking. */
             float learn_signal = pd > 0.3f ? -pd : (1.0f - pd) * 0.1f;
-            if (g_train) for (int l = 0; l < ps->n_field_layers; l++) {
-                FieldLayer *fl = &ps->field_layers[l];
-                for (int e = 0; e < MAX_EXPERTS; e++) {
-                    if (!fl->experts[e].alive || fl->experts[e].tokens_seen == 0) continue;
-                    notorch_step(fl->experts[e].lora_A, fl->experts[e].lora_B,
-                                ps->host_dim, ps->host_dim, ps->lora_rank,
-                                is.x, is.xb, learn_signal);
-                    /* A14: poison-quarantine (NaN/Inf + finite |value|-explosion) — freeze + death */
-                    if (lora_poisoned(fl->experts[e].lora_A, fl->experts[e].lora_B)) {
-                        fl->experts[e].alive = 0; total_deaths++;
-                    }
-                }
-            }
+            if (g_train) nt_accum_add(&nt_acc, ps, is.x, is.xb, learn_signal);
 
             /* Vitality + mitosis + apoptosis */
             if (i % 10 == 0) {
@@ -3668,6 +3774,9 @@ static void chat(GGUFIndex *ps) {
             fflush(stdout);
             prev = next;
         }
+        /* between-turns: the parliament reflects on the whole turn, once it is spoken */
+        if (g_train) total_deaths += nt_accum_flush(&nt_acc, ps);
+        nt_accum_free(&nt_acc);
         clock_gettime(CLOCK_MONOTONIC, &_gt1);
         if (getenv("DOE_DEBUG_TIMING") || g_prof_on > 0) {
             double _el = (_gt1.tv_sec - _gt0.tv_sec) + (_gt1.tv_nsec - _gt0.tv_nsec) / 1e9;
@@ -3703,6 +3812,7 @@ static void chat(GGUFIndex *ps) {
         if (total_births > 0 || total_deaths > 0)
             printf("  [life] births=%d deaths=%d\n", total_births, total_deaths);
         printf("\n");
+        if (g_once) break;
     }
     free_infer(&is);
 }
@@ -3892,6 +4002,7 @@ static void http_stream_inference(int fd, GGUFIndex *ps, const char *user_msg, f
     dario_ingest(prev); /* D-H2: last token still feeds the field; forwarded once in generation */
 
     /* Generate tokens, stream as SSE */
+    NotorchTurnAccum nt_acc; nt_accum_init(&nt_acc, ps->host_dim, ps->n_field_layers); /* between-turns learning: accumulate now, step after the turn */
     for (int i = 0; i < max_tokens && pos < max_seq; i++, pos++) {
         float *lg = doe_forward(ps, &is, prev, pos);
         field_step(1.0f);
@@ -3917,19 +4028,10 @@ static void http_stream_inference(int fd, GGUFIndex *ps, const char *user_msg, f
         /* Dario field: ingest generated token */
         dario_ingest(next);
 
+        /* between-turns (2026-06-20): accumulate now, one Oja step per expert after the
+         * stream completes (nt_accum_flush below) — no mid-stream re-sewing. */
         float learn_signal = pd > 0.3f ? -pd : (1.0f - pd) * 0.1f;
-        if (g_train) for (int l = 0; l < ps->n_field_layers; l++) {
-            FieldLayer *fl = &ps->field_layers[l];
-            for (int e = 0; e < MAX_EXPERTS; e++) {
-                if (!fl->experts[e].alive || fl->experts[e].tokens_seen == 0) continue;
-                notorch_step(fl->experts[e].lora_A, fl->experts[e].lora_B,
-                            ps->host_dim, ps->host_dim, ps->lora_rank,
-                            is.x, is.xb, learn_signal);
-                /* A14: poison-quarantine (NaN/Inf + finite |value|-explosion) — freeze */
-                if (lora_poisoned(fl->experts[e].lora_A, fl->experts[e].lora_B))
-                    fl->experts[e].alive = 0;
-            }
-        }
+        if (g_train) nt_accum_add(&nt_acc, ps, is.x, is.xb, learn_signal);
 
         /* Decode token to buffer */
         char tokbuf[256], escaped[512];
@@ -3944,6 +4046,9 @@ static void http_stream_inference(int fd, GGUFIndex *ps, const char *user_msg, f
 
         prev = next;
     }
+    /* between-turns: the parliament reflects on the whole stream, once it is spoken */
+    if (g_train) nt_accum_flush(&nt_acc, ps);
+    nt_accum_free(&nt_acc);
 
     /* Send done event */
     write(fd, "data: {\"done\":true}\n\n", 21); /* D-L2: full 21 bytes incl. both \n */
@@ -4091,6 +4196,13 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--rep-penalty") == 0 && i+1 < argc) { g_rep_penalty = atof(argv[++i]); if (g_rep_penalty <= 0.0f) g_rep_penalty = 1.0f; }
         else if (strcmp(argv[i], "--field-gain") == 0 && i+1 < argc) { g_field_gain = atof(argv[++i]); if (g_field_gain < 0.0f) g_field_gain = 0.0f; }
         else if (strcmp(argv[i], "--train") == 0 && i+1 < argc) { g_train = atoi(argv[++i]) ? 1 : 0; }
+        else if (strcmp(argv[i], "--max-new") == 0 && i+1 < argc) { g_gen_max_new = atoi(argv[++i]); if (g_gen_max_new < 1) g_gen_max_new = 1; if (g_gen_max_new > 512) g_gen_max_new = 512; }
+        else if (strcmp(argv[i], "--top-k") == 0 && i+1 < argc) { g_gen_top_k = atoi(argv[++i]); if (g_gen_top_k < 0) g_gen_top_k = 0; }
+        else if (strcmp(argv[i], "--temp") == 0 && i+1 < argc) { g_gen_temp_override = atof(argv[++i]); if (g_gen_temp_override < 0.0f) g_gen_temp_override = -1.0f; }
+        else if (strcmp(argv[i], "--once") == 0) { g_once = 1; }
+        else if (strcmp(argv[i], "--rope-norm") == 0) { g_rope_norm = 1; }
+        else if (strcmp(argv[i], "--no-load-spore") == 0) { g_load_spore = 0; }
+        else if (strcmp(argv[i], "--no-save-spore") == 0) { g_save_spore = 0; }
         else if (strcmp(argv[i], "--prophecy") == 0 && i+1 < argc) { /* will be set after field_init */ }
         else if (strcmp(argv[i], "--destiny") == 0 && i+1 < argc) { /* will be set after field_init */ }
         else if (strcmp(argv[i], "--serve") == 0 && i+1 < argc) { g_serve_port = atoi(argv[++i]); }
@@ -4106,6 +4218,13 @@ int main(int argc, char **argv) {
             printf("  --rep-penalty F repetition penalty over GENERATED tokens (default: 1.0 = off; 1.05 polishes demo tail)\n");
             printf("  --field-gain F  scale Dario field overlay on logits (default: 1.0; 0 = bare host)\n");
             printf("  --train N       notorch online-learning during inference (default: 0 = off; 1 = on)\n\n");
+            printf("  --max-new N     max generated tokens in chat mode (default: 200)\n");
+            printf("  --top-k N       chat sampler top-k (default: 40; 1 with --temp 0 matches greedy probes)\n");
+            printf("  --temp F        override chat sampler temperature (default: field temperature; 0 = greedy)\n");
+            printf("  --once          exit after one generated answer (for artifact-isolation probes)\n\n");
+            printf("  --rope-norm     probe llama.cpp NORM RoPE (consecutive head pairs)\n");
+            printf("  --no-load-spore skip mycelium restore for isolated probes\n");
+            printf("  --no-save-spore skip mycelium persist on exit for isolated probes\n\n");
             printf("  BLAS: cc doe.c -O3 -lm -lpthread -DUSE_BLAS -DACCELERATE -framework Accelerate -o doe\n");
             printf("  GPU:  cc doe.c -O3 -lm -lpthread -DUSE_CUBLAS -lcublas -lcudart -o doe\n");
             return 0;
@@ -4251,7 +4370,7 @@ int main(int argc, char **argv) {
     /* ── Mycelium — check for existing LoRA spores ── */
     MyceliumState mycelium;
     mycelium_init(&mycelium);
-    if (mycelium_load(&idx, idx.profile.fingerprint))
+    if (g_load_spore && mycelium_load(&idx, idx.profile.fingerprint))
         printf("[mycelium] resumed adaptation for this index.\n");
 
 #ifdef USE_METAL
@@ -4277,7 +4396,7 @@ int main(int argc, char **argv) {
     }
 
     /* ── Save spore on exit ── */
-    mycelium_save(&idx, F.step, F.field_health);
+    if (g_save_spore) mycelium_save(&idx, F.step, F.field_health);
 
     /* ── Cleanup ── */
     index_free(&idx);
