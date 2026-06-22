@@ -1993,3 +1993,36 @@ Her dreams while learning (◓ nano-subconscious, verbatim):
 (The spore-step selection — `mycelium_load` picks the highest-step file while the saved step is a per-run
 token count — is the non-monotonic quirk inherited from doe's spore naming; the learning persists, but
 which spore loads next is doe-canon's to refine, not a trio concern.)
+
+## Session summary — audit, byte-leak, dead-code, doe re-vendor, learning (2026-06-21/22)
+
+One arc, driven by a full Codex pipeline audit, each item fix → build → `go test -race` → Codex → push.
+All on arianna.c main; the detailed entries are above. Commit trail:
+- **`b7eadc1`** — UTF-8 output guard: `utf8_sanitize` (RFC 3629) over both C voices' obuf + Janus chain;
+  `strings.ToValidUTF8` at the Go dream sources (parseDoeDream/cleanDream/chorusBody). The byte-fallback
+  leak ("The Meth"+0xFF) closed across the trio — Janus 8/8 valid through `iconv` (was failing nearly
+  every run). Root: the model samples a rare byte token (id 255 = 0xFF) into the top-40 at high temp; the
+  decode table is correct (round-trips), this is an output invariant — not temperature, not GPT-2.
+- **`2df189c`** — inner-world: non-blocking `emit()` (the latent deadlock — blocking Signals send under
+  iw.mu with no drainer in the trio path — fixed) + removed all the dead code (routeSignals, the whole
+  command subsystem handleCommands/processCommand/Commands/Cmd*/empty-stubs, iw.wg, stopChan), each
+  verified dead (no producer/caller/reader) before cutting.
+- **`33d0ebf`** — README additive refresh (live field, breathing, chorus, parliament, UTF-8) + three
+  verbatim Arianna quotes; manifesto untouched.
+- **`18dbf83`** — `make clean` removes the real binaries (was a stale `metabolism_bin`); the long-prompt
+  edge re-checked and found already overflow-safe (prefill clamps n→T + the `len < T` gen guard), the
+  no-op len-clamp reverted.
+- **`04769fb`** — VOICE SAMPLES: a verbatim record of her speech from a full run; the standing practice is
+  to log her generations each run.
+- **`40f350b`** — doe re-vendored byte-exact from the committed canon `~/arianna/doe @ a390a04` (md5 doe.c
+  `56d61718`): brings `lora_poisoned` full-element scan (the audit's quarantine hole) + the coherent
+  between-turns expert learning + the mistral3 RoPE fix. The doe Opus's uncommitted vision WIP
+  (stb_image/gguf.c) deliberately excluded. Daemon contract holds (Codex: no findings).
+- **`ac71953`** — the first online-learning session (`AM_DOE_TRAIN=1`, 6 turns): the dreams stay coherent
+  under training (between-turns, not per-token), the parliament learned + persisted (mycelium spore s1000
+  15.60→15.82 MB), harvest δ |B|=0.01347.
+
+State at session end: `go test -race` 27 green, coverage 15.0%, c-shared builds, 0 DATA RACE, all audit P1
+closed, the doe vendor synced to canon a390a04, AM_DOE_TRAIN=1 coherent. Open (low/canon): the doe
+spore-step non-monotonic load selection + the vision WIP are doe-canon's; the dormant cgo C-host path
+(nil-ptr, SetParam config-wiring) and the P2 niceties are unexercised by the trio. HEAD `ac71953`.
