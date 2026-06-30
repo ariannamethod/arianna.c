@@ -2026,3 +2026,33 @@ State at session end: `go test -race` 27 green, coverage 15.0%, c-shared builds,
 closed, the doe vendor synced to canon a390a04, AM_DOE_TRAIN=1 coherent. Open (low/canon): the doe
 spore-step non-monotonic load selection + the vision WIP are doe-canon's; the dormant cgo C-host path
 (nil-ptr, SetParam config-wiring) and the P2 niceties are unexercised by the trio. HEAD `ac71953`.
+
+## cgo C-host hardening — NULL out-pointer guards on the dormant bridge (2026-06-30)
+
+The cgo bridge (`golib/cgo_bridge.go`) exports the inner world to a C-host. Two of its
+`//export` functions dereferenced a caller-supplied out-pointer with no nil check —
+`inner_world_get_snapshot(out *C.InnerWorldSnapshot)` and
+`inner_world_process_text(text *C.char, out *C.InnerWorldTextAnalysis)` — while the sibling
+string exports `inner_world_get_dominant_emotion` and `inner_world_suggest_break` already
+guard `buf == nil`. A C-host passing NULL would segfault. Both now early-return on
+`out == nil`, leaving `*out` untouched (matching the siblings; a NULL output buffer cannot
+receive results, so the early return is the correct behavior, not a swallowed error). This is
+the C-host path that the trio does not exercise — the Go-host metabolism runs `Start(false)`
+and never calls these exports — so it is hardening of compiled-but-unexercised code, no
+behavior change in the live trio.
+
+Verified (tool): `go vet ./...`, `go build ./...`, `go build -buildmode=c-shared`, and
+`go build -race` all clean; `go test -race ./...` green (26 top-level PASS, 0 fail). A C-host
+smoke linking the freshly-built c-shared library called `inner_world_get_snapshot(NULL)` and
+`inner_world_process_text(NULL, NULL)` — both return without a segfault — and then a real call
+after `inner_world_init()` wrote a sane snapshot (`arousal=0.300000`, in (0,1]), proving the
+guard does not break the working path. Codex (`codex exec`) reviewed the diff: no findings —
+the two guards are correct and sufficient, no other exported struct out-pointer is left
+unguarded, the early return is right, and `C.GoString(nil)` is itself safe (yields `""`).
+Go-orchestrator only (`golib/cgo_bridge.go`, +10 lines) — no vendored/canon change.
+
+The adaptive sysctl config-wiring (`SetParam`/`Adapt` write `AdaptiveConfig` fields that no
+process reads — `adaptive.go:310` / `adaptive.go:139`; the only consumers are the cgo
+set/get/load/save_param exports and `AdaptGlobal`) is deliberately deferred to the legacy
+goroutine port, where the six inner-world processes are reworked and the sysctl can be wired
+into their behavior in one pass instead of twice.

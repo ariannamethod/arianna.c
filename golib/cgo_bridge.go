@@ -112,6 +112,11 @@ func inner_world_get_prophecy_debt() C.float {
 
 //export inner_world_get_snapshot
 func inner_world_get_snapshot(out *C.InnerWorldSnapshot) {
+	// Safety: a C-host passing a NULL out-pointer must not segfault
+	// (mirrors the buf==nil guards in get_dominant_emotion / suggest_break).
+	if out == nil {
+		return
+	}
 	snap := GetSnapshotGlobal()
 
 	out.arousal = C.float(snap.Arousal)
@@ -162,6 +167,11 @@ func inner_world_add_prophecy_debt(delta C.float) {
 
 //export inner_world_process_text
 func inner_world_process_text(text *C.char, out *C.InnerWorldTextAnalysis) {
+	// Safety: a C-host passing a NULL out-pointer must not segfault
+	// (C.GoString(nil) is itself safe and yields "").
+	if out == nil {
+		return
+	}
 	goText := C.GoString(text)
 	analysis := ProcessTextGlobal(goText)
 
