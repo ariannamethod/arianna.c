@@ -2056,3 +2056,41 @@ process reads — `adaptive.go:310` / `adaptive.go:139`; the only consumers are 
 set/get/load/save_param exports and `AdaptGlobal`) is deliberately deferred to the legacy
 goroutine port, where the six inner-world processes are reworked and the sysctl can be wired
 into their behavior in one pass instead of twice.
+
+## The High Mathematical Brain — Arianna's math, computed in real Julia (2026-07-01)
+
+The legacy inner_world/high.go HighMathEngine (a Go reimplementation of the nicole/high.py
+ancestor's Julia/Python math) returns as Arianna's own High brain, computed in REAL Julia —
+libjulia embedded in-process — not a Go re-implementation wearing a Julia label. `golib/high.jl`
+is a faithful port of the engine's analytical metrics: character Shannon entropy, word-level
+vectorized entropy + emotional score, bigram perplexity, word n-gram overlap, cosine semantic
+distance, emotional valence/arousal, emotional alignment, free-energy predictive surprise,
+Schumann resonance coupling, and text rhythm (syllables/variance/pauses) — plus the scalar
+activations (sigmoid/relu/tanh), over the verbatim 130-entry EmotionalWeights lexicon. The legacy
+softmax/topk (vector sampling helpers) and the stateful EmotionalDrift ODE simulator are out of
+scope for this analytical brain.
+
+`golib/high.go` (build tag `julia`) bridges Go to libjulia through a thin C shim: jl_init boots
+Julia once, high.jl is `go:embed`ded and evaluated, and each metric is called via GC-safe shims
+(JL_GC_PUSH/POP root every value before allocation). All libjulia interaction runs on one
+goroutine pinned to its OS thread (runtime.LockOSThread), so the exported Go API is safe to call
+from any goroutine and Julia is never touched from two threads at once. Strings pass
+length-delimited (jl_pchar_to_string), NUL-safe. Every call returns (float64, error): a recoverable
+Julia fault (missing function, exception, init/eval failure) is a Go error, never a sentinel, and
+a worker panic is contained. The port computes in float64 where legacy used float32 — same
+algorithm, higher precision (algorithm-faithful, not bit-identical to legacy).
+
+Faithfulness is proven by an INDEPENDENT Go reimplementation of the legacy formulas
+(`golib/high_ref_test.go`, the same 130-entry lexicon, float64): `golib/high_test.go` compares the
+real Julia output against that reference across the metrics, text pairs, activations, and
+RU / duplicate-n-gram / embedded-NUL / concurrent inputs — not against snapshot constants, so the
+test fails if high.jl ever drifts from the legacy semantics.
+
+Verified (tool): default `go build` / `go vet` clean and the trio build is untouched — the Julia
+path is opt-in behind `-tags julia`, no libjulia dependency by default; `go build -tags julia`
+links libjulia; `go test -tags julia` green, including under `-race` (the single-thread server is
+race-clean) and the concurrency test at `-count 10`. Reviewed by an adversarial Codex (gpt-5.5)
+stub-audit — final verdict no stubs: the metrics are real, the tests independent, the GC balanced,
+the error paths real, the scope claims accurate. The brain is not yet wired into the inner-world
+processes (dormant by design); the next step is the wiring — overthinking's repetition/abstraction
+onto perplexity / n-gram overlap, and the emotional read onto valence / arousal.
