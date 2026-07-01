@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,7 +34,9 @@ type voice struct {
 	cmd  *exec.Cmd
 	in   io.WriteCloser
 	out  *bufio.Scanner
-	dead bool // set when the daemon stops responding (EOF before the <END> frame)
+	dead bool   // set when the daemon stops responding (EOF before the <END> frame)
+	bin  string // remembered so a fallen voice can be respawned in place
+	args []string
 }
 
 func startVoice(bin string, args []string) (*voice, error) {
@@ -52,13 +55,40 @@ func startVoice(bin string, args []string) (*voice, error) {
 	}
 	sc := bufio.NewScanner(outPipe)
 	sc.Buffer(make([]byte, 1<<20), 1<<20) // tolerate long lines
-	return &voice{cmd: cmd, in: in, out: sc}, nil
+	return &voice{cmd: cmd, in: in, out: sc, bin: bin, args: args}, nil
 }
 
-// voiceTimeout bounds one ask: our voices emit a fixed token budget (-n 28), so a
-// reply that has not framed <END> in this long is a wedged daemon (computing with
-// no output and no EOF), not a slow one.
-const voiceTimeout = 30 * time.Second
+// respawn revives a fallen voice in place: kill and reap the old daemon, then start a fresh one
+// with the same bin+args. A hot voice daemon can stop framing <END> after a turn or two; reviving
+// it lets the trio survive one voice's death instead of ending the whole session. Caller holds
+// voiceMu (the voices are single-stream — a revive must not race a concurrent ask or the breath).
+func (v *voice) respawn() error {
+	if v.cmd != nil && v.cmd.Process != nil {
+		_ = v.cmd.Process.Kill()
+		go func(c *exec.Cmd) { _ = c.Wait() }(v.cmd) // reap without blocking the turn
+	}
+	nv, err := startVoice(v.bin, v.args)
+	if err != nil {
+		return err
+	}
+	v.cmd, v.in, v.out, v.dead = nv.cmd, nv.in, nv.out, false
+	return nil
+}
+
+// voiceTimeout bounds one ask: our voices emit a fixed token budget (-n 28). On an idle
+// machine that frames <END> in seconds, but a 176M CPU voice under heavy contention (other
+// jobs saturating the cores) can legitimately take far longer — 30s treated a merely-slow
+// voice as wedged and killed it, silencing the trio. The ceiling is generous so a slow-but-
+// alive voice finishes its turn; a genuine wedge is still caught (and a real death is handled
+// by respawn). Tunable via AM_VOICE_TIMEOUT (seconds).
+var voiceTimeout = func() time.Duration {
+	if s := os.Getenv("AM_VOICE_TIMEOUT"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 3600 {
+			return time.Duration(n) * time.Second // cap at 1h — no time.Duration overflow
+		}
+	}
+	return 120 * time.Second
+}()
 
 // ask sends one request line and reads the reply up to the <END> frame. If the
 // daemon dies (stdin closed, or EOF before <END>), it marks the voice dead so the

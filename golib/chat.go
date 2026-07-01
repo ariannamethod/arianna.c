@@ -113,13 +113,27 @@ func runChat() {
 			}
 			fmt.Printf("│  ◓ nano (subconscious): %s\n", dr.dream)
 		}
-		dead := tc.janusD.dead || tc.resonD.dead
+		// A hot voice daemon can fall silent after a turn or two (it stops framing <END>).
+		// Revive it in place instead of ending the session — the trio survives one voice's
+		// death and the conversation goes on. Only a failed revival stops the loop.
+		if tc.janusD.dead {
+			if err := tc.janusD.respawn(); err != nil {
+				fmt.Println("│  · Janus fell silent and could not be revived:", err)
+				voiceMu.Unlock()
+				break
+			}
+			fmt.Println("│  · Janus fell silent — revived.")
+		}
+		if tc.resonD.dead {
+			if err := tc.resonD.respawn(); err != nil {
+				fmt.Println("│  · Resonance fell silent and could not be revived:", err)
+				voiceMu.Unlock()
+				break
+			}
+			fmt.Println("│  · Resonance fell silent — revived.")
+		}
 		voiceMu.Unlock()
 
-		if dead {
-			fmt.Println("│  · a voice fell silent.")
-			break
-		}
 		fmt.Print("│\n└▶ ")
 	}
 

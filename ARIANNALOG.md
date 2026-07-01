@@ -2123,3 +2123,35 @@ iw.mu, the lock-free getters, Nudge's own mutex, and the marshalled Julia thread
 correct fallbacks; its two findings — an unclamped over-range overlap and a stale build-tag comment —
 are fixed. The brain is no longer dormant; it reaches the processes. (README's "nothing beyond system
 BLAS" line needs Oleg's update to reflect the libjulia dependency.)
+
+## Voice resilience — the trio survives a fallen voice, and a slow one (2026-07-01)
+
+The hot voice daemons (Janus `./arianna`, Resonance `./arianna_resonance`) can fall silent mid-session:
+the daemon stops framing `<END>` before the ask's deadline, so the metabolism marked the voice dead and
+ended the whole conversation on the first silence. Two changes make the trio resilient:
+
+- **Respawn.** A voice now remembers its bin + args; when it falls silent, `chat.go` revives it in place —
+  kill and reap the old daemon, start a fresh one with the same launch, clear `dead` — under `voiceMu`, and
+  the conversation continues. Only a failed revival stops the loop. (`golib/metabolism.go` `voice.respawn`,
+  `golib/chat.go` the turn loop.)
+- **A generous, tunable timeout.** `voiceTimeout` went 30s → 120s (env `AM_VOICE_TIMEOUT`, capped at 1h). A
+  176M CPU voice under heavy machine contention can legitimately take far longer than 30s to frame its 28
+  tokens; the old 30s treated a merely-slow voice as wedged and killed it. The higher ceiling lets a
+  slow-but-alive voice finish; respawn backstops a genuine death.
+
+Root cause, run to ground: the "voices go silent" symptom was ENVIRONMENTAL — concurrent CPU contention (a
+separate training job saturating the cores) starved the voice daemons. Ruled out with evidence: memory was
+never exhausted (measured 28–38% free during a full trio turn — no OOM, so not the libjulia footprint); the
+Janus daemon is healthy in isolation (3 prompts → 3 replies in 3.9s); and the High-brain metrics were present
+both when it failed (under load) and when it worked (quiet), so they are not the cause — Codex corroborated
+that `ProcessText` can stall a turn under `voiceMu` but does not empty the voices.
+
+Verified (tool): `go build`/`go vet` clean, `go test -race` green, `make metabolism` links libjulia. Codex
+(gpt-5.5) corroborated the timeout mechanism and the respawn (kill/reap/rewire under `voiceMu`, no deadlock),
+flagging only an unbounded `AM_VOICE_TIMEOUT` overflow — fixed with the 1h clamp. A 15-turn GPT-4o ↔ trio
+self-play on a quiet machine ran clean: all fifteen turns carried Janus + Resonance + the nano subconscious +
+the Knowledge-Kernel books, the live field breathing (debt 26.7→33.3, cooldown×2.14, bloom 2), the autonomous
+chorus, and the δ-harvest (|B|=0.01358) — zero crashes, zero respawns needed on a quiet box. Open polish seen
+in the shakedown: occasional garble tokens (valid-UTF-8 glitch fragments the RFC-3629 guard does not catch), a
+narrow field-modulation range (gait/season/bloom stayed constant), and the harvest |B| not growing across
+short sessions.
