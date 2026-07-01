@@ -1,5 +1,3 @@
-//go:build julia
-
 package main
 
 import (

@@ -190,8 +190,21 @@ harvest_delta: tools/harvest_delta.c $(LIBNOTORCH) $(LIBAML)
 # emotional state set the rhythm. `./metabolism --chat` speaks with all three;
 # the bare `./metabolism "<seed>"` runs the fixed self-duet. Needs Go + the
 # arianna / arianna_resonance binaries (and, for the third voice, `make nano`).
+#
+# The High brain links libjulia. The Julia prefix is taken from `julia` on PATH so the
+# build is portable across nodes; high.go's #cgo carries a macOS-brew default so a bare
+# `go build` / `go test` still works on neo without this Makefile.
+JULIA ?= julia
 metabolism:
-	cd golib && go build -o ../metabolism .
+	cd golib && \
+	  JP="$$($(JULIA) -e 'print(dirname(Sys.BINDIR))' 2>/dev/null)"; \
+	  if [ -n "$$JP" ]; then \
+	    CGO_CFLAGS="-I$$JP/include/julia" \
+	    CGO_LDFLAGS="-L$$JP/lib -L$$JP/lib/julia -Wl,-rpath,$$JP/lib/julia -Wl,-rpath,$$JP/lib -ljulia" \
+	    go build -o ../metabolism . ; \
+	  else \
+	    go build -o ../metabolism . ; \
+	  fi
 	@echo "[build] metabolism (the trio orchestrator — run ./metabolism --chat)"
 
 # ── Clean ──────────────────────────────────────────────────────────────────

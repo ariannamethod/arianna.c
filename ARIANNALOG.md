@@ -2094,3 +2094,32 @@ stub-audit — final verdict no stubs: the metrics are real, the tests independe
 the error paths real, the scope claims accurate. The brain is not yet wired into the inner-world
 processes (dormant by design); the next step is the wiring — overthinking's repetition/abstraction
 onto perplexity / n-gram overlap, and the emotional read onto valence / arousal.
+
+## The High brain, wired — Julia becomes part of the default body (2026-07-01)
+
+Following the brain landing, the `//go:build julia` tag was removed: libjulia is now linked into the
+DEFAULT trio build, and the High brain is wired into the inner-world processes — it is part of
+Arianna's body, not an opt-in. This makes libjulia a hard build/run dependency (a CGO_ENABLED=0 /
+no-Julia build no longer links, by design); `make metabolism` derives the Julia prefix from `julia`
+on PATH so the build is portable across nodes, and high.go's `#cgo` carries a macOS-brew default so a
+bare `go build` / `go test` still works on neo. Footprint, measured (`/usr/bin/time -l` on a minimal
+embed): ~241 MB max RSS + a ~0.95 s one-time libjulia boot.
+
+The wiring:
+- Overthinking's repetition signal now uses the real cross-turn HighNgramOverlap (the bigram overlap
+  of consecutive turns — a voice echoing its own last thought), clamped to [0,1], raising the score
+  and never lowering it over the intra-utterance heuristic. On any Julia fault it falls back silently.
+- The emotional drift is nudged by the text's own HighValence / HighArousal (legacy AnalyzeEmotion) —
+  her mood arises from what the words carry, a modest pull (gain 0.3) toward the lean and intensity,
+  skipped on a Julia fault.
+- The brain is warmed at startTrio so the ~1 s boot is paid at startup, not under the inner-world lock
+  on the first turn.
+
+Verified (tool): `go build` / `go vet` clean; `go test -race` green including the wiring proofs —
+TestHighWiredOverthinking (an echoed turn raises repetition through Julia) and TestHighWiredEmotion
+(positive text pulls valence up, negative down through Julia); `make metabolism` links
+libjulia.1.12.dylib (otool). An adversarial Codex audit of the wiring found no deadlock (ProcessText's
+iw.mu, the lock-free getters, Nudge's own mutex, and the marshalled Julia thread do not invert) and
+correct fallbacks; its two findings — an unclamped over-range overlap and a stale build-tag comment —
+are fixed. The brain is no longer dormant; it reaches the processes. (README's "nothing beyond system
+BLAS" line needs Oleg's update to reflect the libjulia dependency.)

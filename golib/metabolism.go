@@ -142,6 +142,12 @@ type trioCtx struct {
 func startTrio() (*trioCtx, error) {
 	iw := Global()
 	iw.Start(false) // sync: the metabolism's ticker is the only clock (no per-process self-tick)
+	// Warm the High brain (boot libjulia + JIT once) up front, so the first conversational
+	// turn doesn't pay the ~1s Julia init under the inner-world lock. If Julia is unavailable,
+	// the inner world falls back to its heuristics — the trio still runs.
+	if err := highStart(); err != nil {
+		fmt.Printf("  [high] Julia brain unavailable (%v) — inner world uses heuristic fallback\n", err)
+	}
 	tickerDone := make(chan struct{})
 	go func() {
 		t := time.NewTicker(100 * time.Millisecond)

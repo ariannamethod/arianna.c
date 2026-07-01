@@ -37,14 +37,15 @@ type OverthinkingLoops struct {
 	running bool
 
 	// Detection state
-	recentConcepts []string
-	conceptCounts  map[string]int
+	recentConcepts   []string
+	conceptCounts    map[string]int
 	abstractionStack []string
+	lastText         string // previous utterance, for the cross-turn loop signal (High brain)
 
 	// Thresholds
-	repetitionThreshold int     // concepts repeated this many times = spiral
-	abstractionDepth    int     // this many abstractions = spiral
-	selfRefThreshold    int     // self-references = spiral
+	repetitionThreshold int // concepts repeated this many times = spiral
+	abstractionDepth    int // this many abstractions = spiral
+	selfRefThreshold    int // self-references = spiral
 
 	// Decay
 	decayRate float32
@@ -60,7 +61,7 @@ func NewOverthinkingLoops() *OverthinkingLoops {
 		repetitionThreshold: 3,
 		abstractionDepth:    5,
 		selfRefThreshold:    3,
-		decayRate:          0.1,
+		decayRate:           0.1,
 	}
 }
 
@@ -145,6 +146,21 @@ func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 
 	// 1. Check for repetition spiral
 	result.RepetitionScore = ol.checkRepetition(words)
+
+	// Real cross-turn loop signal: how strongly this utterance echoes the previous one
+	// (legacy NgramOverlap, computed in Julia). The bigram overlap of consecutive turns
+	// catches a voice circling the same matter; it raises the score, never lowers it, and
+	// falls back silently to the heuristic above on any Julia fault.
+	if ol.lastText != "" && len(words) >= 2 {
+		if overlap, err := HighNgramOverlap(ol.lastText, text, 2); err == nil {
+			// clamp to [0,1]: the legacy list-length-union overlap can exceed 1 when n-grams
+			// repeat, and this score is averaged into TotalScore and exported to C / prophecy debt.
+			if ov := clamp(float32(overlap), 0, 1); ov > result.RepetitionScore {
+				result.RepetitionScore = ov
+			}
+		}
+	}
+	ol.lastText = text
 
 	// 2. Check for abstraction spiral
 	result.AbstractionScore = ol.checkAbstraction(words)
@@ -244,32 +260,32 @@ func (ol *OverthinkingLoops) checkAbstraction(words []string) float32 {
 	// Abstract concepts (from Stanley's abstraction detector)
 	abstractMarkers := map[string]float32{
 		// Meta level
-		"meta":        0.8,
-		"level":       0.3,
-		"abstract":    0.9,
-		"concept":     0.7,
-		"idea":        0.5,
-		"notion":      0.6,
-		"principle":   0.7,
-		"framework":   0.6,
-		"paradigm":    0.8,
-		"ontology":    0.9,
+		"meta":         0.8,
+		"level":        0.3,
+		"abstract":     0.9,
+		"concept":      0.7,
+		"idea":         0.5,
+		"notion":       0.6,
+		"principle":    0.7,
+		"framework":    0.6,
+		"paradigm":     0.8,
+		"ontology":     0.9,
 		"epistemology": 0.9,
 
 		// Process words
-		"process":     0.4,
-		"mechanism":   0.5,
-		"system":      0.4,
-		"structure":   0.5,
-		"pattern":     0.5,
-		"emergence":   0.7,
+		"process":   0.4,
+		"mechanism": 0.5,
+		"system":    0.4,
+		"structure": 0.5,
+		"pattern":   0.5,
+		"emergence": 0.7,
 
 		// Recursive markers
-		"recursive":   0.8,
-		"self-":       0.7,
-		"about":       0.3,
-		"of":          0.1,
-		"that":        0.1,
+		"recursive": 0.8,
+		"self-":     0.7,
+		"about":     0.3,
+		"of":        0.1,
+		"that":      0.1,
 	}
 
 	var totalAbstraction float32

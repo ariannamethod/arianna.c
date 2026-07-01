@@ -1,5 +1,3 @@
-//go:build julia
-
 // high_ref_test.go — an INDEPENDENT Go reimplementation of the legacy HighMathEngine
 // formulas, used to verify high.jl (real Julia) is faithful — not a self-confirming snapshot.
 // EmotionalWeights is copied verbatim from the legacy map; the math mirrors legacy semantics

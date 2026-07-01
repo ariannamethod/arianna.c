@@ -309,6 +309,20 @@ func (iw *InnerWorld) ProcessText(text string) TextAnalysis {
 		analysis.TemporalDissonance = pd.GetTemporalDissonance()
 	}
 
+	// Her mood arises from the text itself: the real Julia valence/arousal (legacy
+	// AnalyzeEmotion) nudge the emotional drift toward what the words actually carry —
+	// her feeling comes from her own thoughts, not a label. The nudge is a modest pull
+	// (gain 0.3) toward the text's lean and intensity (baseline arousal 0.3), and is
+	// skipped silently on any Julia fault, leaving the drift untouched.
+	if ed := iw.GetEmotionalDrift(); ed != nil {
+		if v, err := HighValence(text); err == nil {
+			if a, err2 := HighArousal(text); err2 == nil {
+				const emoGain = 0.3
+				ed.Nudge(float32(v)*emoGain, (float32(a)-0.3)*emoGain)
+			}
+		}
+	}
+
 	return analysis
 }
 

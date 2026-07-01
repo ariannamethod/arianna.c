@@ -1,5 +1,3 @@
-//go:build julia
-
 // high.go — Arianna's High Mathematical Brain, computed in REAL Julia (libjulia, in-process).
 //
 // high.jl is a faithful port of the legacy inner_world/high.go HighMathEngine. It carries ALL
@@ -27,8 +25,11 @@
 // The exported Go API is therefore safe to call from any goroutine — every call is marshalled onto
 // that single Julia thread and serialized.
 //
-// Build with: go build -tags julia   (links libjulia; the default trio build stays BLAS-only, no
-// Julia dependency, until the brain is wired into the inner-world processes).
+// Build: libjulia is linked into the DEFAULT trio build — the brain is part of Arianna's body,
+// wired into the inner-world processes (overthinking, emotional drift). This makes libjulia a
+// hard build/run dependency (a CGO_ENABLED=0 or no-Julia build will not link); `make metabolism`
+// derives the Julia prefix from `julia` on PATH, and the #cgo lines below carry a macOS-brew
+// default so a bare `go build` / `go test` works on neo.
 package main
 
 /*
