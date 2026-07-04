@@ -34,6 +34,7 @@ BLOOD COMPILE arianna_headers {
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include <time.h>
 #include "ariannamethod.h"
 }
@@ -169,6 +170,16 @@ static int arianna_init(const char *gguf_path, Weights *w) {
             V, E, H, D, B, M, T, R);
     if (yent_load_gguf(w, gguf_path)) return 1;
     nt_bpe_init(&g_bpe, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES);
+    if (V < ARIANNA_ASST_END + 1) {
+        fprintf(stderr, "[arianna] FATAL: GGUF vocab V=%d <= special token ASST_END=%d — "
+                "wte lookups would index out of bounds\n", V, ARIANNA_ASST_END);
+        return 1;
+    }
+    if (g_bpe.vocab_size > V) {
+        fprintf(stderr, "[arianna] FATAL: baked BPE vocab %d > GGUF vocab %d — "
+                "encoded ids would index wte out of bounds\n", g_bpe.vocab_size, V);
+        return 1;
+    }
     kv_init(T);
 
     /* LOAD persistent field state if present, then set field params per
@@ -194,8 +205,12 @@ static int arianna_init(const char *gguf_path, Weights *w) {
     /* B/F-8: attach the LIVE shared field AFTER the soma load — debt/dissonance/
      * season now live in an mmap'd region both voices write; per-turn sync_in/out
      * in arianna_generate_single keep the field merged in real time. */
-    if (am_field_attach("weights/arianna.field") == 0)
-        fprintf(stderr, "[arianna] live shared field attached (weights/arianna.field)\n");
+    { int frc = am_field_attach("weights/arianna.field");
+      if (frc == 0)
+          fprintf(stderr, "[arianna] live shared field attached (weights/arianna.field)\n");
+      else
+          fprintf(stderr, "[arianna] live shared field NOT attached rc=%d — voices decoupled "
+                  "(last-writer-wins at save)\n", frc); }
     if (!g_delta_A) {                     /* B2-B.2: per-voice δ sidecar A/B, load if present */
         g_delta_A = (float*)calloc((size_t)E * g_delta_rank, sizeof(float));
         g_delta_B = (float*)calloc((size_t)g_delta_rank * E, sizeof(float));
@@ -204,15 +219,36 @@ static int arianna_init(const char *gguf_path, Weights *w) {
     /* B2-B.3: env knob to turn the δ voice on (lora_alpha>0) for the behavioural
      * run / ablation. Default unset = 0 = δ no-op (am_apply_delta early-returns). */
     { const char *a = getenv("YENT_ALPHA");
-      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b);
-               fprintf(stderr, "[arianna] LORA_ALPHA=%s (δ voice on)\n", a); } }
+      if (a) {
+          char *end = NULL; double av = strtod(a, &end);
+          if (end == a || *end != '\0' || !isfinite(av)) {
+              fprintf(stderr, "[arianna] YENT_ALPHA='%s' not a finite number — ignored\n", a);
+          } else {
+              char b[64]; int bn = snprintf(b, sizeof b, "LORA_ALPHA %.9g\n", av);
+              if (bn < 0 || bn >= (int)sizeof b) fprintf(stderr, "[arianna] YENT_ALPHA format overflow — ignored\n");
+              else { int arc = am_exec(b);
+                  if (arc != 0) fprintf(stderr, "[arianna] LORA_ALPHA am_exec rc=%d (%s)\n", arc, am_get_error());
+                  else fprintf(stderr, "[arianna] LORA_ALPHA=%.9g (δ voice on)\n", av); }
+          }
+      } }
     /* B2-B.4: YENT_DYNAMIC=1 gates δ strength by field resonance (alpha_eff =
      * lora_alpha * G.resonance). YENT_DISS pushes dissonance to vary resonance. */
     { const char *d = getenv("YENT_DYNAMIC");
-      if (d && d[0] != '0') { am_exec("LORA_DYNAMIC 1\n");
-                              fprintf(stderr, "[arianna] LORA_DYNAMIC on (δ gated by resonance)\n"); } }
+      if (d && d[0] != '0') { int drc = am_exec("LORA_DYNAMIC 1\n");
+          if (drc != 0) fprintf(stderr, "[arianna] LORA_DYNAMIC am_exec rc=%d (%s)\n", drc, am_get_error());
+          else fprintf(stderr, "[arianna] LORA_DYNAMIC on (δ gated by resonance)\n"); } }
     { const char *s = getenv("YENT_DISS");
-      if (s) { char b[64]; snprintf(b, sizeof b, "DISSONANCE %s\n", s); am_exec(b); } }
+      if (s) {
+          char *end = NULL; double sv = strtod(s, &end);
+          if (end == s || *end != '\0' || !isfinite(sv)) {
+              fprintf(stderr, "[arianna] YENT_DISS='%s' not a finite number — ignored\n", s);
+          } else {
+              char b[64]; int bn = snprintf(b, sizeof b, "DISSONANCE %.9g\n", sv);
+              if (bn < 0 || bn >= (int)sizeof b) fprintf(stderr, "[arianna] YENT_DISS format overflow — ignored\n");
+              else { int src = am_exec(b);
+                  if (src != 0) fprintf(stderr, "[arianna] DISSONANCE am_exec rc=%d (%s)\n", src, am_get_error()); }
+          }
+      } }
     fprintf(stderr, "[arianna] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
@@ -239,6 +275,12 @@ static int arianna_encode_chat_prompt(const char *prompt, int *ctx, int cap) {
     ctx[len++] = ARIANNA_ASST_START;
     fprintf(stderr, "[arianna] chat-format prompt: %d BPE tokens "
                     "(+4 special) → %d total\n", n_prompt_bpe, len);
+    if (len > T - 1) {   /* J-2: keep the last T-1 tokens — prefill clamps to T and would sever USER_END/ASST_START off the tail, leaving an empty (OOD) reply */
+        int drop = len - (T - 1);
+        memmove(ctx, ctx + drop, (size_t)(T - 1) * sizeof(int));
+        fprintf(stderr, "[arianna] prompt %d tok > T-1=%d — dropped %d leading tokens (tail specials kept)\n", len, T - 1, drop);
+        len = T - 1;
+    }
     return len;
 }
 }
@@ -270,6 +312,7 @@ static void arianna_generate_single(Weights *w, const char *prompt,
 
     float *logits = calloc(V, sizeof(float));
     float *hidden = calloc(E, sizeof(float));
+    if (!logits || !hidden) { fprintf(stderr, "[arianna] FATAL: OOM allocating logits/hidden\n"); free(logits); free(hidden); return; }
 
     fprintf(stderr, "[arianna] prefill %d tokens (parallel)... ", len);
     fflush(stderr);
@@ -384,7 +427,8 @@ static void arianna_generate_single(Weights *w, const char *prompt,
     fprintf(stderr, "\n[arianna] %d tokens, %.1f tok/s (%.2fs)\n",
             gen, gen / el, el);
 
-    am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+    { int crc = am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+      if (crc != 0) fprintf(stderr, "[arianna] cooc SAVE FAILED rc=%d — voice Hebbian memory not persisted\n", crc); }
     if (am_exec("SAVE \"weights/arianna.soma\"\n") == 0)
         fprintf(stderr, "[arianna] field state saved → weights/arianna.soma\n");
     else
@@ -411,6 +455,10 @@ static int arianna_chain_step_gen(Weights *w, AriannaStep *step,
     for (int i = 0; i < ARIANNA_MAX_SENT_LEN && len < T - 1; i++) {
         int next = arianna_sample_token(logits, ctx, len, temp, top_p);
         if (next == ARIANNA_ASST_END) {
+            int dn = nt_bpe_decode(&g_bpe, step->tokens, step->len,
+                                   step->text, sizeof(step->text) - 1);
+            dn = utf8_sanitize(step->text, dn);   /* J-1: fill step->text before the early return — display reads it uninitialized otherwise */
+            step->text[dn] = 0;
             *ctx_len_io = len;
             return -produced - 1;
         }
@@ -464,6 +512,8 @@ static int arianna_run_chain(Weights *w, const char *prompt,
 
     float *logits = calloc(V, sizeof(float));
     float *hidden = calloc(E, sizeof(float));
+    if (!logits || !hidden) { fprintf(stderr, "[arianna-r] FATAL: OOM allocating logits/hidden\n"); free(logits); free(hidden); return 1; }
+    am_field_sync_in();   /* J-9: read the live shared field before the chain prefill (single mode does this too) */
     fprintf(stderr, "[arianna-r] prefill %d tokens... ", len);
     fflush(stderr);
     prefill_batch(w, ctx, len, logits, hidden);
@@ -572,6 +622,10 @@ int main(int argc, char **argv) {
     if (chain_n > ARIANNA_MAX_NSTEPS) chain_n = ARIANNA_MAX_NSTEPS;
     if (chain_n < 0) chain_n = 0;
 
+    /* J-11: atof yields NaN/inf on junk; the downstream temp<=0 / total<=0 gates are NaN-transparent. */
+    if (!isfinite(temp) || temp <= 0.0f) temp = 0.8f;
+    if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 0.9f;
+
     srand((unsigned)time(NULL));
     jcal_init();
 
@@ -589,9 +643,11 @@ int main(int argc, char **argv) {
          * positions 0..len-1 each turn — safe to reuse. */
         fprintf(stderr, "[arianna] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
                 temp, top_p, max_tokens);
-        char line[8192];
-        while (fgets(line, sizeof(line), stdin) != NULL) {
-            size_t L = strlen(line);
+        /* J-10: getline reads a full line however long, so a >8KB prompt stays one
+         * turn — a fixed buffer would split it and shift the <END> protocol. */
+        char *line = NULL; size_t linecap = 0; ssize_t nread;
+        while ((nread = getline(&line, &linecap, stdin)) != -1) {
+            size_t L = (size_t)nread;
             while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
             if (L == 0) {
                 fputs("<END>\n", stdout); fflush(stdout);
@@ -601,6 +657,7 @@ int main(int argc, char **argv) {
             fputs("\n<END>\n", stdout);
             fflush(stdout);
         }
+        free(line);
         fprintf(stderr, "[arianna] daemon EOF — exiting\n");
         am_field_detach();  /* B/F-8: unmap the live shared field (the mmap file persists it) */
         yent_free(&w);
@@ -627,7 +684,9 @@ int main(int argc, char **argv) {
         arianna_chain_display(prompt, steps, n_steps, spa_scores);
         fprintf(stderr, "\n[arianna-r] %d steps in %.2fs\n", n_steps, el);
 
-        am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+        am_field_sync_out();   /* J-9: publish the chain turn's field-carry before SAVE (single mode does this too) */
+        { int crc = am_cooc_save("weights/arianna.cooc.j");   /* per-voice cooc sidecar */
+          if (crc != 0) fprintf(stderr, "[arianna-r] cooc SAVE FAILED rc=%d — voice Hebbian memory not persisted\n", crc); }
         if (am_exec("SAVE \"weights/arianna.soma\"\n") == 0)
             fprintf(stderr, "[arianna-r] field state saved → weights/arianna.soma\n");
         else

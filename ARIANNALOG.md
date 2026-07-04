@@ -2243,3 +2243,47 @@ tokens and exits 0; `-t nan` completes with coherent multi-token output (the gua
 loop); the daemon emits the correct `<END>` framing for a prompt and an empty line. The remaining resonance
 target — `tools/resonance_forward.h` (Fable flagged a missing upper bound on `V` → `dir_init_rownorms`
 calloc/NULL-write) — is a separate pass.
+
+## Janus voice — correctness hardening from Fable's audit (2026-07-05)
+
+Fable's audit of `arianna.c` (Janus 176M, the external face — orchestrator main + single/daemon/chain modes)
+found twelve items (J-1..J-8 CONFIRMED, J-9..J-12 LOW). The `.c` is amlc-generated from `arianna.aml`, so
+fixes land in the `.aml`. This pass closed the ten that live in `arianna.aml`; the forward-header findings
+(J-4 loader tensor-size trust, J-5 kv_init callocs) and J-6's prefill-scratch callocs are grouped into a
+separate `tools/yent_forward.h` pass — the hot forward path deserves its own verification cycle. Each
+reproduced first:
+
+- **J-1 (CONFIRMED)** — chain mode's ASST_END early return skipped the token→text decode, so `AriannaStep.text`
+  (a 256-byte stack field, never initialized) was printed by the display — garbage plus an unbounded stack
+  read past the missing NUL. Now the accumulated tokens decode into `step->text` before the early return.
+- **J-2 (CONFIRMED)** — a prompt past the context window was clamped to T by prefill (severing the tail —
+  USER_END/ASST_START — sending the format out-of-distribution) while the `.c` kept the old `len ≥ T`, so the
+  `len < T` generation loop never entered and the reply was silently empty. Now `arianna_encode_chat_prompt`
+  keeps the last T-1 tokens (tail specials preserved), like Resonance.
+- **J-3 (CONFIRMED)** — the 32759-32763 special tokens and the baked BPE vocab were never checked against the
+  GGUF `V`, and `wte[tok*E]` has no `tok < V` guard, so a janus GGUF with `V < 32764` reads `wte` out of
+  bounds from the first prefill token. Now `arianna_init` fails loud on `V <= ASST_END` or `baked vocab > V`.
+- **J-6 (CONFIRMED, .aml half)** — `logits`/`hidden` callocs in single and chain had no NULL gate → prefill
+  writes into NULL on OOM. Now gated fail-loud. (The prefill_batch scratch callocs in `yent_forward.h` fold
+  into the forward-header pass.)
+- **J-7 (CONFIRMED)** — `am_cooc_save` return discarded in both single and chain (the soma SAVE beside it logs
+  its rc): a failed sidecar write silently wipes Janus's Hebbian memory on the next init. Now rc logged in both.
+- **J-8 (CONFIRMED)** — `am_field_attach` failure only ever logged on success; the live shared field went
+  silently absent, the duet decoupled. Now an else-branch logs the rc.
+- **J-9 (LOW)** — chain mode never called `am_field_sync_in`/`sync_out` around its turn (single/daemon do), so a
+  parallel-voice chain run returned last-writer-wins on debt/season. Now sync_in before the chain prefill,
+  sync_out before the chain SAVE.
+- **J-10 (LOW)** — daemon fixed `line[8192]` split a >8KB prompt across two fgets → protocol shift (class R-4).
+  Replaced with getline.
+- **J-11 (LOW)** — `-t`/`--top-p` atof unguarded; NaN passed the NaN-transparent `temp<=0`/`total<=0` gates and
+  degenerated the sampler (class R-5). Now clamped at parse.
+- **J-12 (LOW)** — YENT_ALPHA/YENT_DYNAMIC/YENT_DISS env unvalidated into snprintf + three am_exec calls with
+  discarded rc (class R-6). Now strtod+isfinite validation, bounded reformat, rc logged on all three.
+
+Verified (tool): `make arianna` (amlc regenerates the `.c`, then `cc`) builds clean; the regenerated `.c`
+carries all ten fixes and no daemon `fgets`; single generates coherent Arianna voice and exits 0; the daemon
+frames `<END>` correctly for a prompt and an empty line; `--chain 4` prints coherent per-step text (no garbage
+— J-1) and exits 0; `-t nan` completes coherent (clamped — no degenerate loop). Next forward-header pass:
+`tools/yent_forward.h` — J-4 (`_load_named`/`_load_big` ignore the expected tensor size), J-5 (kv_init four
+unchecked callocs), J-6's prefill_batch scratch, and Fable's own flagged `V` upper-bound + `dir_init_rownorms`
+calloc/NULL.
