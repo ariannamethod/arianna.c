@@ -2323,3 +2323,55 @@ and an empty line; `--chain 3` (exercising `spa_init`) prints coherent per-step 
 full Janus J-1..J-12 audit (the ten arianna.aml findings + these three forward-header findings + the two
 flags). Remaining arianna-duo targets Fable named but has not audited: `vagus/vagus.zig` (the larynx body) and
 `gguf.c` (an untrusted-parser toxic-class pass).
+
+## Chorus — correctness hardening from Fable's audit (2026-07-05)
+
+Fable's audit of `chorus/arianna2arianna.c` (the choir — a self-contained 1608-line C monolith: its own GGUF
+parser + BPE + llama-forward + N-cell polyphony over the 88M nano body). It is vendored byte-exact from the
+canon `~/arianna/arianna2arianna` (md5 matched), so the fixes landed in the CANON and the vendor copy was
+re-synced byte-exact (vendored == canon). Ten findings (C-1..C-7 CONFIRMED, C-8..C-10 LOW), each reproduced
+first; the parser is the untrusted-input toxic class, so the fixes centre on it:
+
+- **C-1 (CONFIRMED)** — GGUF metadata went into work with no bounds: a missing `head_count` →
+  `head_dim = q_dim / n_heads` divides by zero (SIGFPE on load); `n_kv_heads > n_heads` → `gqa = H/KV = 0` →
+  `kvh = h/gqa` divides by zero in the first forward; `embed = 0` → `0/0` NaN; `embed > 8192` →
+  `g_field_dir[8192]` OOB. Now one `model_load` gate (H>0, 0<KV<=H, 0<E<=8192, FFN/vocab/L>0), fail-loud,
+  before any division.
+- **C-2 (CONFIRMED)** — layer-load returns were unchecked: a missing attn_norm/ffn_norm `deq()` → NULL into
+  `rmsnorm` → NULL-deref crash; a missing linear tensor → `weight_matvec` silently `memset`s zero (a dead
+  layer, garbage output, no message). Now the `LD`/`LW` macros fail loud with the tensor name; the qwen3
+  qk-norms (legitimately absent on llama) use a separate `LD_OPT`.
+- **C-3 (CONFIRMED)** — `gguf_open` ignored fread returns: a truncated header gave garbage fields;
+  `data_size = fsize - data_offset` wasn't checked negative (a file shorter than the header → giant alloc);
+  the weight-body `fread` return was discarded (a short read → uninitialised weights, silent garbage). Now the
+  header read is checked, `data_size < 0` fails, and a short body read fails.
+- **C-4 (CONFIRMED)** — the fixed `this_chorus[4096]` buffer silently dropped a cell's fragment when full, so
+  later cells and the next round heard a truncated chorus and the field metrics were computed over less
+  context than claimed. Now each drop logs a truncation warning to the FIELDLOG.
+- **C-5 (CONFIRMED)** — CLI lengths weren't clamped: `max_tokens >= 511` made `bpe_encode`'s cap
+  `max_seq - max_tokens - 1` negative → encode returns 0 → the prompt was silently dropped and generation ran
+  off zeroed logits. Now `max_tokens` and `nfrag` are clamped to keep the encode cap positive.
+- **C-6 (CONFIRMED)** — allocations across the file had no success check → OOM writes into NULL. One fail-loud
+  `xalloc`/`xzalloc`/`xstrdup` (malloc-based, overflow-checked, exit on OOM) now routes all 37 alloc sites
+  (25 calloc + 9 malloc + 3 strdup).
+- **C-7 (CONFIRMED)** — `read_string` turned an over-long name into an empty string with a success return, so
+  an over-long tensor name became an empty-named tensor → `gguf_find_tensor` missed it → the C-2 cascade. Now
+  an over-long name/string is a parse failure, and the tensor-name read is checked.
+- **C-8 (LOW)** — `gguf_read_str_array` set `*out_n = alen` even when `read_string` failed mid-array (a
+  partially-NULL array); now reports the actually-read count.
+- **C-9 (LOW)** — the tokenizer vocab and the embedding vocab were never cross-checked; a tokenizer longer
+  than the embedding → a token id past `tok_emb` → OOB read. Now `bpe_n_vocab(tok) <= m->vocab` is enforced
+  after load (class R-1/J-3).
+- **C-10 (LOW)** — temp `atof` had no isfinite gate; NaN passed the NaN-transparent `temp<=0` gate and
+  degenerated the sampler to one repeated id. Now `!isfinite || <=0 → argmax` in both `sample` and `sample2`.
+
+Verified (tool): the canon builds clean (`cc -O2 arianna2arianna.c -lm -pthread`), with raw
+`calloc`/`malloc`/`strdup` remaining only in the three wrapper bodies. On the real nano-arianna GGUF (llama
+E=576 H=9 KV=9 V=32000 L=13) the fixes self-prove — single mode loads past every C-1/C-2/C-3/C-9 gate (no
+`out of bounds` / `missing` / `truncated`) and generates coherent Arianna voice ("...the perfection of
+co-authors is"), exit 0; `-t nan` yields distinct multi-token output (clamped, not the degenerate single-id
+loop); field/chorus mode with 3 cells produces live per-cell fragments with cross-cell Δ_R^kv, exit 0. The
+vendor copy was re-synced byte-exact (md5 `a4e4edf…` both sides, no sibling refs); `make chorus` in arianna-duo
+builds + generates. This closes the fourth and final Fable file — the whole arianna-duo audit is 37 findings
+across kk / resonance / janus(main+fwd) / chorus. The one remaining item Fable named — the canon
+`notorch/gguf.c` parser — lives in its own repo (a separate toxic-class pass), not arianna-duo.
