@@ -34,6 +34,11 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
         nt_bpe_init(&ctx->bpe, resonance_bpe_merges, RESONANCE_BPE_MERGES);
         fprintf(stderr, "[resonance] BPE vocab=%d merges=%d (baked header)\n",
                 ctx->bpe.vocab_size, ctx->bpe.n_merges);
+        if (ctx->bpe.vocab_size != V) {
+            fprintf(stderr, "[resonance] FATAL: baked BPE vocab %d != GGUF vocab %d — "
+                    "token ids would index tok_emb out of bounds\n", ctx->bpe.vocab_size, V);
+            return 1;
+        }
     } else {
         if (resonance_load(ctx, path)) return 1;  /* RS02 inits BPE internally */
     }
@@ -63,21 +68,41 @@ static int resonance_init(ResonanceCtx *ctx, const char *path) {
      * (debt/dissonance/season) now lives in an mmap'd region both voices write;
      * per-turn sync_in/out inside resonance_generate keep the field merged in real
      * time instead of last-writer-wins at save. First creator seeds it from here. */
-    if (am_field_attach("weights/arianna.field") == 0)
+    int frc = am_field_attach("weights/arianna.field");
+    if (frc == 0)
         fprintf(stderr, "[resonance] live shared field attached (weights/arianna.field)\n");
+    else
+        fprintf(stderr, "[resonance] live shared field NOT attached rc=%d — voices decoupled "
+                "(last-writer-wins at save)\n", frc);
     /* B2-B.4: δ-voice knobs (same env as Janus) — YENT_ALPHA sets α_max,
      * YENT_DYNAMIC=1 gates δ strength by field resonance. Default unset = δ off. */
     { const char *a = getenv("YENT_ALPHA");
-      if (a) { char b[64]; snprintf(b, sizeof b, "LORA_ALPHA %s\n", a); am_exec(b); } }
+      if (a) {
+          char *end = NULL;
+          double av = strtod(a, &end);
+          if (end == a || *end != '\0' || !isfinite(av)) {
+              fprintf(stderr, "[resonance] YENT_ALPHA='%s' not a finite number — ignored\n", a);
+          } else {
+              char b[64];
+              int bn = snprintf(b, sizeof b, "LORA_ALPHA %.9g\n", av);
+              if (bn < 0 || bn >= (int)sizeof b)
+                  fprintf(stderr, "[resonance] YENT_ALPHA format overflow — ignored\n");
+              else { int arc = am_exec(b);
+                  if (arc != 0) fprintf(stderr, "[resonance] LORA_ALPHA am_exec rc=%d (%s)\n", arc, am_get_error()); }
+          }
+      } }
     { const char *d = getenv("YENT_DYNAMIC");
-      if (d && d[0] != '0') am_exec("LORA_DYNAMIC 1\n"); }
+      if (d && d[0] != '0') { int drc = am_exec("LORA_DYNAMIC 1\n");
+          if (drc != 0) fprintf(stderr, "[resonance] LORA_DYNAMIC am_exec rc=%d (%s)\n", drc, am_get_error()); } }
     fprintf(stderr, "[resonance] Dario field active (PROPHECY 12, DESTINY 0.35, VELOCITY WALK)\n");
     return 0;
 }
 
 static void resonance_save_breath(void) {
     am_field_sync_in();   /* B/F-8: pull the live field before snapshotting soma, so the soma's field-carry matches the mmap (the mmap stays the source of truth on reload) */
-    am_cooc_save("weights/arianna.cooc.r");   /* per-voice cooc sidecar */
+    { int crc = am_cooc_save("weights/arianna.cooc.r");   /* per-voice cooc sidecar */
+      if (crc != 0) fprintf(stderr, "[resonance] cooc SAVE FAILED rc=%d — voice Hebbian "
+              "memory not persisted (next run clears cooc)\n", crc); }
     int rc = am_exec("SAVE \"weights/arianna.soma\"\n");
     if (rc == 0)
         fprintf(stderr, "[resonance] field state saved → weights/arianna.soma\n");
@@ -113,20 +138,27 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--daemon"))             daemon_mode  = 1;
     }
 
+    /* R-5: atof yields NaN/inf on junk; the downstream temp<=0 guard is NaN-transparent. */
+    if (!isfinite(temp) || temp <= 0.0f) temp = 0.7f;
+    if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 1.0f;
+
     srand((unsigned)time(NULL));
 
     ResonanceCtx ctx = {0};
     if (resonance_init(&ctx, weights_path)) return 1;
-    if (field_off) { am_exec("FIELD OFF\n");   /* ablation: gate Dario overlay */
+    if (field_off) { int forc = am_exec("FIELD OFF\n");   /* ablation: gate Dario overlay */
+        if (forc != 0) fprintf(stderr, "[resonance] FIELD OFF am_exec rc=%d (%s)\n", forc, am_get_error());
         fprintf(stderr, "[resonance] FIELD OFF — Dario overlay gated\n"); }
 
     if (daemon_mode) {
         /* metabolism Phase 2 hot-loop — same protocol as Janus daemon. */
         fprintf(stderr, "[resonance] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
                 temp, top_p, max_tokens);
-        char line[8192];
-        while (fgets(line, sizeof(line), stdin) != NULL) {
-            size_t L = strlen(line);
+        /* R-4: getline reads a full line however long, so a >8KB prompt+inject
+         * stays one turn — a fixed buffer would split it and shift the <END> protocol. */
+        char *line = NULL; size_t linecap = 0; ssize_t nread;
+        while ((nread = getline(&line, &linecap, stdin)) != -1) {
+            size_t L = (size_t)nread;
             while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
             if (L == 0) {
                 fputs("<END>\n", stdout); fflush(stdout);
@@ -142,6 +174,7 @@ int main(int argc, char **argv) {
             fputs("\n<END>\n", stdout);
             fflush(stdout);
         }
+        free(line);
         fprintf(stderr, "[resonance] daemon EOF — exiting\n");
         resonance_save_breath();
         resonance_free(&ctx);
