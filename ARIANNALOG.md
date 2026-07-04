@@ -2287,3 +2287,39 @@ frames `<END>` correctly for a prompt and an empty line; `--chain 4` prints cohe
 `tools/yent_forward.h` — J-4 (`_load_named`/`_load_big` ignore the expected tensor size), J-5 (kv_init four
 unchecked callocs), J-6's prefill_batch scratch, and Fable's own flagged `V` upper-bound + `dir_init_rownorms`
 calloc/NULL.
+
+## Janus forward header — the deferred forward-path pass (2026-07-05)
+
+Closing the `tools/yent_forward.h` findings Fable grouped as a separate pass (the hot forward path deserves its
+own verification cycle). All are latent (OOM / crafted GGUF), none live-reachable:
+
+- **J-4 (CONFIRMED)** — the loaders trusted the GGUF's tensor sizing: `_load_named` took an expected element
+  count and `(void)expect`'d it; `_load_big` had no expected size at all, checking only that the F16 span fit
+  in `data_size` (memory-safe) but not that the tensor matched the cfg dimension the forward indexes by
+  (`wte`[V,E], `cq`[E,E], `wg`[E,M], `head`[V,E]). A GGUF whose metadata claims a smaller tensor than cfg →
+  the forward reads past it. Now both verify `gf->tensors[idx].n_elements == expect` and fail loud; `_load_big`
+  gained the `expect` param, threaded through the `LOAD_LAYER_BIG` macro and the head load with the cfg sizes.
+- **J-5 (CONFIRMED)** — `kv_init`'s four KV-cache callocs were unchecked → the first prefill `memcpy` writes
+  into NULL on OOM.
+- **J-6 (CONFIRMED, header half)** — the ~16 `prefill_batch` scratch callocs and `spa_init`'s `W_embed` malloc
+  (jannus_spa.h) were unchecked — the forward writes into them immediately.
+- **plus Fable's two forward-header notes** — `dir_init_rownorms`'s three cache callocs then wrote
+  `g_rownorm[i]` with no NULL gate, and the cfg validation bounded `V` below but not above (a crafted
+  `V ~ 2^30` overflows allocation sizing).
+
+Fix: one fail-loud `yent_xcalloc` (malloc+memset with an overflow check, exit on OOM — the forward cannot
+recover from a NULL scratch buffer) routes every calloc in `yent_forward.h` (19 sites: dir / kv / prefill);
+`spa_init` gets a NULL gate; the arch check adds `V > (1<<20)` (Janus is 32768; 1M is far above any real vocab
+and stops the 2^30 overflow). (One gotcha during the sweep: the helper name `yent_xcalloc` contains the
+substring `calloc(`, so the file-wide `calloc(`→`yent_xcalloc(` replace corrupted the definition to
+`yent_xyent_xcalloc` — caught by the build, renamed back.)
+
+Verified (tool): `make arianna` builds clean; `yent_xcalloc` has one definition and 19 uses (no stray
+`calloc`); the `_load_big` `expect` param and `LOAD_LAYER_BIG` `n_elem` arg are wired. The J-4 size checks are
+self-proving — single mode loads the real GGUF past every `_load_named`/`_load_big` check (no `mismatch` /
+`FATAL`) and generates coherent Arianna voice, exit 0, which proves the cfg sizes (E*E for the attention
+projections, E*M for the MLP, V*E for wte/head) match the real tensors; the daemon frames `<END>` for a prompt
+and an empty line; `--chain 3` (exercising `spa_init`) prints coherent per-step text, exit 0. This closes the
+full Janus J-1..J-12 audit (the ten arianna.aml findings + these three forward-header findings + the two
+flags). Remaining arianna-duo targets Fable named but has not audited: `vagus/vagus.zig` (the larynx body) and
+`gguf.c` (an untrusted-parser toxic-class pass).

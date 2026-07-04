@@ -100,10 +100,23 @@ static float dir_dot(const float *a, const float *b, int n) {
 }
 static float dir_norm(const float *v, int n) { return sqrtf(dir_dot(v, v, n)); }
 
+/* Fail-loud zeroed alloc: OOM in the forward path is unrecoverable (the caller
+ * writes into the buffer immediately), so exit rather than NULL-deref. Uses
+ * malloc+memset (not the c-alloc name) so a file-wide sweep to this helper
+ * cannot rewrite its own definition. */
+static void *yent_xcalloc(size_t n, size_t sz) {
+    size_t total = n * sz;
+    if (sz != 0 && total / sz != n) { fprintf(stderr, "yent: alloc overflow (%zu x %zu)\n", n, sz); exit(1); }
+    void *p = malloc(total ? total : 1);
+    if (!p) { fprintf(stderr, "yent: OOM alloc %zu x %zu\n", n, sz); exit(1); }
+    memset(p, 0, total);
+    return p;
+}
+
 static void dir_init_rownorms(const float *emb) {
-    if (!g_rownorm) g_rownorm = calloc(V, sizeof(float));
-    if (!g_Acache)  g_Acache  = calloc(V, sizeof(float));
-    if (!g_Fcache)  g_Fcache  = calloc(V, sizeof(float));
+    if (!g_rownorm) g_rownorm = yent_xcalloc(V, sizeof(float));
+    if (!g_Acache)  g_Acache  = yent_xcalloc(V, sizeof(float));
+    if (!g_Fcache)  g_Fcache  = yent_xcalloc(V, sizeof(float));
     for (int i = 0; i < V; i++) g_rownorm[i] = dir_norm(emb + (size_t)i * E, E);
     memset(g_destiny, 0, sizeof(g_destiny));
     g_dest_mag = 0.0f; g_proph_n = 0; g_Adirty = 0;
@@ -229,9 +242,14 @@ static void qmm(float *C, const float *A, const uint8_t *Wq, int wdtype, int m, 
 /* Big weight matrix loader. Default: a packed F16 pointer INTO gf->data (no
  * dequant, no copy — caller keeps gf open). YENT_DENSE=1: dequant to an owned
  * f32 buffer (the bit-equivalence reference). Sets *wdtype accordingly. */
-static const uint8_t *_load_big(gguf_file *gf, const char *name, int dense, int *wdtype) {
+static const uint8_t *_load_big(gguf_file *gf, const char *name, size_t expect, int dense, int *wdtype) {
     int idx = gguf_find_tensor(gf, name);
     if (idx < 0) { fprintf(stderr, "yent: tensor '%s' not found in GGUF\n", name); return NULL; }
+    if (gf->tensors[idx].n_elements != expect) {   /* J-4: verify GGUF tensor size vs the cfg dimension the forward indexes by */
+        fprintf(stderr, "yent: tensor '%s' has %llu elements, cfg expects %zu — GGUF/arch mismatch\n",
+                name, (unsigned long long)gf->tensors[idx].n_elements, expect);
+        return NULL;
+    }
     if (dense) {
         float *buf = gguf_dequant(gf, idx);
         if (!buf) { fprintf(stderr, "yent: dequant failed for '%s'\n", name); return NULL; }
@@ -262,13 +280,17 @@ static float *_load_named(gguf_file *gf, const char *name, size_t expect) {
         fprintf(stderr, "yent: tensor '%s' not found in GGUF\n", name);
         return NULL;
     }
+    if (gf->tensors[idx].n_elements != expect) {   /* J-4: verify GGUF tensor size vs the cfg dimension the forward indexes by */
+        fprintf(stderr, "yent: tensor '%s' has %llu elements, cfg expects %zu — GGUF/arch mismatch\n",
+                name, (unsigned long long)gf->tensors[idx].n_elements, expect);
+        return NULL;
+    }
     float *buf = gguf_dequant(gf, idx);
     if (!buf) {
         fprintf(stderr, "yent: dequant failed for '%s'\n", name);
         return NULL;
     }
     _owned[_owned_n++].ptr = buf;
-    (void)expect;  /* trust the GGUF reader's tensor sizing */
     return buf;
 }
 
@@ -303,29 +325,29 @@ static int yent_load_gguf(Weights *w, const char *path) {
         w->b[i].field = _load_named(gf, nm, (size_t)(n_elem));              \
         if (!w->b[i].field) { gguf_close(gf); return 1; }                   \
     } while (0)
-#define LOAD_LAYER_BIG(field, suffix)                                       \
+#define LOAD_LAYER_BIG(field, suffix, n_elem)                               \
     do {                                                                    \
         snprintf(nm, sizeof(nm), "transformer.h.%d." suffix, i);            \
-        w->b[i].field = _load_big(gf, nm, dense, &w->wdtype);               \
+        w->b[i].field = _load_big(gf, nm, (size_t)(n_elem), dense, &w->wdtype); \
         if (!w->b[i].field) { gguf_close(gf); return 1; }                   \
     } while (0)
         LOAD_LAYER(wr_a,  "attn.wr_a",          (size_t)H * E * R);   /* f32: element-wise */
         LOAD_LAYER(wr_b,  "attn.wr_b",          (size_t)H * R * T);   /* f32: element-wise */
         LOAD_LAYER(gate,  "attn.gate",          (size_t)H * 3);       /* f32: lookup */
-        LOAD_LAYER_BIG(cq,    "attn.c_q.weight");
-        LOAD_LAYER_BIG(ck,    "attn.c_k.weight");
-        LOAD_LAYER_BIG(cv,    "attn.c_v.weight");
-        LOAD_LAYER_BIG(wvr,   "attn.wvr.weight");
-        LOAD_LAYER_BIG(wj,    "attn.wj.weight");
-        LOAD_LAYER_BIG(cproj, "attn.c_proj.weight");
-        LOAD_LAYER_BIG(wg,    "mlp.w_gate.weight");
-        LOAD_LAYER_BIG(wu,    "mlp.w_up.weight");
-        LOAD_LAYER_BIG(wd,    "mlp.w_down.weight");
+        LOAD_LAYER_BIG(cq,    "attn.c_q.weight",    (size_t)E * E);
+        LOAD_LAYER_BIG(ck,    "attn.c_k.weight",    (size_t)E * E);
+        LOAD_LAYER_BIG(cv,    "attn.c_v.weight",    (size_t)E * E);
+        LOAD_LAYER_BIG(wvr,   "attn.wvr.weight",    (size_t)E * E);
+        LOAD_LAYER_BIG(wj,    "attn.wj.weight",     (size_t)E * E);
+        LOAD_LAYER_BIG(cproj, "attn.c_proj.weight", (size_t)E * E);
+        LOAD_LAYER_BIG(wg,    "mlp.w_gate.weight",  (size_t)E * M);
+        LOAD_LAYER_BIG(wu,    "mlp.w_up.weight",    (size_t)E * M);
+        LOAD_LAYER_BIG(wd,    "mlp.w_down.weight",  (size_t)M * E);
 #undef LOAD_LAYER
 #undef LOAD_LAYER_BIG
     }
 #undef LOAD
-    if (!(w->head = _load_big(gf, "lm_head.weight", dense, &w->wdtype))) { gguf_close(gf); return 1; }
+    if (!(w->head = _load_big(gf, "lm_head.weight", (size_t)V * E, dense, &w->wdtype))) { gguf_close(gf); return 1; }
 
     if (dense) gguf_close(gf);   /* dense weights are owned copies — gf no longer needed */
     else       w->gf = gf;       /* packed: keep gf open, the const uint8_t* reference gf->data */
@@ -372,7 +394,7 @@ static int yent_read_cfg(const char *path) {
      * mid/c_out/r_out[128] => D<=128 and R<=128; r_scores/r_attn/attn[2048] => T<=2048;
      * mg/mu[2048] => M<=2048; Weights b[MBL]. H*D must equal E (KV row stride). A wrong
      * or crafted GGUF would otherwise smash these arrays on load/forward. */
-    if (V <= 0 || E <= 0 || E > 1024 || H <= 0 || H > 16 || D <= 0 || D > 128 ||
+    if (V <= 0 || V > (1<<20) || E <= 0 || E > 1024 || H <= 0 || H > 16 || D <= 0 || D > 128 ||
         B <= 0 || B > MBL || M <= 0 || M > 2048 || T <= 0 || T > 2048 ||
         R <= 0 || R > 128 || H * D != E) {
         fprintf(stderr, "yent: GGUF arch out of bounds (H*D must==E): "
@@ -391,10 +413,10 @@ static float *kv_rrpram_mid; /* [B, H, R] — accumulated RRPRAM intermediate */
 static int kv_len;
 
 static void kv_init(int max_seq) {
-    kv_k = calloc((size_t)B * max_seq * E, sizeof(float));
-    kv_v = calloc((size_t)B * max_seq * E, sizeof(float));
-    kv_vr = calloc((size_t)B * max_seq * E, sizeof(float));
-    kv_rrpram_mid = calloc((size_t)B * H * R, sizeof(float));
+    kv_k = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
+    kv_v = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
+    kv_vr = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
+    kv_rrpram_mid = yent_xcalloc((size_t)B * H * R, sizeof(float));
     kv_len = 0;
 }
 
@@ -409,8 +431,8 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         fprintf(stderr, "[yent] WARNING: prefill clamped %d->%d tokens (context window T)\n", n, T);
         n = T;
     }
-    float *xs = calloc((size_t)n * E, sizeof(float));  /* [n, E] hidden states */
-    float *x0s = calloc((size_t)n * E, sizeof(float)); /* [n, E] original embeddings */
+    float *xs = yent_xcalloc((size_t)n * E, sizeof(float));  /* [n, E] hidden states */
+    float *x0s = yent_xcalloc((size_t)n * E, sizeof(float)); /* [n, E] original embeddings */
     float sc = 1.0f / sqrtf((float)D);
 
     /* Embed all tokens + NORM (nanochat: x = norm(wte(idx))) */
@@ -437,7 +459,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
     memcpy(x0s, xs, (size_t)n * E * sizeof(float));
 
     int backout_layer = B / 2;
-    float *x_backout = calloc((size_t)n * E, sizeof(float));
+    float *x_backout = yent_xcalloc((size_t)n * E, sizeof(float));
 
     for (int bl = 0; bl < B; bl++) {
         /* Residual scaling: x = resid_lambda * x + x0_lambda * x0 */
@@ -446,13 +468,13 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
             xs[i] = rl * xs[i] + x0l * x0s[i];
 
         /* Norm all positions */
-        float *rns = calloc((size_t)n * E, sizeof(float));
+        float *rns = yent_xcalloc((size_t)n * E, sizeof(float));
         for (int p = 0; p < n; p++)
             rmsnorm(rns + p*E, xs + p*E, E);
 
         /* QKV projections for all positions: [n, E] @ [E, E]^T = [n, E] */
-        float *qa = calloc((size_t)n*E, 4), *ka = calloc((size_t)n*E, 4);
-        float *va = calloc((size_t)n*E, 4), *vra = calloc((size_t)n*E, 4);
+        float *qa = yent_xcalloc((size_t)n*E, 4), *ka = yent_xcalloc((size_t)n*E, 4);
+        float *va = yent_xcalloc((size_t)n*E, 4), *vra = yent_xcalloc((size_t)n*E, 4);
         qmm(qa, rns, w->b[bl].cq, w->wdtype, n, E, E);
         qmm(ka, rns, w->b[bl].ck, w->wdtype, n, E, E);
         qmm(va, rns, w->b[bl].cv, w->wdtype, n, E, E);
@@ -474,7 +496,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         }
 
         /* Echo: [n, E] @ [E, E]^T */
-        float *echo = calloc((size_t)n*E, 4);
+        float *echo = yent_xcalloc((size_t)n*E, 4);
         qmm(echo, rns, w->b[bl].wj, w->wdtype, n, E, E);
 
         /* Gate softmax (same for all positions) */
@@ -485,10 +507,10 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         }
 
         /* Per-head attention (parallel over all positions) */
-        float *cat = calloc((size_t)n*E, 4);
+        float *cat = yent_xcalloc((size_t)n*E, 4);
         for (int h = 0; h < H; h++) {
             /* Content attention: [n, n] scores, causal mask */
-            float *scores = calloc((size_t)n*n, 4);
+            float *scores = yent_xcalloc((size_t)n*n, 4);
             for (int i = 0; i < n; i++)
                 for (int j = 0; j <= i; j++) {
                     float s = 0;
@@ -555,16 +577,16 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         }
 
         /* Output projection: [n, E] @ [E, E]^T + residual */
-        float *ao = calloc((size_t)n*E, 4);
+        float *ao = yent_xcalloc((size_t)n*E, 4);
         qmm(ao, cat, w->b[bl].cproj, w->wdtype, n, E, E);
         for (int i = 0; i < n*E; i++) xs[i] += ao[i];
 
         if (bl == backout_layer) memcpy(x_backout, xs, (size_t)n*E*4);
 
         /* MLP: norm → gate/up → silu*up → down + residual */
-        float *rn2s = calloc((size_t)n*E, 4);
+        float *rn2s = yent_xcalloc((size_t)n*E, 4);
         for (int p = 0; p < n; p++) rmsnorm(rn2s + p*E, xs + p*E, E);
-        float *mg = calloc((size_t)n*M, 4), *mu = calloc((size_t)n*M, 4), *mo = calloc((size_t)n*E, 4);
+        float *mg = yent_xcalloc((size_t)n*M, 4), *mu = yent_xcalloc((size_t)n*M, 4), *mo = yent_xcalloc((size_t)n*E, 4);
         qmm(mg, rn2s, w->b[bl].wg, w->wdtype, n, E, M);
         qmm(mu, rn2s, w->b[bl].wu, w->wdtype, n, E, M);
         for (int i = 0; i < n*M; i++) mg[i] = siluf(mg[i]) * mu[i];

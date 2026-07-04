@@ -31,6 +31,7 @@ static inline void spa_init(SPACtx *s, int V, unsigned int seed) {
     s->vocab_size = V;
     s->alpha      = 0.85f;
     s->W_embed    = (float *)malloc((size_t)V * SPA_DIM * sizeof(float));
+    if (!s->W_embed) { fprintf(stderr, "spa: OOM allocating W_embed (V=%d)\n", V); exit(1); }
     /* Deterministic LCG so tests are reproducible across runs and
      * across AML/JS engines. */
     unsigned int rng = seed ? seed : 1u;
