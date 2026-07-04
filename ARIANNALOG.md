@@ -2155,3 +2155,57 @@ chorus, and the δ-harvest (|B|=0.01358) — zero crashes, zero respawns needed 
 in the shakedown: occasional garble tokens (valid-UTF-8 glitch fragments the RFC-3629 guard does not catch), a
 narrow field-modulation range (gait/season/bloom stayed constant), and the harvest |B| not growing across
 short sessions.
+
+## KK memory organ — correctness hardening from Fable's audit (2026-07-05)
+
+Fable 5 ran a read-only correctness audit of `kk/kk_kernel.c` (the Knowledge-Kernel: SQLite/FTS5 store,
+scoring, RRPRAM metaweights — the organ that feeds the nano her book fragments). Eight findings, each
+reproduced in the code before touching it, then fixed surgically and verified by tool:
+
+- **F-1 budget_text heap overflow** — on truncation the "..." memcpy wrote 3 bytes past a `limit-2` buffer.
+  Now `xmalloc(limit+1)`, exact fit (latent: no live caller, but a deterministic overflow on first use).
+- **F-2 sha memcpy without length check** — `get_latest_version` copied 64 bytes from the sha column with a
+  NULL guard but no length guard; a short/corrupt row read past the SQLite buffer. Now gated on
+  `sqlite3_column_bytes==64`. Re-ingest smoke ("skip unchanged") proves the normal 64-char path is intact.
+- **F-3 die() returns in library mode** — without `KK_STANDALONE`, `die`/`die_sqlite` only printed and
+  returned, but every caller is written assuming they do not return (xmalloc→NULL-deref; insert cascade →
+  id=-1 → silent index corruption). Now `abort()` in the embedded branch (`exit(1)` still in STANDALONE),
+  making the file's "die does not return" contract true at the root. This is a fail-fast policy for the
+  embedded organ: a fatal OOM/SQL now aborts with its printed message instead of undefined behaviour.
+- **F-4 column_text→xstrdup without NULL gate** — the internal layer fed SQLite column text straight into
+  `strlen` (NULL on a NULL column value / OOM → crash). One `col_text()` wrapper, 40 call sites converted;
+  the internal layer is now as NULL-safe as the external `?:` layer.
+- **F-5 error paths committed instead of rolling back** — ingest and `kk_rebuild_fts` called `commit_tx` on
+  failure; worst case, rebuild-fts committed an empty FTS after `DELETE` succeeded and `INSERT` failed
+  (recall dead until the next rebuild). Added `rollback_tx()`, wired into the 8 error paths; the success
+  commits are untouched. Smoke: rebuild-fts then `hits: 1` — recall survives.
+- **F-6 NaN un-guarded through scoring into the JSON packet** — `clamp01` was NaN-transparent, `token_estimate`
+  from a corrupt row could be `-3` (divide-by-zero at `token_estimate+3`), the dario `word_resonance` bridge
+  and env weights were summed without an isfinite gate — a single NaN produced `"nan"` in the packet, which
+  the consumer chokes on. Now `clamp01` kills NaN (`!(v==v)→0`), isfinite gates on the bridge sum and on env
+  weights, `token_estimate<0→0`.
+- **F-7 blob NULL gate** — `load_chunk_meta` guarded the affinity blob but not the bigram/hebbian blobs
+  (NULL-deref on the OOM edge). Symmetric `bg?`/`hb?` gate added.
+- **F-8 CLI top_k unbounded** — `atoi(argv[5])` reached the `top_k*6+4` allocation sizing unclamped (int
+  overflow → huge/negative allocation). Clamped to `[1,1000]` at the CLI entry; a `top_k=999999999` query
+  now returns a valid packet.
+
+Verified (tool, this session): `make kk` builds clean; `cc -fsyntax-only kk/kk_kernel.c` without
+`-DKK_STANDALONE` compiles the library `abort()` branch; the old `(const char *)sqlite3_column_text(` pattern
+is gone (0, was 40) and `col_text(` covers all 40; `rollback_tx` count 9 (1 def + 8 error paths); a mirrored
+`clamp01(0.0/0.0)` returns `0.000000`; and an end-to-end kk-cli smoke (init → ingest → skip-unchanged →
+compressed-JSON query → top_k 10⁹ → rebuild-fts → recall alive → stats) exits 0.
+
+- **F-9** (LOW) — `kk_retrieve_resonant` requested `top_k*2` candidates but `kk_retrieve` clamped the pool to
+  the profile's `result_cap` (2/4/6) before the RRPRAM re-rank, so a high-embedding-resonance chunk with a low
+  lexical rank was truncated before ranking — the re-rank only re-ordered the top few lexical hits. Fixed by
+  honoring the `top_k*2` the resonant path already intends (no invented number): the fetch+convert body is
+  extracted into a static `kk_retrieve_pool(pool, ...)` where the pool size is the caller's policy.
+  `kk_retrieve` calls it with `min(top_k, result_cap)` — its public lexical behavior unchanged — and
+  `kk_retrieve_resonant` calls it with `top_k*2`, re-ranks by embedding resonance, then trims to `top_k`.
+
+Verified (tool, this session): the pre-fix and post-fix `kk_retrieve` binaries, built and run back-to-back on
+the same DB (eliminating recency's wall-clock drift), produce byte-identical output (3025 bytes) — the wired
+lexical path is untouched; `kk_retrieve_pool` has one definition and two callers; the resonant path keeps its
+`kk_is_ready`/scope validation; the full smoke exits 0. `kk_retrieve_resonant` remains a public API with no
+caller in this repo yet (the trio queries lexically) — the fix is correct for when it is wired.

@@ -245,6 +245,8 @@ static void die(const char *msg) {
     fprintf(stderr, "fatal: %s\n", msg);
 #ifdef KK_STANDALONE
     exit(1);
+#else
+    abort();  /* embedded: every caller assumes die() does not return */
 #endif
 }
 
@@ -252,6 +254,8 @@ static void die_sqlite(sqlite3 *db, const char *msg) {
     fprintf(stderr, "sqlite error: %s: %s\n", msg, sqlite3_errmsg(db));
 #ifdef KK_STANDALONE
     exit(1);
+#else
+    abort();  /* embedded: fail-fast beats NULL-deref / id=-1 index corruption */
 #endif
 }
 
@@ -559,6 +563,18 @@ static int begin_tx(sqlite3 *db) {
         return -1;
     }
     return 0;
+}
+
+static int rollback_tx(sqlite3 *db) {
+    return exec_sql(db, "ROLLBACK;");
+}
+
+/* NULL-safe column_text: SQLite returns NULL on a NULL column value (and on
+ * OOM); the internal layer feeds column text straight into xstrdup/strlen, so
+ * gate it once here. */
+static const char *col_text(sqlite3_stmt *stmt, int i) {
+    const unsigned char *t = sqlite3_column_text(stmt, i);
+    return t ? (const char *)t : "";
 }
 
 static int commit_tx(sqlite3 *db) {
@@ -904,8 +920,11 @@ static BudgetedText budget_text(const char *text, size_t limit) {
     if (limit <= 3) {
         out.text = xstrndup("...", limit);
     } else {
-        out.text = xstrndup(text, limit - 3);
-        memcpy(out.text + (limit - 3), "...", 4);
+        char *buf = xmalloc(limit + 1);
+        memcpy(buf, text, limit - 3);
+        memcpy(buf + (limit - 3), "...", 3);
+        buf[limit] = '\0';
+        out.text = buf;
     }
     out.truncated = 1;
     return out;
@@ -1062,13 +1081,13 @@ static ModelAttachment fetch_model_attachment_with_state(sqlite3 *db, const char
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) { die_sqlite(db, "prepare model select"); return model; }
     sqlite3_bind_text(stmt, 1, model_name, -1, SQLITE_STATIC);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        model.model_name = xstrdup((const char *)sqlite3_column_text(stmt, 0));
-        model.scope_default = xstrdup((const char *)sqlite3_column_text(stmt, 1));
-        model.namespace_default = xstrdup((const char *)sqlite3_column_text(stmt, 2));
-        model.retrieval_mode_default = xstrdup((const char *)sqlite3_column_text(stmt, 3));
-        model.packet_mode_default = xstrdup((const char *)sqlite3_column_text(stmt, 4));
-        model.query_profile_default = xstrdup((const char *)sqlite3_column_text(stmt, 5));
-        model.notes = xstrdup((const char *)sqlite3_column_text(stmt, 6));
+        model.model_name = xstrdup(col_text(stmt, 0));
+        model.scope_default = xstrdup(col_text(stmt, 1));
+        model.namespace_default = xstrdup(col_text(stmt, 2));
+        model.retrieval_mode_default = xstrdup(col_text(stmt, 3));
+        model.packet_mode_default = xstrdup(col_text(stmt, 4));
+        model.query_profile_default = xstrdup(col_text(stmt, 5));
+        model.notes = xstrdup(col_text(stmt, 6));
         model.is_active = sqlite3_column_int(stmt, 7);
         model.found = 1;
     }
@@ -1091,12 +1110,12 @@ static NamespaceManifest fetch_namespace_manifest(sqlite3 *db, const char *names
     sqlite3_bind_text(stmt, 1, namespace_name, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, scope, -1, SQLITE_STATIC);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        manifest.namespace_name = xstrdup((const char *)sqlite3_column_text(stmt, 0));
-        manifest.scope = xstrdup((const char *)sqlite3_column_text(stmt, 1));
-        manifest.description = xstrdup((const char *)sqlite3_column_text(stmt, 2));
-        manifest.owner_model = xstrdup((const char *)sqlite3_column_text(stmt, 3));
-        manifest.created_ts = xstrdup((const char *)sqlite3_column_text(stmt, 4));
-        manifest.updated_ts = xstrdup((const char *)sqlite3_column_text(stmt, 5));
+        manifest.namespace_name = xstrdup(col_text(stmt, 0));
+        manifest.scope = xstrdup(col_text(stmt, 1));
+        manifest.description = xstrdup(col_text(stmt, 2));
+        manifest.owner_model = xstrdup(col_text(stmt, 3));
+        manifest.created_ts = xstrdup(col_text(stmt, 4));
+        manifest.updated_ts = xstrdup(col_text(stmt, 5));
         manifest.found = 1;
     }
     sqlite3_finalize(stmt);
@@ -1120,7 +1139,7 @@ static char *fetch_namespace_manifest_scope(sqlite3 *db, const char *namespace_n
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) { die_sqlite(db, "prepare namespace manifest scope"); return NULL; }
     sqlite3_bind_text(stmt, 1, namespace_name, -1, SQLITE_STATIC);
     char *scope = NULL;
-    if (sqlite3_step(stmt) == SQLITE_ROW) scope = xstrdup((const char *)sqlite3_column_text(stmt, 0));
+    if (sqlite3_step(stmt) == SQLITE_ROW) scope = xstrdup(col_text(stmt, 0));
     sqlite3_finalize(stmt);
     return scope;
 }
@@ -1225,7 +1244,7 @@ static int get_namespace_id(sqlite3 *db, const char *name, const char *scope) {
     sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         int id = sqlite3_column_int(stmt, 0);
-        const char *existing_scope = (const char *)sqlite3_column_text(stmt, 1);
+        const char *existing_scope = col_text(stmt, 1);
         if (existing_scope && strcmp(existing_scope, scope)) {
             fprintf(stderr, "namespace scope mismatch: namespace=%s existing=%s requested=%s\n", name, existing_scope, scope);
             sqlite3_finalize(stmt);
@@ -1270,6 +1289,7 @@ static int contains_word_ci(const char *haystack, const char *needle) {
 }
 
 static double clamp01(double v) {
+    if (!(v == v)) return 0.0;  /* NaN → 0 (both comparisons below are false for NaN) */
     if (v < 0.0) return 0.0;
     if (v > 1.0) return 1.0;
     return v;
@@ -1532,8 +1552,10 @@ static int get_latest_version(sqlite3 *db, int document_id, int *version_num, ch
         if (version_id) *version_id = sqlite3_column_int(stmt, 0);
         if (version_num) *version_num = sqlite3_column_int(stmt, 1);
         const unsigned char *sha = sqlite3_column_text(stmt, 2);
+        int sha_len = sqlite3_column_bytes(stmt, 2);
         if (sha_out) {
-            if (sha) memcpy(sha_out, (const char *)sha, 64);
+            if (sha && sha_len == 64) memcpy(sha_out, (const char *)sha, 64);
+            else sha_out[0] = '\0';
             sha_out[64] = '\0';
         }
         found = 1;
@@ -1836,8 +1858,8 @@ static void infer_related_links(sqlite3 *db, int version_id) {
         chunks[count].ordinal = sqlite3_column_int(stmt, 1);
         chunks[count].section_id = sqlite3_column_int(stmt, 2);
         chunks[count].token_estimate = sqlite3_column_int(stmt, 3);
-        chunks[count].text = xstrdup((const char *)sqlite3_column_text(stmt, 4));
-        chunks[count].heading = xstrdup((const char *)sqlite3_column_text(stmt, 5));
+        chunks[count].text = xstrdup(col_text(stmt, 4));
+        chunks[count].heading = xstrdup(col_text(stmt, 5));
         chunks[count].keyword_count = collect_keywords(chunks[count].text, chunks[count].keywords);
         count++;
     }
@@ -1898,9 +1920,9 @@ static int ingest_file(sqlite3 *db, const char *path, const char *namespace_name
 
     begin_tx(db);
     int namespace_id = get_namespace_id(db, namespace_name, scope);
-    if (namespace_id < 0) { commit_tx(db); free(abs_path); free(content); return -1; }
+    if (namespace_id < 0) { rollback_tx(db); free(abs_path); free(content); return -1; }
     int doc_id = insert_document(db, namespace_id, abs_path, filename, source_type, size);
-    if (doc_id < 0) { commit_tx(db); free(abs_path); free(content); return -1; }
+    if (doc_id < 0) { rollback_tx(db); free(abs_path); free(content); return -1; }
 
     int latest_num = 0, latest_version_id = 0;
     char latest_sha[65] = {0};
@@ -1938,7 +1960,7 @@ static int ingest_file(sqlite3 *db, const char *path, const char *namespace_name
     int version_id = insert_version(db, doc_id, version_num, sha, content, has_latest ? latest_version_id : 0,
                                     char_delta, token_delta, change_ratio, diff_summary);
     free(prev_content);
-    if (version_id < 0) { commit_tx(db); free(abs_path); free(content); return -1; }
+    if (version_id < 0) { rollback_tx(db); free(abs_path); free(content); return -1; }
 
     int section_count = 0;
     SectionInfo *sections = split_sections(content, &section_count);
@@ -2006,9 +2028,9 @@ static int ingest_buffer_internal(sqlite3 *db, const char *path, const char *tex
 
     begin_tx(db);
     int namespace_id = get_namespace_id(db, namespace_name, scope);
-    if (namespace_id < 0) { commit_tx(db); free(content); return -1; }
+    if (namespace_id < 0) { rollback_tx(db); free(content); return -1; }
     int doc_id = insert_document(db, namespace_id, path, filename, source_type, (sqlite3_int64)text_len);
-    if (doc_id < 0) { commit_tx(db); free(content); return -1; }
+    if (doc_id < 0) { rollback_tx(db); free(content); return -1; }
 
     int latest_num = 0, latest_version_id = 0;
     char latest_sha[65] = {0};
@@ -2042,7 +2064,7 @@ static int ingest_buffer_internal(sqlite3 *db, const char *path, const char *tex
     int version_id = insert_version(db, doc_id, version_num, sha, content, has_latest ? latest_version_id : 0,
                                     char_delta, token_delta, change_ratio, diff_summary);
     free(prev_content);
-    if (version_id < 0) { commit_tx(db); free(content); return -1; }
+    if (version_id < 0) { rollback_tx(db); free(content); return -1; }
 
     int section_count = 0;
     SectionInfo *sections = split_sections(content, &section_count);
@@ -2217,7 +2239,7 @@ static ScorePolicy load_score_policy(void) {
         char *key = trim_inplace(part);
         char *val = trim_inplace(eq + 1);
         double num = atof(val);
-        maybe_assign_weight(key, num, &p);
+        if (isfinite(num)) maybe_assign_weight(key, num, &p);  /* reject atof("nan")/inf from env */
     }
     free(copy);
     normalize_score_policy(&p);
@@ -2267,24 +2289,25 @@ static int load_query_results(sqlite3_stmt *stmt, const char *access_scope, cons
         r.structural_links = sqlite3_column_int(stmt, 5);
         r.related_links = sqlite3_column_int(stmt, 6);
         r.token_estimate = sqlite3_column_int(stmt, 7);
+        if (r.token_estimate < 0) r.token_estimate = 0;  /* corrupt DB → no div-by-zero at (token_estimate+3) */
         r.lexical = sqlite3_column_double(stmt, 8);
-        r.path = xstrdup((const char *)sqlite3_column_text(stmt, 9));
-        r.filename = xstrdup((const char *)sqlite3_column_text(stmt, 10));
-        r.namespace_name = xstrdup((const char *)sqlite3_column_text(stmt, 11));
-        r.scope_name = xstrdup((const char *)sqlite3_column_text(stmt, 12));
-        r.raw_text = xstrdup((const char *)sqlite3_column_text(stmt, 13));
-        r.sha256 = xstrdup((const char *)sqlite3_column_text(stmt, 14));
-        r.ingest_ts = xstrdup((const char *)sqlite3_column_text(stmt, 15));
-        r.first_seen_ts = xstrdup((const char *)sqlite3_column_text(stmt, 16));
-        r.last_seen_ts = xstrdup((const char *)sqlite3_column_text(stmt, 17));
-        r.section_title = xstrdup((const char *)sqlite3_column_text(stmt, 18));
+        r.path = xstrdup(col_text(stmt, 9));
+        r.filename = xstrdup(col_text(stmt, 10));
+        r.namespace_name = xstrdup(col_text(stmt, 11));
+        r.scope_name = xstrdup(col_text(stmt, 12));
+        r.raw_text = xstrdup(col_text(stmt, 13));
+        r.sha256 = xstrdup(col_text(stmt, 14));
+        r.ingest_ts = xstrdup(col_text(stmt, 15));
+        r.first_seen_ts = xstrdup(col_text(stmt, 16));
+        r.last_seen_ts = xstrdup(col_text(stmt, 17));
+        r.section_title = xstrdup(col_text(stmt, 18));
         r.trust = sqlite3_column_double(stmt, 19);
         r.freshness = sqlite3_column_double(stmt, 20);
         double age_days = sqlite3_column_double(stmt, 21);
         r.char_delta = sqlite3_column_int(stmt, 22);
         r.token_delta = sqlite3_column_int(stmt, 23);
         r.change_ratio = sqlite3_column_double(stmt, 24);
-        r.diff_summary = xstrdup((const char *)sqlite3_column_text(stmt, 25));
+        r.diff_summary = xstrdup(col_text(stmt, 25));
         r.seen_count = sqlite3_column_int(stmt, 26);
 
         if (!access_scope_allows(r.scope_name, access_scope)) {
@@ -2318,9 +2341,11 @@ static int load_query_results(sqlite3_stmt *stmt, const char *access_scope, cons
             if (kw_count > 0) {
                 double total_resonance = 0.0;
                 for (int ki = 0; ki < kw_count; ki++) {
-                    total_resonance += (double)bridge->word_resonance(kw[ki], bridge->user_data);
+                    double wr = (double)bridge->word_resonance(kw[ki], bridge->user_data);
+                    if (isfinite(wr)) total_resonance += wr;  /* one NaN from the bridge must not poison resonance */
                 }
                 r.hebbian_boost = (total_resonance / (double)kw_count) * 0.15;
+                if (!isfinite(r.hebbian_boost)) r.hebbian_boost = 0.0;
                 r.resonance += r.hebbian_boost;
             }
         }
@@ -2585,7 +2610,7 @@ static char *fetch_adjacent_chunk_text(sqlite3 *db, int version_id, int ordinal)
     sqlite3_bind_int(stmt, 1, version_id);
     sqlite3_bind_int(stmt, 2, ordinal);
     char *text = NULL;
-    if (sqlite3_step(stmt) == SQLITE_ROW) text = xstrdup((const char *)sqlite3_column_text(stmt, 0));
+    if (sqlite3_step(stmt) == SQLITE_ROW) text = xstrdup(col_text(stmt, 0));
     sqlite3_finalize(stmt);
     return text;
 }
@@ -2604,7 +2629,7 @@ static int find_document_id_by_path(sqlite3 *db, const char *document_path, char
     sqlite3_bind_text(stmt, 1, resolved, -1, SQLITE_STATIC);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         doc_id = sqlite3_column_int(stmt, 0);
-        if (resolved_path_out) *resolved_path_out = xstrdup((const char *)sqlite3_column_text(stmt, 1));
+        if (resolved_path_out) *resolved_path_out = xstrdup(col_text(stmt, 1));
     }
     sqlite3_finalize(stmt);
 
@@ -2613,7 +2638,7 @@ static int find_document_id_by_path(sqlite3 *db, const char *document_path, char
         sqlite3_bind_text(stmt, 1, document_path, -1, SQLITE_STATIC);
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             doc_id = sqlite3_column_int(stmt, 0);
-            if (resolved_path_out) *resolved_path_out = xstrdup((const char *)sqlite3_column_text(stmt, 1));
+            if (resolved_path_out) *resolved_path_out = xstrdup(col_text(stmt, 1));
         }
         sqlite3_finalize(stmt);
     }
@@ -2845,7 +2870,7 @@ static int load_chunk_meta(sqlite3 *db, int chunk_id, kk_chunk_meta *meta) {
 
     const float *bg = (const float *)sqlite3_column_blob(stmt, 1);
     int bg_sz = sqlite3_column_bytes(stmt, 1);
-    meta->bigram_n = bg_sz / (3 * sizeof(float));
+    meta->bigram_n = bg ? bg_sz / (3 * sizeof(float)) : 0;
     if (meta->bigram_n > KK_META_BIGRAM_MAX) meta->bigram_n = KK_META_BIGRAM_MAX;
     for (int i = 0; i < meta->bigram_n; i++) {
         meta->bigram_src[i] = (int)bg[i*3+0];
@@ -2855,7 +2880,7 @@ static int load_chunk_meta(sqlite3 *db, int chunk_id, kk_chunk_meta *meta) {
 
     const float *hb = (const float *)sqlite3_column_blob(stmt, 2);
     int hb_sz = sqlite3_column_bytes(stmt, 2);
-    meta->hebb_n = hb_sz / (3 * sizeof(float));
+    meta->hebb_n = hb ? hb_sz / (3 * sizeof(float)) : 0;
     if (meta->hebb_n > KK_META_HEBBIAN_MAX) meta->hebb_n = KK_META_HEBBIAN_MAX;
     for (int i = 0; i < meta->hebb_n; i++) {
         meta->hebb_a[i] = (int)hb[i*3+0];
@@ -2878,7 +2903,7 @@ int kk_build_chunk_meta(kk_ctx *k, int chunk_id) {
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return -1;
     sqlite3_bind_int(stmt, 1, chunk_id);
     if (sqlite3_step(stmt) != SQLITE_ROW) { sqlite3_finalize(stmt); return -1; }
-    const char *text = (const char *)sqlite3_column_text(stmt, 0);
+    const char *text = col_text(stmt, 0);
     int text_len = sqlite3_column_bytes(stmt, 0);
 
     kk_chunk_meta meta;
@@ -2921,14 +2946,72 @@ float kk_chunk_resonance(const kk_chunk_meta *meta,
     return cosine > 0.0f ? cosine : 0.0f; /* clamp negative */
 }
 
+/* Fetch up to `pool` candidates and convert to public kk_result. Pool size is
+ * the caller's policy: kk_retrieve caps it to the profile's result_cap, while
+ * kk_retrieve_resonant widens it so the RRPRAM re-rank sees more than the top
+ * lexical hits. Callers validate (kk_is_ready / scope) before calling. */
+static int kk_retrieve_pool(kk_ctx *k, const char *query_text,
+             const char *access_scope, const char *namespace_filter,
+             int pool, const QueryProfile *prof,
+             kk_result **results_out) {
+    QueryResult *internal_results = NULL;
+    ScorePolicy policy;
+    int count = fetch_results(k, query_text, access_scope, namespace_filter, pool, &internal_results, &policy);
+
+    /* Convert internal QueryResult to public kk_result */
+    kk_result *out = xmalloc((size_t)(count > 0 ? count : 1) * sizeof(*out));
+    for (int i = 0; i < count; i++) {
+        memset(&out[i], 0, sizeof(out[i]));
+        out[i].chunk_id = internal_results[i].chunk_id;
+        out[i].doc_id = internal_results[i].doc_id;
+        out[i].version_num = internal_results[i].version_num;
+        out[i].ordinal = internal_results[i].ordinal;
+        out[i].seen_count = internal_results[i].seen_count;
+        out[i].path = xstrdup(internal_results[i].path ? internal_results[i].path : "");
+        out[i].namespace_name = xstrdup(internal_results[i].namespace_name ? internal_results[i].namespace_name : "");
+        out[i].scope_name = xstrdup(internal_results[i].scope_name ? internal_results[i].scope_name : "");
+        out[i].section_title = xstrdup(internal_results[i].section_title ? internal_results[i].section_title : "");
+
+        /* Budget text based on profile */
+        BudgetedText bt = make_excerpt_budgeted(internal_results[i].raw_text, (size_t)prof->excerpt_chars);
+        out[i].text = bt.text;
+        out[i].text_len = (int)strlen(bt.text);
+
+        out[i].resonance = internal_results[i].resonance;
+        out[i].lexical = internal_results[i].lexical_norm;
+        out[i].recency = internal_results[i].recency;
+        out[i].trust = internal_results[i].trust;
+        out[i].linkage = internal_results[i].linkage;
+        out[i].freshness = internal_results[i].freshness;
+        out[i].hebbian_boost = internal_results[i].hebbian_boost;
+        out[i].sha256 = xstrdup(internal_results[i].sha256 ? internal_results[i].sha256 : "");
+        out[i].ingest_ts = xstrdup(internal_results[i].ingest_ts ? internal_results[i].ingest_ts : "");
+        out[i].char_delta = internal_results[i].char_delta;
+        out[i].change_ratio = internal_results[i].change_ratio;
+        out[i].diff_summary = xstrdup(internal_results[i].diff_summary ? internal_results[i].diff_summary : "");
+    }
+
+    free_query_results(internal_results, count);
+    *results_out = out;
+    return count;
+}
+
 int kk_retrieve_resonant(kk_ctx *k, const char *query_text,
                       const float *current_embedding, int embed_dim,
                       const char *access_scope, const char *namespace_filter,
                       int top_k, kk_profile profile,
                       kk_result **results_out) {
-    /* first, run standard query */
-    int count = kk_retrieve(k, query_text, access_scope, namespace_filter,
-                         top_k * 2, profile, results_out);
+    if (!kk_is_ready(k) || !query_text || !access_scope || !results_out) return -1;
+    if (require_scope_lib(access_scope) != 0) return -1;
+    if (top_k <= 0) top_k = 5;
+
+    const QueryProfile *prof = profile_from_enum(profile);
+    log_retrieval(k->db, query_text, access_scope, namespace_filter, "compressed", top_k);
+
+    /* Re-rank needs a wider candidate pool than the profile's result_cap, or the
+     * embedding resonance only re-orders the top few lexical hits. Honor the
+     * top_k*2 this path already intends, then trim to top_k after re-ranking. */
+    int count = kk_retrieve_pool(k, query_text, access_scope, namespace_filter, top_k * 2, prof, results_out);
     if (count <= 0 || !current_embedding || embed_dim <= 0) return count;
 
     /* augment with RRPRAM resonance */
@@ -2971,46 +3054,7 @@ int kk_retrieve(kk_ctx *k, const char *query_text,
 
     log_retrieval(k->db, query_text, access_scope, namespace_filter, "compressed", top_k);
 
-    QueryResult *internal_results = NULL;
-    ScorePolicy policy;
-    int count = fetch_results(k, query_text, access_scope, namespace_filter, effective_top_k, &internal_results, &policy);
-
-    /* Convert internal QueryResult to public kk_result */
-    kk_result *out = xmalloc((size_t)(count > 0 ? count : 1) * sizeof(*out));
-    for (int i = 0; i < count; i++) {
-        memset(&out[i], 0, sizeof(out[i]));
-        out[i].chunk_id = internal_results[i].chunk_id;
-        out[i].doc_id = internal_results[i].doc_id;
-        out[i].version_num = internal_results[i].version_num;
-        out[i].ordinal = internal_results[i].ordinal;
-        out[i].seen_count = internal_results[i].seen_count;
-        out[i].path = xstrdup(internal_results[i].path ? internal_results[i].path : "");
-        out[i].namespace_name = xstrdup(internal_results[i].namespace_name ? internal_results[i].namespace_name : "");
-        out[i].scope_name = xstrdup(internal_results[i].scope_name ? internal_results[i].scope_name : "");
-        out[i].section_title = xstrdup(internal_results[i].section_title ? internal_results[i].section_title : "");
-
-        /* Budget text based on profile */
-        BudgetedText bt = make_excerpt_budgeted(internal_results[i].raw_text, (size_t)prof->excerpt_chars);
-        out[i].text = bt.text;
-        out[i].text_len = (int)strlen(bt.text);
-
-        out[i].resonance = internal_results[i].resonance;
-        out[i].lexical = internal_results[i].lexical_norm;
-        out[i].recency = internal_results[i].recency;
-        out[i].trust = internal_results[i].trust;
-        out[i].linkage = internal_results[i].linkage;
-        out[i].freshness = internal_results[i].freshness;
-        out[i].hebbian_boost = internal_results[i].hebbian_boost;
-        out[i].sha256 = xstrdup(internal_results[i].sha256 ? internal_results[i].sha256 : "");
-        out[i].ingest_ts = xstrdup(internal_results[i].ingest_ts ? internal_results[i].ingest_ts : "");
-        out[i].char_delta = internal_results[i].char_delta;
-        out[i].change_ratio = internal_results[i].change_ratio;
-        out[i].diff_summary = xstrdup(internal_results[i].diff_summary ? internal_results[i].diff_summary : "");
-    }
-
-    free_query_results(internal_results, count);
-    *results_out = out;
-    return count;
+    return kk_retrieve_pool(k, query_text, access_scope, namespace_filter, effective_top_k, prof, results_out);
 }
 
 int kk_ask(kk_ctx *k, const char *model_name, const char *query_text,
@@ -3250,7 +3294,7 @@ int kk_check_integrity(kk_ctx *k) {
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(k->db, "PRAGMA integrity_check;", -1, &stmt, NULL) != SQLITE_OK) return -1;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *msg = (const char *)sqlite3_column_text(stmt, 0);
+        const char *msg = col_text(stmt, 0);
         if (!msg || !strcmp(msg, "ok")) continue;
         issue_count++;
     }
@@ -3289,7 +3333,7 @@ int kk_check_integrity(kk_ctx *k) {
 int kk_rebuild_fts(kk_ctx *k) {
     if (!kk_is_ready(k)) return -1;
     begin_tx(k->db);
-    if (exec_sql(k->db, "DELETE FROM chunk_fts;") != SQLITE_OK) { commit_tx(k->db); return -1; }
+    if (exec_sql(k->db, "DELETE FROM chunk_fts;") != SQLITE_OK) { rollback_tx(k->db); return -1; }
     if (exec_sql(k->db,
             "INSERT INTO chunk_fts(chunk_id, raw_text, namespace, scope, path, filename, section_title) "
             "SELECT c.id, c.raw_text, ns.name, ns.scope, d.path, d.filename, s.heading "
@@ -3298,7 +3342,7 @@ int kk_rebuild_fts(kk_ctx *k) {
             "JOIN namespaces ns ON ns.id=d.namespace_id "
             "JOIN sections s ON s.id=c.parent_section_id "
             "ORDER BY c.id ASC;") != SQLITE_OK) {
-        commit_tx(k->db);
+        rollback_tx(k->db);
         return -1;
     }
     commit_tx(k->db);
@@ -3400,10 +3444,10 @@ char *kk_state_to_json(kk_ctx *k) {
             if (!first) sb_append(&sb, ",");
             first = 0;
             sb_append(&sb, "{");
-            sb_append(&sb, "\"model_name\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 0)); sb_append(&sb, ",");
-            sb_append(&sb, "\"scope\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 1)); sb_append(&sb, ",");
-            sb_append(&sb, "\"namespace\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 2)); sb_append(&sb, ",");
-            sb_append(&sb, "\"profile\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 3));
+            sb_append(&sb, "\"model_name\":"); json_append_string(&sb, col_text(stmt, 0)); sb_append(&sb, ",");
+            sb_append(&sb, "\"scope\":"); json_append_string(&sb, col_text(stmt, 1)); sb_append(&sb, ",");
+            sb_append(&sb, "\"namespace\":"); json_append_string(&sb, col_text(stmt, 2)); sb_append(&sb, ",");
+            sb_append(&sb, "\"profile\":"); json_append_string(&sb, col_text(stmt, 3));
             sb_append(&sb, "}");
         }
         sqlite3_finalize(stmt);
@@ -3419,9 +3463,9 @@ char *kk_state_to_json(kk_ctx *k) {
             if (!first) sb_append(&sb, ",");
             first = 0;
             sb_append(&sb, "{");
-            sb_append(&sb, "\"namespace\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 0)); sb_append(&sb, ",");
-            sb_append(&sb, "\"scope\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 1)); sb_append(&sb, ",");
-            sb_append(&sb, "\"description\":"); json_append_string(&sb, (const char *)sqlite3_column_text(stmt, 2));
+            sb_append(&sb, "\"namespace\":"); json_append_string(&sb, col_text(stmt, 0)); sb_append(&sb, ",");
+            sb_append(&sb, "\"scope\":"); json_append_string(&sb, col_text(stmt, 1)); sb_append(&sb, ",");
+            sb_append(&sb, "\"description\":"); json_append_string(&sb, col_text(stmt, 2));
             sb_append(&sb, "}");
         }
         sqlite3_finalize(stmt);
@@ -3657,6 +3701,8 @@ int main(int argc, char **argv) {
         const char *query_text = argv[3];
         const char *access_scope = argv[4];
         int top_k = atoi(argv[5]);
+        if (top_k < 1) top_k = 1;
+        if (top_k > 1000) top_k = 1000;  /* bound the CLI knob: top_k*6+4 must not overflow int */
         const char *mode = (argc >= 7) ? argv[6] : "citation";
         const char *namespace_filter = (argc >= 8) ? argv[7] : NULL;
         require_scope(access_scope);
