@@ -139,7 +139,10 @@ typedef struct __attribute__((aligned(64))) {
 int vagus_init(void);
 
 // Send signal through the nerve
-// Returns 0 on success, -1 if buffer full
+// Returns 0 on success, -1 if the buffer is full or source/signal_type is out of range.
+// SINGLE PRODUCER (VG-7): the ring buffer's push is not multi-producer safe. If more than
+// one thread sends, serialise the calls behind a mutex or route them through one gateway
+// thread — concurrent senders race the head index and silently drop/overwrite signals.
 int vagus_send(uint8_t source, uint8_t signal_type, float value);
 
 // Tick the heartbeat (call from main loop, ~60Hz)

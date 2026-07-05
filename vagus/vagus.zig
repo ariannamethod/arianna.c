@@ -25,7 +25,8 @@ const ctime = @cImport({
 });
 fn nowMicros() i64 {
     var ts: ctime.struct_timespec = undefined;
-    _ = ctime.clock_gettime(ctime.CLOCK_MONOTONIC, &ts);
+    if (ctime.clock_gettime(ctime.CLOCK_MONOTONIC, &ts) != 0) return 0; // VG-4: clock fail → 0, not undefined memory
+    if (ts.tv_sec < 0 or ts.tv_nsec < 0) return 0;
     return @as(i64, @intCast(ts.tv_sec)) * 1_000_000 + @divTrunc(@as(i64, @intCast(ts.tv_nsec)), 1000);
 }
 
@@ -133,43 +134,43 @@ pub const SharedState = extern struct {
     crossfire_entropy: f32 = 0.2,
 
     // ═══ Trauma ═══
-    trauma_level: f32 align(64) = 0.0,
+    trauma_level: f32 = 0.0,
     trauma_anchor_count: u32 = 0,
     trauma_last_us: u64 = 0,
 
     // ═══ Cognitive ═══
-    loop_count: u32 align(64) = 0,
+    loop_count: u32 = 0,
     abstraction_depth: u32 = 0,
     self_ref_count: u32 = 0,
     focus_strength: f32 = 0.5,
     wander_pull: f32 = 0.3,
 
     // ═══ Temporal ═══
-    drift_direction: f32 align(64) = 0.0,
+    drift_direction: f32 = 0.0,
     drift_speed: f32 = 0.1,
     prophecy_debt: f32 = 0.0,
     destiny_pull: f32 = 0.5,
     wormhole_chance: f32 = 0.02,
 
     // ═══ Memory ═══
-    memory_pressure: f32 align(64) = 0.0,
+    memory_pressure: f32 = 0.0,
     active_memories: u32 = 0,
     limpha_recent: u32 = 0,
 
     // ═══ System ═══
-    heartbeat_phase: f32 align(64) = 0.0,
+    heartbeat_phase: f32 = 0.0,
     schumann_coherence: f32 = 0.5,
     last_heartbeat_us: u64 = 0,
 
     // ═══ Generation state ═══
-    last_token: u32 align(64) = 0,
+    last_token: u32 = 0,
     attention_entropy: f32 = 0.5,
     hidden_norm: f32 = 1.0,
     temperature: f32 = 0.8,
     top_p: f32 = 0.9,
 
     // ═══ Meta ═══
-    update_count: u64 align(64) = 0,
+    update_count: u64 = 0,
     last_update_us: u64 = 0,
     vagus_version: u32 = 1,
     _reserved: [60]u8 = [_]u8{0} ** 60,
@@ -200,6 +201,22 @@ pub const SharedState = extern struct {
 comptime {
     // Ensure SharedState fits in a page
     std.debug.assert(@sizeOf(SharedState) <= 4096);
+    // VG-1: layout MUST match VagusSharedState in vagus.h (dense C-ABI, aligned(64) on
+    // the struct only — arousal keeps align(64) to pin that). Offsets are ground truth
+    // from offsetof() in C; a stray per-field align now fails the build instead of
+    // silently handing the C side padding for every field past crossfire_entropy.
+    std.debug.assert(@sizeOf(SharedState) == 256);
+    std.debug.assert(@offsetOf(SharedState, "crossfire_entropy") == 44);
+    std.debug.assert(@offsetOf(SharedState, "trauma_level") == 48);
+    std.debug.assert(@offsetOf(SharedState, "loop_count") == 64);
+    std.debug.assert(@offsetOf(SharedState, "drift_direction") == 84);
+    std.debug.assert(@offsetOf(SharedState, "memory_pressure") == 104);
+    std.debug.assert(@offsetOf(SharedState, "heartbeat_phase") == 116);
+    std.debug.assert(@offsetOf(SharedState, "last_heartbeat_us") == 128);
+    std.debug.assert(@offsetOf(SharedState, "last_token") == 136);
+    std.debug.assert(@offsetOf(SharedState, "update_count") == 160);
+    std.debug.assert(@offsetOf(SharedState, "last_update_us") == 168);
+    std.debug.assert(@offsetOf(SharedState, "vagus_version") == 176);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -329,27 +346,28 @@ pub const VagusNerve = struct {
     /// Apply signal to shared state
     fn applyToState(self: *Self, signal: Signal) void {
         const state = self.state;
+        const v = if (std.math.isFinite(signal.value)) signal.value else 0.0; // VG-5: drop NaN/inf from the C-side value
 
         switch (signal.signal_type) {
-            .arousal => @atomicStore(f32, &state.arousal, signal.value, .release),
-            .valence => @atomicStore(f32, &state.valence, signal.value, .release),
-            .warmth => @atomicStore(f32, &state.chamber_warmth, signal.value, .release),
-            .void_level => @atomicStore(f32, &state.chamber_void, signal.value, .release),
-            .tension => @atomicStore(f32, &state.chamber_tension, signal.value, .release),
-            .sacred => @atomicStore(f32, &state.chamber_sacred, signal.value, .release),
-            .coherence => @atomicStore(f32, &state.coherence, signal.value, .release),
-            .entropy => @atomicStore(f32, &state.entropy, signal.value, .release),
-            .trauma => @atomicStore(f32, &state.trauma_level, signal.value, .release),
-            .prophecy_debt => @atomicStore(f32, &state.prophecy_debt, signal.value, .release),
-            .drift_direction => @atomicStore(f32, &state.drift_direction, signal.value, .release),
-            .drift_speed => @atomicStore(f32, &state.drift_speed, signal.value, .release),
-            .focus => @atomicStore(f32, &state.focus_strength, signal.value, .release),
-            .memory_pressure => @atomicStore(f32, &state.memory_pressure, signal.value, .release),
+            .arousal => @atomicStore(f32, &state.arousal, v, .release),
+            .valence => @atomicStore(f32, &state.valence, v, .release),
+            .warmth => @atomicStore(f32, &state.chamber_warmth, v, .release),
+            .void_level => @atomicStore(f32, &state.chamber_void, v, .release),
+            .tension => @atomicStore(f32, &state.chamber_tension, v, .release),
+            .sacred => @atomicStore(f32, &state.chamber_sacred, v, .release),
+            .coherence => @atomicStore(f32, &state.coherence, v, .release),
+            .entropy => @atomicStore(f32, &state.entropy, v, .release),
+            .trauma => @atomicStore(f32, &state.trauma_level, v, .release),
+            .prophecy_debt => @atomicStore(f32, &state.prophecy_debt, v, .release),
+            .drift_direction => @atomicStore(f32, &state.drift_direction, v, .release),
+            .drift_speed => @atomicStore(f32, &state.drift_speed, v, .release),
+            .focus => @atomicStore(f32, &state.focus_strength, v, .release),
+            .memory_pressure => @atomicStore(f32, &state.memory_pressure, v, .release),
             .heartbeat => {
-                @atomicStore(f32, &state.heartbeat_phase, signal.value, .release);
+                @atomicStore(f32, &state.heartbeat_phase, v, .release);
                 @atomicStore(u64, &state.last_heartbeat_us, signal.timestamp_us, .release);
             },
-            .schumann => @atomicStore(f32, &state.schumann_coherence, signal.value, .release),
+            .schumann => @atomicStore(f32, &state.schumann_coherence, v, .release),
             else => {},
         }
 
@@ -669,7 +687,9 @@ export fn vagus_init() callconv(.c) c_int {
     // Atomic init guard to prevent race condition
     const prev = init_flag.cmpxchgStrong(0, 1, .acquire, .monotonic);
     if (prev != null) {
-        // Already initialized (or being initialized)
+        // Already initialized, or another thread is mid-init — wait for it to finish so
+        // we don't read global_nerve while the winner is between the cmpxchg and store(2).
+        while (init_flag.load(.acquire) == 1) std.atomic.spinLoopHint(); // VG-6
         return if (global_nerve != null) 0 else -1;
     }
 
@@ -684,11 +704,9 @@ export fn vagus_init() callconv(.c) c_int {
 
 export fn vagus_send(source: u8, signal_type: u8, value: f32) callconv(.c) c_int {
     if (global_nerve) |nerve| {
-        const signal = Signal.now(
-            @enumFromInt(source),
-            @enumFromInt(signal_type),
-            value,
-        );
+        const src = std.enums.fromInt(Source, source) orelse return -1;       // VG-2: validate enum bytes from C
+        const sig = std.enums.fromInt(SignalType, signal_type) orelse return -1;
+        const signal = Signal.now(src, sig, value);
         return if (nerve.send(signal)) 0 else -1;
     }
     return -1;
@@ -757,6 +775,7 @@ export fn larynx_compute_alpha(prophecy_debt: f32, calendar_dissonance: f32) cal
 
 /// Get recent tokens for Soul processing
 export fn larynx_get_recent_tokens(out: [*]u32, max_tokens: c_int) callconv(.c) c_int {
+    if (max_tokens <= 0) return 0; // VG-3: negative c_int → @intCast(usize) panic/UB
     var buf: [64]u32 = undefined;
     const n = global_larynx.getRecentTokens(&buf);
     const copy_n = @min(n, @as(usize, @intCast(max_tokens)));

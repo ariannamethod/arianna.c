@@ -2375,3 +2375,42 @@ vendor copy was re-synced byte-exact (md5 `a4e4edf…` both sides, no sibling re
 builds + generates. This closes the fourth and final Fable file — the whole arianna-duo audit is 37 findings
 across kk / resonance / janus(main+fwd) / chorus. The one remaining item Fable named — the canon
 `notorch/gguf.c` parser — lives in its own repo (a separate toxic-class pass), not arianna-duo.
+
+## Vagus (Zig larynx) — correctness hardening from Fable's audit (2026-07-05)
+
+Fable's audit of `vagus/vagus.zig` (913 lines) + the `vagus/vagus.h` C boundary — the Wandering Nerve /
+Larynx, arianna-duo's Zig nervous-system layer the voices couple through. Seven findings (VG-1..VG-3
+CONFIRMED, VG-4..VG-7 LOW). Load fact: `build.zig` takes no default optimize mode and the Makefile calls
+bare `zig build` → the duet builds Debug → Zig safety checks ON, so the invalid-cast findings are panics
+(voice-process crash) today, UB under a future ReleaseFast.
+
+- **VG-1 (CONFIRMED)** — the Zig `SharedState` didn't match the C `VagusSharedState`: eight Zig fields carried
+  their own `align(64)`, each inserting padding, while the C mirror is dense (aligned(64) on the struct only).
+  Offsets diverge past `crossfire_entropy` (@48) — Zig put `trauma_level` at 64, C reads it at 48 — so every
+  tail field a C consumer reads through `vagus_get_state()` is garbage. Fixed by removing the seven stray
+  per-field aligns (kept `arousal`'s to pin the struct to 64-align / 256-byte size) and pinned it with
+  `comptime @offsetOf` asserts against the ground-truth C offsets (from `offsetof()`) — a future stray align
+  now fails the build. arianna-duo's accessors walk by field name (unaffected); `vagus_get_state`'s
+  direct-access consumers are external (ariannabody.c/cloud.c) — latent here, real for them.
+- **VG-2 (CONFIRMED)** — `vagus_send` fed the C `source`/`signal_type` bytes straight into `@enumFromInt`
+  (Source 0..7, SignalType sparse) — any other value is illegal-behavior (Debug panic / ReleaseFast UB). Now
+  `std.enums.fromInt(...) orelse return -1` validates first.
+- **VG-3 (CONFIRMED)** — `larynx_get_recent_tokens` did `@intCast(usize)` on a `c_int` that can be negative →
+  panic/UB. Now `if (max_tokens <= 0) return 0`.
+- **VG-4 (LOW)** — `nowMicros` discarded `clock_gettime`'s rc and read `undefined` `ts` on failure; a negative
+  then hits `@intCast(u64)`. Now a non-zero rc (or negative field) returns 0.
+- **VG-5 (LOW)** — `applyToState` wrote the C value with no isfinite gate (unlike setArousal); a NaN/inf spread
+  across the organism. Now one `isFinite` sanitize at the switch top.
+- **VG-6 (LOW)** — `vagus_init`'s loser thread read `global_nerve` while the winner was between the cmpxchg
+  (init_flag=1) and store(2). Now it spin-waits `init_flag != 1` first.
+- **VG-7 (LOW)** — the ring `push` is single-producer (non-CAS head) but `vagus_send` was exported with no
+  caveat → two C/Go producers race the head. Documented the single-producer contract on `vagus_send` in
+  `vagus.h`; a CAS/MPSC push is the heavier alternative for when a real multi-producer caller appears.
+
+Verified (tool): `cd vagus && zig build` compiles clean — the `@offsetOf` comptime asserts are the VG-1 proof
+(the build reaches `vagus_send` only after every `SharedState` offset matches the C ground truth:
+`trauma_level`@48, `loop_count`@64, … `vagus_version`@176, sizeof 256, confirmed against a C `offsetof()`
+probe); `zig build test` green; `make arianna` relinks the fresh libvagus and single mode generates coherent
+Arianna voice with the larynx signal present (`[yent-larynx] entropy=1.000 …`), exit 0. Local Zig file, not
+vendored. This is the fifth Fable file for arianna-duo (F/R/J/C/VG across kk / resonance / janus / chorus /
+vagus). Remaining Fable-named-but-unaudited: the canon `notorch/gguf.c` (its own repo).
