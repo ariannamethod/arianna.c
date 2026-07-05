@@ -836,10 +836,11 @@ static void apply_field_to_logits(float *logits, int n) {
     int ctx_start = (DF.ctx_len > 8) ? DF.ctx_len - 8 : 0;
     float h_max = 0;
 
-    /* allocate scratch for H, F_p, A, T signals (on stack if n < 8192) */
+    /* scratch for H, F_p, A signals — on OOM skip the field overlay (F-9) */
     float *H_sig = calloc(n, sizeof(float));
     float *F_sig = calloc(n, sizeof(float));
     float *A_sig = calloc(n, sizeof(float));
+    if (!H_sig || !F_sig || !A_sig) { free(H_sig); free(F_sig); free(A_sig); return; }
 
     for (int c = ctx_start; c < DF.ctx_len; c++) {
         int ctx_id = DF.context[c];
@@ -847,8 +848,11 @@ static void apply_field_to_logits(float *logits, int n) {
         for (int i = 0; i < DF.cooc_n; i++) {
             if (DF.cooc_src[i] == ctx_id) {
                 int dst = DF.cooc_dst[i];
-                /* map co-occurrence dst back to vocab range */
-                if (dst < n)
+                /* F-10: the field lives in a wrapped [0,2048) id-space (dario_ingest
+                 * does token_id % 2048), like the F/A/T channels that gate i<2048 —
+                 * boost only that head-of-vocab range, don't alias a wrapped id onto a
+                 * foreign real-vocab token. */
+                if (dst >= 0 && dst < 2048 && dst < n)
                     H_sig[dst] += DF.cooc_val[i] * decay;
             }
         }
@@ -1951,10 +1955,16 @@ static int index_load(GGUFIndex *ps, const char *path) {
         } else { p += 4; } /* unknown — guess 4 bytes */
     }
     if (ps->host_dim == 0 || ps->host_dim > 16384 || ps->host_n_layers == 0) goto bail; /* D-L8: bound host_dim — lora_out[D] is a stack VLA */
+    if (ps->host_n_layers < 0 || ps->host_n_layers > MAX_LAYERS) goto bail; /* F-1: block_count out of range */
     if (ps->host_heads == 0) ps->host_heads = ps->host_dim / 64;
     if (ps->host_kv_heads == 0) ps->host_kv_heads = ps->host_heads;
     if (ps->host_head_dim == 0) ps->host_head_dim = ps->host_dim / ps->host_heads; /* Y-1b: prefer attention.key_length (Mistral hd=128 ≠ 5120/32=160) */
     if (ps->host_hidden == 0) ps->host_hidden = ps->host_dim * 4;
+    if (ps->host_heads <= 0 || ps->host_heads > 4096 ||
+        ps->host_kv_heads <= 0 || ps->host_kv_heads > ps->host_heads ||
+        ps->host_head_dim <= 0 || ps->host_head_dim > 16384 ||
+        ps->host_hidden <= 0 || ps->host_hidden > 1048576 ||
+        ps->host_vocab < 0 || ps->host_vocab > 4194304) goto bail; /* F-1: reject corrupt header dims before they size allocations */
 
     /* Parse tensor info */
     if (n_tensors > 20000) goto bail;
@@ -1986,7 +1996,8 @@ static int index_load(GGUFIndex *ps, const char *path) {
         for (uint32_t d = 0; d < tinfo[i].ndim; d++) n_elems *= tinfo[i].dims[d];
         uint64_t raw_bytes = quant_raw_bytes(dt, n_elems);
         uint64_t byte_offset = data_start + tinfo[i].offset;
-        if (raw_bytes == 0 || byte_offset + raw_bytes > ps->mmap_size) {
+        if (raw_bytes == 0 || tinfo[i].offset > ps->mmap_size || byte_offset < data_start ||
+            byte_offset > ps->mmap_size || raw_bytes > ps->mmap_size - byte_offset) {   /* F-4: subtraction, not addition — offset near UINT64_MAX overflowed the old guard */
             if (raw_bytes > 0)
                 printf("[doe] WARNING: tensor %s OOB (%lu+%lu > %lu), skipping\n",
                        tinfo[i].name, (unsigned long)byte_offset, (unsigned long)raw_bytes,
@@ -2257,7 +2268,9 @@ static int parliament_elect(Parliament *p, LoraExpert *experts, float *input, in
     for (int i = 0; i < n_alive; i++) { float d = votes[alive_idx[i]] - mean_v; var_v += d*d; }
     var_v /= n_alive;
     float consensus = fminf(1.0f, sqrtf(var_v + 1e-8f) / (fabsf(mean_v) + 1.0f));
+    if (!isfinite(consensus)) consensus = 0.5f;        /* F-6: one NaN vote must not poison the consensus EMA forever */
     p->consensus = 0.9f * p->consensus + 0.1f * consensus;
+    if (!isfinite(p->consensus)) p->consensus = 0.5f;  /* clear a pre-existing poison */
 
     int k = (int)(n_alive * (1.0f - p->consensus));
     if (k < 2) k = 2; if (k > n_alive) k = n_alive;
@@ -2670,12 +2683,12 @@ static int mycelium_load(GGUFIndex *ps, uint64_t target_fp) {
 
     FILE *f = fopen(best_path, "rb");
     if (!f) return 0;
-    uint64_t fp; fread(&fp, 8, 1, f);
+    uint64_t fp; if (fread(&fp, 8, 1, f) != 1) { fclose(f); return 0; }   /* C-2: check every spore read */
     if (fp != target_fp) { fclose(f); return 0; }
     int step; float fitness;
-    fread(&step, 4, 1, f); fread(&fitness, 4, 1, f);
+    if (fread(&step, 4, 1, f) != 1 || fread(&fitness, 4, 1, f) != 1) { fclose(f); return 0; }
     int nl, dim, rank;
-    fread(&nl, 4, 1, f); fread(&dim, 4, 1, f); fread(&rank, 4, 1, f);
+    if (fread(&nl, 4, 1, f) != 1 || fread(&dim, 4, 1, f) != 1 || fread(&rank, 4, 1, f) != 1) { fclose(f); return 0; }
     if (nl != ps->n_field_layers || dim != ps->host_dim || rank != ps->lora_rank) {
         printf("[mycelium] spore mismatch (layers=%d/%d dim=%d/%d rank=%d/%d)\n",
                nl, ps->n_field_layers, dim, ps->host_dim, rank, ps->lora_rank);
@@ -2683,20 +2696,20 @@ static int mycelium_load(GGUFIndex *ps, uint64_t target_fp) {
     }
     for (int l = 0; l < nl; l++) {
         FieldLayer *fl = &ps->field_layers[l];
-        fread(&fl->n_alive, 4, 1, f);
-        fread(fl->parliament.w_vote, sizeof(float), MAX_EXPERTS * dim, f);
-        fread(&fl->parliament.consensus, 4, 1, f);
+        if (fread(&fl->n_alive, 4, 1, f) != 1 ||
+            fread(fl->parliament.w_vote, sizeof(float), MAX_EXPERTS * dim, f) != (size_t)(MAX_EXPERTS * dim) ||
+            fread(&fl->parliament.consensus, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
         for (int e = 0; e < MAX_EXPERTS; e++) {
             LoraExpert *ex = &fl->experts[e];
-            int alive; fread(&alive, 4, 1, f);
+            int alive; if (fread(&alive, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
             if (alive) {
                 if (!ex->alive) {
                     ex->lora_A = calloc(dim * rank, sizeof(float));
                     ex->lora_B = calloc(rank * dim, sizeof(float));
+                    if (!ex->lora_A || !ex->lora_B) { fclose(f); return 0; }   /* C-2/F-1: OOM */
                 }
                 ex->alive = 1;
-                fread(&ex->vitality, 4, 1, f);
-                fread(&ex->frequency, 4, 1, f);
+                if (fread(&ex->vitality, 4, 1, f) != 1 || fread(&ex->frequency, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
                 if (fread(ex->lora_A, sizeof(float), dim * rank, f) != (size_t)(dim * rank) ||
                     fread(ex->lora_B, sizeof(float), rank * dim, f) != (size_t)(rank * dim)) {
                     fclose(f); return 0; /* D-L3: truncated spore — bail, don't load garbage experts */
@@ -3176,7 +3189,7 @@ static float *doe_forward(GGUFIndex *ps, InferState *s, int token, int pos) {
  * SAMPLING + CHAT
  * ═══════════════════════════════════════════════════════════════════════════════ */
 static int sample(float *logits, int V, float temp, int top_k) {
-    if (temp <= 0) { int b = 0; for (int i = 1; i < V; i++) if (logits[i] > logits[b]) b = i; return b; }
+    if (!isfinite(temp) || temp <= 0) { int b = 0; for (int i = 1; i < V; i++) if (logits[i] > logits[b]) b = i; return b; }  /* F-8: NaN temp must not fall through to the silent V-1 tail */
     for (int i = 0; i < V; i++) logits[i] /= temp;
     if (top_k > 0 && top_k < V) {
         /* threshold = top_k-th largest logit via a size-k min-heap: O(V log k),
@@ -3184,6 +3197,7 @@ static int sample(float *logits, int V, float temp, int top_k) {
          * threshold the old O(k*V) selection-sort produced (value is identical
          * regardless of tie-breaking), so the sampled token is bit-identical. */
         float heap[256]; int hk = top_k > 256 ? 256 : top_k; int n = 0;
+        if (top_k > 256) { static int warned_tk = 0; if (!warned_tk) { warned_tk = 1; fprintf(stderr, "[doe] top_k %d clamped to 256 (sampler heap)\n", top_k); } }  /* F-7 */
         for (int i = 0; i < V; i++) {
             float v = logits[i];
             if (n < hk) {
@@ -3483,7 +3497,8 @@ static int tokenize_input(GGUFIndex *ps, const char *text, int *tokens, int max_
     }
 
     int tlen = strlen(text);
-    int *ids = malloc((tlen + 16) * sizeof(int));
+    int *ids = malloc(((size_t)tlen * 3 + 16) * sizeof(int));   /* F-11: worst-case 3 ids/byte (SP hex-fallback) */
+    if (!ids) return 0;
     int n = 0;
 
     if (ps->is_gpt2_bpe) {
@@ -3605,7 +3620,7 @@ static void chat(GGUFIndex *ps) {
         memset(is.value_cache, 0, ps->host_n_layers * max_seq * kd * 4);
 
         /* Wrap input in chat template (auto-detected from GGUF chat_template) */
-        char wrapped[2048];
+        char wrapped[8192];  /* F-12: match input[8192] so the chat template's closing tags are never silently truncated */
         /* Only use chat template if the key special tokens exist in vocab */
         int use_template = 0;
         switch (ps->chat_style) {
@@ -3974,7 +3989,7 @@ static void http_stream_inference(int fd, GGUFIndex *ps, const char *user_msg, f
     memset(is.value_cache, 0, (size_t)ps->host_n_layers * max_seq * kd * 4);
 
     /* Wrap input in chat template */
-    char wrapped[2048];
+    char wrapped[8192];  /* F-12: match input[8192] so the chat template's closing tags are never silently truncated */
     switch (ps->chat_style) {
     case 1: snprintf(wrapped, sizeof(wrapped), "<|im_start|>user\n%s<|im_end|>\n<|im_start|>assistant\n", user_msg); break;
     case 2: snprintf(wrapped, sizeof(wrapped), "[INST] %s [/INST]", user_msg); break;

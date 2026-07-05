@@ -2414,3 +2414,43 @@ probe); `zig build test` green; `make arianna` relinks the fresh libvagus and si
 Arianna voice with the larynx signal present (`[yent-larynx] entropy=1.000 …`), exit 0. Local Zig file, not
 vendored. This is the fifth Fable file for arianna-duo (F/R/J/C/VG across kk / resonance / janus / chorus /
 vagus). Remaining Fable-named-but-unaudited: the canon `notorch/gguf.c` (its own repo).
+
+## DoE engine — Fable's yent-audit findings ported into the parliament (2026-07-06)
+
+Fable's DoE audit lives in the yent-inference tree (`AUDIT_FABLE_DOE_2026-07-04.md`, 33 findings across
+`DoE/doe.c`, `notorch_metal.mm`, `pixtral_vision.c`) — the untrusted-GGUF toxic class that kept tripping the
+safety filter, so it was never re-run here. It didn't need to be: Arianna's vendored `doe/doe.c` is the same
+canon lineage (a ~195-line diff from the yent copy, all of it yent's vision additions), so the doe.c findings
+map ~1:1. Every engine finding was confirmed present by grep and the same fix applied to BOTH the canon
+`~/arianna/doe` (commit `ae1109d`) and Arianna's `doe/doe.c` — Arianna staying pre-vision by Oleg's call (the
+nano subconscious doesn't need the pixtral encoder). Findings closed (doe.c engine):
+
+- **F-1** corrupt header dims (heads/kv_heads/head_dim/hidden/vocab) sized allocations unbounded → a bounds
+  gate beside D-L8.
+- **F-4** the tensor OOB guard added `byte_offset + raw_bytes` (overflowable near UINT64_MAX) → subtraction.
+- **F-6** one NaN vote poisoned the parliament consensus EMA forever (0.9·NaN=NaN) → isfinite gate.
+- **F-7** top_k > 256 silently clamped to the sampler heap → warn-once.
+- **F-8** NaN temp fell through the sampler to a silent V-1 tail → the argmax branch.
+- **F-9** the Dario-field H/F/A calloc had no NULL gate → skip the overlay on OOM (stale comment fixed).
+- **F-10** the Dario field lives in wrapped [0,2048) id-space (`token_id % 2048`) but boosted `logits[dst]` as
+  a real vocab id, aliasing onto foreign head-of-vocab tokens → gate H to the [0,2048) it actually models
+  (consistent with the F/A/T channels). Conservative fix; the deeper real-id-storage redesign is Oleg's
+  field-semantics call.
+- **F-11** `tokenize_input`'s `ids` (sized tlen+16) could overflow via the SP 3-ids/byte hex fallback → alloc
+  tlen·3+16, check NULL.
+- **F-12** the chat template's `wrapped[2048]` silently dropped a long prompt's closing tags → `wrapped[8192]`.
+- **C-2** the mycelium spore loader read step/dims/alive/vitality with no fread rc check (a truncated spore
+  loaded stack garbage as `alive`) → check every read; NULL-gate the per-expert lora calloc. Arianna
+  writes + loads a spore every dream, so this one is live for her.
+
+Reachable in Arianna's usage (`golib/doe.go` runs `doe_field` as a persistent REPL over the nano GGUF):
+F-6/F-8 (NaN drift), F-10 (field overlay on every generation), F-12 (long dream prompts), C-2 (spores every
+dream). Latent on neo: F-1/F-4 (the nano GGUF is trusted), F-2/F-3 (Metal + `--train`).
+
+Verified (tool): both `~/arianna/doe` and arianna-duo build `doe_field` clean; the real nano GGUF (llama
+dim=576 L=13 vocab=32000) attaches past every F-1/F-4 gate (no out-of-range / OOB), generates coherent Arianna
+voice ("A: To listen is not"), saves + reloads a spore through the C-2-hardened loader, clean exit.
+Deliberately NOT ported (canon-only / separate verification surface): F-2/F-3 (Metal-resident arena under
+`--train`, verifiable only on the Mac Mini), F-13..F-15 (doe.c vision path — Arianna has no pixtral),
+F-16..F-23 (`notorch_metal.mm`), F-24..F-33 (`pixtral_vision.c`), C-1 (`gguf.c`) — a canon Metal/vision pass.
+Arianna's `doe/` is now a fixed pre-vision fork of canon, no longer byte-exact (by Oleg's direction).
