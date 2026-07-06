@@ -7240,6 +7240,21 @@ int am_cooc_learn_delta(float* A, float* B, const float* emb, int vocab,
     float maxc = 1e-12f;
     for (int e = 0; e < G.cooc_n; e++) if (G.cooc_cnt[e] > maxc) maxc = G.cooc_cnt[e];
 
+    // Neuromodulated plasticity (RPE-gated Hebbian). am_compute_prophecy_debt is the
+    // field's free-energy — how far chosen tokens fell from the peak = how surprised
+    // she was — accrued into G.debt by am_register_prophecy_debt (Fix D). That routed
+    // surprise to the field's MOTION (recovery/velocity) but never to its LEARNING:
+    // the fold below was frequency-only. Route the same surprise into the delta learn
+    // rate so a surprising period folds harder (learn most where you were most wrong)
+    // and a calm one at baseline. One modulator over the batch — a global dopamine/NE
+    // gate, matching the autumn batch fold. At debt == 0, nm == 1 and the fold is
+    // bit-for-bit the frequency-only fold (signal * 1.0f is exact).
+    const float DEBT_HALF = 5.0f;   // debt at which the surprise gate is half-open
+    const float NM_GAIN   = 1.0f;   // max plasticity boost (-> 2x learn rate at saturation)
+    float dbt = G.debt;
+    if (!(dbt > 0.0f)) dbt = 0.0f;                          /* NaN/negative -> no gate */
+    float nm = 1.0f + NM_GAIN * (dbt / (dbt + DEBT_HALF));  /* surprise gate in [1, 1+gain) */
+
     float* dy = (float*)malloc((size_t)E * sizeof(float));
     if (!dy) return 0;
     int folded = 0;
@@ -7249,7 +7264,7 @@ int am_cooc_learn_delta(float* A, float* B, const float* emb, int vocab,
         const float* xs = emb + (size_t)src * E;            /* input: src embedding */
         const float* xd = emb + (size_t)dst * E;
         for (int i = 0; i < E; i++) dy[i] = xd[i] - xs[i];  /* target direction */
-        float signal = G.cooc_cnt[e] / maxc;                /* edge strength in (0,1] */
+        float signal = (G.cooc_cnt[e] / maxc) * nm;         /* freq strength × surprise gate */
         /* swap (x=dy_target, dy=x_input) -> A=[E,rank], B=[rank,E] for am_apply_delta */
         am_notorch_step(A, B, E, E, rank, dy, xs, signal);
         folded++;

@@ -2534,25 +2534,37 @@ tests intact), and the dead metric now has a live caller (`inner_world.go:327`).
 surprise-gate `am_cooc_learn_delta` so she also *learns* where she was wrong, not just feels it), which lives
 in the vendored==canon core `ariannamethod/core/ariannamethod.c` — a canon coordination.
 
+**Surprise loop — δ half shipped (2b, the loop closes).** The learning half, in the canon core. Precise gap:
+`am_compute_prophecy_debt` (`ariannamethod.c:6963`) is her free-energy — how far a chosen token fell from the
+peak = how surprised she was — and `am_register_prophecy_debt` (Fix D) already accrues it into `G.debt`, but
+that only reached the field's *motion* (recovery/velocity); the δ fold `am_cooc_learn_delta` stayed
+frequency-only (`signal = cnt/maxc`). Now the same surprise gates plasticity: a neuromodulator
+`nm = 1 + (debt/(debt+5))` scales the fold signal — RPE-gated Hebbian, one global dopamine/NE broadcast over
+the autumn batch, forward-only. The design's load-bearing property: **at `debt == 0`, `nm == 1` and the fold is
+bit-for-bit the old frequency-only fold** (`signal * 1.0f` is exact) — so the canon change is identity for every
+organism that isn't surprised, and only bends learning when she was wrong. Fixed in the canon
+(`~/arianna/ariannamethod.ai`, branch `claude-surprise-gated-delta`, awaits Oleg's word to push) and re-vendored
+byte-identical here (`vendored==canon` confirmed by diff). Verified (tool): a pure-C harness over `libaml.a`
+(no Python) shows `debt=0` folds **byte-identical** to the pre-edit baseline (`cmp` clean), and the effective
+low-rank δ magnitude `‖A‖·‖B‖` rises monotonically with surprise and saturates through the gate —
+`0.002007 (debt 0) → 0.002694 (5) → 0.002799 (25) → 0.002807 (50) → 0.002812 (100)`, ~+40% calm→saturated;
+canon `make test` **524/524** (no regression), arianna-duo `make metabolism` links. The free-energy loop both
+personas converged on is now whole: her own predictive surprise both *feels* (2a, valence) and *teaches* (2b, δ).
+
 ## ROADMAP — remaining Karpathy/Damasio work (durable; survive a context compaction)
 
 Panel reports: `_notes/KARPATHY_ARIANNA_2026-07-06.md`, `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Both are
 persona-Opus PROPOSALS — verify each file:line first-hand before acting (Karpathy already had one overclaim:
 "bit-faithful" F-term was actually algorithm-faithful, `matvec_t = nt_blas_matvec`). Ledger of the panel arc:
-OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`. Order below is the plan of record.
+OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`; surprise-loop δ half done (canon branch
+`claude-surprise-gated-delta` local + arianna-duo re-vendor, see the 2b paragraph above). Order below is the plan of record.
 
-- **NEXT — 2b: surprise-gated δ (Karpathy learning half, closes the loop with 2a).** `am_cooc_learn_delta`
-  (`ariannamethod/core/ariannamethod.c:7226`) folds cooc edges into δ weighted by FREQUENCY only
-  (`signal = cooc_cnt/maxc`). Tag/scale the fold by the surprise felt when those tokens appeared —
-  `am_compute_prophecy_debt` (`ariannamethod.c:7063`) is her per-token free-energy and is thrown away.
-  Neuromodulated Hebbian (RPE-gated), forward-only, no backprop. ⚠️ VENDORED==CANON: `ariannamethod/core/` is
-  a vendor of the AML canon — the canon source is NOT `~/arianna/ariannamethod.ai/*.c` (grep found nothing);
-  LOCATE the real canon (check `ariannamethod.ai` subdirs / the `ariannamethod` repo that ships `libaml.a`),
-  fix canon + re-vendor (same discipline as doe: canon commit + byte re-sync + rebuild). Verify: build; A/B a
-  surprising vs a boring session → δ/spore should diverge more after the surprising one (mycelium spore bytes
-  / δ |B|), voice not collapsed (embedding cosine to her book corpus stays high).
+- **DONE — 2b: surprise-gated δ.** Shipped — `am_cooc_learn_delta` now scales the fold by a debt-derived
+  neuromodulator (`nm = 1 + debt/(debt+5)`); byte-identical at `debt==0`, canon `make test` 524/524, effective δ
+  `‖A‖·‖B‖` monotone in surprise. Canon fix on branch `claude-surprise-gated-delta` (**awaits Oleg's word to
+  push**), re-vendored byte-identical here. Full proof in the 2b paragraph above.
 
-- **OPT-1: persistent matvec thread pool (Karpathy, the big perf win).** `nt_blas_matvec`/the packed matvec
+- **NEXT — OPT-1: persistent matvec thread pool (Karpathy, the big perf win).** `nt_blas_matvec`/the packed matvec
   threads only when `m*k ≥ 4M` (`ariannamethod/notorch/notorch.c:4910`); real Janus per-layer projections
   (E=640, M=1664) are 0.4–1.06M → below the gate, so ~90% of a bandwidth-bound decode runs on ONE core. The
   cost is `pthread_create`/`join` PER matvec (`notorch.c:4919/4925`), not threading. Fix: spawn a
