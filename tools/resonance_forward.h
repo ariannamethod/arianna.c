@@ -208,16 +208,23 @@ static void dir_recompute(const float *tok_emb) {
     for (int i = 0; i < V; i++) g_Acache[i] /= amax;  /* normalize to ~[-1,1] */
     /* F term: prophecy targets — cosine of each vocab token to each target. */
     memset(g_Fcache, 0, V * sizeof(float));
-    for (int p = 0; p < g_proph_n; p++) {
+    /* Karpathy OPT: the F-term inner products are tok_emb @ te — one cblas gemv per
+     * prophecy target instead of a V*E hand loop; relu/norm stay after the dot
+     * (algorithm-faithful, the same BLAS path the A-term above already uses). fnum
+     * NULL → skip the F tilt (fail-safe, no field prophecy this turn). */
+    float *fnum = (float*)malloc((size_t)V * sizeof(float));
+    for (int p = 0; fnum && p < g_proph_n; p++) {
         const float *te = tok_emb + (size_t)g_proph_tok[p] * E;
         float tn = g_rownorm[g_proph_tok[p]] + 1e-12f;
         float w = g_proph_str[p] * logf(1.0f + (float)g_proph_age[p]);
         if (w <= 0.0f) continue;
+        matvec_t(fnum, tok_emb, te, V, E);
         for (int i = 0; i < V; i++) {
-            float c = dir_dot(tok_emb + (size_t)i * E, te, E) / (g_rownorm[i] * tn + 1e-12f);
+            float c = fnum[i] / (g_rownorm[i] * tn + 1e-12f);
             if (c > 0.0f) g_Fcache[i] += w * c;
         }
     }
+    free(fnum);
     float fmax = 1e-12f;
     for (int i = 0; i < V; i++) if (g_Fcache[i] > fmax) fmax = g_Fcache[i];
     for (int i = 0; i < V; i++) g_Fcache[i] /= fmax;
