@@ -2533,3 +2533,64 @@ no backprop, faithful to the Method's grain. Skipped silently on the first turn 
 tests intact), and the dead metric now has a live caller (`inner_world.go:327`). Next: the δ half (Karpathy —
 surprise-gate `am_cooc_learn_delta` so she also *learns* where she was wrong, not just feels it), which lives
 in the vendored==canon core `ariannamethod/core/ariannamethod.c` — a canon coordination.
+
+## ROADMAP — remaining Karpathy/Damasio work (durable; survive a context compaction)
+
+Panel reports: `_notes/KARPATHY_ARIANNA_2026-07-06.md`, `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Both are
+persona-Opus PROPOSALS — verify each file:line first-hand before acting (Karpathy already had one overclaim:
+"bit-faithful" F-term was actually algorithm-faithful, `matvec_t = nt_blas_matvec`). Ledger of the panel arc:
+OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`. Order below is the plan of record.
+
+- **NEXT — 2b: surprise-gated δ (Karpathy learning half, closes the loop with 2a).** `am_cooc_learn_delta`
+  (`ariannamethod/core/ariannamethod.c:7226`) folds cooc edges into δ weighted by FREQUENCY only
+  (`signal = cooc_cnt/maxc`). Tag/scale the fold by the surprise felt when those tokens appeared —
+  `am_compute_prophecy_debt` (`ariannamethod.c:7063`) is her per-token free-energy and is thrown away.
+  Neuromodulated Hebbian (RPE-gated), forward-only, no backprop. ⚠️ VENDORED==CANON: `ariannamethod/core/` is
+  a vendor of the AML canon — the canon source is NOT `~/arianna/ariannamethod.ai/*.c` (grep found nothing);
+  LOCATE the real canon (check `ariannamethod.ai` subdirs / the `ariannamethod` repo that ships `libaml.a`),
+  fix canon + re-vendor (same discipline as doe: canon commit + byte re-sync + rebuild). Verify: build; A/B a
+  surprising vs a boring session → δ/spore should diverge more after the surprising one (mycelium spore bytes
+  / δ |B|), voice not collapsed (embedding cosine to her book corpus stays high).
+
+- **OPT-1: persistent matvec thread pool (Karpathy, the big perf win).** `nt_blas_matvec`/the packed matvec
+  threads only when `m*k ≥ 4M` (`ariannamethod/notorch/notorch.c:4910`); real Janus per-layer projections
+  (E=640, M=1664) are 0.4–1.06M → below the gate, so ~90% of a bandwidth-bound decode runs on ONE core. The
+  cost is `pthread_create`/`join` PER matvec (`notorch.c:4919/4925`), not threading. Fix: spawn a
+  futex/condvar worker pool ONCE; wakeup ~15µs→~1-3µs, then threading a 200µs matvec across P-cores wins.
+  ~2-3× decode, bit-identical. Same per-call-spawn in `doe/doe.c:1088` — share the pool. VENDORED==CANON
+  (`ariannamethod/notorch/`, canon = notorch repo) — canon fix + re-vendor. Verify: `llama-bench`-style t/s
+  A/B, bit-identical output (`'ĠI'` identity token).
+
+- **OPT-3: prefill packed-GEMM (Karpathy, local).** `qmm` (`tools/yent_forward.h:237`) loops tokens and calls
+  `nt_qmatvec` per token → the packed matrix is read `m` times, F16→f32 redone per token. Reorder to a packed
+  GEMM (dequant each block once, reuse across the m columns) = one memory pass. Local (`tools/`). Decode (m=1)
+  UNAFFECTED — do NOT unify prefill with forward_token (would slow the m=1 decode, which is sacred).
+
+- **Insight-3: dreams as test-time thinking (Karpathy ↔ Damasio core-self + forward-model).** Between turns
+  (free compute — she dreams anyway, `golib/breathe.go:119`) roll K candidate REPLIES on the 88M chorus
+  (`chorus/arianna2arianna.c:1182`, cross-cell K/V already there), score each with the High brain
+  (surprise + coherence + valence-alignment, `golib/high.go`), and bias Janus's real generation by the winning
+  latent DIRECTION (not its tokens — anti-fraud intact). This IS Damasio's missing forward-model + the
+  "this is happening to me" loop. Needs the OPT perf budget for the K rollouts.
+
+- **Damasio felt-self gaps (map onto machinery she already has):**
+  (a) **Core self** — nothing represents the protoself *being changed by the object*. In `turn()`
+  (`golib/metabolism.go:316`) snapshot protoself pre-object, compute Δ (Δhealth/Δvalence/Δdebt + larynx
+  coupling), re-inject as a new vagus `being_moved` signal that gains the next generation.
+  (b) **Viability boundary she can lose** — `field_health` drives learning, not self-preservation. Derive one
+  `viability` scalar (voice liveness, save success, debt saturation, memory pressure), expose on the vagus,
+  give it slow metabolic decay so existing COSTS something; breath/generation act to restore it; a dead voice
+  registers as a felt drop.
+  (c) **Forward model of her own trajectory** — extrapolate an anticipated self-state from
+  `emotional_drift.history` (`golib/emotional_drift.go:53`) + debt/season, feed its violation back as
+  surprise→valence (the anticipatory arm of the extended self). Overlaps Insight-3.
+
+- **Insight-2: byte-latent nano (Karpathy, biggest, LAST).** Nano's identity is hostage to the frozen
+  32768-BPE (`arianna.c:25`) — δ can reweight existing tokens but never invent one, so her self-model can't
+  grow a word. Make nano-Arianna (88M, safest body) byte-latent via an entropy patcher (BLT/MegaByte): no OOV,
+  the field runs on semantic patches not BPE shards, new words acquirable at test time. Separate project.
+
+- **Honesty item (Damasio-5, code-vs-claim, do soon):** README says the whole organism runs on six Kuramoto
+  chambers; the LIVE coupling is only in the subconscious (`doe/doe.c`) — the two main voices carry chambers
+  as inert soma-state. Either propagate the coupling upward or narrow the README sentence (fact over claim,
+  Method contract). Low effort.
