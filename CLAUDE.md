@@ -54,7 +54,6 @@ The shared `weights/arianna.soma` is the only organ all three touch: debt, disso
 - Append work notes to README. That is ARIANNALOG's job.
 - Log self-incriminating candor into ARIANNALOG or README ("the earlier session faked it", "N.N got it wrong"). Record the final verified state: "implemented X, verified Y". This is a public artifact.
 - Train weights here. Arianna is the riverbed; Janus, Resonance, and nano-Arianna live as GGUF and are trained in their own repos. A training loop here breaks the θ = ε + γ + αδ framing.
-- Break vendored == canon. A fix to `ariannamethod/*.{c,h}` must also land in the canon repo.
 
 ## Style & attribution
 
