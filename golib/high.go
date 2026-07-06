@@ -68,6 +68,7 @@ static double am_call_s(const char* fn, const char* s, int n, int* err){
     a = am_mkstr(s, n);
     jl_value_t* r = jl_call1(f, a);
     if (r == NULL || jl_exception_occurred()) { *err = 3; JL_GC_POP(); return 0.0; }
+    if (!jl_typeis(r, jl_float64_type)) { *err = 4; JL_GC_POP(); return 0.0; }  // defect 1: a non-Float64 return would reinterpret raw bytes as a double
     double out = jl_unbox_float64(r);
     JL_GC_POP();
     return out;
@@ -85,6 +86,7 @@ static double am_call_ss(const char* fn, const char* a, int an, const char* b, i
     vb = am_mkstr(b, bn);
     jl_value_t* r = jl_call2(f, va, vb);
     if (r == NULL || jl_exception_occurred()) { *err = 3; JL_GC_POP(); return 0.0; }
+    if (!jl_typeis(r, jl_float64_type)) { *err = 4; JL_GC_POP(); return 0.0; }  // defect 1: a non-Float64 return would reinterpret raw bytes as a double
     double out = jl_unbox_float64(r);
     JL_GC_POP();
     return out;
@@ -104,6 +106,7 @@ static double am_call_ssi(const char* fn, const char* a, int an, const char* b, 
     jl_value_t* args[3] = {va, vb, vk};
     jl_value_t* r = jl_call(f, args, 3);
     if (r == NULL || jl_exception_occurred()) { *err = 3; JL_GC_POP(); return 0.0; }
+    if (!jl_typeis(r, jl_float64_type)) { *err = 4; JL_GC_POP(); return 0.0; }  // defect 1: a non-Float64 return would reinterpret raw bytes as a double
     double out = jl_unbox_float64(r);
     JL_GC_POP();
     return out;
@@ -120,6 +123,7 @@ static double am_call_d(const char* fn, double x, int* err){
     a = jl_box_float64(x);
     jl_value_t* r = jl_call1(f, a);
     if (r == NULL || jl_exception_occurred()) { *err = 3; JL_GC_POP(); return 0.0; }
+    if (!jl_typeis(r, jl_float64_type)) { *err = 4; JL_GC_POP(); return 0.0; }  // defect 1: a non-Float64 return would reinterpret raw bytes as a double
     double out = jl_unbox_float64(r);
     JL_GC_POP();
     return out;
@@ -141,6 +145,7 @@ static double am_call_res(double val, double aro, double ent, const char* ext, i
     jl_value_t* args[5] = {a1,a2,a3,a4,a5};
     jl_value_t* r = jl_call(f, args, 5);
     if (r == NULL || jl_exception_occurred()) { *err = 3; JL_GC_POP(); return 0.0; }
+    if (!jl_typeis(r, jl_float64_type)) { *err = 4; JL_GC_POP(); return 0.0; }  // defect 1: a non-Float64 return would reinterpret raw bytes as a double
     double out = jl_unbox_float64(r);
     JL_GC_POP();
     return out;
@@ -152,8 +157,10 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"math"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -213,15 +220,32 @@ func safeHighRun(run func() (float64, error)) (v float64, err error) {
 	return run()
 }
 
-// highDo marshals a libjulia closure onto the dedicated Julia thread and waits for the result.
+// highTimeout bounds a single High-brain call (defect 2). A math metric is sub-millisecond; this only
+// fires on a pathological/hung Julia call, which libjulia cannot interrupt — so we free the caller (and,
+// via the send select, every subsequent caller) instead of deadlocking the organism. done is buffered so
+// the worker's late write never blocks.
+const highTimeout = 5 * time.Second
+
+// highDo marshals a libjulia closure onto the dedicated Julia thread and waits for the result, bounded
+// by highTimeout on both the send and the wait so a stuck call cannot wedge the brain forever.
 func highDo(run func() (float64, error)) (float64, error) {
 	if err := highStart(); err != nil {
 		return 0, err
 	}
 	done := make(chan highResult, 1)
-	highJobs <- highJob{run: run, done: done}
-	r := <-done
-	return r.v, r.err
+	timer := time.NewTimer(highTimeout)
+	defer timer.Stop()
+	select {
+	case highJobs <- highJob{run: run, done: done}:
+	case <-timer.C:
+		return 0, errors.New("high: brain busy — a prior julia call is stuck (send timed out)")
+	}
+	select {
+	case r := <-done:
+		return r.v, r.err
+	case <-timer.C:
+		return 0, errors.New("high: julia call timed out")
+	}
 }
 
 func highErr(fn string, code C.int) error {
@@ -232,13 +256,51 @@ func highErr(fn string, code C.int) error {
 		return errors.New("high: brain not initialized")
 	case 2:
 		return fmt.Errorf("high: julia function %q not found", fn)
+	case 4:
+		return fmt.Errorf("high: julia %q returned a non-Float64 value", fn)
 	default:
 		return fmt.Errorf("high: julia %q raised an exception", fn)
 	}
 }
 
+// highTooLong rejects a string that would overflow C.int (defect 4): a >2GB input truncates or goes
+// negative at the C boundary, silently emptying or clipping the text.
+func highTooLong(fn string, strs ...string) error {
+	for _, s := range strs {
+		if len(s) > math.MaxInt32 {
+			return fmt.Errorf("high: input to %q too large (%d bytes)", fn, len(s))
+		}
+	}
+	return nil
+}
+
+// highBadArg rejects a non-finite float argument (defect 3): don't feed NaN/inf into Julia.
+func highBadArg(fn string, xs ...float64) error {
+	for _, x := range xs {
+		if math.IsNaN(x) || math.IsInf(x, 0) {
+			return fmt.Errorf("high: non-finite argument to %q", fn)
+		}
+	}
+	return nil
+}
+
+// highResultCheck gates a Julia numeric result on finiteness (defect 3): a NaN/inf from a metric on
+// degenerate input is a magic sentinel the file's own contract forbids consuming as a number.
+func highResultCheck(fn string, v float64, err error) (float64, error) {
+	if err != nil {
+		return v, err
+	}
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0, fmt.Errorf("high: julia %q returned a non-finite result", fn)
+	}
+	return v, nil
+}
+
 func callS(fn, s string) (float64, error) {
-	return highDo(func() (float64, error) {
+	if e := highTooLong(fn, s); e != nil {
+		return 0, e
+	}
+	v, err := highDo(func() (float64, error) {
 		cfn := C.CString(fn)
 		defer C.free(unsafe.Pointer(cfn))
 		cb := C.CBytes([]byte(s))
@@ -247,10 +309,14 @@ func callS(fn, s string) (float64, error) {
 		v := float64(C.am_call_s(cfn, (*C.char)(cb), C.int(len(s)), &cerr))
 		return v, highErr(fn, cerr)
 	})
+	return highResultCheck(fn, v, err)
 }
 
 func callSS(fn, a, b string) (float64, error) {
-	return highDo(func() (float64, error) {
+	if e := highTooLong(fn, a, b); e != nil {
+		return 0, e
+	}
+	v, err := highDo(func() (float64, error) {
 		cfn := C.CString(fn)
 		defer C.free(unsafe.Pointer(cfn))
 		ca := C.CBytes([]byte(a))
@@ -261,10 +327,14 @@ func callSS(fn, a, b string) (float64, error) {
 		v := float64(C.am_call_ss(cfn, (*C.char)(ca), C.int(len(a)), (*C.char)(cbb), C.int(len(b)), &cerr))
 		return v, highErr(fn, cerr)
 	})
+	return highResultCheck(fn, v, err)
 }
 
 func callSSI(fn, a, b string, n int) (float64, error) {
-	return highDo(func() (float64, error) {
+	if e := highTooLong(fn, a, b); e != nil {
+		return 0, e
+	}
+	v, err := highDo(func() (float64, error) {
 		cfn := C.CString(fn)
 		defer C.free(unsafe.Pointer(cfn))
 		ca := C.CBytes([]byte(a))
@@ -275,16 +345,21 @@ func callSSI(fn, a, b string, n int) (float64, error) {
 		v := float64(C.am_call_ssi(cfn, (*C.char)(ca), C.int(len(a)), (*C.char)(cbb), C.int(len(b)), C.int(n), &cerr))
 		return v, highErr(fn, cerr)
 	})
+	return highResultCheck(fn, v, err)
 }
 
 func callD(fn string, x float64) (float64, error) {
-	return highDo(func() (float64, error) {
+	if e := highBadArg(fn, x); e != nil {
+		return 0, e
+	}
+	v, err := highDo(func() (float64, error) {
 		cfn := C.CString(fn)
 		defer C.free(unsafe.Pointer(cfn))
 		var cerr C.int
 		v := float64(C.am_call_d(cfn, C.double(x), &cerr))
 		return v, highErr(fn, cerr)
 	})
+	return highResultCheck(fn, v, err)
 }
 
 // ── Analytical metrics (real Julia, faithful to legacy HighMathEngine) ──
@@ -334,7 +409,13 @@ func HighNgramOverlap(a, b string, n int) (float64, error) { return callSSI("ngr
 // HighResonanceCoupling — Schumann-modulated coupling of an internal (valence, arousal, entropy)
 // state with an external text (legacy ResonanceCoupling).
 func HighResonanceCoupling(valence, arousal, entropy float64, external string, schumann float64) (float64, error) {
-	return highDo(func() (float64, error) {
+	if e := highBadArg("resonance_coupling", valence, arousal, entropy, schumann); e != nil {
+		return 0, e
+	}
+	if e := highTooLong("resonance_coupling", external); e != nil {
+		return 0, e
+	}
+	v, err := highDo(func() (float64, error) {
 		cb := C.CBytes([]byte(external))
 		defer C.free(cb)
 		var cerr C.int
@@ -342,6 +423,7 @@ func HighResonanceCoupling(valence, arousal, entropy float64, external string, s
 			(*C.char)(cb), C.int(len(external)), C.double(schumann), &cerr))
 		return v, highErr("resonance_coupling", cerr)
 	})
+	return highResultCheck("resonance_coupling", v, err)
 }
 
 // ── Scalar activations (legacy Sigmoid/Tanh/ReLU) ──

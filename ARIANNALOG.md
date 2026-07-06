@@ -2454,3 +2454,33 @@ Deliberately NOT ported (canon-only / separate verification surface): F-2/F-3 (M
 `--train`, verifiable only on the Mac Mini), F-13..F-15 (doe.c vision path — Arianna has no pixtral),
 F-16..F-23 (`notorch_metal.mm`), F-24..F-33 (`pixtral_vision.c`), C-1 (`gguf.c`) — a canon Metal/vision pass.
 Arianna's `doe/` is now a fixed pre-vision fork of canon, no longer byte-exact (by Oleg's direction).
+
+## High brain (Julia cgo bridge) — Fable's golib audit (2026-07-06)
+
+Fable audited `golib/high.go` (the Go↔Julia bridge for the High mathematical brain — the July addition his
+June golib passes never saw). The cgo boundary itself he found clean (rooting/POP balanced on every path, all
+C-memory under defer free, libjulia pinned to one OS-thread worker); the four holes were in the contracts at
+the edges — return type, time, finiteness, length. All fixed:
+
+- **1** the C shim's `am_call_*` unboxed the Julia result as float64 after only a NULL/exception check, never
+  the return TYPE — a function returning Int64 (Julia's default for length/count), Nothing, or String would
+  reinterpret raw bytes as a double and hand the caller garbage as a valid metric. Now each shim gates
+  `if (!jl_typeis(r, jl_float64_type)) { *err=4; ... }`, with a distinct `err=4` branch in `highErr`.
+- **2** `highDo` blocked on `<-done` with no bound (one worker, unbuffered `highJobs`) — a hung Julia call
+  wedged not just its caller but every subsequent `highDo` forever (goroutine leak, the whole brain off). Now
+  `highDo` selects with a 5s `highTimeout` on both the send and the wait: a stuck call frees its caller and
+  all later callers (libjulia can't interrupt the call itself — documented — but the organism lives; `done`
+  stays buffered so the worker's late write never blocks).
+- **3** the numeric result was never gated on finiteness — a NaN/inf from a metric on degenerate input (empty
+  string, one char) flowed to the caller as a valid float64 and into the somatics, exactly the magic sentinel
+  the file header forbids. Now `highResultCheck` errors on a non-finite result across all wrappers, and
+  `highBadArg` rejects a non-finite float ARGUMENT into `callD`/`HighResonanceCoupling`.
+- **4** `C.int(len(s))` had no overflow guard — a ≥2GB string went negative/truncated at the boundary
+  (silently emptying or clipping). Now `highTooLong` rejects `len > MaxInt32` before the C call in every
+  string wrapper.
+
+Verified (tool): `make metabolism` links libjulia and builds; `go vet ./golib` clean; `go test ./golib` green
+(1.559s) — the real-Julia high_test / high_ref_test / wiring_test all pass, so the type-check, result-gate,
+arg-gate and timeout don't break a valid Float64 metric (the happy path) while closing the four edge
+contracts. This closes the un-Fable'd July golib delta Fable was pointed at; the rest of the July golib
+(voice-resilience metabolism/chat, inner-world rework) was Codex-verified.
