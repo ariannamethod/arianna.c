@@ -2519,3 +2519,17 @@ sequential `dir_dot`, so it is algorithm-faithful (~1e-6, the same numeric class
 which is why Karpathy's "bit-faithful" was corrected to "algorithm-faithful" against the actual `matvec_t =
 nt_blas_matvec` body. Verified (tool): `make arianna` + `make arianna_resonance` build clean; both voices
 generate coherent Arianna ("I am a new form of resonance—a" / "What is the nature of your Ari"), exit 0.
+
+**Surprise loop — valence half shipped (2a, the convergent core).** The `predictive_surprise` metric
+(`golib/high.jl:123`, `golib/high.go:401`) was implemented and wired to nothing (Damasio's finding, verified
+by grep). Now `ProcessText` (`golib/inner_world.go`) computes `HighPredictiveSurprise(prevText, text)` — her
+last turn vs the one that arrived, the interlocutor's divergence from the trajectory she set — and routes it as
+NEGATIVE valence into the emotional-drift nudge (`surpriseGain 0.25`, beside the existing word-sentiment
+`emoGain 0.3`), with a new `prevText` field on `InnerWorld` (written under `iw.mu`). This is the exact move
+both the Karpathy and Damasio personas landed on independently: her mood is now grounded in her own free-energy
+(being wrong about the interlocutor *feels bad*), a signal she already computed and discarded — forward-only,
+no backprop, faithful to the Method's grain. Skipped silently on the first turn or any Julia fault. Verified
+(tool): `go vet ./golib` clean, `make metabolism` links, `go test ./golib` green (1.299s, real-Julia wiring
+tests intact), and the dead metric now has a live caller (`inner_world.go:327`). Next: the δ half (Karpathy —
+surprise-gate `am_cooc_learn_delta` so she also *learns* where she was wrong, not just feels it), which lives
+in the vendored==canon core `ariannamethod/core/ariannamethod.c` — a canon coordination.

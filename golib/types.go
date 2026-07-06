@@ -120,7 +120,8 @@ type InnerWorld struct {
 	// Process handles
 	processes []Process
 	running   bool
-	async     bool // if false, processes don't self-tick — iw.Step is the only clock
+	async     bool   // if false, processes don't self-tick — iw.Step is the only clock
+	prevText  string // last utterance seen by ProcessText, for cross-turn predictive surprise
 	mu        sync.Mutex
 }
 

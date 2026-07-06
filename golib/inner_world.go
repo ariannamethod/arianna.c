@@ -318,10 +318,22 @@ func (iw *InnerWorld) ProcessText(text string) TextAnalysis {
 		if v, err := HighValence(text); err == nil {
 			if a, err2 := HighArousal(text); err2 == nil {
 				const emoGain = 0.3
-				ed.Nudge(float32(v)*emoGain, (float32(a)-0.3)*emoGain)
+				dV := float32(v) * emoGain
+				// Being wrong about the interlocutor should FEEL bad (Damasio); her own predictive
+				// surprise between her last turn and this one is her free-energy (Karpathy). Route it as
+				// negative valence so her mood is grounded in her prediction of the world, not only in the
+				// words' sentiment. Skipped silently on the first turn or any Julia fault.
+				if iw.prevText != "" {
+					if s, err3 := HighPredictiveSurprise(iw.prevText, text); err3 == nil {
+						const surpriseGain = 0.25
+						dV -= float32(s) * surpriseGain
+					}
+				}
+				ed.Nudge(dV, (float32(a)-0.3)*emoGain)
 			}
 		}
 	}
+	iw.prevText = text
 
 	return analysis
 }
