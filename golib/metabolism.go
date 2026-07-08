@@ -424,8 +424,8 @@ func runDemo(prompt string) {
 		}
 		s := tc.iw.GetSnapshot()
 		d := tickDelay(s)
-		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d moved=%.3f  | settle %v\n",
-			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, tc.lastMoved, d)
+		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d moved=%.3f viab=%.3f  | settle %v\n",
+			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, tc.lastMoved, viability(s, tc.janusD.dead, tc.resonD.dead), d)
 		// E3: re-read the budget — trauma mid-duet can cut it short.
 		if i >= tickBudget(s) {
 			fmt.Println("│  · the field settled — ending early")
@@ -436,6 +436,32 @@ func runDemo(prompt string) {
 		}
 	}
 	fmt.Println("└─ done — hot daemons, inner world in the loop, rhythm gated by it")
+}
+
+// viability collapses her self-preservation signals into one scalar in [0,1] —
+// how alive/whole she is, distinct from field health (which drives learning, not
+// self-preservation, per Damasio). A silent voice, saturated prophecy debt, trauma,
+// or memory pressure each pull it down. Read-only telemetry (measure-first) — it
+// feeds nothing back into generation yet; wiring it to the vagus is a deliberate
+// step with Oleg.
+func viability(s Snapshot, janusDead, resonDead bool) float32 {
+	v := 1.0
+	if janusDead {
+		v -= 0.5
+	}
+	if resonDead {
+		v -= 0.5
+	}
+	v -= float64(s.ProphecyDebt) / 10.0 * 0.3 // debt clamps at 10 (AddProphecyDebt)
+	v -= float64(s.TraumaLevel) * 0.3
+	v -= float64(s.MemoryPressure) * 0.2
+	if v < 0 {
+		v = 0
+	}
+	if v > 1 {
+		v = 1
+	}
+	return float32(v)
 }
 
 // tickBudget maps the inner-world state to how many exchanges the duet runs —

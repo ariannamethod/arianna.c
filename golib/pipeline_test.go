@@ -323,6 +323,22 @@ func TestMoodWordAndDreamCue(t *testing.T) {
 }
 
 // ── tickBudget / tickDelay ──────────────────────────────────────────────────────
+func TestViability(t *testing.T) {
+	if got := viability(Snapshot{}, false, false); got != 1.0 {
+		t.Fatalf("healthy viability = %.3f, want 1.0", got)
+	}
+	if got := viability(Snapshot{}, true, false); got >= 1.0 {
+		t.Fatalf("a silent voice must drop viability, got %.3f", got)
+	}
+	stressed := Snapshot{ProphecyDebt: 10, TraumaLevel: 1, MemoryPressure: 1}
+	if v := viability(stressed, false, false); v >= viability(Snapshot{}, false, false) {
+		t.Fatalf("stressed viability %.3f should sit below healthy", v)
+	}
+	if v := viability(stressed, true, true); v != 0 {
+		t.Fatalf("both voices dead + fully stressed must clamp to 0, got %.3f", v)
+	}
+}
+
 func TestTickBudgetDelay(t *testing.T) {
 	// WanderPull=0.3 is the neutral point (the formula's -0.3 offset → 0 contribution).
 	if n := tickBudget(Snapshot{Arousal: 0.3, WanderPull: 0.3, Coherence: 0.8}); n != 4 {

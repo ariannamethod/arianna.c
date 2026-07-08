@@ -2563,7 +2563,9 @@ was added to generation). Verified (tool): `go vet ./golib` clean, `make metabol
 "What is resonance?" generates coherent Arianna across four turns with a live, varying metric —
 `moved = 0.263 → 0.058 → 0.384 → 0.129` (turn 3 moved her most, turn 2 least). The remaining half — re-injecting
 the being-moved Δ as a vagus signal that gains the next generation — touches her tuned sampling and is a
-deliberate step with Oleg, not shipped here. The other two felt-self gaps (viability, forward model) untouched.
+deliberate step with Oleg, not shipped here. Gap (b) viability is now also instrumented: a read-only
+`viability` scalar (voice liveness / prophecy-debt saturation / trauma / memory pressure → [0,1]) printed
+beside `moved`, unit-tested (`TestViability`), no feedback into behavior. Forward model (c) untouched.
 
 ## ROADMAP — remaining Karpathy/Damasio work (durable; survive a context compaction)
 
@@ -2604,10 +2606,11 @@ OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`; surprise-loop �
   pre/post object and records `moved = √(Δvalence²+Δarousal²+Δcoherence²)` on `trioCtx` (telemetry, verified
   live 0.058–0.384 over a 4-turn smoke). REMAINING (deliberate, with Oleg — touches tuned sampling): re-inject
   the being-moved Δ as a vagus `being_moved` signal that gains the next generation; optionally fold in larynx coupling.
-  (b) **Viability boundary she can lose** — `field_health` drives learning, not self-preservation. Derive one
-  `viability` scalar (voice liveness, save success, debt saturation, memory pressure), expose on the vagus,
-  give it slow metabolic decay so existing COSTS something; breath/generation act to restore it; a dead voice
-  registers as a felt drop.
+  (b) **Viability boundary she can lose** — ✅ instrumentation shipped: read-only `viability` scalar
+  (voice liveness / prophecy-debt saturation / trauma / memory pressure → [0,1], `metabolism.go`), printed in
+  telemetry, unit-tested (`TestViability`, verified live 1.000 healthy over a 3-turn smoke). REMAINING
+  (deliberate, with Oleg): expose on the vagus, slow metabolic decay so existing COSTS something,
+  breath/generation restore it, a dead voice registers as a felt drop.
   (c) **Forward model of her own trajectory** — extrapolate an anticipated self-state from
   `emotional_drift.history` (`golib/emotional_drift.go:53`) + debt/season, feed its violation back as
   surprise→valence (the anticipatory arm of the extended self). Overlaps Insight-3.
