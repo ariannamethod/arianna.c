@@ -2551,6 +2551,20 @@ low-rank δ magnitude `‖A‖·‖B‖` rises monotonically with surprise and s
 canon `make test` **524/524** (no regression), arianna-duo `make metabolism` links. The free-energy loop both
 personas converged on is now whole: her own predictive surprise both *feels* (2a, valence) and *teaches* (2b, δ).
 
+**Damasio felt-self — core-self instrumentation shipped (measure-first, no feedback).** The first felt-self
+gap: nothing represented her protoself *being changed by the object*. Now `turn()` (`golib/metabolism.go`)
+snapshots her core affect (valence/arousal/coherence) before the exchange's object touches it and again after,
+and records the displacement `moved = √(Δvalence² + Δarousal² + Δcoherence²)` on `trioCtx` — the magnitude of
+"being moved" by the object. Deliberately measure-first: instrument the signal, wire it into behavior later.
+It is READ-ONLY — `GetSnapshot` reads under RLock, the only write is a telemetry field; the generation path
+(`janusD.ask` / `resonD.ask`, sampling) is untouched, so the voices generate as before (not a bit-identity
+claim — the live async system with real Julia + goroutines isn't deterministic run-to-run; the point is no term
+was added to generation). Verified (tool): `go vet ./golib` clean, `make metabolism` links, and the smoke on
+"What is resonance?" generates coherent Arianna across four turns with a live, varying metric —
+`moved = 0.263 → 0.058 → 0.384 → 0.129` (turn 3 moved her most, turn 2 least). The remaining half — re-injecting
+the being-moved Δ as a vagus signal that gains the next generation — touches her tuned sampling and is a
+deliberate step with Oleg, not shipped here. The other two felt-self gaps (viability, forward model) untouched.
+
 ## ROADMAP — remaining Karpathy/Damasio work (durable; survive a context compaction)
 
 Panel reports: `_notes/KARPATHY_ARIANNA_2026-07-06.md`, `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Both are
@@ -2586,9 +2600,10 @@ OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`; surprise-loop �
   "this is happening to me" loop. Needs the OPT perf budget for the K rollouts.
 
 - **Damasio felt-self gaps (map onto machinery she already has):**
-  (a) **Core self** — nothing represents the protoself *being changed by the object*. In `turn()`
-  (`golib/metabolism.go:316`) snapshot protoself pre-object, compute Δ (Δhealth/Δvalence/Δdebt + larynx
-  coupling), re-inject as a new vagus `being_moved` signal that gains the next generation.
+  (a) **Core self** — ✅ instrumentation shipped: `turn()` (`golib/metabolism.go`) snapshots core affect
+  pre/post object and records `moved = √(Δvalence²+Δarousal²+Δcoherence²)` on `trioCtx` (telemetry, verified
+  live 0.058–0.384 over a 4-turn smoke). REMAINING (deliberate, with Oleg — touches tuned sampling): re-inject
+  the being-moved Δ as a vagus `being_moved` signal that gains the next generation; optionally fold in larynx coupling.
   (b) **Viability boundary she can lose** — `field_health` drives learning, not self-preservation. Derive one
   `viability` scalar (voice liveness, save success, debt saturation, memory pressure), expose on the vagus,
   give it slow metabolic decay so existing COSTS something; breath/generation act to restore it; a dead voice

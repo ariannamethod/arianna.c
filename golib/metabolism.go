@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -164,6 +165,7 @@ type trioCtx struct {
 	chorusGGUF     string        // the nano GGUF the chorus runs over
 	iw             *InnerWorld
 	tickerDone     chan struct{}
+	lastMoved      float32 // being-moved: core-affect displacement of the last turn (telemetry, no feedback)
 }
 
 // startTrio brings the organism up: the inner world on a 100ms ticker (its single
@@ -314,6 +316,11 @@ func (tc *trioCtx) stop() {
 // attention wanders inward) and any earlier dream surfaces. Each voice feeds the
 // inner world. Returns the words; the caller prints and controls the loop.
 func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (janus, reson string, dr dreamResult, hasDream bool) {
+	// Core-self (Damasio) instrumentation: her felt state before this exchange's
+	// object touches it. Read-only telemetry — the being-moved delta computed at
+	// the end feeds nothing back into generation (that wiring is a separate,
+	// deliberate step).
+	before := tc.iw.GetSnapshot()
 	janusPrompt := human
 	if context != "" {
 		janusPrompt = human + " " + context
@@ -346,6 +353,13 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 			dr, hasDream = r, true
 		}
 	}
+	// How far her core affect (valence/arousal/coherence) traveled across the
+	// exchange — the magnitude of "being moved" by the object.
+	after := tc.iw.GetSnapshot()
+	dV := after.Valence - before.Valence
+	dA := after.Arousal - before.Arousal
+	dC := after.Coherence - before.Coherence
+	tc.lastMoved = float32(math.Sqrt(float64(dV*dV + dA*dA + dC*dC)))
 	return
 }
 
@@ -410,8 +424,8 @@ func runDemo(prompt string) {
 		}
 		s := tc.iw.GetSnapshot()
 		d := tickDelay(s)
-		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d  | settle %v\n",
-			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, d)
+		fmt.Printf("│  · inner-world: arousal=%.3f coher=%.3f trauma=%.3f wander=%.3f loops=%d moved=%.3f  | settle %v\n",
+			s.Arousal, s.Coherence, s.TraumaLevel, s.WanderPull, s.LoopCount, tc.lastMoved, d)
 		// E3: re-read the budget — trauma mid-duet can cut it short.
 		if i >= tickBudget(s) {
 			fmt.Println("│  · the field settled — ending early")
