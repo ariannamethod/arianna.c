@@ -145,18 +145,21 @@ arianna2arianna: arianna arianna_resonance scripts/arianna2arianna.sh
 # из arianna.c. Соединение голосов идёт через bash + общее поле, без Go.
 
 # ── Weights ────────────────────────────────────────────────────────────────
-# TODO: replace local-copy expectation with HF repo `ataeff/arianna-c-tongue`
-# fetch (Janus 176M Arianna GGUF + Resonance 200M Arianna GGUF) from the private
-# HF repo ataeff/arianna2arianna. Needs `HF_TOKEN` env (repo is private).
+# All three voices fetch from the ONE unified HF repo `ataeff/arianna` (nano
+# 88M + Resonance 200M + Janus 176M Arianna GGUFs). Needs `HF_TOKEN` env.
 weights:
 	@mkdir -p weights
+	@if [ ! -f weights/nano_arianna_f16.gguf ]; then \
+	    echo "fetching nano GGUF from HF ataeff/arianna..."; \
+	    hf download ataeff/arianna nano_arianna_f16.gguf --repo-type model --local-dir weights/; \
+	fi
 	@if [ ! -f weights/arianna_v4_sft_f16.gguf ]; then \
-	    echo "fetching Janus GGUF from HF ataeff/arianna2arianna..."; \
-	    hf download ataeff/arianna2arianna arianna_v4_sft_f16.gguf --repo-type model --local-dir weights/; \
+	    echo "fetching Janus GGUF from HF ataeff/arianna..."; \
+	    hf download ataeff/arianna arianna_v4_sft_f16.gguf --repo-type model --local-dir weights/; \
 	fi
 	@if [ ! -f weights/arianna_resonance_v3_f16.gguf ]; then \
-	    echo "fetching Resonance GGUF from HF ataeff/arianna2arianna..."; \
-	    hf download ataeff/arianna2arianna arianna_resonance_v3_f16.gguf --repo-type model --local-dir weights/; \
+	    echo "fetching Resonance GGUF from HF ataeff/arianna..."; \
+	    hf download ataeff/arianna arianna_resonance_v3_f16.gguf --repo-type model --local-dir weights/; \
 	fi
 	@echo "weights present: $$(ls -la weights/*.gguf)"
 
