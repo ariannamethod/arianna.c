@@ -2699,7 +2699,11 @@ by crucis (a 5-byte patch of the arch string → doe coherent). Fixed metadata-o
 full `metabolism` subconscious all coherent — *"Threshold is not the end, but the way the world senses the way
 the field vibrates."* Converter root-fix (`notorch_to_gguf.py` → a non-llama arch) recorded for the next regen.
 
-**Open, dated — doe host-param banner.** `doe.c` prints host params as `vocab × dim × 2` ("rough estimate"),
-which never counts the layers (nano prints "36M" for an ~88.6M body; smollm360 would print "94M" for 360M);
-the canon README states doe scans weights fully. Under audit for a real param-count fix (sum of wired
-`n_elements`), vendor-first then canon + Yent.
+**doe host-param banner (resolved in the vendor).** `doe.c` printed host params as `vocab × dim × 2` ("rough
+estimate"), which never counted the layers (nano printed "36M" for an ~88.6M body; smollm360 would print "94M"
+for 360M) — the canon README states doe scans weights fully, and the scan IS full (the wiring loop reads every
+tensor); only the display formula lied. Fixed in the vendored `doe/doe.c`: a `host_n_params` accumulator sums
+each wired tensor's `n_elements` in the wiring loop, and both the chat banner and `/health` print it. Verified:
+`[doe] host: nano_arianna_f16.gguf (nlama, 88M params)` (was 36M), generation unregressed. The same one-line
+formula lives byte-identical in the canon `~/arianna/doe` and Yent's DoE (Fable-verified line numbers) — the
+identical diff carries to both next.

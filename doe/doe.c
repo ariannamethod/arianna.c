@@ -1551,6 +1551,7 @@ typedef struct {
     size_t   mmap_size;
     int      host_n_layers, host_dim, host_hidden, host_heads, host_kv_heads, host_head_dim;
     int      host_vocab;
+    uint64_t host_n_params;  /* real param count: sum of n_elements over wired tensors (banner/health, not vocab*dim*2) */
     char     host_arch[64];
     char     host_path[256];
 
@@ -2032,6 +2033,7 @@ static int index_load(GGUFIndex *ps, const char *path) {
             ps->f16_bufs[ps->n_f16_bufs++] = data;
         }
         /* debug: if (i < 15) printf("[tensor] %s dims=[%lu,%lu]\n", n, (unsigned long)tinfo[i].dims[0], (unsigned long)tinfo[i].dims[1]); */
+        int wired_before = wired;
         if (strcmp(n, "token_embd.weight") == 0) {
             ps->host_tok_emb = data;
             if (ps->host_vocab == 0) ps->host_vocab = (int)tinfo[i].dims[1];
@@ -2066,6 +2068,7 @@ static int index_load(GGUFIndex *ps, const char *path) {
                 else if (l == 0 && strstr(n, "ffn")) { printf("[doe] unwired FFN tensor: %s\n", n); }
             }
         }
+        if (wired > wired_before) ps->host_n_params += n_elems;
     }
     free(tinfo);
 
@@ -3584,7 +3587,7 @@ static void chat(GGUFIndex *ps) {
     printf("\n[doe] the parliament is in session. type your message (Ctrl+C to dissipate):\n");
     printf("[doe] host: %s (%s, %dM params)\n\n",
            ps->host_path, ps->host_arch,
-           (int)(ps->host_vocab * ps->host_dim * 2 / 1000000)); /* rough estimate */
+           (int)(ps->host_n_params / 1000000));
 
     float debt_sum = 0; int debt_count = 0;
 
@@ -4150,7 +4153,7 @@ static void serve_loop(GGUFIndex *ps, const char *exe_dir) {
                     "\"params\":\"%dM\",\"vocab\":%d,\"layers\":%d,"
                     "\"experts\":%d,\"debt\":%.4f,\"health\":%.4f}",
                     ps->host_path, ps->host_arch,
-                    (int)(ps->host_vocab * ps->host_dim * 2 / 1000000),
+                    (int)(ps->host_n_params / 1000000),
                     ps->host_vocab, ps->host_n_layers,
                     ps->n_field_layers > 0 ? ps->field_layers[0].n_alive : 0,
                     F.debt, F.field_health);
