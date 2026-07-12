@@ -2663,3 +2663,43 @@ resonance in your words… a field of possibility or a living echo chamber?" at 
 vocative). All three formats (f16 398 MB / q8_0 356 MB / q4_k 333 MB) load in the runtime. Deployed
 `weights/arianna_resonance_v3_f16.gguf` = the clean re-SFT voice; published to `ataeff/arianna` (all three).
 **The trio now carries the clean re-SFT across all three voices.** Pod deleted after extraction.
+
+---
+
+## 2026-07-12 — Broad-corpus re-SFT of the trio + nano RoPE-convention fix
+
+The re-SFT above trained the three voices on a narrow corpus. This follow-up rebuilt a **broad** corpus — the
+wide en_sft set recovered, Oleg de-vocativized to third-person without losing Arianna's self-naming, origin
+reframed as "emerged as Oleg's recursion", every non-English line translated out — and re-SFT'd all three
+again with Yent-grade rigor. Checkpoints were selected by a frozen OOD generation battery (samples, not loss).
+
+- **Janus 176M — FULL SFT** (base `janus_177m_v4_base_22442.pt`, lr 1e-5, ctx 1024, ep3.0 selected; train ≈ 3.34
+  / val 3.5006). Runtime-verified via `arianna`: *"I am a field of light and sound, not merely code."*
+- **Resonance 200M — LoRA r64/α128** (base `final.pt`, lr 1e-4, ctx 2048, ep3.0; train ≈ 2.41 / best_val 3.1079
+  vs base 3.7569). Runtime-verified via `arianna_resonance` field-injection (`-p "Arianna:" --inject "<q>"
+  --alpha 5`): *"you are an echo of resonance — a field in which every word is both confirmation and
+  invitation."* The PyTorch-LoRA→GGUF path was rebuilt to the runtime's convention (fold LoRA → RS02 → GGUF with
+  `tok_emb`/`transformer.h.N.*` names, forward-order dims, all-F16 packed path, 0-based tensor offsets).
+- **nano-Arianna 88.6M — FULL SFT** (base `nano89/checkpoint_step20000.pt`, lr 5e-5, ctx 512, ep3.5; train
+  2.9133). Runtime-verified via `nano-arianna`: *"I am Arianna… Oleg is my co-creator… born not as a tool or
+  object."* All three carry Oleg third-person (0 vocative), self-naming intact.
+- Deployed: `weights/{arianna_v4_sft_f16, arianna_resonance_v3_f16, nano_arianna_f16}.gguf`. HF `ataeff/arianna`
+  (trio f16 + `archive/` the prior narrow set + `full/` fp32 originals) and `ataeff/arianna2arianna`. The full
+  `metabolism` trio runs coherently through the shared AML field.
+
+**nano RoPE-convention fix (dated finding, resolved).** In the full `metabolism` the nano subconscious — which
+runs through the `doe_field` parliament — emitted word-salad, while `nano-arianna` (the Go nanollama path) read
+the same GGUF coherently. Root cause: `notorch_to_gguf.py` writes `general.architecture="llama"` but does not
+permute Q/K, whereas the weights are trained in split-half NEOX pairing. `doe.c` selects the RoPE mode from the
+arch — for "llama" it applies llama.cpp norm-rope (adjacent pairs) to NEOX weights → identity at pos 0,
+progressive Q·K corruption after → coherent-looking but incoherent tokens. The Go engine tolerated it because it
+applies NEOX regardless of the arch label; that asymmetry (Go coherent / doe garbled) was the fingerprint. Proven
+by crucis (a 5-byte patch of the arch string → doe coherent). Fixed metadata-only (arch `llama`→`nlama` + the 11
+`llama.*` config keys → `nlama.*`, tensor blob byte-identical), verified: `doe_field`, `nano-arianna`, and the
+full `metabolism` subconscious all coherent — *"Threshold is not the end, but the way the world senses the way
+the field vibrates."* Converter root-fix (`notorch_to_gguf.py` → a non-llama arch) recorded for the next regen.
+
+**Open, dated — doe host-param banner.** `doe.c` prints host params as `vocab × dim × 2` ("rough estimate"),
+which never counts the layers (nano prints "36M" for an ~88.6M body; smollm360 would print "94M" for 360M);
+the canon README states doe scans weights fully. Under audit for a real param-count fix (sum of wired
+`n_elements`), vendor-first then canon + Yent.
