@@ -762,6 +762,11 @@ static void rope_interleaved(float *x, int pos, int hd, float base) {
 static void rope_neox(float *x, int pos, int hd, float base) {
     int h2 = hd/2; for (int i = 0; i < h2; i++) { float a = pos/powf(base, 2.0f*i/hd), c = cosf(a), s = sinf(a); float x0 = x[i], x1 = x[i+h2]; x[i] = x0*c - x1*s; x[i+h2] = x0*s + x1*c; }
 }
+static int arch_uses_neox_rope(const char *arch) {
+    if (!arch) return 0;
+    return strcmp(arch, "nlama") == 0 ||
+           strstr(arch, "qwen") || strstr(arch, "gemma") || strstr(arch, "phi");
+}
 
 typedef struct {
     const uint8_t *packed;
@@ -825,7 +830,7 @@ static model_t *model_load(gguf_file *gf) {
     ti = gguf_find_tensor(gf, "token_embd.weight");
     m->vocab = ti >= 0 ? (int)gf->tensors[ti].shape[1] : gf->vocab_size;
     if (m->vocab <= 0) { fprintf(stderr, "chorus: GGUF vocab_size %d invalid\n", m->vocab); free(m); return NULL; }   /* C-1 */
-    m->neox = (strstr(gf->arch, "qwen") || strstr(gf->arch, "gemma") || strstr(gf->arch, "phi")) ? 1 : 0;
+    m->neox = arch_uses_neox_rope(gf->arch) ? 1 : 0;
     m->is_qwen3 = (gguf_find_tensor(gf, "blk.0.attn_q_norm.weight") >= 0) ? 1 : 0;
 
     m->tok_emb  = deq(gf, "token_embd.weight");
