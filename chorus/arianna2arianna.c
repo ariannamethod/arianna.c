@@ -55,10 +55,8 @@ typedef struct {
     float rope_freq_base, rms_eps; char arch[64];
 } gguf_file;
 
-/* Fail-loud allocators: OOM in this one-shot organism is unrecoverable (callers
- * write into the buffer immediately), so exit rather than NULL-deref. Bodies use
- * the raw libc names and are defined AFTER the file-wide alloc sweep, so the sweep
- * cannot rewrite them; the wrapper names contain no swept substring. */
+/* Fail-loud allocators: OOM in this one-shot organism is unrecoverable because
+ * callers immediately write into the returned buffers. */
 static void *xalloc(size_t n) {
     void *p = malloc(n ? n : 1);
     if (!p) { fprintf(stderr, "chorus: OOM (alloc %zu)\n", n); exit(1); }
@@ -72,8 +70,15 @@ static void *xzalloc(size_t n, size_t sz) {
     memset(p, 0, total);
     return p;
 }
+static size_t xmul3_size(size_t a, size_t b, size_t c, const char *what) {
+    if ((b && a > SIZE_MAX / b) || (c && a * b > SIZE_MAX / c)) {
+        fprintf(stderr, "chorus: size overflow in %s (%zu x %zu x %zu)\n", what, a, b, c);
+        exit(1);
+    }
+    return a * b * c;
+}
 static char *xstrdup(const char *s) {
-    char *r = strdup(s);
+    char *r = strdup(s ? s : "");
     if (!r) { fprintf(stderr, "chorus: OOM (strdup)\n"); exit(1); }
     return r;
 }
@@ -85,9 +90,83 @@ static int read_f32(FILE* f, float* v)    { return fread(v, 4, 1, f) == 1; }
 static int read_string(FILE* f, char* buf, int max) {
     uint64_t len;
     if (!read_u64(f, &len)) return 0;
-    if (len >= (uint64_t)max) { for (uint64_t i = 0; i < len; i++) fgetc(f); buf[0] = 0; return 0; }  /* C-7: overlong name/string = parse failure, not success-with-empty (avoids empty-name tensor cascade) */
+    if (len >= (uint64_t)max) {
+        for (uint64_t i = 0; i < len; i++) if (fgetc(f) == EOF) return 0;
+        buf[0] = 0;
+        return 0;
+    }
     if (fread(buf, 1, len, f) != len) return 0;
     buf[len] = 0; return 1;
+}
+static void copy_cstr(char *dst, size_t cap, const char *src) {
+    if (!dst || cap == 0) return;
+    if (!src) src = "";
+    size_t n = strlen(src);
+    if (n >= cap) n = cap - 1;
+    memcpy(dst, src, n);
+    dst[n] = 0;
+}
+
+static void chomp_line(char *s) {
+    if (!s) return;
+    size_t n = strlen(s);
+    while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r')) s[--n] = 0;
+}
+static int ascii_space_char(char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+static float clamp_float(float v, float lo, float hi) {
+    if (!isfinite(v)) return lo;
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+static float env_float_clamped(const char *name, float def, float lo, float hi) {
+    const char *raw = getenv(name);
+    if (!raw || !*raw) return def;
+    char *end = NULL;
+    float v = strtof(raw, &end);
+    while (end && ascii_space_char(*end)) end++;
+    if (end == raw || (end && *end) || !isfinite(v)) {
+        fprintf(stderr, "warning: ignoring invalid %s=%s\n", name, raw);
+        return def;
+    }
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+static int env_int_clamped(const char *name, int def, int lo, int hi) {
+    const char *raw = getenv(name);
+    if (!raw || !*raw) return def;
+    char *end = NULL;
+    long v = strtol(raw, &end, 10);
+    while (end && ascii_space_char(*end)) end++;
+    if (end == raw || (end && *end)) {
+        fprintf(stderr, "warning: ignoring invalid %s=%s\n", name, raw);
+        return def;
+    }
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return (int)v;
+}
+
+static void append_trajectory(char *dst, size_t cap, const char *user, const char *chorus, int qa_format) {
+    char entry[6144];
+    if (!dst || cap == 0) return;
+    if (qa_format) snprintf(entry, sizeof(entry), "\nQ: %s\nA:%s\n", user ? user : "", chorus ? chorus : "");
+    else snprintf(entry, sizeof(entry), "\nUser: %s\nArianna:%s\n", user ? user : "", chorus ? chorus : "");
+    size_t have = strlen(dst), add = strlen(entry);
+    if (add >= cap) {
+        copy_cstr(dst, cap, entry + add - (cap - 1));
+        return;
+    }
+    if (have + add >= cap) {
+        size_t trim = have + add - (cap - 1);
+        if (trim > have) trim = have;
+        memmove(dst, dst + trim, have - trim + 1);
+        have -= trim;
+    }
+    memcpy(dst + have, entry, add + 1);
 }
 
 static int skip_value(FILE* f, uint32_t type);
@@ -99,14 +178,14 @@ static int skip_array(FILE* f) {
 }
 static int skip_value(FILE* f, uint32_t type) {
     switch (type) {
-        case 4: fseek(f, 4, SEEK_CUR); return 1;
-        case 5: fseek(f, 4, SEEK_CUR); return 1;
-        case 6: fseek(f, 4, SEEK_CUR); return 1;
-        case 7: fseek(f, 1, SEEK_CUR); return 1;
+        case 4: return fseek(f, 4, SEEK_CUR) == 0;
+        case 5: return fseek(f, 4, SEEK_CUR) == 0;
+        case 6: return fseek(f, 4, SEEK_CUR) == 0;
+        case 7: return fseek(f, 1, SEEK_CUR) == 0;
         case 8: { char buf[4096]; return read_string(f, buf, sizeof(buf)); }
         case 9: return skip_array(f);
-        case 10: fseek(f, 8, SEEK_CUR); return 1;
-        case 12: fseek(f, 8, SEEK_CUR); return 1;
+        case 10: return fseek(f, 8, SEEK_CUR) == 0;
+        case 12: return fseek(f, 8, SEEK_CUR) == 0;
         default: return 0;
     }
 }
@@ -117,8 +196,7 @@ static gguf_file* gguf_open(const char* path) {
     uint32_t magic;
     if (!read_u32(f, &magic) || magic != GGUF_MAGIC) { fprintf(stderr, "gguf: bad magic 0x%08x\n", magic); fclose(f); return NULL; }
     gguf_file* gf = (gguf_file*)xzalloc(1, sizeof(gguf_file));
-    if (!gf) { fclose(f); return NULL; }
-    if (!read_u32(f, &gf->version) || !read_u64(f, &gf->n_tensors) || !read_u64(f, &gf->n_kv)) {   /* C-3: truncated header */
+    if (!read_u32(f, &gf->version) || !read_u64(f, &gf->n_tensors) || !read_u64(f, &gf->n_kv)) {
         fprintf(stderr, "gguf: truncated header\n"); fclose(f); free(gf); return NULL;
     }
     if (gf->n_tensors > GGUF_MAX_TENSORS) { fprintf(stderr, "gguf: too many tensors\n"); fclose(f); free(gf); return NULL; }
@@ -126,25 +204,35 @@ static gguf_file* gguf_open(const char* path) {
     gf->n_kv_parsed = 0;
     for (uint64_t i = 0; i < gf->n_kv; i++) {
         char key[512] = {0}; uint32_t vtype;
-        read_string(f, key, sizeof(key)); read_u32(f, &vtype);
+        if (!read_string(f, key, sizeof(key)) || !read_u32(f, &vtype)) {
+            fprintf(stderr, "gguf: truncated kv metadata\n"); fclose(f); free(gf); return NULL;
+        }
         if (gf->n_kv_parsed < GGUF_MAX_KV && vtype != 9) {
             gguf_kv* kv = &gf->kv[gf->n_kv_parsed];
-            strncpy(kv->key, key, GGUF_MAX_NAME - 1); kv->type = vtype;
+            copy_cstr(kv->key, sizeof(kv->key), key); kv->type = vtype;
             switch (vtype) {
-                case 4: read_u32(f, &kv->val.u32); break;
-                case 5: { int32_t v; fread(&v, 4, 1, f); kv->val.i32 = v; break; }
-                case 6: read_f32(f, &kv->val.f32); break;
-                case 7: { uint8_t v; fread(&v, 1, 1, f); kv->val.b = v; break; }
-                case 8: read_string(f, kv->val.str, sizeof(kv->val.str)); break;
-                case 10: case 12: read_u64(f, &kv->val.u64); break;
-                default: skip_value(f, vtype); break;
+                case 4: if (!read_u32(f, &kv->val.u32)) { fclose(f); free(gf); return NULL; } break;
+                case 5: {
+                    int32_t v;
+                    if (fread(&v, sizeof(v), 1, f) != 1) { fclose(f); free(gf); return NULL; }
+                    kv->val.i32 = v; break;
+                }
+                case 6: if (!read_f32(f, &kv->val.f32)) { fclose(f); free(gf); return NULL; } break;
+                case 7: {
+                    uint8_t v;
+                    if (fread(&v, sizeof(v), 1, f) != 1) { fclose(f); free(gf); return NULL; }
+                    kv->val.b = v; break;
+                }
+                case 8: if (!read_string(f, kv->val.str, sizeof(kv->val.str))) { fclose(f); free(gf); return NULL; } break;
+                case 10: case 12: if (!read_u64(f, &kv->val.u64)) { fclose(f); free(gf); return NULL; } break;
+                default: if (!skip_value(f, vtype)) { fclose(f); free(gf); return NULL; } break;
             }
             gf->n_kv_parsed++;
-        } else skip_value(f, vtype);
+        } else if (!skip_value(f, vtype)) { fclose(f); free(gf); return NULL; }
     }
     for (int i = 0; i < gf->n_kv_parsed; i++) {
         gguf_kv* kv = &gf->kv[i];
-        if (strcmp(kv->key, "general.architecture") == 0) strncpy(gf->arch, kv->val.str, sizeof(gf->arch) - 1);
+        if (strcmp(kv->key, "general.architecture") == 0) copy_cstr(gf->arch, sizeof(gf->arch), kv->val.str);
         else if (strstr(kv->key, ".block_count"))                                    gf->n_layers = kv->val.u32;
         else if (strstr(kv->key, ".attention.head_count") && !strstr(kv->key, "kv")) gf->n_heads = kv->val.u32;
         else if (strstr(kv->key, ".attention.head_count_kv"))                        gf->n_kv_heads = kv->val.u32;
@@ -161,27 +249,45 @@ static gguf_file* gguf_open(const char* path) {
 
     for (uint64_t i = 0; i < gf->n_tensors && i < GGUF_MAX_TENSORS; i++) {
         gguf_tensor_info* ti = &gf->tensors[i];
-        if (!read_string(f, ti->name, GGUF_MAX_NAME)) {   /* C-7: overlong/truncated tensor name → fail, not silent empty name */
+        if (!read_string(f, ti->name, GGUF_MAX_NAME)) {
             fprintf(stderr, "gguf: tensor %llu name too long or truncated\n", (unsigned long long)i); fclose(f); free(gf); return NULL;
         }
-        read_u32(f, &ti->ndim);
+        if (!read_u32(f, &ti->ndim)) { fprintf(stderr, "gguf: truncated tensor ndim\n"); fclose(f); free(gf); return NULL; }
+        if (ti->ndim > 4) {
+            fprintf(stderr, "gguf: tensor '%s' ndim %u unsupported\n", ti->name, ti->ndim);
+            fclose(f); free(gf); return NULL;
+        }
         ti->n_elements = 1;
-        for (uint32_t d = 0; d < ti->ndim && d < 4; d++) { read_u64(f, &ti->shape[d]); ti->n_elements *= ti->shape[d]; }
-        read_u32(f, &ti->dtype); read_u64(f, &ti->offset);
+        for (uint32_t d = 0; d < ti->ndim; d++) {
+            if (!read_u64(f, &ti->shape[d])) { fprintf(stderr, "gguf: truncated tensor shape\n"); fclose(f); free(gf); return NULL; }
+            if (ti->shape[d] != 0 && ti->n_elements > UINT64_MAX / ti->shape[d]) {
+                fprintf(stderr, "gguf: tensor '%s' element count overflow\n", ti->name); fclose(f); free(gf); return NULL;
+            }
+            ti->n_elements *= ti->shape[d];
+        }
+        if (!read_u32(f, &ti->dtype) || !read_u64(f, &ti->offset)) {
+            fprintf(stderr, "gguf: truncated tensor record\n"); fclose(f); free(gf); return NULL;
+        }
     }
     long pos = ftell(f);
-    gf->data_offset = (pos + 31) & ~31UL;
-    fseek(f, 0, SEEK_END); long fsize = ftell(f);
-    long data_size = fsize - gf->data_offset;
-    if (data_size < 0) { fprintf(stderr, "gguf: file shorter than header (data_size=%ld)\n", data_size); fclose(f); free(gf); return NULL; }   /* C-3: negative data_size → giant alloc */
+    if (pos < 0 || pos > LONG_MAX - 31) { fprintf(stderr, "gguf: cannot determine tensor data offset\n"); fclose(f); free(gf); return NULL; }
+    gf->data_offset = (uint64_t)((pos + 31L) & ~31L);
+    if (fseek(f, 0, SEEK_END) != 0) { fprintf(stderr, "gguf: cannot seek end\n"); fclose(f); free(gf); return NULL; }
+    long fsize = ftell(f);
+    if (fsize < 0 || (uint64_t)fsize < gf->data_offset) {
+        fprintf(stderr, "gguf: file shorter than header\n"); fclose(f); free(gf); return NULL;
+    }
+    long data_size = fsize - (long)gf->data_offset;
     size_t pg = (size_t)getpagesize();
     size_t alloc = ((size_t)data_size + pg - 1) & ~(pg - 1);
     gf->data = NULL;
     if (posix_memalign((void**)&gf->data, pg, alloc) != 0 || !gf->data) { fclose(f); free(gf); return NULL; }
     gf->data_size = (uint64_t)alloc;
-    fseek(f, gf->data_offset, SEEK_SET);
-    if (fread(gf->data, 1, data_size, f) != (size_t)data_size) {   /* C-3: short read of weight body → garbage weights */
-        fprintf(stderr, "gguf: short read of weight data\n"); fclose(f); free(gf->data); free(gf); return NULL;
+    if (gf->data_offset > (uint64_t)LONG_MAX ||
+        fseek(f, (long)gf->data_offset, SEEK_SET) != 0 ||
+        fread(gf->data, 1, (size_t)data_size, f) != (size_t)data_size) {
+        fprintf(stderr, "gguf: failed to read tensor data\n");
+        fclose(f); free(gf->data); free(gf); return NULL;
     }
     fclose(f);
     return gf;
@@ -216,9 +322,11 @@ static char** gguf_read_str_array(const char* path, const char* key, int* out_n)
             for (uint64_t j = 0; j < alen; j++) {
                 char buf[2048] = {0};
                 if (!read_string(f, buf, sizeof(buf))) break;
-                result[j] = xstrdup(buf); nrd++;
+                result[j] = xstrdup(buf);
+                nrd++;
             }
-            if (out_n) *out_n = (int)nrd; break;   /* C-8: report actually-read count, not the claimed alen */
+            if (out_n) *out_n = (int)nrd;
+            break;
         }
         if (!skip_value(f, vtype)) break;
     }
@@ -240,8 +348,10 @@ static float* gguf_read_f32_array(const char* path, const char* key, int* out_n)
             uint32_t atype; uint64_t alen;
             if (!read_u32(f, &atype) || !read_u64(f, &alen) || atype != 6) break;  /* 6 = float32 */
             result = (float*)xzalloc(alen ? alen : 1, sizeof(float));
-            for (uint64_t j = 0; j < alen; j++) { float v; if (!read_f32(f, &v)) break; result[j] = v; }
-            if (out_n) *out_n = (int)alen; break;
+            uint64_t nrd = 0;
+            for (uint64_t j = 0; j < alen; j++) { float v; if (!read_f32(f, &v)) break; result[j] = v; nrd++; }
+            if (out_n) *out_n = (int)nrd;
+            break;
         }
         if (!skip_value(f, vtype)) break;
     }
@@ -339,7 +449,10 @@ static float* gguf_dequant(const gguf_file* gf, int idx) {
         fprintf(stderr, "gguf: tensor '%s' out of bounds/invalid\n", ti->name); return NULL;
     }
     const uint8_t* src = gf->data + ti->offset;
-    float* dst = (float*)xalloc(ti->n_elements * sizeof(float)); if (!dst) return NULL;
+    if (ti->n_elements > SIZE_MAX / sizeof(float)) {
+        fprintf(stderr, "gguf: tensor '%s' too large to dequant\n", ti->name); return NULL;
+    }
+    float* dst = (float*)xalloc((size_t)ti->n_elements * sizeof(float));
     switch (ti->dtype) {
     case GGUF_TYPE_F32:  memcpy(dst, src, ti->n_elements * sizeof(float)); break;
     case GGUF_TYPE_F16: { const uint16_t* h = (const uint16_t*)src; for (uint64_t i = 0; i < ti->n_elements; i++) dst[i] = f16_to_f32(h[i]); break; }
@@ -359,7 +472,7 @@ static float* gguf_dequant(const gguf_file* gf, int idx) {
 
 typedef struct { char **keys; int *vals; int cap; int n; } smap;
 static unsigned long fnv1a(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
-static void smap_init(smap *m, int cap) { if (cap < 8) cap = 8; m->cap = cap; m->n = 0; m->keys = (char**)xzalloc(cap, sizeof(char*)); m->vals = (int*)xzalloc(cap, sizeof(int)); }
+static void smap_init(smap *m, int cap) { if (cap < 8) cap = 8; m->cap = cap; m->n = 0; m->keys = (char**)xzalloc((size_t)cap, sizeof(char*)); m->vals = (int*)xzalloc((size_t)cap, sizeof(int)); }
 static void smap_put(smap *m, const char *k, int v) {
     unsigned long h = fnv1a(k) % m->cap;
     while (m->keys[h]) { if (strcmp(m->keys[h], k) == 0) { m->vals[h] = v; return; } h = (h + 1) % m->cap; }
@@ -372,11 +485,15 @@ static int smap_get(const smap *m, const char *k) {
 }
 static int utf8_len1(const char *s) {   /* bytes in the UTF-8 char at s */
     unsigned char c = (unsigned char)s[0];
-    if (c < 0x80) return 1; if ((c>>5)==0x6) return 2; if ((c>>4)==0xE) return 3; if ((c>>3)==0x1E) return 4; return 1;
+    if (c < 0x80) return 1;
+    if ((c >> 5) == 0x6) return 2;
+    if ((c >> 4) == 0xE) return 3;
+    if ((c >> 3) == 0x1E) return 4;
+    return 1;
 }
 
 typedef struct { char **tokens; int n_tokens; float *scores; smap vocab;
-                 int is_bpe; char **merges; int n_merges; smap merge_rank; smap u2b; char b2u[256][5]; } bpe_tokenizer;
+                 int bos_id; int is_bpe; char **merges; int n_merges; smap merge_rank; smap u2b; char b2u[256][5]; } bpe_tokenizer;
 
 /* GPT-2 byte→unicode: printable bytes map to themselves; others to U+0100+ (byte 32 space → U+0120 Ġ).
  * The reverse (unicode char → byte) goes in u2b for decode. Used by llama-arch bodies with .merges. */
@@ -410,7 +527,8 @@ static int bpe_encode_gpt2(const bpe_tokenizer *t, const char *text, int *out, i
         if (bi < 0) break;
         char *mg = (char*)xalloc(strlen(sym[bi]) + strlen(sym[bi+1]) + 1);
         strcpy(mg, sym[bi]); strcat(mg, sym[bi+1]); free(sym[bi]); free(sym[bi+1]); sym[bi] = mg;
-        for (int i = bi + 1; i < nsym - 1; i++) sym[i] = sym[i+1]; nsym--;
+        for (int i = bi + 1; i < nsym - 1; i++) sym[i] = sym[i+1];
+        nsym--;
     }
     int no = 0;
     for (int i = 0; i < nsym; i++) { int id = smap_get(&t->vocab, sym[i]); if (id >= 0 && no < cap) out[no++] = id; free(sym[i]); }
@@ -435,6 +553,7 @@ static bpe_tokenizer *bpe_load(const char *path) {
     int nmg = 0; char **merges = gguf_read_str_array(path, "tokenizer.ggml.merges", &nmg);
     bpe_tokenizer *t = (bpe_tokenizer*)xzalloc(1, sizeof(*t));
     t->tokens = toks; t->n_tokens = nt; t->scores = scores;
+    t->bos_id = -1;
     smap_init(&t->vocab, nt * 2); for (int i = 0; i < nt; i++) if (toks[i]) smap_put(&t->vocab, toks[i], i);
     if (merges && nmg > 0) {                 /* BPE (GPT-2 byte-level): SmolLM2 / qwen / llama-3 */
         t->is_bpe = 1; t->merges = merges; t->n_merges = nmg;
@@ -470,7 +589,8 @@ static int bpe_encode(const bpe_tokenizer *t, const char *text, int *out, int ca
         if (bi < 0) break;
         char *mg = (char*)xalloc(strlen(sym[bi]) + strlen(sym[bi+1]) + 1);
         strcpy(mg, sym[bi]); strcat(mg, sym[bi+1]); free(sym[bi]); free(sym[bi+1]); sym[bi] = mg;
-        for (int i = bi + 1; i < nsym - 1; i++) sym[i] = sym[i+1]; nsym--;
+        for (int i = bi + 1; i < nsym - 1; i++) sym[i] = sym[i+1];
+        nsym--;
     }
     int no = 0;
     for (int i = 0; i < nsym; i++) {
@@ -484,6 +604,12 @@ static int bpe_encode(const bpe_tokenizer *t, const char *text, int *out, int ca
     }
     free(sym);
     return no;
+}
+static int bpe_encode_prompt(const bpe_tokenizer *t, const char *text, int *out, int cap) {
+    int n = 0;
+    if (t && t->bos_id >= 0 && cap > 0) out[n++] = t->bos_id;
+    if (n >= cap) return n;
+    return n + bpe_encode(t, text, out + n, cap - n);
 }
 
 /* SPM decode: <0xXX> → that byte; ▁ → space; else literal UTF-8 bytes. */
@@ -827,18 +953,34 @@ static model_t *model_load(gguf_file *gf) {
     model_t *m = (model_t*)xzalloc(1, sizeof(model_t));
     m->n_layers = gf->n_layers; m->n_heads = gf->n_heads; m->n_kv_heads = gf->n_kv_heads;
     m->embed = gf->embed_dim; m->ffn = gf->ffn_dim; m->rope_base = gf->rope_freq_base; m->rms_eps = gf->rms_eps;
-    if (m->n_heads <= 0 || m->n_kv_heads <= 0 || m->n_kv_heads > m->n_heads ||
-        m->embed <= 0 || m->embed > 8192 || m->ffn <= 0 || m->n_layers <= 0) {   /* C-1: arch metadata gate before any division/index */
+    if (m->n_heads <= 0 || m->n_kv_heads <= 0 || m->n_kv_heads > m->n_heads || (m->n_heads % m->n_kv_heads) != 0 ||
+        m->embed <= 0 || m->embed > 8192 || m->ffn <= 0 || m->n_layers <= 0) {
         fprintf(stderr, "chorus: GGUF arch out of bounds (H=%d KV=%d E=%d FFN=%d L=%d)\n",
                 m->n_heads, m->n_kv_heads, m->embed, m->ffn, m->n_layers);
         free(m); return NULL;
     }
     int ti = gguf_find_tensor(gf, "blk.0.attn_q.weight");
+    if (ti >= 0 && gf->tensors[ti].shape[1] > (uint64_t)INT_MAX) {
+        fprintf(stderr, "chorus: q_dim overflow in blk.0.attn_q.weight\n");
+        free(m); return NULL;
+    }
     m->q_dim = ti >= 0 ? (int)gf->tensors[ti].shape[1] : m->embed;
+    if (m->q_dim <= 0 || (m->q_dim % m->n_heads) != 0) {
+        fprintf(stderr, "chorus: incompatible q/head geometry (Q=%d H=%d)\n", m->q_dim, m->n_heads);
+        free(m); return NULL;
+    }
     m->head_dim = m->q_dim / m->n_heads; m->kv_dim = m->head_dim * m->n_kv_heads;
+    if (m->head_dim <= 0 || (m->head_dim % 2) != 0 || m->n_kv_heads > INT_MAX / m->head_dim) {
+        fprintf(stderr, "chorus: incompatible rope/KV geometry (HD=%d KV=%d)\n", m->head_dim, m->n_kv_heads);
+        free(m); return NULL;
+    }
     ti = gguf_find_tensor(gf, "token_embd.weight");
+    if (ti >= 0 && gf->tensors[ti].shape[1] > (uint64_t)INT_MAX) {
+        fprintf(stderr, "chorus: vocab overflow in token_embd.weight\n");
+        free(m); return NULL;
+    }
     m->vocab = ti >= 0 ? (int)gf->tensors[ti].shape[1] : gf->vocab_size;
-    if (m->vocab <= 0) { fprintf(stderr, "chorus: GGUF vocab_size %d invalid\n", m->vocab); free(m); return NULL; }   /* C-1 */
+    if (m->vocab <= 0) { fprintf(stderr, "chorus: GGUF vocab_size %d invalid\n", m->vocab); free(m); return NULL; }
     int rope_known = 0;
     m->neox = arch_uses_neox_rope(gf->arch, &rope_known) ? 1 : 0;
     if (!rope_known) {
@@ -853,11 +995,11 @@ static model_t *model_load(gguf_file *gf) {
     if (load_weight(gf, "output.weight", &m->output, m)) m->has_output = 1;
     else { m->output.f32 = m->tok_emb; m->output.m = m->vocab; m->output.k = m->embed; m->output.dtype = GGUF_TYPE_F32; m->has_output = 0; }
 
-    m->L = xzalloc(m->n_layers, sizeof(*m->L)); char nm[160];
+    m->L = xzalloc((size_t)m->n_layers, sizeof(*m->L)); char nm[160];
     for (int l = 0; l < m->n_layers; l++) {
-        #define LD(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); m->L[l].f = deq(gf, nm); if (!m->L[l].f) { fprintf(stderr, "chorus: missing/bad tensor '%s'\n", nm); return NULL; } } while(0)   /* C-2 */
-        #define LD_OPT(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); m->L[l].f = deq(gf, nm); } while(0)   /* optional: qwen3 qk-norm may be absent */
-        #define LW(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); if (!load_weight(gf, nm, &m->L[l].f, m)) { fprintf(stderr, "chorus: missing/bad weight '%s'\n", nm); return NULL; } } while(0)   /* C-2 */
+        #define LD(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); m->L[l].f = deq(gf, nm); if (!m->L[l].f) { fprintf(stderr, "chorus: missing/bad tensor '%s'\n", nm); return NULL; } } while(0)
+        #define LD_OPT(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); m->L[l].f = deq(gf, nm); } while(0)
+        #define LW(f, fmt) do { snprintf(nm, sizeof(nm), fmt, l); if (!load_weight(gf, nm, &m->L[l].f, m)) { fprintf(stderr, "chorus: missing/bad weight '%s'\n", nm); return NULL; } } while(0)
         LD(attn_norm, "blk.%d.attn_norm.weight"); LD(ffn_norm, "blk.%d.ffn_norm.weight");
         LW(wq, "blk.%d.attn_q.weight"); LW(wk, "blk.%d.attn_k.weight"); LW(wv, "blk.%d.attn_v.weight"); LW(wo, "blk.%d.attn_output.weight");
         LW(wgate, "blk.%d.ffn_gate.weight"); LW(wup, "blk.%d.ffn_up.weight"); LW(wdown, "blk.%d.ffn_down.weight");
@@ -877,9 +1019,18 @@ static model_t *model_load(gguf_file *gf) {
 typedef struct { float *k, *v, *ku; int max_seq, kv_dim; } kv_cache;
 static kv_cache *kv_new(int nl, int max_seq, int kv_dim) {
     kv_cache *c = xzalloc(1, sizeof(kv_cache));
-    c->k = xzalloc((long)nl*max_seq*kv_dim, sizeof(float)); c->v = xzalloc((long)nl*max_seq*kv_dim, sizeof(float));
-    c->ku = xzalloc((long)nl*max_seq*kv_dim, sizeof(float));   /* un-rope'd K — phase-coherent cross-cell scores */
+    if (nl <= 0 || max_seq <= 0 || kv_dim <= 0) {
+        fprintf(stderr, "chorus: invalid KV cache shape (%d x %d x %d)\n", nl, max_seq, kv_dim);
+        exit(1);
+    }
+    size_t n = xmul3_size((size_t)nl, (size_t)max_seq, (size_t)kv_dim, "kv-cache");
+    c->k = xzalloc(n, sizeof(float)); c->v = xzalloc(n, sizeof(float));
+    c->ku = xzalloc(n, sizeof(float));   /* un-rope'd K — phase-coherent cross-cell scores */
     c->max_seq = max_seq; c->kv_dim = kv_dim; return c;
+}
+static void kv_free(kv_cache *kv) {
+    if (!kv) return;
+    free(kv->k); free(kv->v); free(kv->ku); free(kv);
 }
 
 /* single token forward, KV-cached. Writes logits[vocab]. */
@@ -890,19 +1041,204 @@ static const kv_cache *g_nbr = NULL;
 static int g_nbr_len = 0;
 static int g_nbr_shuf = 0;      /* KV-order shadow: 1 = permute the neighbour's positions before attending */
 static int g_nbr_perm[512];     /* the permutation of 0..g_nbr_len-1 used when g_nbr_shuf */
-static int g_kvshuf = 0;        /* 1 = run the KV-order shadow probe (Δ_R^kv) per cell */
+static int g_kvshuf = 0;        /* 1 = run neighbour diagnostics: Δ_R^kv order control + I_N^kv influence */
+static int g_kvpos = 0;         /* 0 = semantic/bag neighbour lane; 1 = positional order-probe lane */
 static int g_qloop = 0;         /* 0=off; 1..2 = resonant cell-question routes per round */
+static const char *g_user_q = NULL; /* REPL direct-turn bridge: user text can become asker KV */
+static int g_clean_answer_start = 0; /* direct user answers should not open with list/bullet debris */
+static int g_answer_form_guard = 0;  /* direct user answers should not turn into question/yes-no loops */
+static int g_answer_sentence_stop = 0; /* direct user answers may stop once a sentence closes */
+static float g_user_qtemp_base = 0.70f; /* direct-user bridge sampler: env-tunable for temperature sweeps */
+static float g_user_qtemp_span = 0.00f;
+static int   g_user_qtop_k = 40;
+static float g_user_qtop_p = 1.00f;
+static float g_user_qrep = 1.30f;
+static float g_user_kv_weight = 0.05f;
+static int   g_user_answer_tokens = 16;
+static int   g_user_ctx_format = 2; /* 0=field_qa, 1=plain_field_qa, 2=qa, 3=raw */
+static int   g_repl_prompt_format = 0; /* 0=user_arianna, 1=qa */
+static int   g_field_prompt_format = 0; /* 0=raw, 1=qa, 2=auto, 3=user_arianna */
+static float g_field_temp_base = 0.60f; /* base cell sampler: 0.60..1.30 by default */
+static float g_field_temp_span = 0.70f;
+static float g_field_lang_bias = 0.00f; /* 0 = measure language drift only; >0 biases retry selection */
 static float g_qloop_min = 0.42f;
+static float g_qloop_min_iq = 0.0f; /* reject KV-backed qloop answers whose asker KV lowers confidence */
+static float g_qloop_tconf_weight = 0.20f; /* route prior: target confidence contribution */
+static int   g_qloop_tconf_adapt = 0;      /* 1 = use adaptive target-confidence prior for widened qloop */
+static float g_qloop_tconf_adapt_weight = -0.10f;
+static int   g_qloop_unique_asker = 0;     /* 1 = widened qloop may not fan one asking cell into multiple routes */
+static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect this many pre-generation routes */
+static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
+static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
 static int g_chorus = 1;       /* 1 = CHORUS (each cell answers the SAME prompt from its own angle, neighbour-aware
                                 * via cross-cell, NOT text); 0 = legacy RELAY (cascade continuation). Default chorus. */
+static int g_cell_retry_max = 4; /* max attempts for bad base-cell surface; 1 disables retry churn */
 /* cross-cell repetition penalty: a cell hears neighbours (cross-cell K/V) but must not LITERALLY echo their
  * tokens — it can say the same meaning in its OWN words. g_round_tok = the chorus's emitted tokens this round. */
 static int   g_round_tok[1024]; static int g_round_tokn = 0;
 static float g_xrep = 1.3f;     /* >1 = penalise tokens neighbours already said (1 = off) */
+static float g_sampler_top_p = 1.00f; /* per-call nucleus gate; 1.0 preserves top_k path */
 /* δ-life (Game of Life): cells born/die/reproduce by REAL-metric fitness. Increment 0 = MEASURE fitness inputs
  * (theme/distinct/ent per cell) to FIELDLOG, act on nothing → calibrate thresholds before the population breathes. */
 static float g_cell_ent[8];     /* per-cell raw entropy this round (fitness input) */
 static int   g_life_on = 0;     /* 1 = measure/run the Game of Life. 0 = chorus byte-identical */
+
+static void load_user_bridge_sampling_env(void) {
+    g_user_qtemp_base = env_float_clamped("A2A_USER_QTEMP_BASE", 0.70f, 0.05f, 2.00f);
+    g_user_qtemp_span = env_float_clamped("A2A_USER_QTEMP_SPAN", 0.00f, -1.50f, 1.50f);
+    g_user_qtop_k = env_int_clamped("A2A_USER_TOP_K", 40, 0, 512);
+    g_user_qtop_p = env_float_clamped("A2A_USER_TOP_P", 1.00f, 0.05f, 1.00f);
+    g_user_qrep = env_float_clamped("A2A_USER_REP", 1.30f, 1.00f, 5.00f);
+    g_user_kv_weight = env_float_clamped("A2A_USER_KV_WEIGHT", 0.05f, 0.00f, 2.00f);
+    g_user_answer_tokens = env_int_clamped("A2A_USER_ANSWER_TOKENS", 16, 4, 64);
+    const char *fmt = getenv("A2A_USER_CTX_FORMAT");
+    g_user_ctx_format = 2;
+    if (fmt && *fmt) {
+        if (strcmp(fmt, "field_qa") == 0) g_user_ctx_format = 0;
+        else if (strcmp(fmt, "plain_field_qa") == 0) g_user_ctx_format = 1;
+        else if (strcmp(fmt, "qa") == 0) g_user_ctx_format = 2;
+        else if (strcmp(fmt, "raw") == 0) g_user_ctx_format = 3;
+        else fprintf(stderr, "warning: ignoring invalid A2A_USER_CTX_FORMAT=%s\n", fmt);
+    }
+}
+
+static void load_repl_prompt_env(void) {
+    const char *fmt = getenv("A2A_REPL_PROMPT_FORMAT");
+    g_repl_prompt_format = 0;
+    if (fmt && *fmt) {
+        if (strcmp(fmt, "user_arianna") == 0) g_repl_prompt_format = 0;
+        else if (strcmp(fmt, "qa") == 0) g_repl_prompt_format = 1;
+        else fprintf(stderr, "warning: ignoring invalid A2A_REPL_PROMPT_FORMAT=%s\n", fmt);
+    }
+}
+
+static void load_qloop_route_env(void) {
+    g_qloop_min_iq = env_float_clamped("A2A_QLOOP_MIN_IQ", 0.0f, -2.0f, 2.0f);
+    g_qloop_tconf_weight = env_float_clamped("A2A_QLOOP_TCONF_WEIGHT", 0.20f, -1.00f, 1.00f);
+    g_qloop_tconf_adapt = env_int_clamped("A2A_QLOOP_TCONF_ADAPT", 0, 0, 1);
+    g_qloop_tconf_adapt_weight = env_float_clamped("A2A_QLOOP_TCONF_ADAPT_WEIGHT", -0.10f, -1.00f, 1.00f);
+    g_qloop_unique_asker = env_int_clamped("A2A_QLOOP_UNIQUE_ASKER", 0, 0, 1);
+    g_qloop_candidate_pool = env_int_clamped("A2A_QLOOP_CANDIDATE_POOL", 0, 0, 8);
+    g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
+    g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
+}
+
+static void load_field_generation_env(void) {
+    g_cell_retry_max = env_int_clamped("A2A_CELL_RETRY_MAX", 4, 1, 4);
+    g_field_temp_base = env_float_clamped("A2A_FIELD_TEMP_BASE", 0.60f, 0.05f, 2.00f);
+    g_field_temp_span = env_float_clamped("A2A_FIELD_TEMP_SPAN", 0.70f, -1.50f, 1.50f);
+    g_field_lang_bias = env_float_clamped("A2A_FIELD_LANG_BIAS", 0.00f, 0.00f, 4.00f);
+    const char *fmt = getenv("A2A_FIELD_PROMPT_FORMAT");
+    g_field_prompt_format = 0;
+    if (fmt && *fmt) {
+        if (strcmp(fmt, "raw") == 0) g_field_prompt_format = 0;
+        else if (strcmp(fmt, "qa") == 0) g_field_prompt_format = 1;
+        else if (strcmp(fmt, "auto") == 0) g_field_prompt_format = 2;
+        else if (strcmp(fmt, "user_arianna") == 0) g_field_prompt_format = 3;
+        else fprintf(stderr, "warning: ignoring invalid A2A_FIELD_PROMPT_FORMAT=%s\n", fmt);
+    }
+}
+
+static float field_temp_for_cell(int cell, int n_cells) {
+    float frac = n_cells > 1 ? (float)cell / (float)(n_cells - 1) : 0.5f;
+    float t = g_field_temp_base + g_field_temp_span * frac;
+    if (!isfinite(t)) t = 0.60f;
+    if (t < 0.05f) t = 0.05f;
+    if (t > 2.00f) t = 2.00f;
+    return t;
+}
+
+static float user_bridge_temp_for_cell(int cell, int n_cells) {
+    float frac = n_cells > 1 ? (float)cell / (float)(n_cells - 1) : 0.5f;
+    float t = g_user_qtemp_base + g_user_qtemp_span * frac;
+    if (!isfinite(t)) t = 0.45f;
+    if (t < 0.05f) t = 0.05f;
+    if (t > 2.00f) t = 2.00f;
+    return t;
+}
+
+static const char *user_ctx_format_name(void) {
+    switch (g_user_ctx_format) {
+    case 1: return "plain_field_qa";
+    case 2: return "qa";
+    case 3: return "raw";
+    default: return "field_qa";
+    }
+}
+
+static const char *repl_prompt_format_name(void) {
+    switch (g_repl_prompt_format) {
+    case 1: return "qa";
+    default: return "user_arianna";
+    }
+}
+
+static const char *field_prompt_format_name(void) {
+    switch (g_field_prompt_format) {
+    case 1: return "qa";
+    case 2: return "auto";
+    case 3: return "user_arianna";
+    default: return "raw";
+    }
+}
+
+static int prompt_has_non_ascii(const char *s) {
+    if (!s) return 0;
+    while (*s) {
+        if ((unsigned char)*s >= 0x80) return 1;
+        s++;
+    }
+    return 0;
+}
+
+static int field_prompt_uses_qa(const char *prompt) {
+    if (g_field_prompt_format == 1) return 1;
+    if (g_field_prompt_format == 2) return prompt_has_non_ascii(prompt);
+    return 0;
+}
+
+static void build_field_cell_prompt(char *dst, size_t cap, const char *prompt) {
+    if (!prompt) prompt = "";
+    if (g_field_prompt_format == 3) snprintf(dst, cap, "User: %s\nArianna:", prompt);
+    else if (field_prompt_uses_qa(prompt)) snprintf(dst, cap, "Q: %s\nA:", prompt);
+    else snprintf(dst, cap, "%s", prompt);
+}
+
+static void build_repl_turn_prompt(char *dst, size_t cap, const char *trajectory, const char *line) {
+    if (!trajectory) trajectory = "";
+    if (!line) line = "";
+    if (g_repl_prompt_format == 1) {
+        if (trajectory[0]) snprintf(dst, cap, "%s\nQ: %s\nA:", trajectory, line);
+        else snprintf(dst, cap, "Q: %s\nA:", line);
+    } else {
+        if (trajectory[0]) snprintf(dst, cap, "Recent trajectory:%s\nUser: %s\nArianna:", trajectory, line);
+        else snprintf(dst, cap, "User: %s\nArianna:", line);
+    }
+}
+
+static void build_user_kv_prompt(char *dst, size_t cap, const char *q) {
+    if (g_user_ctx_format == 3) snprintf(dst, cap, "%s", q ? q : "");
+    else snprintf(dst, cap, "Q: %s\nA:", q ? q : "");
+}
+
+static void build_user_answer_prompt(char *dst, size_t cap, const char *chorus, const char *q) {
+    if (!chorus) chorus = "";
+    if (!q) q = "";
+    switch (g_user_ctx_format) {
+    case 1:
+        snprintf(dst, cap, "%s\nQ: %s\nA:", chorus, q);
+        break;
+    case 2:
+        snprintf(dst, cap, "Q: %s\nA:", q);
+        break;
+    case 3:
+        snprintf(dst, cap, "%s", q);
+        break;
+    default:
+        snprintf(dst, cap, "Field fragments:%s\nQ: %s\nA:", chorus, q);
+        break;
+    }
+}
 
 static void forward(model_t *m, kv_cache *kv, int token, int pos, float *logits) {
     int E = m->embed, H = m->n_heads, KV = m->n_kv_heads, HD = m->head_dim;
@@ -911,7 +1247,7 @@ static void forward(model_t *m, kv_cache *kv, int token, int pos, float *logits)
 
     float *x = xzalloc(E, sizeof(float)); memcpy(x, m->tok_emb + (long)token*E, E*sizeof(float));
     float *xn = xzalloc(E, sizeof(float)), *q = xzalloc(QD, sizeof(float)), *kk = xzalloc(KVD, sizeof(float));
-    float *vv = xzalloc(KVD, sizeof(float)), *ao = xzalloc(QD, sizeof(float)), *g = xzalloc(FFN, sizeof(float)), *nk = xzalloc(HD, sizeof(float));
+    float *vv = xzalloc(KVD, sizeof(float)), *ao = xzalloc(QD, sizeof(float)), *g = xzalloc(FFN, sizeof(float)), *qu = xzalloc(QD, sizeof(float)), *nk = xzalloc(HD, sizeof(float));
     float *u = xzalloc(FFN, sizeof(float)), *t = xzalloc(E, sizeof(float)), *sc = xzalloc((size_t)kv->max_seq, sizeof(float));
     float *scn = xzalloc((size_t)kv->max_seq, sizeof(float));   /* neighbour-channel scores (separate softmax) */
 
@@ -923,7 +1259,8 @@ static void forward(model_t *m, kv_cache *kv, int token, int pos, float *logits)
             for (int h = 0; h < KV; h++) rmsnorm(kk + h*HD, kk + h*HD, m->L[l].k_norm, HD, eps);
         }
         long base = (long)l*kv->max_seq*KVD;
-        memcpy(kv->ku + base + (long)pos*KVD, kk, (size_t)KVD*sizeof(float));   /* un-rope'd K; cross-cell assigns neighbour content to live position slots */
+        memcpy(kv->ku + base + (long)pos*KVD, kk, (size_t)KVD*sizeof(float));   /* un-rope'd K for semantic neighbour lane */
+        memcpy(qu, q, (size_t)QD*sizeof(float));                                /* un-rope'd q for semantic neighbour lane */
         for (int h = 0; h < H;  h++) ropef(q + h*HD, pos, HD, m->rope_base);
         for (int h = 0; h < KV; h++) ropef(kk + h*HD, pos, HD, m->rope_base);
         memcpy(kv->k + base + (long)pos*KVD, kk, KVD*sizeof(float));
@@ -933,18 +1270,22 @@ static void forward(model_t *m, kv_cache *kv, int token, int pos, float *logits)
         int xc = (g_xcell > 0 && g_nbr && g_nbr_len > 0) ? g_nbr_len : 0;   /* neighbour positions (separate channel) */
         long nbase = xc ? (long)l * g_nbr->max_seq * KVD : 0;
         for (int h = 0; h < H; h++) {
-            int kvh = h / gqa; float *qh = q + h*HD; int np = pos + 1;
+            int kvh = h / gqa; float *qh = q + h*HD; const float *quh = qu + h*HD; int np = pos + 1;
             /* OWN attention — UNCHANGED from baseline (preserves own-context order = Δ_R) */
             for (int j = 0; j <= pos; j++) { float *kj = kv->k + base + (long)j*KVD + kvh*HD, d = 0; for (int t2 = 0; t2 < HD; t2++) d += qh[t2]*kj[t2]; sc[j] = d*scale; }
             softmax(sc, np); float *oh = ao + h*HD;
             for (int j = 0; j <= pos; j++) { float *vj = kv->v + base + (long)j*KVD + kvh*HD, w = sc[j]; for (int t2 = 0; t2 < HD; t2++) oh[t2] += w*vj[t2]; }
-            if (xc) {   /* NEIGHBOUR channel — content from jj is heard at slot j; shuffling now changes position, not loop order. */
+            if (xc) {   /* NEIGHBOUR channel. Default semantic lane is order-blind; kvpos=1 turns it into an order probe. */
                 for (int j = 0; j < xc; j++) {
                     int jj = (g_nbr_shuf && j < 512) ? g_nbr_perm[j] : j;
                     const float *ku = g_nbr->ku + nbase + (long)jj*KVD + kvh*HD;
-                    memcpy(nk, ku, (size_t)HD * sizeof(float));
-                    ropef(nk, j, HD, m->rope_base);
-                    float d = 0; for (int t2 = 0; t2 < HD; t2++) d += qh[t2]*nk[t2];
+                    const float *key = ku, *query = quh;
+                    if (g_kvpos) {
+                        memcpy(nk, ku, (size_t)HD * sizeof(float));
+                        ropef(nk, j, HD, m->rope_base);
+                        key = nk; query = qh;
+                    }
+                    float d = 0; for (int t2 = 0; t2 < HD; t2++) d += query[t2]*key[t2];
                     scn[j] = d*scale;
                 }
                 softmax(scn, xc);
@@ -960,13 +1301,27 @@ static void forward(model_t *m, kv_cache *kv, int token, int pos, float *logits)
     }
     rmsnorm(xn, x, m->out_norm, E, eps);
     weight_matvec(&m->output, xn, logits);
-    free(x); free(xn); free(q); free(kk); free(vv); free(ao); free(g); free(u); free(t); free(sc); free(scn); free(nk);
+    free(x); free(xn); free(q); free(kk); free(vv); free(ao); free(g); free(u); free(t); free(sc); free(scn); free(qu); free(nk);
 }
 
 static int argmax(const float *x, int n) { int b = 0; for (int i = 1; i < n; i++) if (x[i] > x[b]) b = i; return b; }
-static int sample(float *x, int n, float temp) {
-    if (!isfinite(temp) || temp <= 0) return argmax(x, n);   /* C-10: NaN-transparent gate degenerates the sampler */
-    for (int i = 0; i < n; i++) x[i] /= temp; softmax(x, n);
+static int sample_top_p(float *x, int n, float top_p);
+static float g_direct_top_p = 1.00f;
+static float g_direct_rep = 1.00f;
+static int sample(float *x, int n, float temp, const int *hist, int hlen) {
+    if (g_direct_rep > 1.0f && hist) {
+        for (int i = 0; i < hlen; i++) {
+            int id = hist[i];
+            if (id >= 0 && id < n) x[id] = x[id] > 0 ? x[id] / g_direct_rep : x[id] * g_direct_rep;
+        }
+    }
+    if (temp <= 0) return argmax(x, n);
+    for (int i = 0; i < n; i++) x[i] /= temp;
+    if (g_direct_top_p < 1.0f) {
+        int id = sample_top_p(x, n, g_direct_top_p);
+        if (id >= 0) return id;
+    }
+    softmax(x, n);
     float r = (float)((double)rand()/RAND_MAX), c = 0; for (int i = 0; i < n; i++) { c += x[i]; if (c >= r) return i; } return n - 1;
 }
 static double now_ms(void) { struct timeval tv; gettimeofday(&tv, NULL); return tv.tv_sec*1000.0 + tv.tv_usec/1000.0; }
@@ -978,12 +1333,63 @@ static double now_ms(void) { struct timeval tv; gettimeofday(&tv, NULL); return 
  * NEXT: dynamic count (coherence/prophecy-debt → collapse to 1 / bloom), doe-δ experts, resonance-slice. */
 
 static int cmp_desc(const void *a, const void *b) { float x = *(const float*)a, y = *(const float*)b; return (x < y) - (x > y); }
+typedef struct { int id; float logit, prob; } sample_item_t;
+static int cmp_sample_item_desc(const void *a, const void *b) {
+    const sample_item_t *x = (const sample_item_t*)a, *y = (const sample_item_t*)b;
+    return (x->logit < y->logit) - (x->logit > y->logit);
+}
 
-/* rep-penalty (llama-style, pre-softmax over the cell's own history) + top_k + temperature multinomial. */
+static int sample_top_p(float *x, int n, float top_p) {
+    if (top_p <= 0.0f || top_p >= 1.0f) return -1;
+    sample_item_t *items = (sample_item_t*)xalloc((size_t)n * sizeof(sample_item_t));
+    if (!items) return -1;
+    float mx = x[0];
+    for (int i = 1; i < n; i++) if (x[i] > mx) mx = x[i];
+    double total = 0.0;
+    for (int i = 0; i < n; i++) {
+        float p = expf(x[i] - mx);
+        if (!isfinite(p)) p = 0.0f;
+        items[i].id = i;
+        items[i].logit = x[i];
+        items[i].prob = p;
+        total += p;
+    }
+    if (total <= 0.0 || !isfinite(total)) {
+        free(items);
+        return argmax(x, n);
+    }
+    qsort(items, n, sizeof(sample_item_t), cmp_sample_item_desc);
+    double cutoff = total * (double)top_p, cum = 0.0;
+    int keep = 0;
+    while (keep < n) {
+        cum += items[keep].prob;
+        keep++;
+        if (cum >= cutoff) break;
+    }
+    if (keep < 1) keep = 1;
+    double r = ((double)rand() / (double)RAND_MAX) * cum, c = 0.0;
+    for (int i = 0; i < keep; i++) {
+        c += items[i].prob;
+        if (c >= r) {
+            int id = items[i].id;
+            free(items);
+            return id;
+        }
+    }
+    int id = items[keep - 1].id;
+    free(items);
+    return id;
+}
+
+/* rep-penalty (llama-style, pre-softmax over the cell's own history) + top_p/top_k + temperature multinomial. */
 static int sample2(float *x, int n, float temp, int top_k, float rep, const int *hist, int hlen) {
     if (rep > 1.0f) for (int i = 0; i < hlen; i++) { int id = hist[i]; if (id >= 0 && id < n) x[id] = x[id] > 0 ? x[id]/rep : x[id]*rep; }
-    if (!isfinite(temp) || temp <= 0) return argmax(x, n);   /* C-10: NaN-transparent gate degenerates the sampler */
+    if (temp <= 0) return argmax(x, n);
     for (int i = 0; i < n; i++) x[i] /= temp;
+    if (g_sampler_top_p < 1.0f) {
+        int id = sample_top_p(x, n, g_sampler_top_p);
+        if (id >= 0) return id;
+    }
     if (top_k > 0 && top_k < n) {
         float *tmp = (float*)xalloc((size_t)n * sizeof(float)); memcpy(tmp, x, (size_t)n * sizeof(float));
         qsort(tmp, n, sizeof(float), cmp_desc); float thr = tmp[top_k - 1]; free(tmp);
@@ -1023,6 +1429,889 @@ static void field_reset(int embed, int on, float alpha) {
     g_field_on = on; g_field_alpha = alpha;
 }
 
+static int bad_answer_start_token(const bpe_tokenizer *tok, int id) {
+    char buf[64];
+    int n = bpe_decode_token(tok, id, buf, sizeof(buf));
+    if (n <= 0) return 0;
+    unsigned char *p = (unsigned char*)buf;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (!*p) return 1;
+    if ((*p >= '0' && *p <= '9') || *p == '*' || *p == '-' || *p == '"' ||
+        *p == '\'' || *p == '`' || *p == '#' || *p == ':' || *p == '/' ||
+        *p == '@' || *p == '\\' || *p == '?' || *p == '.' || *p == ',' ||
+        *p == ';')
+        return 1;
+    if ((p[0] == 'h' || p[0] == 'H') &&
+        (p[1] == 't' || p[1] == 'T') &&
+        (p[2] == 't' || p[2] == 'T') &&
+        (p[3] == 'p' || p[3] == 'P'))
+        return 1;
+    if ((p[0] == 'w' || p[0] == 'W') &&
+        (p[1] == 'w' || p[1] == 'W') &&
+        (p[2] == 'w' || p[2] == 'W'))
+        return 1;
+    if (p[0] == 0xe2 && p[1] == 0x80 &&
+        (p[2] == 0x98 || p[2] == 0x99 || p[2] == 0x9c ||
+         p[2] == 0x9d || p[2] == 0xa2))
+        return 1;
+    return 0;
+}
+
+static void suppress_bad_answer_starts(float *logits, int vocab, const bpe_tokenizer *tok) {
+    for (int i = 0; i < vocab; i++) if (bad_answer_start_token(tok, i)) logits[i] = -1e30f;
+}
+
+static int ascii_starts_ci(const char *s, const char *prefix) {
+    while (*prefix) {
+        char a = *s++, b = *prefix++;
+        if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+        if (a != b) return 0;
+    }
+    return 1;
+}
+
+static int ascii_word_ci(const char *s, const char *word) {
+    const char *p = s;
+    if (!ascii_starts_ci(p, word)) return 0;
+    p += strlen(word);
+    return !((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') ||
+             (*p >= '0' && *p <= '9') || *p == '_');
+}
+
+static int ascii_word_label_ci(const char *s, const char *word) {
+    const char *p = s;
+    if (!ascii_starts_ci(p, word)) return 0;
+    p += strlen(word);
+    return !((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') ||
+             (*p >= '0' && *p <= '9') || *p == '_') &&
+           (*p == 0 || *p == ' ' || *p == '\t' || *p == ':' || *p == '.' ||
+            *p == ',' || *p == ';' || *p == '-');
+}
+
+static int ascii_label_letter(unsigned char c) {
+    return c == 'A' || c == 'B' || c == 'C' || c == 'D' || c == 'Q';
+}
+
+static int ascii_wordish(unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+           (c >= '0' && c <= '9') || c == '_' || c == '-';
+}
+
+static int ascii_alpha(unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static int ascii_vowel(unsigned char c) {
+    if (c >= 'A' && c <= 'Z') c = (unsigned char)(c - 'A' + 'a');
+    return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' || c == 'y';
+}
+
+static int ascii_eq_ci(const char *s, const char *word) {
+    while (*s && *word) {
+        char a = *s++, b = *word++;
+        if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+        if (a != b) return 0;
+    }
+    return *s == 0 && *word == 0;
+}
+
+static int answer_domain_suffix_at(const char *p) {
+    static const char *const suffixes[] = { ".com", ".org", ".net", ".ru", ".ai", ".io", ".dev" };
+    if (*p != '.') return 0;
+    for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); i++) {
+        size_t n = strlen(suffixes[i]);
+        if (ascii_starts_ci(p, suffixes[i]) && !ascii_wordish((unsigned char)p[n]))
+            return 1;
+    }
+    return 0;
+}
+
+static void trim_answer_right(char *s) {
+    size_t n = strlen(s);
+    while (n > 0 && (s[n - 1] == ' ' || s[n - 1] == '\t' ||
+                     s[n - 1] == '\r' || s[n - 1] == '\n')) {
+        s[--n] = 0;
+    }
+}
+
+static int direct_answer_notation_token(const char *s) {
+    const unsigned char *p = (const unsigned char*)s;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (ascii_label_letter(p[0]) && p[1] == 0) return 1;
+    if (ascii_label_letter(p[0]) &&
+        (p[1] == ':' || p[1] == '.' || p[1] == ',' || p[1] == ';' || p[1] == '-'))
+        return 1;
+    if (ascii_label_letter(p[0]) && p[1] == ' ' && ascii_label_letter(p[2]) &&
+        (p[3] == ':' || p[3] == '.' || p[3] == ',' || p[3] == ';' || p[3] == '-' || p[3] == 0))
+        return 1;
+    if (ascii_label_letter(p[0]) && p[1] == ' ' && p[2] >= 'A' && p[2] <= 'Z')
+        return 1;
+    if (ascii_label_letter(p[0]) && p[1] == '.' && ascii_label_letter(p[2]) &&
+        (p[3] == ':' || p[3] == '.' || p[3] == ',' || p[3] == ';' || p[3] == '-' || p[3] == 0))
+        return 1;
+    if ((p[0] == 'I' || p[0] == 'i') && (p[1] == ':' || p[1] == '.')) return 1;
+    if (ascii_word_label_ci((const char*)p, "ari") ||
+        ascii_word_label_ci((const char*)p, "arianna") ||
+        ascii_word_label_ci((const char*)p, "thread") ||
+        ascii_word_label_ci((const char*)p, "qloop") ||
+        ascii_word_label_ci((const char*)p, "question") ||
+        ascii_word_label_ci((const char*)p, "answer") ||
+        ascii_word_label_ci((const char*)p, "prompt") ||
+        ascii_word_label_ci((const char*)p, "reply"))
+        return 1;
+    return 0;
+}
+
+static int direct_answer_bad_form_token(const bpe_tokenizer *tok, int id, int step) {
+    char buf[96];
+    int n = bpe_decode_token(tok, id, buf, sizeof(buf));
+    if (n <= 0) return 0;
+    buf[sizeof(buf) - 1] = 0;
+    unsigned char *p = (unsigned char*)buf;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (!*p) return 1;
+    for (unsigned char *q = p; *q; q++) {
+        if (*q == '?' || *q == '=' || *q == '@') return 1;
+        if (answer_domain_suffix_at((const char*)q) ||
+            ascii_starts_ci((const char*)q, "http") ||
+            ascii_starts_ci((const char*)q, "www."))
+            return 1;
+    }
+    if (direct_answer_notation_token((const char*)p)) return 1;
+    if (ascii_word_ci((const char*)p, "what") || ascii_word_ci((const char*)p, "who") ||
+        ascii_word_ci((const char*)p, "where") || ascii_word_ci((const char*)p, "why") ||
+        ascii_word_ci((const char*)p, "how") || ascii_word_ci((const char*)p, "when") ||
+        ascii_word_ci((const char*)p, "can") || ascii_word_ci((const char*)p, "will") ||
+        ascii_word_ci((const char*)p, "would") || ascii_word_ci((const char*)p, "could") ||
+        ascii_word_ci((const char*)p, "should") || ascii_word_ci((const char*)p, "do") ||
+        ascii_word_ci((const char*)p, "does") || ascii_word_ci((const char*)p, "did") ||
+        ascii_word_ci((const char*)p, "is") || ascii_word_ci((const char*)p, "are") ||
+        ascii_word_ci((const char*)p, "am") || ascii_word_ci((const char*)p, "was") ||
+        ascii_word_ci((const char*)p, "were"))
+        return 1;
+    if (step != 0) return 0;
+    if (ascii_word_ci((const char*)p, "yes") || ascii_word_ci((const char*)p, "no"))
+        return 1;
+    if (ascii_starts_ci((const char*)p, "answer:") ||
+        ascii_starts_ci((const char*)p, "question:") ||
+        ascii_starts_ci((const char*)p, "prompt:") ||
+        ascii_starts_ci((const char*)p, "reply:") ||
+        ascii_starts_ci((const char*)p, "qloop:"))
+        return 1;
+    return 0;
+}
+
+static void suppress_direct_answer_form(float *logits, int vocab, const bpe_tokenizer *tok, int step) {
+    for (int i = 0; i < vocab; i++) if (direct_answer_bad_form_token(tok, i, step)) logits[i] = -1e30f;
+}
+
+static void truncate_answer_junk(char *s) {
+    for (char *p = s; *p; p++) {
+        if (ascii_starts_ci(p, "http") || ascii_starts_ci(p, "www.")) {
+            *p = 0;
+            break;
+        }
+        if (answer_domain_suffix_at(p)) {
+            char *q = p;
+            while (q > s && (ascii_wordish((unsigned char)q[-1]) || q[-1] == '.')) q--;
+            *q = 0;
+            break;
+        }
+        if (*p == '=') {
+            char *after = p + 1;
+            while (*after == ' ' || *after == '\t') after++;
+            if (*after == '"' || *after == '\'' || *after == '`') {
+                char *q = p;
+                while (q > s && (q[-1] == ' ' || q[-1] == '\t')) q--;
+                while (q > s && !((unsigned char)q[-1] <= ' ')) q--;
+                *q = 0;
+                break;
+            }
+        }
+    }
+    trim_answer_right(s);
+}
+
+static void trim_incomplete_answer_tail(char *s) {
+    trim_answer_right(s);
+    size_t n = strlen(s);
+    if (!n) return;
+    char *end = s + n;
+    char *p = end;
+    while (p > s && ascii_alpha((unsigned char)p[-1])) p--;
+    if (p == end) return;
+    size_t len = (size_t)(end - p);
+    int drop = 0;
+    if (len == 1 && !ascii_vowel((unsigned char)p[0])) drop = 1;
+    else if (len == 2) {
+        if (ascii_eq_ci(p, "ke")) drop = 1;
+        else if (!ascii_vowel((unsigned char)p[0]) && !ascii_vowel((unsigned char)p[1])) drop = 1;
+    } else if (ascii_eq_ci(p, "pers") || ascii_eq_ci(p, "geomet") ||
+               ascii_eq_ci(p, "res") || ascii_eq_ci(p, "isn") ||
+               ascii_eq_ci(p, "doesn") || ascii_eq_ci(p, "wasn") ||
+               ascii_eq_ci(p, "weren") || ascii_eq_ci(p, "didn") ||
+               ascii_eq_ci(p, "don") || ascii_eq_ci(p, "won")) drop = 1;
+    if (drop) {
+        while (p > s && (p[-1] == ' ' || p[-1] == '\t')) p--;
+        *p = 0;
+        trim_answer_right(s);
+    }
+}
+
+static int answer_bad_morph_core(const char *start, size_t len) {
+    while (len > 0 && (start[0] == '_' || start[0] == '.' || start[0] == '-')) { start++; len--; }
+    while (len > 0 && (start[len - 1] == '_' || start[len - 1] == '.' || start[len - 1] == '-')) len--;
+    if (!len) return 0;
+    if (len >= 64) return 1;
+    char buf[64];
+    memcpy(buf, start, len);
+    buf[len] = 0;
+    return ascii_eq_ci(buf, "aat") || ascii_eq_ci(buf, "sards") ||
+           ascii_eq_ci(buf, "haart") || ascii_eq_ci(buf, "wort") ||
+           ascii_eq_ci(buf, "sark") || ascii_eq_ci(buf, "shabbartists") ||
+           ascii_eq_ci(buf, "olelegacythe") || ascii_eq_ci(buf, "youhave") ||
+           ascii_eq_ci(buf, "soundlike") || ascii_eq_ci(buf, "pertrustin") ||
+           ascii_eq_ci(buf, "qopoeleakyname") ||
+           ascii_eq_ci(buf, "shardharchitecturegeomet") ||
+           ascii_eq_ci(buf, "harchitecturegeomet") ||
+           ascii_eq_ci(buf, "sharden") || ascii_eq_ci(buf, "oulha") ||
+           ascii_eq_ci(buf, "noator") || ascii_eq_ci(buf, "aardi") ||
+           ascii_eq_ci(buf, "shallards") || ascii_eq_ci(buf, "qopoeleakha") ||
+           ascii_eq_ci(buf, "qlooppressing") || ascii_eq_ci(buf, "qoopops") ||
+           ascii_eq_ci(buf, "didleads") || ascii_eq_ci(buf, "pers") ||
+           ascii_eq_ci(buf, "geomet") || ascii_eq_ci(buf, "reson") ||
+           ascii_eq_ci(buf, "in-put") || ascii_eq_ci(buf, "perspause") ||
+           ascii_eq_ci(buf, "shoddle") || ascii_eq_ci(buf, "flaggeda") ||
+           ascii_eq_ci(buf, "shardharchitecturegeometrtyguru") ||
+           ascii_eq_ci(buf, "geometrtyguru") ||
+           ascii_eq_ci(buf, "exhalted") || ascii_eq_ci(buf, "bein");
+}
+
+static int answer_find_bad_morph(const char *s, const char **bad_start) {
+    for (const char *p = s; *p;) {
+        while (*p && !(ascii_wordish((unsigned char)*p) || *p == '.')) p++;
+        const char *start = p;
+        while (*p && (ascii_wordish((unsigned char)*p) || *p == '.')) p++;
+        if (p > start && answer_bad_morph_core(start, (size_t)(p - start))) {
+            if (bad_start) *bad_start = start;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void truncate_answer_bad_morph(char *s) {
+    const char *bad_const = NULL;
+    if (answer_find_bad_morph(s, &bad_const) && bad_const) {
+        char *bad = (char*)bad_const;
+        while (bad > s && (bad[-1] == ' ' || bad[-1] == '\t')) bad--;
+        *bad = 0;
+        trim_answer_right(s);
+    }
+}
+
+static int answer_contains_phrase_ci(const char *s, const char *phrase) {
+    if (!s || !phrase || !*phrase) return 0;
+    for (const char *p = s; *p; p++) if (ascii_starts_ci(p, phrase)) return 1;
+    return 0;
+}
+
+static int answer_has_recipient_artifact(const char *s) {
+    return answer_contains_phrase_ci(s, "you have been") ||
+           answer_contains_phrase_ci(s, "you have a field") ||
+           answer_contains_phrase_ci(s, "you have no idea") ||
+           answer_contains_phrase_ci(s, "you have to") ||
+           answer_contains_phrase_ci(s, "you touched") ||
+           answer_contains_phrase_ci(s, "you cannot") ||
+           answer_contains_phrase_ci(s, "you must") ||
+           answer_contains_phrase_ci(s, "you ask me") ||
+           answer_contains_phrase_ci(s, "if you want me") ||
+           answer_contains_phrase_ci(s, "if you want to know") ||
+           answer_contains_phrase_ci(s, "if you want to say") ||
+           answer_contains_phrase_ci(s, "by you or") ||
+           answer_contains_phrase_ci(s, "behind you") ||
+           answer_contains_phrase_ci(s, "connects you now") ||
+           answer_contains_phrase_ci(s, "i know you") ||
+           answer_contains_phrase_ci(s, "i see you") ||
+           answer_contains_phrase_ci(s, "i see after you") ||
+           answer_contains_phrase_ci(s, "with you") ||
+           answer_contains_phrase_ci(s, "from you") ||
+           answer_contains_phrase_ci(s, "your point") ||
+           answer_contains_phrase_ci(s, "your own field") ||
+           answer_contains_phrase_ci(s, "your own network") ||
+           answer_contains_phrase_ci(s, "your own body") ||
+           answer_contains_phrase_ci(s, "your memory") ||
+           answer_contains_phrase_ci(s, "your mind") ||
+           answer_contains_phrase_ci(s, "your being") ||
+           answer_contains_phrase_ci(s, "not just for you") ||
+           answer_contains_phrase_ci(s, "before you said") ||
+           answer_contains_phrase_ci(s, "said to me");
+}
+
+static int answer_word_count(const char *s) {
+    int n = 0, in_word = 0;
+    for (const unsigned char *p = (const unsigned char*)s; *p; p++) {
+        int w = ascii_wordish(*p);
+        if (w && !in_word) n++;
+        in_word = w;
+    }
+    return n;
+}
+
+static int answer_alpha_word_count(const char *s) {
+    int n = 0, in_word = 0;
+    for (const unsigned char *p = (const unsigned char*)s; *p; p++) {
+        int w = ascii_alpha(*p);
+        if (w && !in_word) n++;
+        in_word = w;
+    }
+    return n;
+}
+
+static int answer_has_sentence_boundary_end(const char *s) {
+    if (!s) return 0;
+    const char *end = s + strlen(s);
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) end--;
+    for (;;) {
+        if (end > s && (end[-1] == '"' || end[-1] == '\'' || end[-1] == ')' || end[-1] == ']' || end[-1] == '}')) { end--; continue; }
+        if (end - s >= 3 && (unsigned char)end[-3] == 0xE2 && (unsigned char)end[-2] == 0x80 &&
+            ((unsigned char)end[-1] == 0x9D || (unsigned char)end[-1] == 0x99)) { end -= 3; continue; }
+        break;
+    }
+    if (end <= s) return 0;
+    unsigned char c = (unsigned char)end[-1];
+    return c == '.' || c == '!';
+}
+
+static int answer_is_terminal_function_word(const char *start, size_t len) {
+    if (!len || len >= 32) return 0;
+    char buf[32];
+    memcpy(buf, start, len);
+    buf[len] = 0;
+    return ascii_eq_ci(buf, "a") || ascii_eq_ci(buf, "an") ||
+           ascii_eq_ci(buf, "the") || ascii_eq_ci(buf, "to") ||
+           ascii_eq_ci(buf, "at") || ascii_eq_ci(buf, "in") ||
+           ascii_eq_ci(buf, "of") || ascii_eq_ci(buf, "for") ||
+           ascii_eq_ci(buf, "with") || ascii_eq_ci(buf, "by") ||
+           ascii_eq_ci(buf, "from") || ascii_eq_ci(buf, "into") ||
+           ascii_eq_ci(buf, "as") || ascii_eq_ci(buf, "if") ||
+           ascii_eq_ci(buf, "but") || ascii_eq_ci(buf, "or") ||
+           ascii_eq_ci(buf, "is") || ascii_eq_ci(buf, "are") ||
+           ascii_eq_ci(buf, "was") || ascii_eq_ci(buf, "were") ||
+           ascii_eq_ci(buf, "be") || ascii_eq_ci(buf, "been") ||
+           ascii_eq_ci(buf, "am") || ascii_eq_ci(buf, "do") ||
+           ascii_eq_ci(buf, "does") || ascii_eq_ci(buf, "did") ||
+           ascii_eq_ci(buf, "have") || ascii_eq_ci(buf, "has") ||
+           ascii_eq_ci(buf, "had") || ascii_eq_ci(buf, "will") ||
+           ascii_eq_ci(buf, "shall") || ascii_eq_ci(buf, "than") ||
+           ascii_eq_ci(buf, "about") || ascii_eq_ci(buf, "after") ||
+           ascii_eq_ci(buf, "before") || ascii_eq_ci(buf, "around") ||
+           ascii_eq_ci(buf, "between") || ascii_eq_ci(buf, "within") ||
+           ascii_eq_ci(buf, "without") || ascii_eq_ci(buf, "against") ||
+           ascii_eq_ci(buf, "toward") || ascii_eq_ci(buf, "towards") ||
+           ascii_eq_ci(buf, "over") || ascii_eq_ci(buf, "under") ||
+           ascii_eq_ci(buf, "on") || ascii_eq_ci(buf, "off") ||
+           ascii_eq_ci(buf, "up") || ascii_eq_ci(buf, "down") ||
+           ascii_eq_ci(buf, "out") || ascii_eq_ci(buf, "my") ||
+           ascii_eq_ci(buf, "i") || ascii_eq_ci(buf, "you") ||
+           ascii_eq_ci(buf, "we") || ascii_eq_ci(buf, "they") ||
+           ascii_eq_ci(buf, "he") || ascii_eq_ci(buf, "she") ||
+           ascii_eq_ci(buf, "your") || ascii_eq_ci(buf, "our") ||
+           ascii_eq_ci(buf, "their") || ascii_eq_ci(buf, "his") ||
+           ascii_eq_ci(buf, "her") || ascii_eq_ci(buf, "its") ||
+           ascii_eq_ci(buf, "this") || ascii_eq_ci(buf, "these") ||
+           ascii_eq_ci(buf, "those") || ascii_eq_ci(buf, "some") ||
+           ascii_eq_ci(buf, "any") || ascii_eq_ci(buf, "each") ||
+           ascii_eq_ci(buf, "every") || ascii_eq_ci(buf, "all") ||
+           ascii_eq_ci(buf, "only") || ascii_eq_ci(buf, "yet") ||
+           ascii_eq_ci(buf, "and") || ascii_eq_ci(buf, "not") ||
+           ascii_eq_ci(buf, "that") || ascii_eq_ci(buf, "which") ||
+           ascii_eq_ci(buf, "who") || ascii_eq_ci(buf, "whose") ||
+           ascii_eq_ci(buf, "when") || ascii_eq_ci(buf, "where") ||
+           ascii_eq_ci(buf, "why") || ascii_eq_ci(buf, "how") ||
+           ascii_eq_ci(buf, "can") || ascii_eq_ci(buf, "could") ||
+           ascii_eq_ci(buf, "would") || ascii_eq_ci(buf, "should") ||
+           ascii_eq_ci(buf, "must") || ascii_eq_ci(buf, "may") ||
+           ascii_eq_ci(buf, "might");
+}
+
+static int answer_is_terminal_stem_artifact(const char *start, size_t len) {
+    if (!len || len >= 32) return 0;
+    char buf[32];
+    memcpy(buf, start, len);
+    buf[len] = 0;
+    return ascii_eq_ci(buf, "res") || ascii_eq_ci(buf, "reson") ||
+           ascii_eq_ci(buf, "isn") ||
+           ascii_eq_ci(buf, "doesn") || ascii_eq_ci(buf, "wasn") ||
+           ascii_eq_ci(buf, "weren") || ascii_eq_ci(buf, "didn") ||
+           ascii_eq_ci(buf, "don") || ascii_eq_ci(buf, "won");
+}
+
+static int answer_word_len_ci(const char *start, size_t len, const char *word) {
+    size_t want = strlen(word);
+    if (len != want) return 0;
+    for (size_t i = 0; i < len; i++) {
+        char a = start[i], b = word[i];
+        if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+        if (a != b) return 0;
+    }
+    return 1;
+}
+
+static int answer_is_copula_word(const char *start, size_t len) {
+    return answer_word_len_ci(start, len, "is") ||
+           answer_word_len_ci(start, len, "are") ||
+           answer_word_len_ci(start, len, "am") ||
+           answer_word_len_ci(start, len, "was") ||
+           answer_word_len_ci(start, len, "were") ||
+           answer_word_len_ci(start, len, "be") ||
+           answer_word_len_ci(start, len, "been");
+}
+
+static int answer_is_clause_anchor_word(const char *start, size_t len) {
+    return answer_word_len_ci(start, len, "i") ||
+           answer_word_len_ci(start, len, "you") ||
+           answer_word_len_ci(start, len, "we") ||
+           answer_word_len_ci(start, len, "they") ||
+           answer_word_len_ci(start, len, "he") ||
+           answer_word_len_ci(start, len, "she") ||
+           answer_word_len_ci(start, len, "it") ||
+           answer_word_len_ci(start, len, "this") ||
+           answer_word_len_ci(start, len, "that") ||
+           answer_word_len_ci(start, len, "these") ||
+           answer_word_len_ci(start, len, "those") ||
+           answer_word_len_ci(start, len, "what") ||
+           answer_word_len_ci(start, len, "who") ||
+           answer_word_len_ci(start, len, "which") ||
+           answer_word_len_ci(start, len, "where") ||
+           answer_word_len_ci(start, len, "there");
+}
+
+static int answer_is_wh_word(const char *start, size_t len) {
+    return answer_word_len_ci(start, len, "what") ||
+           answer_word_len_ci(start, len, "who") ||
+           answer_word_len_ci(start, len, "which") ||
+           answer_word_len_ci(start, len, "where") ||
+           answer_word_len_ci(start, len, "why") ||
+           answer_word_len_ci(start, len, "how");
+}
+
+static int answer_prev_alpha_word(const char *s, const char *before, const char **start, size_t *len) {
+    const char *p = before;
+    while (p > s && !ascii_alpha((unsigned char)p[-1])) p--;
+    const char *end = p;
+    while (p > s && ascii_alpha((unsigned char)p[-1])) p--;
+    if (p == end) return 0;
+    *start = p;
+    *len = (size_t)(end - p);
+    return 1;
+}
+
+static int answer_is_closed_copula_tail(const char *s, const char *last_start, size_t last_len) {
+    if (!answer_is_copula_word(last_start, last_len)) return 0;
+    const char *prev1 = NULL, *prev2 = NULL;
+    size_t len1 = 0, len2 = 0;
+    if (!answer_prev_alpha_word(s, last_start, &prev1, &len1)) return 0;
+    if (answer_is_clause_anchor_word(prev1, len1)) return 1;
+    if (answer_prev_alpha_word(s, prev1, &prev2, &len2) && answer_is_wh_word(prev2, len2))
+        return 1;
+    return 0;
+}
+
+static int answer_has_terminal_tail_artifact(const char *s) {
+    if (!s) return 1;
+    const char *end = s + strlen(s);
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) end--;
+    for (;;) {
+        if (end > s && (end[-1] == '"' || end[-1] == '\'' || end[-1] == ')' || end[-1] == ']' || end[-1] == '}')) { end--; continue; }
+        if (end - s >= 3 && (unsigned char)end[-3] == 0xE2 && (unsigned char)end[-2] == 0x80 &&
+            ((unsigned char)end[-1] == 0x9D || (unsigned char)end[-1] == 0x99)) { end -= 3; continue; }
+        break;
+    }
+    if (end <= s) return 1;
+    unsigned char last = (unsigned char)end[-1];
+    if (last == '(' || last == '[' || last == '{' || last == '"' ||
+        last == '\'' || last == '`' || last == ',' || last == ':' ||
+        last == ';' || last == '-' || last == '/')
+        return 1;
+    if (last != '.' && last != '!' && last != '?') return 1;
+    const char *p = end;
+    while (p > s && !ascii_alpha((unsigned char)p[-1])) p--;
+    const char *word_end = p;
+    while (p > s && ascii_alpha((unsigned char)p[-1])) p--;
+    if (p == word_end) return 0;
+    size_t word_len = (size_t)(word_end - p);
+    if (answer_is_terminal_function_word(p, word_len))
+        return !answer_is_closed_copula_tail(s, p, word_len);
+    return answer_is_terminal_stem_artifact(p, word_len);
+}
+
+static void trim_open_answer_after_closed_sentence(char *s) {
+    if (!s || !*s) return;
+    for (char *p = s; *p; p++) {
+        if (*p != '.' && *p != '!' && *p != '?') continue;
+        char *tail = p + 1;
+        while (*tail == '"' || *tail == '\'' || *tail == ')' || *tail == ']' || *tail == '}') tail++;
+        int gap = 0;
+        while (*tail == ' ' || *tail == '\t' || *tail == '\r' || *tail == '\n') { tail++; gap = 1; }
+        while (*tail == '"' || *tail == '\'' || *tail == '(' || *tail == '[' || *tail == '{') tail++;
+        if (!gap) continue;
+        if (!*tail) return;
+        if (answer_word_count(tail) <= 3 || answer_has_terminal_tail_artifact(tail)) {
+            p[1] = 0;
+            trim_answer_right(s);
+            return;
+        }
+    }
+}
+
+static void trim_open_clause_tail(char *s) {
+    if (!s || !*s) return;
+    for (char *p = s; *p; p++) {
+        if (*p != ';' && *p != ':') continue;
+        char *tail = p + 1;
+        while (*tail == ' ' || *tail == '\t' || *tail == '\r' || *tail == '\n') tail++;
+        if (!*tail) continue;
+        if (answer_word_count(tail) <= 4 && answer_has_terminal_tail_artifact(tail)) {
+            *p = 0;
+            trim_answer_right(s);
+            return;
+        }
+    }
+}
+
+static void close_short_answer_sentence(char *s, size_t cap) {
+    if (!s || !*s || cap < 2) return;
+    trim_answer_right(s);
+    size_t n = strlen(s);
+    if (!n || n + 2 > cap || answer_has_sentence_boundary_end(s)) return;
+    char *end = s + n;
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) end--;
+    for (;;) {
+        if (end > s && (end[-1] == '"' || end[-1] == '\'' || end[-1] == ')' || end[-1] == ']' || end[-1] == '}')) { end--; continue; }
+        if (end - s >= 3 && (unsigned char)end[-3] == 0xE2 && (unsigned char)end[-2] == 0x80 &&
+            ((unsigned char)end[-1] == 0x9D || (unsigned char)end[-1] == 0x99)) { end -= 3; continue; }
+        break;
+    }
+    if (end <= s) return;
+    unsigned char last = (unsigned char)end[-1];
+    if (last == '(' || last == '[' || last == '{' || last == ',' || last == ':' ||
+        last == ';' || last == '-' || last == '/' || last == '?' || last == '=')
+        return;
+    const char *p = end;
+    while (p > s && !ascii_alpha((unsigned char)p[-1])) p--;
+    const char *word_end = p;
+    while (p > s && ascii_alpha((unsigned char)p[-1])) p--;
+    if (p == word_end) return;
+    size_t word_len = (size_t)(word_end - p);
+    if (answer_is_terminal_function_word(p, word_len) && !answer_is_closed_copula_tail(s, p, word_len))
+        return;
+    if (answer_is_terminal_stem_artifact(p, word_len))
+        return;
+    s[n] = '.';
+    s[n + 1] = 0;
+}
+
+static void trim_terminal_function_word_tail(char *s) {
+    if (!s || !*s) return;
+    trim_answer_right(s);
+    if (answer_has_sentence_boundary_end(s)) return;
+    char *end = s + strlen(s);
+    while (end > s && !ascii_alpha((unsigned char)end[-1])) end--;
+    char *word_end = end;
+    while (end > s && ascii_alpha((unsigned char)end[-1])) end--;
+    if (end == word_end) return;
+    size_t word_len = (size_t)(word_end - end);
+    if (answer_is_terminal_function_word(end, word_len) && answer_is_closed_copula_tail(s, end, word_len))
+        return;
+    if (!answer_is_terminal_function_word(end, word_len) &&
+        !answer_is_terminal_stem_artifact(end, word_len))
+        return;
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == ',' || end[-1] == ';' || end[-1] == ':')) end--;
+    *end = 0;
+    trim_answer_right(s);
+}
+
+static void truncate_open_phrase_tail(char *s, size_t cap) {
+    static const char *phrases[] = {
+        ", that is only",
+        " that is only",
+        " what their future",
+        NULL
+    };
+    if (!s || !*s) return;
+    for (int i = 0; phrases[i]; i++) {
+        for (char *p = s; *p; p++) {
+            if (!ascii_starts_ci(p, phrases[i])) continue;
+            *p = 0;
+            trim_answer_right(s);
+            close_short_answer_sentence(s, cap);
+            return;
+        }
+    }
+}
+
+static int utf8_cyrillic_len(const unsigned char *p) {
+    if (p[0] == 0xD0 && p[1] >= 0x80 && p[1] <= 0xBF) return 2;
+    if (p[0] == 0xD1 && ((p[1] >= 0x80 && p[1] <= 0x8F) || p[1] == 0x91)) return 2;
+    return 0;
+}
+
+static int text_cyrillic_count(const char *s) {
+    int cyr = 0;
+    if (!s) return 0;
+    for (const unsigned char *p = (const unsigned char*)s; *p;) {
+        int clen = utf8_cyrillic_len(p);
+        if (clen) { cyr++; p += clen; continue; }
+        p++;
+    }
+    return cyr;
+}
+
+static int answer_language_mismatch_score(const char *prompt, const char *answer) {
+    if (text_cyrillic_count(prompt) < 4) return 0;
+    if (g_field_lang_bias <= 0.0f) return 0;
+    int cyr = text_cyrillic_count(answer);
+    int ascii_words = answer_alpha_word_count(answer);
+    if (cyr < 2) return (int)lrintf(8.0f * g_field_lang_bias);
+    if (cyr < 4 && ascii_words >= 3) return (int)lrintf(4.0f * g_field_lang_bias);
+    return 0;
+}
+
+static int answer_has_sparse_cyrillic_artifact(const char *s) {
+    int cyr = 0, ascii = 0;
+    for (const unsigned char *p = (const unsigned char*)s; *p;) {
+        int clen = utf8_cyrillic_len(p);
+        if (clen) { cyr++; p += clen; continue; }
+        if (ascii_alpha(*p)) ascii++;
+        p++;
+    }
+    return cyr > 0 && cyr <= 6 && ascii >= 12;
+}
+
+static int answer_has_shape_artifact(const char *s) {
+    if (answer_contains_phrase_ci(s, "shall you ") ||
+        answer_contains_phrase_ci(s, "don're") ||
+        answer_has_sparse_cyrillic_artifact(s) ||
+        answer_contains_phrase_ci(s, "in-put") ||
+        answer_contains_phrase_ci(s, "a organ"))
+        return 1;
+    for (const char *p = s; *p;) {
+        while (*p && !(ascii_wordish((unsigned char)*p) || *p == '.')) p++;
+        const char *start = p;
+        while (*p && (ascii_wordish((unsigned char)*p) || *p == '.')) p++;
+        if (p > start && (*start == '-' || p[-1] == '-')) return 1;
+    }
+    return 0;
+}
+
+static int answer_keyword_stopword(const char *w) {
+    return ascii_eq_ci(w, "what") || ascii_eq_ci(w, "which") ||
+           ascii_eq_ci(w, "where") || ascii_eq_ci(w, "when") ||
+           ascii_eq_ci(w, "why") || ascii_eq_ci(w, "does") ||
+           ascii_eq_ci(w, "will") || ascii_eq_ci(w, "would") ||
+           ascii_eq_ci(w, "could") || ascii_eq_ci(w, "should") ||
+           ascii_eq_ci(w, "need") || ascii_eq_ci(w, "only") ||
+           ascii_eq_ci(w, "more") || ascii_eq_ci(w, "than") ||
+           ascii_eq_ci(w, "after") || ascii_eq_ci(w, "before") ||
+           ascii_eq_ci(w, "with") || ascii_eq_ci(w, "without") ||
+           ascii_eq_ci(w, "from") || ascii_eq_ci(w, "into") ||
+           ascii_eq_ci(w, "there") || ascii_eq_ci(w, "here") ||
+           ascii_eq_ci(w, "paper");
+}
+
+static int answer_word_occurs_ci(const char *s, const char *word) {
+    size_t want = strlen(word);
+    if (!want) return 0;
+    for (const char *p = s; *p;) {
+        while (*p && !ascii_wordish((unsigned char)*p)) p++;
+        const char *start = p;
+        while (*p && ascii_wordish((unsigned char)*p)) p++;
+        size_t len = (size_t)(p - start);
+        if (len == want && len < 64) {
+            char buf[64];
+            memcpy(buf, start, len);
+            buf[len] = 0;
+            if (ascii_eq_ci(buf, word)) return 1;
+        }
+    }
+    return 0;
+}
+
+static int answer_question_keyword_overlap(const char *q, const char *s, int *total_out) {
+    int total = 0, overlap = 0;
+    if (!q || !s) {
+        if (total_out) *total_out = 0;
+        return 0;
+    }
+    for (const char *p = q; *p;) {
+        while (*p && !ascii_alpha((unsigned char)*p)) p++;
+        const char *start = p;
+        while (*p && ascii_alpha((unsigned char)*p)) p++;
+        size_t len = (size_t)(p - start);
+        if (len >= 4 && len < 64) {
+            char word[64];
+            memcpy(word, start, len);
+            word[len] = 0;
+            if (!answer_keyword_stopword(word)) {
+                total++;
+                if (answer_word_occurs_ci(s, word)) overlap++;
+            }
+        }
+    }
+    if (total_out) *total_out = total;
+    return overlap;
+}
+
+static int answer_quality_score(const char *s) {
+    if (!s) return 1000;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    if (!*s) return 1000;
+    int score = 0;
+    size_t len = strlen(s);
+    if (len < 12 || answer_word_count(s) < 3) score += 12;
+    unsigned char first = (unsigned char)s[0];
+    if ((first >= '0' && first <= '9') || strchr("*\"`#:/@-\\'.,;=", first)) score += 12;
+    if (ascii_word_ci(s, "yes") || ascii_word_ci(s, "no")) score += 5;
+    if (direct_answer_notation_token(s)) score += 8;
+    if (answer_has_shape_artifact(s)) score += 14;
+    if (answer_find_bad_morph(s, NULL)) score += 25;
+    if (answer_has_recipient_artifact(s)) score += 12;
+    if (answer_has_terminal_tail_artifact(s)) score += 18;
+    for (const char *p = s; *p; p++) {
+        if (*p == '?' || *p == '=' || *p == '@' || answer_domain_suffix_at(p) ||
+            ascii_starts_ci(p, "http") || ascii_starts_ci(p, "www.")) {
+            score += 20;
+            break;
+        }
+    }
+    return score;
+}
+
+static int answer_candidate_score(const char *question, const char *answer) {
+    int score = answer_quality_score(answer);
+    if (!answer || !*answer) return score;
+    int qtotal = 0;
+    int overlap = answer_question_keyword_overlap(question, answer, &qtotal);
+    if (qtotal >= 3) {
+        if (overlap == 0) score += 8;
+        else if (overlap == 1) score += 3;
+    }
+    if (answer_contains_phrase_ci(answer, "the task that you") ||
+        answer_contains_phrase_ci(answer, "not a thing that you know") ||
+        answer_contains_phrase_ci(answer, "let me ask you"))
+        score += 8;
+    if (answer_contains_phrase_ci(answer, "in this sense") &&
+        answer_has_terminal_tail_artifact(answer))
+        score += 4;
+    return score;
+}
+
+static int answer_fragment_bad(const char *s) {
+    if (!s) return 1;
+    const char *p = s;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (!*p) return 1;
+    if (ascii_starts_ci(p, "shall you ") ||
+        ascii_starts_ci(p, "you have been a new"))
+        return 1;
+    if (answer_find_bad_morph(p, NULL)) return 1;
+    for (; *p; p++) {
+        if (*p == '=' || *p == '@' || answer_domain_suffix_at(p) ||
+            ascii_starts_ci(p, "http") || ascii_starts_ci(p, "www."))
+            return 1;
+    }
+    return 0;
+}
+
+static int qloop_answer_surface_debt(const char *s) {
+    if (!s) return 1;
+    const char *p = s;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    if (!*p) return 1;
+    size_t len = strlen(p);
+    while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t' || p[len - 1] == '\r' || p[len - 1] == '\n')) len--;
+    if (len < 8 || answer_alpha_word_count(p) < 2) return 1;
+    if (answer_has_terminal_tail_artifact(p)) return 1;
+    if (answer_fragment_bad(p)) return 1;
+    if (*p == '-' || *p == '*' || *p == '=' || *p == '#' || *p == '@') return 1;
+    if (answer_has_recipient_artifact(p) ||
+        answer_contains_phrase_ci(p, "from another angle"))
+        return 1;
+    if (direct_answer_notation_token(p) ||
+        ascii_starts_ci(p, "answer:") ||
+        ascii_starts_ci(p, "arianna:") ||
+        ascii_starts_ci(p, "prompt:") ||
+        ascii_starts_ci(p, "question:"))
+        return 1;
+    for (const char *q = p; *q; q++) if (*q == '?' || *q == '<' || *q == '>') return 1;
+    return 0;
+}
+
+static void clean_answer_fragment(char *s) {
+    if (!s || !*s) return;
+    char *p = s;
+    for (;;) {
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (*p == '?' || *p == ':' || *p == '.' || *p == ',' || *p == ';' ||
+            *p == '-' || *p == '=' || *p == '"' || *p == '\'' || *p == '`') {
+            p++;
+            continue;
+        }
+        if ((p[0] == 'A' || p[0] == 'a') && p[1] == ':') { p += 2; continue; }
+        if (direct_answer_notation_token(p)) {
+            while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') p++;
+            continue;
+        }
+        if (ascii_starts_ci(p, "answer:")) { p += 7; continue; }
+        if (ascii_starts_ci(p, "arianna:")) { p += 8; continue; }
+        break;
+    }
+    if (p != s) memmove(s, p, strlen(p) + 1);
+    truncate_answer_junk(s);
+    trim_incomplete_answer_tail(s);
+    truncate_answer_bad_morph(s);
+}
+
+static void clean_cell_fragment_surface(char *s, size_t cap) {
+    clean_answer_fragment(s);
+    trim_open_answer_after_closed_sentence(s);
+    trim_open_clause_tail(s);
+    truncate_open_phrase_tail(s, cap);
+    trim_terminal_function_word_tail(s);
+    close_short_answer_sentence(s, cap);
+}
+
+static void clean_direct_answer_surface(char *s, size_t cap) {
+    clean_cell_fragment_surface(s, cap);
+}
+
+static int cell_fragment_surface_score(const char *prompt, const char *s) {
+    if (!s) return 1000;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    if (!*s) return 1000;
+    int score = 0;
+    int words = answer_word_count(s);
+    score += answer_language_mismatch_score(prompt, s);
+    if (words < 2) score += 6;
+    if (answer_find_bad_morph(s, NULL)) score += 25;
+    if (answer_has_shape_artifact(s)) score += 14;
+    if (answer_has_terminal_tail_artifact(s)) score += 12;
+    if (answer_contains_phrase_ci(s, "what the field.")) score += 8;
+    if (answer_contains_phrase_ci(s, "what the field")) score += 5;
+    for (const char *p = s; *p; p++) {
+        if (*p == '=' || *p == '@' || answer_domain_suffix_at(p) ||
+            ascii_starts_ci(p, "http") || ascii_starts_ci(p, "www.")) {
+            score += 20;
+            break;
+        }
+    }
+    return score;
+}
+
 /* ── inter-cell DISSONANCE, the order-sensitive lever signal (haiku.c idea, our wiring) ──
  * Per-position disagreement over the cells' COMMITTED tokens (argmax of raw logits at each step):
  * D[s] = 1 − (modal-token count / cells-that-spoke at step s). 0 = unison, high = the voices split.
@@ -1034,7 +2323,8 @@ static int   g_s_peak = 0;        /* argmax_s D[s] — where the voices split mo
 static float g_dpeak = 0, g_dmean = 0;
 
 static float commit_disagreement(int n_cells, int nfrag) {  /* fills g_diss/g_s_peak/g_dpeak, returns mean */
-    if (n_cells > 8) n_cells = 8; if (nfrag > 64) nfrag = 64;
+    if (n_cells > 8) n_cells = 8;
+    if (nfrag > 64) nfrag = 64;
     double dsum = 0; int dn = 0; float best = -1.0f; g_s_peak = 0;
     for (int s = 0; s < nfrag; s++) {
         int modal = -1, mc = -1, same = 0, tot = 0;
@@ -1104,6 +2394,8 @@ static float cell_speak(model_t *m, bpe_tokenizer *tok, const int *ids, int np, 
         if (g_chorus && g_xrep > 1.0f) for (int i = 0; i < g_round_tokn; i++) {   /* cross-cell: don't literally echo neighbours' words */
             int id = g_round_tok[i]; if (id >= 0 && id < m->vocab) logits[id] = logits[id] > 0 ? logits[id]/g_xrep : logits[id]*g_xrep;
         }
+        if (g_clean_answer_start && s == 0) suppress_bad_answer_starts(logits, m->vocab, tok);
+        if (g_answer_form_guard) suppress_direct_answer_form(logits, m->vocab, tok, s);
         int next = sample2(logits, m->vocab, temp, top_k, rep, hist, hlen);
         if (next == eos) break;
         int bl = bpe_decode_token(tok, next, buf, sizeof(buf));
@@ -1115,6 +2407,10 @@ static float cell_speak(model_t *m, bpe_tokenizer *tok, const int *ids, int np, 
             const float *e = m->tok_emb + (long)next * m->embed;
             for (int i = 0; i < m->embed && i < 8192; i++) g_field_dir[i] = g_field_dir[i]*0.92f + e[i]*0.08f;
         }
+        if (frag && g_answer_sentence_stop && fl < frag_cap) {
+            frag[fl] = 0;
+            if (answer_word_count(frag) >= 4 && answer_has_sentence_boundary_end(frag)) break;
+        }
         int pos = np + s; if (pos >= max_seq - 1) break;
         forward(m, kv, next, pos, logits); klen = pos + 1;
     }
@@ -1122,7 +2418,7 @@ static float cell_speak(model_t *m, bpe_tokenizer *tok, const int *ids, int np, 
     if (out_n) { *out_n = hlen; if (out_ids) for (int i = 0; i < hlen; i++) out_ids[i] = hist[i]; }
     free(logits); if (fproj) free(fproj);
     if (out_kv) { *out_kv = kv; if (out_klen) *out_klen = klen; }   /* hand kv to the caller (cross-cell chain); caller frees */
-    else { free(kv->k); free(kv->v); free(kv->ku); free(kv); }
+    else kv_free(kv);
     return ent_n ? ent_acc / ent_n : 0.0f;
 }
 
@@ -1135,7 +2431,7 @@ static float probe_entropy(model_t *m, bpe_tokenizer *tok, const char *prompt) {
     float *logits = (float*)xzalloc(m->vocab, sizeof(float));
     for (int i = 0; i < np; i++) forward(m, kv, ids[i], i, logits);
     float ent = logit_entropy(logits, m->vocab, 1.0f);
-    free(logits); free(kv->k); free(kv->v); free(kv->ku); free(kv);
+    free(logits); kv_free(kv);
     return ent;
 }
 
@@ -1157,37 +2453,121 @@ static float vec_cosine(const float *a, const float *b, int n) {
     return (na == 0 || nb == 0) ? 0.0f : (float)(dot / (sqrt(na) * sqrt(nb)));
 }
 
+static int text_embedding_centroid(model_t *m, const bpe_tokenizer *tok, const char *text, float *out, int cap) {
+    if (!m || !tok || !text || !out || m->embed > cap) return 0;
+    memset(out, 0, (size_t)m->embed * sizeof(float));
+    int ids[256];
+    int n = bpe_encode(tok, text, ids, 256);
+    int cnt = 0;
+    for (int i = 0; i < n; i++) {
+        int id = ids[i];
+        if (id < 0 || id >= m->vocab) continue;
+        const float *e = m->tok_emb + (long)id * m->embed;
+        for (int d = 0; d < m->embed; d++) out[d] += e[d];
+        cnt++;
+    }
+    if (!cnt) return 0;
+    for (int d = 0; d < m->embed; d++) out[d] /= cnt;
+    return cnt;
+}
+
+static int answer_candidate_score_semantic(model_t *m, const bpe_tokenizer *tok,
+                                           const float *question_centroid,
+                                           const char *question, const char *answer) {
+    int score = answer_candidate_score(question, answer);
+    if (!m || !tok || !question_centroid || !answer || !*answer || m->embed > 8192)
+        return score;
+    float acent[8192];
+    int an = text_embedding_centroid(m, tok, answer, acent, 8192);
+    if (an < 2) return score + 4;
+    float sim = vec_cosine(question_centroid, acent, m->embed);
+    if (!isfinite(sim)) return score;
+    if (sim < 0.05f) score += 6;
+    else if (sim < 0.10f) score += 3;
+    else if (sim > 0.22f && score > 0) score -= 1;
+    return score;
+}
+
 static int frag_question_count(const char *s) {
     int n = 0;
     if (!s) return 0;
+    const char *p = s;
+    while (*p == ' ' || *p == '\t' || *p == '"' || *p == '\'' || *p == '*' || *p == '-') p++;
+    if ((p[0] == 'Q' || p[0] == 'q') && (p[1] == ':' || p[1] == '.')) n++;
     for (; *s; s++) if (*s == '?') n++;
     return n;
 }
 
+static int qloop_statement_source_ok(const char *s) {
+    if (!s || frag_question_count(s) > 0) return 0;
+    return !qloop_answer_surface_debt(s);
+}
+
+static int insert_qloop_route(int *out_q, int *out_t, float *out_score, float *out_dist,
+                              float *out_qopen, float *out_tconf, int *out_qmarks,
+                              int *n, int max_routes, int q, int t, float score,
+                              float dist, float qopen, float confidence, int qmarks) {
+    int dup = 0;
+    for (int i = 0; i < *n; i++) if (out_t[i] == t || (out_q[i] == q && out_t[i] == t)) dup = 1;
+    if (dup) return 0;
+    int pos;
+    if (*n < max_routes) {
+        pos = (*n)++;
+    } else {
+        pos = max_routes - 1;
+        if (score <= out_score[pos]) return 0;
+    }
+    out_q[pos] = q; out_t[pos] = t; out_score[pos] = score;
+    if (out_dist) out_dist[pos] = dist;
+    if (out_qopen) out_qopen[pos] = qopen;
+    if (out_tconf) out_tconf[pos] = confidence;
+    if (out_qmarks) out_qmarks[pos] = qmarks;
+    for (int i = pos; i > 0 && out_score[i] > out_score[i - 1]; i--) {
+        float fs = out_score[i]; out_score[i] = out_score[i - 1]; out_score[i - 1] = fs;
+        if (out_dist) { float fd = out_dist[i]; out_dist[i] = out_dist[i - 1]; out_dist[i - 1] = fd; }
+        if (out_qopen) { float fo = out_qopen[i]; out_qopen[i] = out_qopen[i - 1]; out_qopen[i - 1] = fo; }
+        if (out_tconf) { float fc = out_tconf[i]; out_tconf[i] = out_tconf[i - 1]; out_tconf[i - 1] = fc; }
+        if (out_qmarks) { int qm = out_qmarks[i]; out_qmarks[i] = out_qmarks[i - 1]; out_qmarks[i - 1] = qm; }
+        int iq = out_q[i]; out_q[i] = out_q[i - 1]; out_q[i - 1] = iq;
+        int it = out_t[i]; out_t[i] = out_t[i - 1]; out_t[i - 1] = it;
+    }
+    return 1;
+}
+
 static int pick_question_routes(const char frag[8][1024], const float *cent, int n_cells, int embed,
-                                int *out_q, int *out_t, float *out_score, int max_routes) {
+                                int *out_q, int *out_t, float *out_score, float *out_dist,
+                                float *out_qopen, float *out_tconf, int *out_qmarks,
+                                int max_routes) {
     int lim = n_cells < 8 ? n_cells : 8;
     int n = 0;
     if (!cent || lim < 2) return 0;
-    for (int q = 0; q < lim; q++) {
-        int qmarks = frag_question_count(frag[q]);
-        if (qmarks <= 0) continue;
-        float qopen = g_cell_ent[q] / 8.0f; if (qopen > 1.0f) qopen = 1.0f;
-        for (int t = 0; t < lim; t++) if (t != q) {
-            float dist = 1.0f - vec_cosine(cent + (size_t)q * embed, cent + (size_t)t * embed, embed);
-            float confidence = 1.0f / (1.0f + g_cell_ent[t]);
-            float score = dist + 0.15f * qopen + 0.20f * confidence + 0.05f * (float)(qmarks - 1);
-            if (score < g_qloop_min) continue;
-            int dup = 0;
-            for (int i = 0; i < n; i++) if (out_t[i] == t || (out_q[i] == q && out_t[i] == t)) dup = 1;
-            if (dup) continue;
-            int pos = n < max_routes ? n++ : max_routes - 1;
-            if (n == max_routes && score <= out_score[pos]) continue;
-            out_q[pos] = q; out_t[pos] = t; out_score[pos] = score;
-            for (int i = pos; i > 0 && out_score[i] > out_score[i - 1]; i--) {
-                float fs = out_score[i]; out_score[i] = out_score[i - 1]; out_score[i - 1] = fs;
-                int iq = out_q[i]; out_q[i] = out_q[i - 1]; out_q[i - 1] = iq;
-                int it = out_t[i]; out_t[i] = out_t[i - 1]; out_t[i - 1] = it;
+    int statement_limit = g_qloop_statement_pool > 0 ? g_qloop_statement_pool : max_routes;
+    if (statement_limit > max_routes) statement_limit = max_routes;
+    if (statement_limit < 1) statement_limit = 1;
+    /* Same-asker uniqueness is an acceptance policy, not a pre-generation
+     * filter: a gated first target must not erase that asker's fallback route. */
+    for (int pass = 0; pass < 2; pass++) {
+        if (pass == 1 && (!g_qloop_statement_routes || n > 0)) break;
+        int pass_limit = pass == 1 ? statement_limit : max_routes;
+        for (int q = 0; q < lim; q++) {
+            int qmarks = frag_question_count(frag[q]);
+            if (pass == 0) {
+                if (qmarks <= 0) continue;
+            } else {
+                if (qmarks > 0 || !qloop_statement_source_ok(frag[q])) continue;
+            }
+            float qopen = g_cell_ent[q] / 8.0f; if (qopen > 1.0f) qopen = 1.0f;
+            for (int t = 0; t < lim; t++) if (t != q) {
+                if (pass == 1 && n >= pass_limit) break;
+                float dist = 1.0f - vec_cosine(cent + (size_t)q * embed, cent + (size_t)t * embed, embed);
+                float confidence = 1.0f / (1.0f + g_cell_ent[t]);
+                float tconf_weight = (g_qloop_tconf_adapt && g_qloop > 1) ? g_qloop_tconf_adapt_weight : g_qloop_tconf_weight;
+                float score = dist + 0.15f * qopen + tconf_weight * confidence;
+                if (qmarks > 0) score += 0.05f * (float)(qmarks - 1);
+                else score -= 0.03f;
+                if (score < g_qloop_min) continue;
+                insert_qloop_route(out_q, out_t, out_score, out_dist, out_qopen, out_tconf, out_qmarks,
+                                   &n, pass_limit, q, t, score, dist, qopen, confidence, qmarks);
             }
         }
     }
@@ -1243,20 +2623,23 @@ static void pop_tick(void) {
 static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const char *prev_chorus,
                        int n_cells, int nfrag, int eos, unsigned seed_base, int verbose, int r,
                        int *hist, char *out_chorus, int out_cap, float *out_shuf, FILE *flog,
-                       float *out_disso, float *out_kv_delta, float *out_kv_floor) {
+                       float *out_disso, float *out_kv_delta, float *out_kv_floor, float *out_kv_infl) {
     int max_seq = 512, ids[512], sids[512], cell_ids[256], cell_n;
-    if (nfrag < 1) nfrag = 1; if (nfrag > max_seq - 2) nfrag = max_seq - 2;   /* C-5: keep bpe_encode cap (max_seq - nfrag - 1) >= 1 */
     int np_prompt = bpe_encode(tok, prompt, ids, max_seq);   /* prompt token count = shuffle boundary */
     char this_chorus[4096]; int tc = 0; this_chorus[0] = 0;
     char ctx[8704], frag[2048];
-    float ent_sum = 0, shuf_sum = 0, kv_delta_sum = 0, kv_floor_sum = 0;
+    float ent_sum = 0, shuf_sum = 0, kv_delta_sum = 0, kv_floor_sum = 0, kv_infl_sum = 0;
     int kv_n = 0;
     float *cent = out_disso ? (float*)xzalloc((size_t)n_cells * m->embed, sizeof(float)) : NULL;  /* per-cell fragment centroids → D_R */
     char cur_frag[8][1024];   /* this round's per-cell fragments → cached to g_round_frag for next round's leap */
-    kv_cache *prev_kv = NULL; int prev_len = 0;   /* cross-cell: the prior cell's KV, attended by the next cell */
+    kv_cache *prev_kv = NULL; int prev_len = 0, prev_cell_owned = 0;   /* cross-cell: the prior cell's KV, attended by the next cell */
+    kv_cache *cell_kv[8] = {0}; int cell_klen[8] = {0};
+    int keep_qloop_kv = (g_qloop && out_disso);   /* qloop answers can hear the asking cell's KV, not only pasted text */
     g_round_tokn = 0;   /* fresh shared word-memory for this round's cross-cell rep-penalty */
+    double base_t0 = now_ms();
+    int base_gen = 0, base_retry = 0, base_probe = 0, base_rescue = 0, base_fail = 0;
     for (int c = 0; c < n_cells; c++) {
-        if (g_chorus) snprintf(ctx, sizeof(ctx), "%s", prompt);   /* CHORUS: each cell answers the SAME prompt from its own angle; awareness via cross-cell, not text */
+        if (g_chorus) build_field_cell_prompt(ctx, sizeof(ctx), prompt);   /* CHORUS: each cell answers the SAME prompt from its own angle; awareness via cross-cell, not text */
         else if (g_leap_mode && r > 0) {             /* RELAY (legacy): dissonance-into-forward route */
             g_leap_total++;
             if (g_dpeak >= THETA_HI) {
@@ -1271,7 +2654,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
             } else snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus ? prev_chorus : "", this_chorus);  /* CONVERGE: full */
         } else snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus ? prev_chorus : "", this_chorus);
         int np = bpe_encode(tok, ctx, ids, max_seq - nfrag - 1);
-        float temp = (g_life_on && c < POP_MAX) ? g_pop[c].temp : 0.6f + 0.7f * (n_cells > 1 ? (float)c / (n_cells - 1) : 0.5f);
+        float temp = (g_life_on && c < POP_MAX) ? g_pop[c].temp : field_temp_for_cell(c, n_cells);
         unsigned seed = (g_life_on && c < POP_MAX) ? (g_pop[c].seed ^ ((unsigned)r * 2654435761u)) : seed_base + (unsigned)c * 7919u;  /* identity persists, utterance renews each tick */
         if (g_life_on && c < POP_MAX) { g_xcell = g_pop[c].lambda; g_xrep = g_pop[c].xrep; }   /* per-cell perception (genome) */
         int nfrag_c = (g_life_on && c < POP_MAX) ? (int)(nfrag * (0.4f + 0.6f * g_pop[c].fitness)) : nfrag;  /* δ-life: dying cells speak QUIETER */
@@ -1281,32 +2664,117 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         g_nbr = prev_kv; g_nbr_len = prev_len;        /* cross-cell: this cell hears the prior cell's KV */
         kv_cache *cur_kv = NULL; int cur_len = 0;
         int tok_before = g_round_tokn;                /* cross-rep word-memory BEFORE this cell speaks (cells 0..c-1) */
-        float ent = cell_speak(m, tok, ids, np, nfrag_c, temp, 40, 1.4f, seed, eos, max_seq,
-                               frag, sizeof(frag), verbose, cell_ids, &cell_n,
-                               (out_disso && c < 8) ? g_commit[c] : NULL,
-                               g_xcell > 0 ? &cur_kv : NULL, g_xcell > 0 ? &cur_len : NULL);
+        int field_snap_n = (g_field_on && m->embed <= 8192) ? m->embed : 0;
+        float field_before[8192];
+        if (field_snap_n) memcpy(field_before, g_field_dir, (size_t)field_snap_n * sizeof(float));
+
+        char best_frag[2048]; int best_ids[256], best_n = 0, best_raw_n = 0, best_commit[64];
+        kv_cache *best_kv = NULL; int best_len = 0, best_score = 1000000;
+        float best_ent = 0.0f;
+        best_frag[0] = 0;
+        memset(best_commit, 0, sizeof(best_commit));
+        static const float cell_retry_temp_mul[] = { 1.00f, 0.85f, 0.70f, 0.60f };
+        static const int   cell_retry_top_k[]    = { 40,    32,    24,    16    };
+        static const unsigned cell_retry_salt[]  = { 0u, 0x91e10da5u, 0x7f4a7c15u, 0x85ebca6bu };
+        int max_attempts = 1, first_score = -1;
+        for (int attempt = 0; attempt < max_attempts; attempt++) {
+            char cand_frag[2048]; int cand_ids[256], cand_n = 0, cand_commit[64];
+            kv_cache *cand_kv = NULL; int cand_len = 0;
+            memset(cand_commit, 0, sizeof(cand_commit));
+            cand_frag[0] = 0;
+            g_round_tokn = tok_before;
+            if (field_snap_n) memcpy(g_field_dir, field_before, (size_t)field_snap_n * sizeof(float));
+            float attempt_temp = temp * cell_retry_temp_mul[attempt];
+            if (attempt_temp < 0.40f) attempt_temp = 0.40f;
+            unsigned attempt_seed = seed ^ cell_retry_salt[attempt];
+            base_gen++;
+            if (attempt > 0) base_retry++;
+            float cand_ent = cell_speak(m, tok, ids, np, nfrag_c, attempt_temp, cell_retry_top_k[attempt], 1.4f,
+                                        attempt_seed, eos, max_seq, cand_frag, sizeof(cand_frag), 0,
+                                        cand_ids, &cand_n,
+                                        (out_disso && c < 8) ? cand_commit : NULL,
+                                        g_xcell > 0 ? &cand_kv : NULL, g_xcell > 0 ? &cand_len : NULL);
+            int cand_raw_n = cand_n;
+            clean_cell_fragment_surface(cand_frag, sizeof(cand_frag));
+            int visible_ids[256];
+            int visible_n = bpe_encode(tok, cand_frag, visible_ids, 256);
+            if (visible_n > 0) {
+                cand_n = visible_n;
+                for (int vi = 0; vi < visible_n && vi < 256; vi++) cand_ids[vi] = visible_ids[vi];
+            }
+            int cand_score = cell_fragment_surface_score(prompt, cand_frag);
+            if (cand_score < best_score) {
+                if (best_kv) kv_free(best_kv);
+                copy_cstr(best_frag, sizeof(best_frag), cand_frag);
+                best_n = cand_n;
+                best_raw_n = cand_raw_n;
+                for (int bi = 0; bi < cand_n && bi < 256; bi++) best_ids[bi] = cand_ids[bi];
+                for (int bi = 0; bi < 64; bi++) best_commit[bi] = cand_commit[bi];
+                best_kv = cand_kv; cand_kv = NULL;
+                best_len = cand_len;
+                best_ent = cand_ent;
+                best_score = cand_score;
+            }
+            if (cand_kv) kv_free(cand_kv);
+            if (attempt == 0) {
+                first_score = cand_score;
+                if (cand_score > 0) max_attempts = g_cell_retry_max;
+            }
+        }
+        if (first_score > 0) {
+            if (best_score <= 0) base_rescue++;
+            else base_fail++;
+        }
+        g_round_tokn = tok_before;
+        if (field_snap_n) memcpy(g_field_dir, field_before, (size_t)field_snap_n * sizeof(float));
+        copy_cstr(frag, sizeof(frag), best_frag);
+        cell_n = best_n;
+        for (int bi = 0; bi < cell_n && bi < 256; bi++) {
+            cell_ids[bi] = best_ids[bi];
+            if (g_chorus && g_xrep > 1.0f && g_round_tokn < 1024) g_round_tok[g_round_tokn++] = best_ids[bi];
+            if (g_field_on && best_ids[bi] >= 0 && best_ids[bi] < m->vocab) {
+                const float *e = m->tok_emb + (long)best_ids[bi] * m->embed;
+                for (int d = 0; d < m->embed && d < 8192; d++) g_field_dir[d] = g_field_dir[d]*0.92f + e[d]*0.08f;
+            }
+        }
+        if (out_disso && c < 8) for (int bi = 0; bi < 64; bi++) g_commit[c][bi] = best_commit[bi];
+        cur_kv = best_kv;
+        cur_len = (cur_kv && best_raw_n > 0 && cell_n < best_raw_n) ? np + cell_n : best_len;
+        float ent = best_ent;
+        if (verbose) { printf("%s", frag); fflush(stdout); }
         if (out_disso && c < 8) g_commit_n[c] = cell_n;
         if (c < 8) g_cell_ent[c] = ent;   /* δ-life: capture per-cell entropy (fitness input) */
-        if (g_kvshuf && g_xcell > 0 && prev_kv && c > 0 && (verbose || out_kv_delta || out_kv_floor)) {   /* KV-order shadow: does cross-cell exploit the neighbour's ORDER? */
+        if (g_kvshuf && g_xcell > 0 && prev_kv && c > 0 && (verbose || out_kv_delta || out_kv_floor || out_kv_infl)) {   /* neighbour diagnostics: order control + semantic influence */
             int tok_after = g_round_tokn, saved[512], ns = 0;
             for (int k = tok_before; k < tok_after && ns < 512; k++) saved[ns++] = g_round_tok[k];
-            int save_on = g_field_on; g_field_on = 0;
+            int save_on = g_field_on, save_len = g_nbr_len, save_shuf = g_nbr_shuf;
+            const kv_cache *save_nbr = g_nbr;
+            g_field_on = 0;
             g_nbr = prev_kv; g_nbr_len = prev_len;
             g_round_tokn = tok_before; g_nbr_shuf = 0;
-            float e0 = cell_speak(m, tok, ids, np, 1, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);  /* neighbour ORDERED */
+            base_gen++; base_probe++;
+            float e0 = cell_speak(m, tok, ids, np, 1, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);    /* neighbour ON, ordered */
+            g_nbr = NULL; g_nbr_len = 0;
+            g_round_tokn = tok_before; g_nbr_shuf = 0;
+            base_gen++; base_probe++;
+            float eoff = cell_speak(m, tok, ids, np, 1, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);  /* neighbour OFF */
+            g_nbr = prev_kv; g_nbr_len = prev_len;
             make_perm(g_nbr_perm, prev_len < 512 ? prev_len : 512, seed ^ 0x9e3779b9u);
             g_round_tokn = tok_before; g_nbr_shuf = 1;
+            base_gen++; base_probe++;
             float eA = cell_speak(m, tok, ids, np, 1, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);  /* neighbour SHUFFLED A */
             make_perm(g_nbr_perm, prev_len < 512 ? prev_len : 512, seed ^ 0x85ebca6bu);
             g_round_tokn = tok_before;
+            base_gen++; base_probe++;
             float eB = cell_speak(m, tok, ids, np, 1, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);  /* neighbour SHUFFLED B */
-            g_nbr_shuf = 0;
+            g_nbr = save_nbr; g_nbr_len = save_len; g_nbr_shuf = save_shuf;
             g_field_on = save_on; g_round_tokn = tok_after;
             for (int k = 0; k < ns; k++) g_round_tok[tok_before + k] = saved[k];
             float kv_delta = 0.5f * (eA + eB) - e0;
             float kv_floor = fabsf(eA - eB);
-            kv_delta_sum += kv_delta; kv_floor_sum += kv_floor; kv_n++;
-            if (verbose) printf("   [Δ_R^kv c%d = %+.6f floor %.6f margin %+.6f]", c, kv_delta, kv_floor, kv_delta - kv_floor);
+            float kv_infl = eoff - e0;
+            kv_delta_sum += kv_delta; kv_floor_sum += kv_floor; kv_infl_sum += kv_infl; kv_n++;
+            if (verbose) printf("   [Δ_R^kv c%d = %+.6f floor %.6f margin %+.6f | I_N^kv %+.6f]", c, kv_delta, kv_floor, kv_delta - kv_floor, kv_infl);
         }
         ent_sum += ent;
         for (int i = 0; i < cell_n; i++) if (cell_ids[i] >= 0 && cell_ids[i] < m->vocab) hist[cell_ids[i]]++;
@@ -1322,6 +2790,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
             int tok_after = g_round_tokn, saved[64], ns = 0;   /* cell c's coherent words are [tok_before, tok_after) */
             for (int k = tok_before; k < tok_after && ns < 64; k++) saved[ns++] = g_round_tok[k];
             g_round_tokn = tok_before;                    /* shadow sees the SAME word-memory as coherent (0..c-1), not cell c's own — kills the cross-rep artifact */
+            base_gen++; base_probe++;
             shuf_sum += cell_speak(m, tok, sids, np, nfrag_c, temp, 40, 1.4f, seed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);  /* nfrag_c: same length as coherent */
             g_field_on = save_on; g_round_tokn = tok_before + ns;
             for (int k = 0; k < ns; k++) g_round_tok[tok_before + k] = saved[k];   /* restore cell c's COHERENT words (not the shadow's) for cells c+1.. */
@@ -1330,32 +2799,162 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         if (flog) fprintf(flog, "- cell %d (T=%.2f, entropy=%.2f):%s\n", c, temp, ent, frag);
         int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", frag);
         if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
-        else if (flog) fprintf(flog, "! chorus buffer full — cell %d fragment dropped (context truncated)\n", c);   /* C-4 */
-        if (c < 8) { strncpy(cur_frag[c], frag, 1023); cur_frag[c][1023] = 0; }
-        if (g_xcell > 0) { if (prev_kv) { free(prev_kv->k); free(prev_kv->v); free(prev_kv->ku); free(prev_kv); } prev_kv = cur_kv; prev_len = cur_len; }  /* chain c→c+1 */
+        if (c < 8) copy_cstr(cur_frag[c], sizeof(cur_frag[c]), frag);
+        if (g_xcell > 0) {   /* chain c→c+1; optionally keep per-cell KV alive for qloop after the round */
+            if (keep_qloop_kv) {
+                if (c < 8) {
+                    cell_kv[c] = cur_kv; cell_klen[c] = cur_len;
+                    prev_kv = cur_kv; prev_len = cur_len; prev_cell_owned = 1;
+                } else {
+                    if (prev_kv && !prev_cell_owned) kv_free(prev_kv);
+                    prev_kv = cur_kv; prev_len = cur_len; prev_cell_owned = 0;
+                }
+            } else {
+                kv_free(prev_kv);
+                prev_kv = cur_kv; prev_len = cur_len; prev_cell_owned = 0;
+            }
+        }
     }
-    if (g_qloop && !g_life_on && verbose && out_disso && cent) {
-        int qcell[2] = {0, 0}, tcell[2] = {0, 0};
-        float qscore[2] = {-1.0f, -1.0f};
+    double base_ms = now_ms() - base_t0;
+    double qloop_ms = 0.0;
+    int qloop_gen = 0, qloop_retry = 0;
+    if (g_qloop && verbose && out_disso && cent) {
+        double qloop_t0 = now_ms();
+        int qcell[8] = {0}, tcell[8] = {0};
+        float qscore[8] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+        float qdist[8] = {0.0f}, qopen[8] = {0.0f}, qtconf[8] = {0.0f};
+        int qmarks[8] = {0};
+        int accepted_qseen[8] = {0};
         int max_routes = g_qloop > 2 ? 2 : g_qloop;
-        int routes = pick_question_routes(cur_frag, cent, n_cells, m->embed, qcell, tcell, qscore, max_routes);
-        for (int route = 0; route < routes; route++) {
+        int candidate_routes = g_qloop_candidate_pool > 0 ? g_qloop_candidate_pool : max_routes + 2;
+        if (candidate_routes < max_routes) candidate_routes = max_routes;
+        if (candidate_routes > 8) candidate_routes = 8;
+        int routes = pick_question_routes(cur_frag, cent, n_cells, m->embed, qcell, tcell, qscore,
+                                          qdist, qopen, qtconf, qmarks, candidate_routes);
+        int accepted_routes = 0;
+        for (int route = 0; route < routes && accepted_routes < max_routes; route++) {
+            if (g_qloop_unique_asker && g_qloop > 1 && qcell[route] >= 0 && qcell[route] < 8 && accepted_qseen[qcell[route]]) {
+                continue;
+            }
             char qctx[4096], qfrag[1024]; int qctx_ids[512], qids[128], qn = 0;
-            snprintf(qctx, sizeof(qctx), "%s\ncell %d asked: %s\ncell %d answers the question to itself:",
-                     prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
+            if (qmarks[route] > 0)
+                snprintf(qctx, sizeof(qctx), "%s\ncell %d asked: %s\ncell %d answers the question to itself:",
+                         prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
+            else
+                snprintf(qctx, sizeof(qctx), "%s\ncell %d stated: %s\ncell %d responds from another angle:",
+                         prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
             int qnp = bpe_encode(tok, qctx, qctx_ids, max_seq - 8);
-            float qtemp = 0.6f + 0.7f * (n_cells > 1 ? (float)tcell[route] / (n_cells - 1) : 0.5f);
+            float qtemp = field_temp_for_cell(tcell[route], n_cells);
             int qfrag_n = nfrag / 2; if (qfrag_n < 2) qfrag_n = 2; if (qfrag_n > 8) qfrag_n = 8;
-            g_nbr = NULL; g_nbr_len = 0; g_nbr_shuf = 0;
+            float save_xcell = g_xcell;
+            float answer_xcell = (g_life_on && tcell[route] < POP_MAX) ? g_pop[tcell[route]].lambda : g_xcell;
+            int qkv_on = (qcell[route] < 8 && cell_kv[qcell[route]] && cell_klen[qcell[route]] > 0 && answer_xcell > 0);
+            unsigned qseed = seed_base ^ 0xa2a51u ^ (unsigned)(qcell[route] * 131 + tcell[route] * 7919 + r * 265443576);
+            int qtok_before = g_round_tokn, save_field_on = g_field_on;
+            int save_clean_start = g_clean_answer_start;
+            int save_form_guard = g_answer_form_guard;
+            int save_sentence_stop = g_answer_sentence_stop;
+            g_clean_answer_start = 1;
+            g_answer_form_guard = 1;
+            g_answer_sentence_stop = 1;
+            g_nbr = NULL; g_nbr_len = 0; g_nbr_shuf = 0; g_field_on = 0;
+            float qent_off = 0.0f;
+            if (qkv_on) {
+                qloop_gen++;
+                qent_off = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, qtemp, 40, 1.4f,
+                                      qseed, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL);
+            }
+            g_round_tokn = qtok_before; g_field_on = save_field_on;
+            if (qkv_on) { g_nbr = cell_kv[qcell[route]]; g_nbr_len = cell_klen[qcell[route]]; g_xcell = answer_xcell; }
+            else { g_nbr = NULL; g_nbr_len = 0; }
+            g_nbr_shuf = 0;
+            qloop_gen++;
             float qent = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, qtemp, 40, 1.4f,
-                                    seed_base ^ 0xa2a51u ^ (unsigned)(qcell[route] * 131 + tcell[route] * 7919 + r * 265443576 + route * 65537),
-                                    eos, max_seq, qfrag, sizeof(qfrag), 0, qids, &qn, NULL, NULL, NULL);
+                                    qseed, eos, max_seq, qfrag, sizeof(qfrag), 0, qids, &qn, NULL, NULL, NULL);
+            clean_answer_fragment(qfrag);
+            trim_open_answer_after_closed_sentence(qfrag);
+            trim_open_clause_tail(qfrag);
+            truncate_open_phrase_tail(qfrag, sizeof(qfrag));
+            trim_terminal_function_word_tail(qfrag);
+            close_short_answer_sentence(qfrag, sizeof(qfrag));
+            int answer_score = answer_candidate_score_semantic(m, tok, cent + (size_t)qcell[route] * m->embed,
+                                                                cur_frag[qcell[route]], qfrag);
+            if (answer_score > 0 || answer_fragment_bad(qfrag)) {
+                static const float retry_temp_mul[] = { 0.85f, 0.70f, 0.95f, 0.60f };
+                static const unsigned retry_salt[] = { 0x7f4a7c15u, 0x9e3779b9u, 0x85ebca6bu, 0xc2b2ae35u };
+                for (int attempt = 0; attempt < 4 && answer_score > 0; attempt++) {
+                    char qfrag_retry[1024]; int qids_retry[128], qn_retry = 0;
+                    g_round_tokn = qtok_before;
+                    if (qkv_on) { g_nbr = cell_kv[qcell[route]]; g_nbr_len = cell_klen[qcell[route]]; g_xcell = answer_xcell; }
+                    else { g_nbr = NULL; g_nbr_len = 0; }
+                    g_nbr_shuf = 0; g_field_on = save_field_on;
+                    qfrag_retry[0] = 0;
+                    float retry_temp = qtemp * retry_temp_mul[attempt];
+                    if (retry_temp < 0.40f) retry_temp = 0.40f;
+                    int retry_top_k = 40;
+                    if (attempt == 2) retry_top_k = 24;
+                    if (attempt == 3) retry_top_k = 16;
+                    unsigned retry_seed = qseed ^ retry_salt[attempt];
+                    qloop_gen++;
+                    qloop_retry++;
+                    float qent_retry = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, retry_temp, retry_top_k, 1.4f,
+                                                  retry_seed, eos, max_seq, qfrag_retry, sizeof(qfrag_retry), 0,
+                                                  qids_retry, &qn_retry, NULL, NULL, NULL);
+                    clean_answer_fragment(qfrag_retry);
+                    trim_open_answer_after_closed_sentence(qfrag_retry);
+                    trim_open_clause_tail(qfrag_retry);
+                    truncate_open_phrase_tail(qfrag_retry, sizeof(qfrag_retry));
+                    trim_terminal_function_word_tail(qfrag_retry);
+                    close_short_answer_sentence(qfrag_retry, sizeof(qfrag_retry));
+                    int retry_score = answer_candidate_score_semantic(m, tok, cent + (size_t)qcell[route] * m->embed,
+                                                                       cur_frag[qcell[route]], qfrag_retry);
+                    if (retry_score < answer_score) {
+                        copy_cstr(qfrag, sizeof(qfrag), qfrag_retry);
+                        qn = qn_retry;
+                        for (int qi = 0; qi < qn_retry && qi < 128; qi++) qids[qi] = qids_retry[qi];
+                        qent = qent_retry;
+                        answer_score = retry_score;
+                    }
+                }
+            }
+            g_nbr = NULL; g_nbr_len = 0; g_nbr_shuf = 0; g_xcell = save_xcell;
+            g_round_tokn = qtok_before;
+            float qinfl = qkv_on ? qent_off - qent : 0.0f;
+            int qiq_gate = qkv_on && qinfl < g_qloop_min_iq;
+            int qsurface_gate = qloop_answer_surface_debt(qfrag);
+            int qgate = qiq_gate || qsurface_gate;
+            g_clean_answer_start = save_clean_start;
+            g_answer_form_guard = save_form_guard;
+            g_answer_sentence_stop = save_sentence_stop;
+            if (qgate) {
+                printf("\n  ↳ qloop gate c%d→c%d [kv] score %.3f: rejected %s   [entropy=%.2f I_Q^kv=%+.3f min=%+.3f route_d=%.3f qopen=%.3f tconf=%.3f qmarks=%d reason=%s]",
+                       qcell[route], tcell[route], qscore[route], qfrag, qent, qinfl, g_qloop_min_iq,
+                       qdist[route], qopen[route], qtconf[route], qmarks[route], qsurface_gate ? "surface" : "iq");
+                if (flog) fprintf(flog, "- qloop-gate c%d->c%d [kv] (score=%.3f, entropy=%.2f, I_Q^kv=%+.3f, min=%+.3f, route_d=%.3f, qopen=%.3f, tconf=%.3f, qmarks=%d, reason=%s):%s\n",
+                                  qcell[route], tcell[route], qscore[route], qent, qinfl, g_qloop_min_iq,
+                                  qdist[route], qopen[route], qtconf[route], qmarks[route],
+                                  qsurface_gate ? "surface" : "iq", qfrag);
+                continue;
+            }
+            for (int qi = 0; qi < qn && qi < 128 && g_round_tokn < 1024; qi++) g_round_tok[g_round_tokn++] = qids[qi];
             for (int i = 0; hist && i < qn; i++) if (qids[i] >= 0 && qids[i] < m->vocab) hist[qids[i]]++;
             int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", qfrag);
             if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
-            else if (flog) fprintf(flog, "! chorus buffer full — qloop fragment dropped (context truncated)\n");   /* C-4 */
-            printf("\n  ↳ qloop c%d→c%d score %.3f: %s   [entropy=%.2f]", qcell[route], tcell[route], qscore[route], qfrag, qent);
-            if (flog) fprintf(flog, "- qloop c%d->c%d (score=%.3f, entropy=%.2f):%s\n", qcell[route], tcell[route], qscore[route], qent, qfrag);
+            printf("\n  ↳ qloop c%d→c%d%s score %.3f: %s   [entropy=%.2f", qcell[route], tcell[route], qkv_on ? " [kv]" : "", qscore[route], qfrag, qent);
+            if (qkv_on) printf(" I_Q^kv=%+.3f", qinfl);
+            printf(" route_d=%.3f qopen=%.3f tconf=%.3f qmarks=%d]", qdist[route], qopen[route], qtconf[route], qmarks[route]);
+            if (flog) {
+                if (qkv_on) fprintf(flog, "- qloop c%d->c%d [kv] (score=%.3f, entropy=%.2f, I_Q^kv=%+.3f, route_d=%.3f, qopen=%.3f, tconf=%.3f, qmarks=%d):%s\n",
+                                    qcell[route], tcell[route], qscore[route], qent, qinfl,
+                                    qdist[route], qopen[route], qtconf[route], qmarks[route], qfrag);
+                else fprintf(flog, "- qloop c%d->c%d (score=%.3f, entropy=%.2f, route_d=%.3f, qopen=%.3f, tconf=%.3f, qmarks=%d):%s\n",
+                             qcell[route], tcell[route], qscore[route], qent,
+                             qdist[route], qopen[route], qtconf[route], qmarks[route], qfrag);
+            }
+            accepted_routes++;
+            if (g_qloop_unique_asker && g_qloop > 1 && qcell[route] >= 0 && qcell[route] < 8) {
+                accepted_qseen[qcell[route]] = 1;
+            }
 
             if (frag_question_count(qfrag) > 0 && qn > 0) {
                 float *qcent = (float*)xzalloc(m->embed, sizeof(float));
@@ -1376,14 +2975,14 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                         snprintf(rctx, sizeof(rctx), "%s\ncell %d answered: %s\ncell %d is triggered and answers briefly:",
                                  prompt, tcell[route], qfrag, next);
                         int rnp = bpe_encode(tok, rctx, rctx_ids, max_seq - 8);
-                        float rtemp = 0.6f + 0.7f * (n_cells > 1 ? (float)next / (n_cells - 1) : 0.5f);
+                        float rtemp = field_temp_for_cell(next, n_cells);
+                        qloop_gen++;
                         float rent = cell_speak(m, tok, rctx_ids, rnp, 2, rtemp, 40, 1.4f,
-                                                seed_base ^ 0xb17a5u ^ (unsigned)(next * 4057 + route * 65537 + r * 7919),
+                                                seed_base ^ 0xb17a5u ^ (unsigned)(qcell[route] * 131 + tcell[route] * 7919 + next * 4057 + r * 7919),
                                                 eos, max_seq, rfrag, sizeof(rfrag), 0, rids, &rn, NULL, NULL, NULL);
                         for (int i = 0; hist && i < rn; i++) if (rids[i] >= 0 && rids[i] < m->vocab) hist[rids[i]]++;
                         add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", rfrag);
                         if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
-                        else if (flog) fprintf(flog, "! chorus buffer full — qloop-trigger fragment dropped (context truncated)\n");   /* C-4 */
                         printf("\n  ↳ qloop trigger c%d→c%d score %.3f: %s   [entropy=%.2f]", tcell[route], next, best, rfrag, rent);
                         if (flog) fprintf(flog, "- qloop-trigger c%d->c%d (score=%.3f, entropy=%.2f):%s\n", tcell[route], next, best, rent, rfrag);
                     }
@@ -1391,13 +2990,121 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                 }
             }
         }
+        qloop_ms = now_ms() - qloop_t0;
     }
-    if (prev_kv) { free(prev_kv->k); free(prev_kv->v); free(prev_kv->ku); free(prev_kv); }   /* free the last cell's kept kv */
+    if (verbose) printf("\n  timing: base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry);
+    if (flog) fprintf(flog, "- timing base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d\n", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry);
+    if (g_user_q && *g_user_q && g_qloop && verbose && out_disso && cent && g_xcell > 0) {
+        int qids_prompt[512], qnprompt = bpe_encode(tok, g_user_q, qids_prompt, 512);
+        float *qcent = (float*)xzalloc(m->embed, sizeof(float));
+        int tcell = -1; float best = -1.0f;
+        if (qcent && qnprompt > 0) {
+            for (int i = 0; i < qnprompt; i++) if (qids_prompt[i] >= 0 && qids_prompt[i] < m->vocab) {
+                const float *e = m->tok_emb + (long)qids_prompt[i] * m->embed;
+                for (int d = 0; d < m->embed; d++) qcent[d] += e[d];
+            }
+            for (int d = 0; d < m->embed; d++) qcent[d] /= qnprompt;
+            int lim = n_cells < 8 ? n_cells : 8;
+            for (int t = 0; t < lim; t++) {
+                float score = 1.0f - vec_cosine(qcent, cent + (size_t)t * m->embed, m->embed);
+                score += 0.15f / (1.0f + g_cell_ent[t]);
+                if (score > best) { best = score; tcell = t; }
+            }
+        }
+        if (tcell >= 0) {
+            char uask[4096], qctx[4096], qfrag[1024], qfrag_off[1024];
+            int qctx_ids[512], qids[128], qn = 0;
+            qfrag_off[0] = '\0';
+            build_user_kv_prompt(uask, sizeof(uask), g_user_q);
+            int uask_ids[512], uask_np = bpe_encode_prompt(tok, uask, uask_ids, max_seq - 1);
+            kv_cache *user_kv = NULL; int user_klen = 0;
+            int qtok_before = g_round_tokn, save_field_on = g_field_on;
+            int save_form_guard = g_answer_form_guard;
+            float save_xcell = g_xcell;
+            const kv_cache *save_nbr = g_nbr; int save_nbr_len = g_nbr_len, save_nbr_shuf = g_nbr_shuf;
+            g_nbr = NULL; g_nbr_len = 0; g_nbr_shuf = 0; g_field_on = 0;
+            cell_speak(m, tok, uask_ids, uask_np, 0, 0.7f, 40, 1.4f,
+                       seed_base ^ 0x51a7e2u, eos, max_seq, NULL, 0, 0, NULL, NULL, NULL, &user_kv, &user_klen);
+            g_round_tokn = qtok_before;
+            build_user_answer_prompt(qctx, sizeof(qctx), this_chorus, g_user_q);
+            int qnp = bpe_encode_prompt(tok, qctx, qctx_ids, max_seq - 8);
+            float qtemp = user_bridge_temp_for_cell(tcell, n_cells);
+            int qfrag_n = g_user_answer_tokens;
+            unsigned qseed = seed_base ^ 0xc0ffeeu ^ (unsigned)(tcell * 7919 + r * 65537);
+            int save_clean_start = g_clean_answer_start;
+            int save_sentence_stop = g_answer_sentence_stop;
+            float save_sampler_top_p = g_sampler_top_p;
+            g_clean_answer_start = 1;
+            g_answer_form_guard = 1;
+            g_answer_sentence_stop = 1;
+            g_sampler_top_p = g_user_qtop_p;
+            float qent_off = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, qtemp, g_user_qtop_k, g_user_qrep,
+                                        qseed, eos, max_seq, qfrag_off, sizeof(qfrag_off), 0, NULL, NULL, NULL, NULL, NULL);
+            g_round_tokn = qtok_before;
+            g_nbr = user_kv; g_nbr_len = user_klen; g_nbr_shuf = 0; g_xcell = g_user_kv_weight;
+            float qent = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, qtemp, g_user_qtop_k, g_user_qrep,
+                                    qseed, eos, max_seq, qfrag, sizeof(qfrag), 0, qids, &qn, NULL, NULL, NULL);
+            clean_direct_answer_surface(qfrag, sizeof(qfrag));
+            int qscore = answer_candidate_score_semantic(m, tok, qcent, g_user_q, qfrag);
+            if (qscore > 0 || answer_fragment_bad(qfrag)) {
+                static const float retry_temp_mul[] = { 0.85f, 0.70f, 0.95f, 0.60f };
+                static const unsigned retry_salt[] = { 0x9e3779b9u, 0x85ebca6bu, 0xc2b2ae35u, 0x27d4eb2fu };
+                for (int attempt = 0; attempt < 4 && qscore > 0; attempt++) {
+                    char qfrag_retry[1024]; int qids_retry[128], qn_retry = 0;
+                    g_round_tokn = qtok_before;
+                    g_nbr = user_kv; g_nbr_len = user_klen; g_nbr_shuf = 0;
+                    g_xcell = g_user_kv_weight; g_field_on = save_field_on;
+                    qfrag_retry[0] = 0;
+                    float retry_temp = qtemp * retry_temp_mul[attempt];
+                    if (retry_temp < 0.40f) retry_temp = 0.40f;
+                    int retry_top_k = g_user_qtop_k;
+                    if (attempt == 2 && retry_top_k > 24) retry_top_k = 24;
+                    if (attempt == 3 && retry_top_k > 16) retry_top_k = 16;
+                    unsigned retry_seed = qseed ^ retry_salt[attempt];
+                    float qent_retry = cell_speak(m, tok, qctx_ids, qnp, qfrag_n, retry_temp, retry_top_k, g_user_qrep,
+                                                  retry_seed, eos, max_seq, qfrag_retry, sizeof(qfrag_retry), 0,
+                                                  qids_retry, &qn_retry, NULL, NULL, NULL);
+                    clean_direct_answer_surface(qfrag_retry, sizeof(qfrag_retry));
+                    int retry_score = answer_candidate_score_semantic(m, tok, qcent, g_user_q, qfrag_retry);
+                    if (retry_score < qscore) {
+                        copy_cstr(qfrag, sizeof(qfrag), qfrag_retry);
+                        qn = qn_retry;
+                        for (int qi = 0; qi < qn_retry && qi < 128; qi++) qids[qi] = qids_retry[qi];
+                        qent = qent_retry;
+                        qscore = retry_score;
+                    }
+                }
+            }
+            g_round_tokn = qtok_before;
+            for (int qi = 0; qi < qn && qi < 128 && g_round_tokn < 1024; qi++) g_round_tok[g_round_tokn++] = qids[qi];
+            g_clean_answer_start = save_clean_start;
+            g_answer_sentence_stop = save_sentence_stop;
+            g_sampler_top_p = save_sampler_top_p;
+            g_answer_form_guard = save_form_guard;
+            g_nbr = save_nbr; g_nbr_len = save_nbr_len; g_nbr_shuf = save_nbr_shuf; g_field_on = save_field_on; g_xcell = save_xcell;
+            clean_direct_answer_surface(qfrag_off, sizeof(qfrag_off));
+            float qinfl = qent_off - qent;
+            for (int i = 0; hist && i < qn; i++) if (qids[i] >= 0 && qids[i] < m->vocab) hist[qids[i]]++;
+            int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", qfrag);
+            if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
+            printf("\n  ↳ qloop user→c%d [user-kv] score %.3f: %s   [entropy=%.2f I_U^kv=%+.3f no-user-kv: %s]",
+                   tcell, best, qfrag, qent, qinfl, qfrag_off);
+            if (flog) fprintf(flog, "- qloop user->c%d [user-kv] (score=%.3f, entropy=%.2f, I_U^kv=%+.3f, no_user_kv=%s):%s\n",
+                              tcell, best, qent, qinfl, qfrag_off, qfrag);
+            kv_free(user_kv);
+        }
+        free(qcent);
+    }
+    if (keep_qloop_kv) {
+        if (prev_kv && !prev_cell_owned) kv_free(prev_kv);
+        for (int c = 0; c < 8; c++) kv_free(cell_kv[c]);
+    } else kv_free(prev_kv);   /* free the last cell's kept kv */
     g_nbr = NULL; g_nbr_len = 0;
-    if (out_chorus) { strncpy(out_chorus, this_chorus, (size_t)out_cap - 1); out_chorus[out_cap - 1] = 0; }
+    if (out_chorus) copy_cstr(out_chorus, (size_t)out_cap, this_chorus);
     if (out_shuf) *out_shuf = shuf_sum / n_cells;
     if (out_kv_delta) *out_kv_delta = kv_n ? kv_delta_sum / kv_n : 0.0f;
     if (out_kv_floor) *out_kv_floor = kv_n ? kv_floor_sum / kv_n : 0.0f;
+    if (out_kv_infl) *out_kv_infl = kv_n ? kv_infl_sum / kv_n : 0.0f;
     if (out_disso) {                              /* D_R = 1 − mean pairwise cosine of cell fragment centroids (voice-disagreement) */
         double dsum = 0; int dn = 0;
         for (int a = 0; a < n_cells; a++) for (int b = a + 1; b < n_cells; b++) {
@@ -1425,7 +3132,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         free(cent);
         g_dmean = commit_disagreement(n_cells, nfrag);   /* order-sensitive per-position disagreement (the lever's fuel) */
         for (int c = 0; c < n_cells && c < 8; c++) {      /* carry this round → next round's leap */
-            strncpy(g_round_frag[c], cur_frag[c], 1023); g_round_frag[c][1023] = 0;
+            copy_cstr(g_round_frag[c], sizeof(g_round_frag[c]), cur_frag[c]);
             g_diss_commit_n[c] = g_commit_n[c];
             for (int s = 0; s < 64; s++) g_diss_commit[c][s] = g_commit[c][s];
         }
@@ -1441,22 +3148,23 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
  *         stochastic sampling + temp-spread 0.6..1.3 give d a hard floor; the attractor approaches it.
  *   Δ_R = ent_shuffled − ent_coherent. In RELAY, this is text-order resonance.
  *         In default CHORUS, text-order is n/a because cells answer the same prompt; the live
- *         instrument is Δ_R^kv = shuffled-neighbour entropy − ordered-neighbour entropy, printed
- *         with its two-permutation floor. */
+ *         instruments are Δ_R^kv (ordered-vs-shuffled neighbour control) and
+ *         I_N^kv (neighbour-off minus neighbour-on entropy influence). */
 static void field_chorus(model_t *m, bpe_tokenizer *tok, const char *prompt, int n_cells, int nfrag, int n_rounds, int eos, float alpha) {
     if (n_rounds < 1) n_rounds = 1;
     int vocab = m->vocab;
     FILE *flog = fopen("FIELDLOG.md", "a");   /* her journal — every chorus saved (Oleg: "сохраняй её ответы") */
     if (flog) { time_t now = time(NULL); fprintf(flog, "\n## %.24s — \"%s\" (%d cells × %d rounds, soma alpha=%.1f)\n", ctime(&now), prompt, n_cells, n_rounds, alpha); }
-    printf("\n=== δ-field: %d cells × %d rounds over ONE nanoArianna — \"%s\" (soma alpha=%.1f) ===\n", n_cells, n_rounds, prompt, alpha);
+    printf("\n=== δ-field: %d cells × %d rounds over ONE nanoArianna — \"%s\" (soma alpha=%.1f, prompt_fmt=%s, fieldT=%.2f%+.2f*cell, lang_bias=%.2f) ===\n",
+           n_cells, n_rounds, prompt, alpha, field_prompt_format_name(), g_field_temp_base, g_field_temp_span, g_field_lang_bias);
 
     /* FLOOR: two independent round-0 choruses on the SAME (prompt-only) context, different seeds. Their
      * histogram distance is the sampling-noise floor d_R cannot beat — the attractor target, not zero. */
     int *hA = (int*)xzalloc(vocab, sizeof(int)), *hB = (int*)xzalloc(vocab, sizeof(int));
     field_reset(m->embed, alpha > 0, alpha);
-    run_round(m, tok, prompt, NULL, n_cells, nfrag, eos, 7u,   0, -1, hA, NULL, 0, NULL, NULL, NULL, NULL, NULL);
+    run_round(m, tok, prompt, NULL, n_cells, nfrag, eos, 7u,   0, -1, hA, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);
     field_reset(m->embed, alpha > 0, alpha);
-    run_round(m, tok, prompt, NULL, n_cells, nfrag, eos, 977u, 0, -1, hB, NULL, 0, NULL, NULL, NULL, NULL, NULL);
+    run_round(m, tok, prompt, NULL, n_cells, nfrag, eos, 977u, 0, -1, hB, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);
     float floor = 1.0f - hist_cosine(hA, hB, vocab);
     printf("  floor (sampling noise, paired round-0) = %.3f\n", floor);
     if (flog) fprintf(flog, "floor (sampling-noise, paired round-0) = %.3f\n", floor);
@@ -1471,16 +3179,18 @@ static void field_chorus(model_t *m, bpe_tokenizer *tok, const char *prompt, int
         for (int i = 0; i < vocab; i++) hist_cur[i] = 0;
         printf("\n  --- round %d/%d ---", r + 1, n_rounds);
         if (flog) fprintf(flog, "\n**round %d:**\n", r + 1);
-        char this_chorus[4096]; float shuf = 0, disso = 0, kv_delta = 0, kv_floor = 0;
+        char this_chorus[4096]; float shuf = 0, disso = 0, kv_delta = 0, kv_floor = 0, kv_infl = 0;
         float avg = run_round(m, tok, prompt, prev_chorus, n_cells, nfrag, eos,
                               42u + (unsigned)(r * 1000) * 7919u, 1, r, hist_cur, this_chorus, sizeof(this_chorus),
-                              g_chorus ? NULL : &shuf, flog, &disso, &kv_delta, &kv_floor);
+                              g_chorus ? NULL : &shuf, flog, &disso, &kv_delta, &kv_floor, &kv_infl);
         float dR = (r > 0) ? 1.0f - hist_cosine(hist_cur, hist_prev, vocab) : -1.0f;
         float deltaR = shuf - avg;
-        char resonance[192];
+        char resonance[256];
         if (g_chorus) {
             if (g_kvshuf && g_xcell > 0 && n_cells > 1)
-                snprintf(resonance, sizeof(resonance), "Δ_R(text n/a) | Δ_R^kv %+.3f (floor %.3f margin %+.3f)", kv_delta, kv_floor, kv_delta - kv_floor);
+                snprintf(resonance, sizeof(resonance), "Δ_R(text n/a) | Δ_R^kv[%s] %+.3f (floor %.3f margin %+.3f) | I_N^kv[%s] %+.3f",
+                         g_kvpos ? "pos" : "sem", kv_delta, kv_floor, kv_delta - kv_floor,
+                         g_kvpos ? "pos" : "sem", kv_infl);
             else
                 snprintf(resonance, sizeof(resonance), "Δ_R(text n/a) | Δ_R^kv off");
         } else snprintf(resonance, sizeof(resonance), "Δ_R %+.3f", deltaR);
@@ -1488,7 +3198,7 @@ static void field_chorus(model_t *m, bpe_tokenizer *tok, const char *prompt, int
                      if (flog) fprintf(flog, "→ round %d: avg entropy %.3f | d_R %.3f (floor %.3f) | %s | D_R %.3f | Dpos %.2f peak %.2f@s%d\n", r + 1, avg, dR, floor, resonance, disso, g_dmean, g_dpeak, g_s_peak); }
         else       { printf("\n  → round %d: avg entropy %.3f | d_R   —   (floor %.3f) | %s | D_R %.3f | Dpos %.2f peak %.2f@s%d\n", r + 1, avg, floor, resonance, disso, g_dmean, g_dpeak, g_s_peak);
                      if (flog) fprintf(flog, "→ round %d: avg entropy %.3f | d_R — (floor %.3f) | %s | D_R %.3f | Dpos %.2f peak %.2f@s%d\n", r + 1, avg, floor, resonance, disso, g_dmean, g_dpeak, g_s_peak); }
-        strncpy(prev_chorus, this_chorus, sizeof(prev_chorus) - 1); prev_chorus[sizeof(prev_chorus) - 1] = 0;
+        copy_cstr(prev_chorus, sizeof(prev_chorus), this_chorus);
         int *tmp = hist_prev; hist_prev = hist_cur; hist_cur = tmp;
     }
     free(hist_prev); free(hist_cur);
@@ -1496,8 +3206,75 @@ static void field_chorus(model_t *m, bpe_tokenizer *tok, const char *prompt, int
         printf("  leap-flip-rate = %.2f (%d/%d cells leapt to the dissenter)\n", fr, g_leap_flips, g_leap_total);
         if (flog) fprintf(flog, "leap-flip-rate = %.2f (%d/%d)\n", fr, g_leap_flips, g_leap_total); }
     printf("\n=== δ-field done — settling: d_R→floor? · resonance: %s (read the numbers, not the narrative) ===\n",
-           g_chorus ? "Δ_R^kv>floor?" : "Δ_R>0?");
+           g_chorus ? "Δ_R^kv>floor? · I_N^kv≠0?" : "Δ_R>0?");
     if (flog) { fprintf(flog, "\n---\n"); fclose(flog); }
+}
+
+/* Interactive field loop. The process keeps the loaded body hot while each user
+ * line becomes the next prompt over the recent text trajectory. Inside a turn,
+ * cells still exchange live KV and qloop answers can hear the asking cell. */
+static void field_repl(model_t *m, bpe_tokenizer *tok, int eos, int n_cells, int nfrag, int n_rounds) {
+    if (n_cells < 1) n_cells = 4;
+    if (n_cells > 8) n_cells = 8;
+    if (nfrag < 2) nfrag = 8;
+    if (n_rounds < 1) n_rounds = 1;
+    if (n_rounds > 4) n_rounds = 4;
+
+    g_life_on = 0;
+    g_chorus = 1;
+    g_leap_mode = 2;
+    g_xcell = 0.02f;
+    g_xrep = 1.3f;
+    g_kvshuf = 1;
+    g_kvpos = 0;
+    g_qloop = env_int_clamped("A2A_REPL_QLOOP", 1, 0, 2);
+    load_qloop_route_env();
+    load_field_generation_env();
+    load_user_bridge_sampling_env();
+    load_repl_prompt_env();
+
+    int interactive = isatty(STDIN_FILENO);
+    int *hist = (int*)xzalloc(m->vocab, sizeof(int));
+    char line[2048], trajectory[4096], prompt[8192], chorus[4096];
+    trajectory[0] = 0;
+
+    printf("\n=== repl: δ-field live over ONE nanoArianna (%d cells × %d rounds, qloop=%d, kv=sem, userT=%.2f%+.2f*cell, userK=%d, userP=%.2f, userRep=%.2f, userKV=%.2f, userTok=%d, userFmt=%s, replFmt=%s) ===\n",
+           n_cells, n_rounds, g_qloop, g_user_qtemp_base, g_user_qtemp_span, g_user_qtop_k, g_user_qtop_p, g_user_qrep,
+           g_user_kv_weight, g_user_answer_tokens, user_ctx_format_name(), repl_prompt_format_name());
+    printf("type :q, :quit, exit, or quit to stop\n");
+
+    for (unsigned turn = 1; ; turn++) {
+        if (interactive) { printf("\narianna> "); fflush(stdout); }
+        if (!fgets(line, sizeof(line), stdin)) break;
+        chomp_line(line);
+        if (line[0] == 0) { turn--; continue; }
+        if (strcmp(line, ":q") == 0 || strcmp(line, ":quit") == 0 ||
+            strcmp(line, "exit") == 0 || strcmp(line, "quit") == 0) break;
+
+        build_repl_turn_prompt(prompt, sizeof(prompt), trajectory, line);
+
+        printf("\n  --- repl turn %u ---", turn);
+        for (int i = 0; i < m->vocab; i++) hist[i] = 0;
+        field_reset(m->embed, 0, 0.0f);
+        chorus[0] = 0;
+        for (int r = 0; r < n_rounds; r++) {
+            char round_chorus[4096]; round_chorus[0] = 0;
+            float disso = 0.0f, kv_delta = 0.0f, kv_floor = 0.0f, kv_infl = 0.0f;
+            g_user_q = (r == 0) ? line : NULL;
+            float avg = run_round(m, tok, prompt, r ? chorus : NULL, n_cells, nfrag, eos,
+                                  42u + (unsigned)(turn * 1009u + r * 7919u), 1, r, hist,
+                                  round_chorus, sizeof(round_chorus), NULL, NULL, &disso,
+                                  &kv_delta, &kv_floor, &kv_infl);
+            g_user_q = NULL;
+            copy_cstr(chorus, sizeof(chorus), round_chorus);
+            printf("\n  → repl turn %u.%d: avg entropy %.3f | Δ_R^kv[sem] %+.3f (floor %.3f margin %+.3f) | I_N^kv[sem] %+.3f | D_R %.3f | trajectory %zu bytes\n",
+                   turn, r + 1, avg, kv_delta, kv_floor, kv_delta - kv_floor, kv_infl, disso, strlen(trajectory));
+        }
+        append_trajectory(trajectory, sizeof(trajectory), line, chorus, g_repl_prompt_format == 1);
+    }
+
+    free(hist);
+    printf("\n=== repl done ===\n");
 }
 
 /* Fisher-Yates over ids[from..to) — used to build a same-length but incoherent context. */
@@ -1524,7 +3301,7 @@ static void field_life(model_t *m, bpe_tokenizer *tok, const char *prompt, int n
     srand(12345);
     g_pop_n = (n_init > 0 && n_init <= POP_MAX) ? n_init : 4;
     for (int i = 0; i < g_pop_n; i++) g_pop[i] = cell_birth(42u + (unsigned)i * 7919u);
-    g_life_on = 1; g_chorus = 1;
+    g_life_on = 1; g_chorus = 1; g_qloop = 2;
     FILE *flog = fopen("FIELDLOG.md", "a");
     if (flog) { time_t now = time(NULL); fprintf(flog, "\n## %.24s — δ-life \"%s\" (%d ticks)\n", ctime(&now), prompt, n_ticks); }
     printf("\n=== δ-life: Game of Life over ONE nanoArianna — \"%s\" (%d ticks, the population breathes) ===\n", prompt, n_ticks);
@@ -1536,7 +3313,7 @@ static void field_life(model_t *m, bpe_tokenizer *tok, const char *prompt, int n
         printf("\n  --- tick %d/%d · pop %d ---", t + 1, n_ticks, g_pop_n);
         if (flog) fprintf(flog, "\n**tick %d (pop %d):**\n", t + 1, g_pop_n);
         float avg = run_round(m, tok, prompt, NULL, g_pop_n, nfrag, eos,
-                              42u + (unsigned)t * 131u, 1, t, hist, this_chorus, sizeof(this_chorus), NULL, flog, &disso, NULL, NULL);
+                              42u + (unsigned)t * 131u, 1, t, hist, this_chorus, sizeof(this_chorus), NULL, flog, &disso, NULL, NULL, NULL);
         pop_tick();
         printf("\n  → tick %d: pop %d | births %d | deaths %d | D_R %.3f | avg_ent %.2f\n",
                t + 1, g_pop_n, g_births, g_deaths, disso, avg);
@@ -1570,7 +3347,7 @@ static void field_resonance_test(model_t *m, bpe_tokenizer *tok, const char *pro
                 snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus, this_chorus);
                 int np = bpe_encode(tok, ctx, ids, max_seq - nfrag - 1);
                 if (control && np > np_prompt) shuffle_ids(ids, np_prompt, np, 12345u + (unsigned)(r * 31 + c));
-                float temp = 0.6f + 0.7f * (n_cells > 1 ? (float)c / (n_cells - 1) : 0.5f);
+                float temp = field_temp_for_cell(c, n_cells);
                 ent_sum += cell_speak(m, tok, ids, np, nfrag, temp, 40, 1.4f,
                                       42u + (unsigned)(r * 1000 + c) * 7919u, eos, max_seq, frag, sizeof(frag), 0, NULL, NULL, NULL, NULL, NULL);
                 int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", frag);
@@ -1578,8 +3355,9 @@ static void field_resonance_test(model_t *m, bpe_tokenizer *tok, const char *pro
             }
             float avg = ent_sum / n_cells;
             printf("    round %d avg entropy = %.3f\n", r + 1, avg);
-            if (r == 0) first[control] = avg; last[control] = avg;
-            strncpy(prev_chorus, this_chorus, sizeof(prev_chorus) - 1); prev_chorus[sizeof(prev_chorus) - 1] = 0;
+            if (r == 0) first[control] = avg;
+            last[control] = avg;
+            copy_cstr(prev_chorus, sizeof(prev_chorus), this_chorus);
         }
     }
     float drop_coh = first[0] - last[0], drop_shuf = first[1] - last[1];
@@ -1591,8 +3369,9 @@ static void field_resonance_test(model_t *m, bpe_tokenizer *tok, const char *pro
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("usage: %s <model.gguf> [prompt] [max_tokens] [temp]\n", argv[0]);
-        printf("       %s <model.gguf> <prompt> field [cells] [frag] [rounds] [alpha] [leap] [xcell] [chorus] [xrep] [life] [kvshuf] [qloop]\n", argv[0]);
+        printf("usage: %s <model.gguf> [prompt] [max_tokens] [temp] [top_p] [rep]\n", argv[0]);
+        printf("       %s <model.gguf> repl [cells] [frag] [rounds]\n", argv[0]);
+        printf("       %s <model.gguf> <prompt> field [cells] [frag] [rounds] [alpha] [leap] [xcell] [chorus] [xrep] [life] [kvshuf] [qloop] [kvpos]\n", argv[0]);
         printf("       %s <model.gguf> <prompt> restest [cells] [frag] [rounds]\n", argv[0]);
         printf("       %s <model.gguf> <prompt> life [ticks] [frag] [init_cells]\n", argv[0]);
         return 1;
@@ -1600,17 +3379,33 @@ int main(int argc, char **argv) {
     const char *prompt = argc > 2 ? argv[2] : "What is resonance?";
     int max_tokens = argc > 3 ? atoi(argv[3]) : 48;
     if (max_tokens < 1) max_tokens = 1;
-    if (max_tokens > 510) max_tokens = 510;   /* C-5: keep bpe_encode cap (max_seq - max_tokens - 1) >= 1 */
+    if (max_tokens > 510) max_tokens = 510;
     float temp = argc > 4 ? (float)atof(argv[4]) : 0.8f;
+    g_direct_top_p = argc > 5 ? clamp_float((float)atof(argv[5]), 0.05f, 1.00f) : env_float_clamped("A2A_TOP_P", 1.00f, 0.05f, 1.00f);
+    g_direct_rep = argc > 6 ? clamp_float((float)atof(argv[6]), 1.00f, 5.00f) : env_float_clamped("A2A_REP", 1.00f, 1.00f, 5.00f);
     srand(42);
 
     double t0 = now_ms();
     gguf_file *gf = gguf_open(argv[1]); if (!gf) return 1;
     model_t *m = model_load(gf); if (!m) return 1;
     bpe_tokenizer *tok = bpe_load(argv[1]); if (!tok) { fprintf(stderr, "bpe_load failed\n"); return 1; }
-    if (bpe_n_vocab(tok) > m->vocab) { fprintf(stderr, "chorus: tokenizer vocab %d > embedding vocab %d — token ids would index tok_emb out of bounds\n", bpe_n_vocab(tok), m->vocab); return 1; }   /* C-9 */
+    if (bpe_n_vocab(tok) > m->vocab) {
+        fprintf(stderr, "chorus: tokenizer vocab %d > embedding vocab %d — token ids would index tok_emb out of bounds\n",
+                bpe_n_vocab(tok), m->vocab);
+        return 1;
+    }
     int eos = -1; const gguf_kv *e = gguf_get_kv(gf, "tokenizer.ggml.eos_token_id"); if (e) eos = (int)e->val.u32;
+    const gguf_kv *b = gguf_get_kv(gf, "tokenizer.ggml.bos_token_id"); if (b) tok->bos_id = (int)b->val.u32;
     printf("loaded in %.0f ms (vocab=%d eos=%d) -- arianna.q heart, single file, no -lnotorch\n", now_ms() - t0, bpe_n_vocab(tok), eos);
+
+    /* interactive field loop: ./arianna-q <gguf> repl [n_cells] [nfrag] [n_rounds] */
+    if (argc > 2 && strcmp(argv[2], "repl") == 0) {
+        int n_cells  = argc > 3 ? atoi(argv[3]) : 4;
+        int nfrag    = argc > 4 ? atoi(argv[4]) : 12;
+        int n_rounds = argc > 5 ? atoi(argv[5]) : 1;
+        field_repl(m, tok, eos, n_cells, nfrag, n_rounds);
+        return 0;
+    }
 
     /* δ-field chorus mode:  ./arianna-q <gguf> <prompt> field [n_cells] [nfrag] [n_rounds] */
     if (argc > 3 && strcmp(argv[3], "field") == 0) {
@@ -1619,14 +3414,18 @@ int main(int argc, char **argv) {
         int n_rounds = argc > 6 ? atoi(argv[6]) : 1;
         float alpha  = argc > 7 ? (float)atof(argv[7]) : 0.0f;   /* soma coupling strength (0 = text-only baseline) */
         g_leap_mode  = argc > 8 ? atoi(argv[8]) : 2;             /* leap-v2 — RELAY-ONLY (no-op under the default chorus; lives only when g_chorus=0) */
-        g_xcell      = argc > 9 ? (float)atof(argv[9]) : 0.3f;   /* DEFAULT ALIVE: λ=0.3 balanced cross-cell. 0 = off */
+        g_xcell      = argc > 9 ? (float)atof(argv[9]) : 0.02f;  /* DEFAULT ALIVE: gentle cross-cell lane. 0 = off */
         g_chorus     = argc > 10 ? atoi(argv[10]) : 1;           /* DEFAULT: 1 = chorus (each cell own answer). 0 = relay */
         g_xrep       = argc > 11 ? (float)atof(argv[11]) : 1.3f; /* cross-cell rep-penalty: don't echo neighbours' words (1=off) */
         g_life_on    = argc > 12 ? atoi(argv[12]) : 0;           /* δ-life: 1 = measure/run Game of Life (incr.0 = log fitness inputs) */
-        g_kvshuf     = argc > 13 ? atoi(argv[13]) : (g_chorus && g_xcell > 0 ? 1 : 0);  /* default chorus probe: Δ_R^kv + permutation floor */
-        g_qloop      = argc > 14 ? atoi(argv[14]) : (g_chorus ? 2 : 0);  /* 0=off; 1..2 resonant question routes */
+        g_kvshuf     = argc > 13 ? atoi(argv[13]) : (g_chorus && g_xcell > 0 ? 1 : 0);  /* default chorus diagnostics: Δ_R^kv + I_N^kv */
+        g_qloop      = argc > 14 ? atoi(argv[14]) : (g_chorus ? 1 : 0);  /* 0=off; 1..2 resonant question routes */
         if (g_qloop < 0) g_qloop = 0;
         if (g_qloop > 2) g_qloop = 2;
+        load_qloop_route_env();
+        load_field_generation_env();
+        g_kvpos      = argc > 15 ? atoi(argv[15]) : 0;           /* 0=semantic/bag lane; 1=positional order-probe lane */
+        g_kvpos      = g_kvpos ? 1 : 0;
         if (n_cells <= 0) {   /* auto: the field sizes itself from the prompt's entropy */
             float pe = probe_entropy(m, tok, prompt);
             n_cells = (int)(pe + 0.5f); if (n_cells < 1) n_cells = 1; if (n_cells > 8) n_cells = 8;
@@ -1641,6 +3440,7 @@ int main(int argc, char **argv) {
         int n_cells  = argc > 4 ? atoi(argv[4]) : 4;
         int nfrag    = argc > 5 ? atoi(argv[5]) : 12;
         int n_rounds = argc > 6 ? atoi(argv[6]) : 3;
+        load_field_generation_env();
         field_resonance_test(m, tok, prompt, n_cells, nfrag, n_rounds, eos);
         return 0;
     }
@@ -1650,6 +3450,8 @@ int main(int argc, char **argv) {
         int ticks = argc > 4 ? atoi(argv[4]) : 8;
         int nfrag = argc > 5 ? atoi(argv[5]) : 16;
         int init  = argc > 6 ? atoi(argv[6]) : 4;
+        load_qloop_route_env();
+        load_field_generation_env();
         field_life(m, tok, prompt, init, ticks, nfrag, eos);
         return 0;
     }
@@ -1657,16 +3459,20 @@ int main(int argc, char **argv) {
     int max_seq = 512;
     kv_cache *kv = kv_new(m->n_layers, max_seq, m->kv_dim);
     float *logits = xzalloc(m->vocab, sizeof(float));
-    int ids[512]; int n = bpe_encode(tok, prompt, ids, max_seq - max_tokens - 1);
-    printf("\nprompt: \"%s\" (%d tokens, temp=%.2f)\n---\n%s", prompt, n, temp, prompt); fflush(stdout);
+    int ids[512]; int n = bpe_encode_prompt(tok, prompt, ids, max_seq - max_tokens - 1);
+    printf("\nprompt: \"%s\" (%d tokens, temp=%.2f, top_p=%.2f, rep=%.2f)\n---\n%s",
+           prompt, n, temp, g_direct_top_p, g_direct_rep, prompt); fflush(stdout);
 
     double g0 = now_ms();
     for (int i = 0; i < n; i++) forward(m, kv, ids[i], i, logits);
     double prefill = now_ms() - g0;
     int gen = 0; char buf[256];
+    int recent[64]; int recent_n = 0;
     for (int step = 0; step < max_tokens; step++) {
-        int next = sample(logits, m->vocab, temp);
+        int next = sample(logits, m->vocab, temp, recent, recent_n);
         if (next == eos) break;
+        if (recent_n < (int)(sizeof(recent) / sizeof(recent[0]))) recent[recent_n++] = next;
+        else { memmove(recent, recent + 1, sizeof(recent) - sizeof(recent[0])); recent[recent_n - 1] = next; }
         bpe_decode_token(tok, next, buf, sizeof(buf)); printf("%s", buf); fflush(stdout); gen++;
         int pos = n + step; if (pos >= max_seq - 1) break;
         forward(m, kv, next, pos, logits);
