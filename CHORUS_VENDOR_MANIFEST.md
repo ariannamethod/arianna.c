@@ -9,36 +9,32 @@ body and the standalone arianna2arianna laboratory.
 
 - Lab repo: `/Users/ataeff/arianna-codex/repos/arianna2arianna`
 - Remote: `https://github.com/ariannamethod/arianna2arianna.git`
-- Pinned commit: `b6f2e21d4d9e4f764dfb2022f5f78a5e59e87620`
-- Subject: `the method restores nlama rope parity`
+- Pinned commit: `dae3b9367eb75ce5b45bd95af29809b15fcfa98e`
+- Subject: `the method hardens chorus gguf boundaries`
 - Shared vendored file: `chorus/arianna2arianna.c`
 
 ## Current Integration State
 
-The shared Arianna.c vendored chorus is not byte-identical to the pinned lab
-snapshot yet.
+The shared Arianna.c vendored chorus is byte-identical to the pinned lab
+snapshot.
 
-Reason: a full copy of `arianna2arianna@b6f2e21` would bring the newer
-qloop/repl/direct-user machinery, but would also regress C-hardening already
-present in the shared body, including fail-loud allocation, GGUF metadata bounds,
-overlong string handling, tensor/read gates, and tokenizer/embedding guardrails.
-
-Therefore the current shared body only carries the monotonic RoPE repair:
+This snapshot brings the newer qloop/repl/direct-user machinery from the
+standalone laboratory after replaying the shared C-hardening into that lab:
 
 - `general.architecture=nlama` selects split-half NEOX RoPE;
 - unknown architectures fail closed instead of guessing a RoPE convention;
-- existing shared C-hardening remains intact.
+- oversized/truncated GGUF strings, metadata reads, tensor dimensions, file
+  offsets, tokenizer/embedding mismatch, and KV cache sizes are guarded;
+- direct, field, and REPL paths are preserved from the lab snapshot.
 
-## Next Safe Vendor Step
+## Validation Receipt
 
-Before a full snapshot vendoring commit:
+Standalone lab commit `dae3b93` was validated before vendoring:
 
-1. Replay the shared C-hardening into the standalone arianna2arianna lab, or
-   produce an audited merge branch that contains both the lab qloop/repl features
-   and the shared C-hardening.
-2. Rebuild and smoke the lab snapshot on `weights/nano_arianna_f16.gguf`.
-3. Replace `chorus/arianna2arianna.c` with that audited snapshot in one commit.
-4. Record the exact lab commit here.
+- `make`
+- `make test` -> `150 passed, 0 failed, 1 skipped`
+- direct, field, and REPL smokes on `weights/nano_arianna_f16.gguf`
 
-Do not overwrite the shared vendored file with raw `b6f2e21` without resolving
-the hardening regression.
+Do not overwrite this vendored file with an unverified lab snapshot. New lab
+features should land here only after the same build, test, and direct/field/REPL
+smoke sequence succeeds in the standalone repository.
