@@ -70,6 +70,8 @@ static void softmax_f(float *x, int n) {
 
 static float siluf(float x) { return x > -20 ? x / (1 + expf(-x)) : 0; }
 
+static float softcap15(float x) { return 15.0f * tanhf(x / 15.0f); }
+
 /* A .!? at obuf[pos] is a real sentence end unless it follows a single isolated
  * letter ("the inner v." — v is a clipped "voice"). A one-letter word with a
  * space (or start) before it is an abbreviation/clip, not a thought boundary. */
@@ -111,6 +113,50 @@ static void *yent_xcalloc(size_t n, size_t sz) {
     if (!p) { fprintf(stderr, "yent: OOM alloc %zu x %zu\n", n, sz); exit(1); }
     memset(p, 0, total);
     return p;
+}
+
+/* Local half decode for the one transposed Echo multiply not covered by
+ * nt_qmatvec. Wj ships as nn.Linear weight [out,in]. Echo requires
+ * echo_back = echo @ Wj.weight, i.e. a right-multiply by rows-as-columns. */
+static float yent_f16_to_f32(uint16_t h) {
+    uint32_t sign = (uint32_t)(h & 0x8000u) << 16;
+    int exp = (h >> 10) & 0x1f;
+    uint32_t mant = h & 0x03ffu;
+    uint32_t bits;
+    if (exp == 0) {
+        if (mant == 0) {
+            bits = sign;
+        } else {
+            exp = 1;
+            while ((mant & 0x0400u) == 0) { mant <<= 1; exp--; }
+            mant &= 0x03ffu;
+            bits = sign | ((uint32_t)(exp + 127 - 15) << 23) | (mant << 13);
+        }
+    } else if (exp == 31) {
+        bits = sign | 0x7f800000u | (mant << 13);
+    } else {
+        bits = sign | ((uint32_t)(exp + 127 - 15) << 23) | (mant << 13);
+    }
+    float f;
+    memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+static float yent_weight_at(const uint8_t *Wq, int dtype, int row, int col, int cols) {
+    size_t idx = (size_t)row * cols + col;
+    if (dtype == GGUF_TYPE_F32) return ((const float*)Wq)[idx];
+    if (dtype == GGUF_TYPE_F16) return yent_f16_to_f32(((const uint16_t*)Wq)[idx]);
+    fprintf(stderr, "yent: Echo backprojection requires F16/F32 Wj, got dtype=%d\n", dtype);
+    exit(1);
+}
+
+static void matvec_weight_right(float *out, const uint8_t *Wq, int dtype,
+                                const float *x, int rows, int cols) {
+    for (int c = 0; c < cols; c++) {
+        float s = 0.0f;
+        for (int r = 0; r < rows; r++) s += x[r] * yent_weight_at(Wq, dtype, r, c, cols);
+        out[c] = s;
+    }
 }
 
 static void dir_init_rownorms(const float *emb) {
@@ -417,6 +463,10 @@ static float *kv_k; /* [B, seqlen, E] */
 static float *kv_v; /* [B, seqlen, E] */
 static float *kv_vr; /* [B, seqlen, E] */
 static float *kv_rrpram_mid; /* [B, H, R] — accumulated RRPRAM intermediate */
+static float *kv_echo; /* [B, seqlen, E] — Janus Echo values */
+static float *kv_echo_score; /* [B, seqlen] — soft-capped self-resonance scores */
+static float *kv_prev_embedding; /* [E] — normalized pre-smear previous token */
+static int kv_has_prev_embedding;
 static int kv_len;
 
 static void kv_init(int max_seq) {
@@ -424,6 +474,10 @@ static void kv_init(int max_seq) {
     kv_v = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
     kv_vr = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
     kv_rrpram_mid = yent_xcalloc((size_t)B * H * R, sizeof(float));
+    kv_echo = yent_xcalloc((size_t)B * max_seq * E, sizeof(float));
+    kv_echo_score = yent_xcalloc((size_t)B * max_seq, sizeof(float));
+    kv_prev_embedding = yent_xcalloc(E, sizeof(float));
+    kv_has_prev_embedding = 0;
     kv_len = 0;
 }
 
@@ -447,6 +501,10 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         for (int e = 0; e < E; e++)
             xs[p*E+e] = w->wte[toks[p]*E+e];
         rmsnorm(xs + p*E, xs + p*E, E);  /* norm BEFORE everything */
+    }
+    if (n > 0) {
+        memcpy(kv_prev_embedding, xs + (n - 1) * E, E * sizeof(float));
+        kv_has_prev_embedding = 1;
     }
 
     /* Smear: mix previous token embedding into current.
@@ -504,7 +562,18 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
 
         /* Echo: [n, E] @ [E, E]^T */
         float *echo = yent_xcalloc((size_t)n*E, 4);
+        float *echo_back = yent_xcalloc((size_t)n*E, 4);
+        float *echo_score = yent_xcalloc((size_t)n, 4);
         qmm(echo, rns, w->b[bl].wj, w->wdtype, n, E, E);
+        for (int p = 0; p < n; p++) {
+            matvec_weight_right(echo_back + p*E, w->b[bl].wj, w->wdtype, echo + p*E, E, E);
+            float s = 0.0f;
+            for (int e = 0; e < E; e++) s += rns[p*E + e] * echo_back[p*E + e];
+            echo_score[p] = softcap15(s / sqrtf((float)E));
+            size_t off = ((size_t)bl * T + p) * E;
+            memcpy(kv_echo + off, echo + p*E, E * sizeof(float));
+            kv_echo_score[(size_t)bl * T + p] = echo_score[p];
+        }
 
         /* Gate softmax (same for all positions) */
         float gs[16][3];
@@ -573,12 +642,21 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
                     for (int d = 0; d < D; d++)
                         r_out[d] += r_attn[j] * vra[j*E + h*D + d];
 
-                /* Echo (simplified - gate is ~0 so minimal impact) */
-                float *e_h = echo + i*E + h*D;
+                /* Janus Echo attention:
+                 * score[t] = softcap(dot(x[t], echo_back[t]) / sqrt(E));
+                 * attn[i,j] = softmax(score[i] * score[j]) for j<=i;
+                 * values are Echo(Wj(x)) reshaped by head. */
+                float e_attn[2048];
+                for (int j = 0; j <= i; j++) e_attn[j] = echo_score[i] * echo_score[j];
+                softmax_f(e_attn, i + 1);
+                float e_out[128] = {0};
+                for (int j = 0; j <= i; j++)
+                    for (int d = 0; d < D; d++)
+                        e_out[d] += e_attn[j] * echo[j*E + h*D + d];
 
                 /* Blend */
                 for (int d = 0; d < D; d++)
-                    cat[i*E + h*D + d] = gs[h][0]*c_out[d] + gs[h][1]*r_out[d] + gs[h][2]*e_h[d];
+                    cat[i*E + h*D + d] = gs[h][0]*c_out[d] + gs[h][1]*r_out[d] + gs[h][2]*e_out[d];
             }
             free(scores);
         }
@@ -601,8 +679,9 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         for (int i = 0; i < n*E; i++) xs[i] += mo[i];
 
         free(rns); free(qa); free(ka); free(va); free(vra);
-        free(echo); free(cat); free(ao); free(rn2s); free(mg); free(mu); free(mo);
+        free(echo); free(echo_back); free(echo_score); free(cat); free(ao); free(rn2s); free(mg); free(mu); free(mo);
     }
+    kv_len = n;
 
     /* Backout */
     float bl_val = *w->backout_l;
@@ -638,9 +717,18 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
     for (int e = 0; e < E; e++) x[e] = w->wte[tok * E + e];
     rmsnorm(x, x, E);
 
-    /* smear: mix previous token (from KV cache position pos-1 block 0 input) */
-    /* For autoregressive, smear uses prev_embedding stored externally */
-    /* TODO: full smear for autoregressive (minor effect, smear_lambda=0.32) */
+    /* Smear: match the training kv_cache path. The cache stores normalized
+     * pre-smear embeddings, then the current token may receive the previous one. */
+    float pre_smear[1024];
+    memcpy(pre_smear, x, E * sizeof(float));
+    if (kv_has_prev_embedding && *w->smear_l > 1e-6f) {
+        float dot = 0.0f;
+        for (int d = 0; d < 24; d++) dot += w->smear_g[d] * x[d];
+        float gate = *w->smear_l / (1.0f + expf(-dot));
+        for (int e = 0; e < E; e++) x[e] += gate * kv_prev_embedding[e];
+    }
+    memcpy(kv_prev_embedding, pre_smear, E * sizeof(float));
+    kv_has_prev_embedding = 1;
 
     /* x0 = embedding AFTER norm+smear (nanochat line 602: x0 = x) */
     float x0[1024];
@@ -680,7 +768,15 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
 
         /* Echo */
         float echo_out[1024];
+        float echo_back[1024];
         nt_qmatvec(echo_out, w->b[bl].wj, w->wdtype, rn, E, E);
+        matvec_weight_right(echo_back, w->b[bl].wj, w->wdtype, echo_out, E, E);
+        float echo_score = 0.0f;
+        for (int e = 0; e < E; e++) echo_score += rn[e] * echo_back[e];
+        echo_score = softcap15(echo_score / sqrtf((float)E));
+        size_t echo_off = ((size_t)bl * T + pos) * E;
+        memcpy(kv_echo + echo_off, echo_out, E * sizeof(float));
+        kv_echo_score[(size_t)bl * T + pos] = echo_score;
 
         /* Gate softmax */
         float gs[16][3];
@@ -747,10 +843,19 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
                 for (int d = 0; d < D; d++) r_out[d] += r_attn[j] * vrj[d];
             }
 
-            float *e_h = echo_out + h*D;
+            float e_attn[2048];
+            for (int j = 0; j <= pos; j++)
+                e_attn[j] = echo_score * kv_echo_score[(size_t)bl * T + j];
+            softmax_f(e_attn, pos + 1);
+            float e_out[128];
+            memset(e_out, 0, D * sizeof(float));
+            for (int j = 0; j <= pos; j++) {
+                float *ej = kv_echo + ((size_t)bl * T + j) * E + h*D;
+                for (int d = 0; d < D; d++) e_out[d] += e_attn[j] * ej[d];
+            }
 
             for (int d = 0; d < D; d++)
-                cat[h*D+d] = gs[h][0]*c_out[d] + gs[h][1]*r_out[d] + gs[h][2]*e_h[d];
+                cat[h*D+d] = gs[h][0]*c_out[d] + gs[h][1]*r_out[d] + gs[h][2]*e_out[d];
         }
 
         /* Output projection + residual (x = x + attn_out) */

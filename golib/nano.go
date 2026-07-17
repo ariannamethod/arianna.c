@@ -77,6 +77,13 @@ func newNano(bin, gguf string) *nano {
 func (n *nano) dream(parent context.Context, seed string) string {
 	n.mu.Lock() // one model-load at a time across the turn dream + the breathing fallback
 	defer n.mu.Unlock()
+	// The nano SFT is a Q:/A: text contract — feed the seed as a Q/A prompt, not a raw
+	// fragment, or it drifts to word-salad (Codex arianna2arianna format sweep: qa beat raw,
+	// repetition 3→0). Format fix, not weights. doeDream collapses the \n to a space (one-line
+	// REPL); the one-shot path keeps it — both carry the Q:/A: markers the nano was trained on.
+	if s := strings.TrimSpace(seed); s != "" {
+		seed = "Q: " + s + "\nA:"
+	}
 	select {
 	case <-parent.Done(): // cancelled while waiting for the lock (e.g. /quit) — don't spawn
 		return ""

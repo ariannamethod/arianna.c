@@ -306,7 +306,6 @@ static void forward_token(Weights *w, int tok, int pos,
          *   xn_h = xn.unsqueeze(1).expand(B,H,T,E)        # broadcast xn over heads
          *   temp = einsum('bhie,her->bhir', xn_h, wr_a)   # [B,H,T,R]
          *   r_attn = einsum('bhir,hrj->bhij', temp, wr_b[:,:,:T])  # [B,H,T,T]
-         *   r_attn *= D^-0.5
          *   r_attn[mask] = -inf, softmax, @ V (shared)
          *
          * Single token, autoregressive: temp[h,r] = sum_e xn[e] * wr_a[h,e,r]
@@ -332,7 +331,7 @@ static void forward_token(Weights *w, int tok, int pos,
             for (int j = 0; j <= pos; j++) {
                 float s = 0;
                 for (int r = 0; r < R; r++) s += temp[r] * wr_b_h[r * T + j];
-                r_attn[j] = s * sc;
+                r_attn[j] = s;
             }
             softmax_f(r_attn, pos + 1);
             float out[128] = {0};
