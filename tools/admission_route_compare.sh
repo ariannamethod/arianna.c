@@ -76,6 +76,7 @@ env_args=(
     AM_ROUTE_COMPARE_LIMIT="${A2A_ROUTE_COMPARE_LIMIT:-2}"
     AM_ROUTE_COMPARE_ROUTES="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop}"
 )
+routes_csv="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop}"
 
 [[ -n "${A2A_ROUTE_COMPARE_DIRECT_TOKENS:-}" ]] && env_args+=(AM_ROUTE_COMPARE_DIRECT_TOKENS="$A2A_ROUTE_COMPARE_DIRECT_TOKENS")
 [[ -n "${A2A_ROUTE_COMPARE_DIRECT_TEMP:-}" ]] && env_args+=(AM_ROUTE_COMPARE_DIRECT_TEMP="$A2A_ROUTE_COMPARE_DIRECT_TEMP")
@@ -88,20 +89,32 @@ if ! (cd "$WORKDIR" && env "${env_args[@]}" "$ROOT/metabolism" --admission-route
     die "metabolism --admission-route-compare failed"
 fi
 
-[[ -s "$LOG" ]] || die "route JSONL log not written"
 [[ -s "$SUMMARY" ]] || die "route summary not written"
-grep -q '"schema":"arianna.dream_candidate.v1"' "$LOG" || die "candidate schema missing"
-grep -q '"mode":"shadow"' "$LOG" || die "shadow mode missing"
-grep -q '"accepted":false' "$LOG" || die "shadow candidate was not rejected"
-grep -q '"counterfactual":{' "$LOG" || die "counterfactual missing"
-grep -q '"replay":{' "$LOG" || die "replay guard missing"
-grep -q '"matched":true' "$LOG" || die "replay guard did not match"
-grep -q '"admission_policy":{' "$LOG" || die "admission policy missing"
 grep -q '"schema": "arianna.dream_admission_route_compare_summary.v1"' "$SUMMARY" || die "summary schema missing"
 grep -q '"replay_failed": 0' "$SUMMARY" || die "route replay failures found"
-grep -q '"direct"' "$SUMMARY" || die "direct route missing from summary"
-grep -q '"chorus"' "$SUMMARY" || die "chorus route missing from summary"
-grep -q '"qloop"' "$SUMMARY" || die "qloop route missing from summary"
+if grep -Eq '"candidates": [1-9][0-9]*' "$SUMMARY"; then
+    [[ -s "$LOG" ]] || die "route JSONL log not written"
+    grep -q '"schema":"arianna.dream_candidate.v1"' "$LOG" || die "candidate schema missing"
+    grep -q '"mode":"shadow"' "$LOG" || die "shadow mode missing"
+    grep -q '"accepted":false' "$LOG" || die "shadow candidate was not rejected"
+    grep -q '"counterfactual":{' "$LOG" || die "counterfactual missing"
+    grep -q '"replay":{' "$LOG" || die "replay guard missing"
+    grep -q '"matched":true' "$LOG" || die "replay guard did not match"
+    grep -q '"admission_policy":{' "$LOG" || die "admission policy missing"
+fi
+IFS=',' read -r -a requested_routes <<< "$routes_csv"
+want_timing=0
+for route in "${requested_routes[@]}"; do
+    route="${route//[[:space:]]/}"
+    [[ -z "$route" ]] && continue
+    grep -q "\"$route\"" "$SUMMARY" || die "$route route missing from summary"
+    if [[ "$route" == "chorus" || "$route" == "qloop" ]]; then
+        want_timing=1
+    fi
+done
+if [[ "$want_timing" == "1" ]]; then
+    grep -q '"timing_seen":' "$SUMMARY" || die "route timing telemetry missing from summary"
+fi
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
 STATE_HITS="$WORKDIR/state_hits.txt"

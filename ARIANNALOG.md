@@ -2774,3 +2774,16 @@ The chorus parser now ignores rejected `qloop gate` diagnostic lines instead of 
 questions. This keeps route comparison honest: a rejected gate stays telemetry, not a candidate voice.
 Validation showed direct 2/2 and chorus 2/2 produced on the first broad probes; qloop produced 0/2 true
 questions and was recorded as empty, with replay failures still at 0.
+
+**Follow-up, same day — qloop empty diagnostics.** Route comparison now keeps the qloop route's own counters in
+the summary: rejected gates, base generation/retry/probe/rescue/fail counts, qloop generated/retry counts, and
+whether the route timing footer was seen. Empty qloop candidates carry a reason such as
+`no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=N)`, so qloop tuning can distinguish a silent
+route from a parser failure or an admission rejection. The wrapper requires this timing telemetry in its default
+direct/chorus/qloop run.
+
+**Follow-up, same day — qloop parser/sweep repair.** Qloop `[kv]` lines put a bracketed route marker before
+`score`, so the old parser cut the line at `[kv]` and recorded `↳ qloop cN→cM` instead of the generated text.
+`chorusBody` now finds the `score ...:` frame before removing trailing metrics. The route wrapper also accepts
+route subsets: qloop-only strict runs may produce only summary empties, while qloop-only statement-fallback runs
+must still write full shadow receipts when candidates appear.

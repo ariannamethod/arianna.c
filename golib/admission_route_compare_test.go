@@ -29,6 +29,18 @@ func TestParseChorusCellsDropsRejectedQloopGates(t *testing.T) {
 	}
 }
 
+func TestParseAdmissionRouteDiagnostics(t *testing.T) {
+	out := "  ↳ qloop gate c1→c2 [kv] score 0.100: rejected not a question   [entropy=4.0]\n" +
+		"  timing: base_ms=2206 base_gen=19 base_retry=3 base_probe=12 base_rescue=1 base_fail=0 qloop_ms=0 qloop_gen=0 qloop_retry=0"
+	diag := parseAdmissionRouteDiagnostics(out)
+	if !diag.TimingSeen || diag.QloopGates != 1 || diag.BaseGenerated != 19 || diag.BaseRetries != 3 || diag.BaseProbe != 12 || diag.BaseRescue != 1 || diag.QloopGenerated != 0 {
+		t.Fatalf("bad diagnostics: %+v", diag)
+	}
+	if got := routeEmptyHint("qloop", diag); got != "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=1)" {
+		t.Fatalf("bad empty hint: %q", got)
+	}
+}
+
 func TestRecordAdmissionRouteCandidateSummarizesBuckets(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 	t.Setenv("AM_DREAM_ADMISSION_LOG", t.TempDir()+"/route.jsonl")
@@ -41,11 +53,38 @@ func TestRecordAdmissionRouteCandidateSummarizesBuckets(t *testing.T) {
 		Schema:  "arianna.dream_admission_route_compare_summary.v1",
 		ByRoute: make(map[string]admissionRouteStats),
 	}
-	out := admissionRouteOutput{route: "qloop", text: "What remains if the field stays?", cells: []chorusCell{{text: "What remains if the field stays?", qloop: true}}, questions: 1}
+	out := admissionRouteOutput{
+		route:     "qloop",
+		text:      "What remains if the field stays?",
+		cells:     []chorusCell{{text: "What remains if the field stays?", qloop: true}},
+		questions: 1,
+		diag:      admissionRouteDiagnostics{QloopGenerated: 2, QloopRetries: 1, TimingSeen: true},
+	}
 	if err := recordAdmissionRouteCandidate(iw, &summary, 3, out, "qloop-test", "seed", "frag"); err != nil {
 		t.Fatal(err)
 	}
-	if summary.Candidates != 1 || summary.ByRoute["qloop"].Produced != 1 || summary.ByRoute["qloop"].QloopQuestions != 1 {
+	if summary.Candidates != 1 || summary.ByRoute["qloop"].Produced != 1 || summary.ByRoute["qloop"].QloopQuestions != 1 || summary.ByRoute["qloop"].QloopGenerated != 2 || summary.ByRoute["qloop"].TimingSeen != 1 {
 		t.Fatalf("bad route summary: %+v", summary)
+	}
+}
+
+func TestRecordAdmissionRouteCandidateKeepsQloopEmptyDiagnostics(t *testing.T) {
+	summary := admissionRouteCompareSummary{
+		Schema:  "arianna.dream_admission_route_compare_summary.v1",
+		ByRoute: make(map[string]admissionRouteStats),
+	}
+	out := admissionRouteOutput{
+		route:     "qloop",
+		diag:      admissionRouteDiagnostics{QloopGates: 2, QloopGenerated: 0, TimingSeen: true},
+		emptyHint: "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=2)",
+	}
+	if err := recordAdmissionRouteCandidate(NewInnerWorld(), &summary, 2, out, "qloop-test", "seed", "frag"); err != nil {
+		t.Fatal(err)
+	}
+	if summary.EmptyCandidates != 1 || summary.ByRoute["qloop"].Empty != 1 || summary.ByRoute["qloop"].QloopGates != 2 {
+		t.Fatalf("bad empty summary: %+v", summary)
+	}
+	if len(summary.Empties) != 1 || summary.Empties[0].Reason != out.emptyHint {
+		t.Fatalf("bad empty reason: %+v", summary.Empties)
 	}
 }

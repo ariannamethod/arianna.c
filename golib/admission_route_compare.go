@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -39,6 +40,15 @@ type admissionRouteStats struct {
 	ReplayFailed   int `json:"replay_failed"`
 	ChorusVoices   int `json:"chorus_voices,omitempty"`
 	QloopQuestions int `json:"qloop_questions,omitempty"`
+	QloopGates     int `json:"qloop_gates,omitempty"`
+	QloopGenerated int `json:"qloop_generated,omitempty"`
+	QloopRetries   int `json:"qloop_retries,omitempty"`
+	BaseGenerated  int `json:"base_generated,omitempty"`
+	BaseRetries    int `json:"base_retries,omitempty"`
+	BaseProbe      int `json:"base_probe,omitempty"`
+	BaseRescue     int `json:"base_rescue,omitempty"`
+	BaseFailed     int `json:"base_failed,omitempty"`
+	TimingSeen     int `json:"timing_seen,omitempty"`
 }
 
 type admissionRouteFailure struct {
@@ -66,6 +76,20 @@ type admissionRouteOutput struct {
 	cells     []chorusCell
 	voices    int
 	questions int
+	diag      admissionRouteDiagnostics
+	emptyHint string
+}
+
+type admissionRouteDiagnostics struct {
+	QloopGates     int
+	QloopGenerated int
+	QloopRetries   int
+	BaseGenerated  int
+	BaseRetries    int
+	BaseProbe      int
+	BaseRescue     int
+	BaseFailed     int
+	TimingSeen     bool
 }
 
 func runAdmissionRouteCompare() error {
@@ -206,21 +230,21 @@ func generateAdmissionRoute(ctx context.Context, route, bin, model, prompt strin
 		text, err := generateAdmissionDirect(ctx, bin, model, prompt)
 		return admissionRouteOutput{route: route, text: text}, err
 	case "chorus":
-		cells, err := generateAdmissionChorus(ctx, bin, model, prompt, 0)
+		cells, diag, err := generateAdmissionChorus(ctx, bin, model, prompt, 0)
 		if err != nil {
 			return admissionRouteOutput{route: route}, err
 		}
 		cells = filterChorusCells(cells, false)
 		voices, questions := chorusCounts(cells)
-		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions}, nil
+		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag}, nil
 	case "qloop":
-		cells, err := generateAdmissionChorus(ctx, bin, model, prompt, 2)
+		cells, diag, err := generateAdmissionChorus(ctx, bin, model, prompt, 2)
 		if err != nil {
 			return admissionRouteOutput{route: route}, err
 		}
 		cells = filterChorusCells(cells, true)
 		voices, questions := chorusCounts(cells)
-		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions}, nil
+		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
 	default:
 		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
 	}
@@ -243,7 +267,7 @@ func generateAdmissionDirect(ctx context.Context, bin, model, prompt string) (st
 	return parseAdmissionDirectOutput(string(out), prompt), nil
 }
 
-func generateAdmissionChorus(ctx context.Context, bin, model, prompt string, qloop int) ([]chorusCell, error) {
+func generateAdmissionChorus(ctx context.Context, bin, model, prompt string, qloop int) ([]chorusCell, admissionRouteDiagnostics, error) {
 	cctx, cancel := context.WithTimeout(ctx, chorusTimeout)
 	defer cancel()
 	cells := strconv.Itoa(envIntClamped("AM_ROUTE_COMPARE_CELLS", 4, 1, 8))
@@ -254,11 +278,12 @@ func generateAdmissionChorus(ctx context.Context, bin, model, prompt string, qlo
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if cctx.Err() != nil {
-			return nil, cctx.Err()
+			return nil, admissionRouteDiagnostics{}, cctx.Err()
 		}
-		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(strings.ToValidUTF8(string(out), "")))
+		return nil, admissionRouteDiagnostics{}, fmt.Errorf("%w: %s", err, strings.TrimSpace(strings.ToValidUTF8(string(out), "")))
 	}
-	return parseChorusCells(string(out)), nil
+	raw := string(out)
+	return parseChorusCells(raw), parseAdmissionRouteDiagnostics(raw), nil
 }
 
 func parseAdmissionDirectOutput(out, prompt string) string {
@@ -289,16 +314,69 @@ func filterChorusCells(cells []chorusCell, qloop bool) []chorusCell {
 	return out
 }
 
+var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_retry=(\d+) base_probe=(\d+) base_rescue=(\d+) base_fail=(\d+) qloop_ms=\S+ qloop_gen=(\d+) qloop_retry=(\d+)`)
+
+func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
+	diag := admissionRouteDiagnostics{
+		QloopGates: strings.Count(out, "↳ qloop gate "),
+	}
+	m := routeTimingRe.FindStringSubmatch(out)
+	if len(m) == 8 {
+		diag.TimingSeen = true
+		diag.BaseGenerated = atoiZero(m[1])
+		diag.BaseRetries = atoiZero(m[2])
+		diag.BaseProbe = atoiZero(m[3])
+		diag.BaseRescue = atoiZero(m[4])
+		diag.BaseFailed = atoiZero(m[5])
+		diag.QloopGenerated = atoiZero(m[6])
+		diag.QloopRetries = atoiZero(m[7])
+	}
+	return diag
+}
+
+func routeEmptyHint(route string, diag admissionRouteDiagnostics) string {
+	if route != "qloop" {
+		return "empty generation"
+	}
+	if diag.TimingSeen {
+		return fmt.Sprintf("no qloop candidate lines (qloop_gen=%d qloop_retry=%d qloop_gates=%d)", diag.QloopGenerated, diag.QloopRetries, diag.QloopGates)
+	}
+	if diag.QloopGates > 0 {
+		return fmt.Sprintf("only rejected qloop gates (qloop_gates=%d)", diag.QloopGates)
+	}
+	return "no qloop candidate lines"
+}
+
+func atoiZero(s string) int {
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
 func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompareSummary, index int, out admissionRouteOutput, trigger, seed, fragment string) error {
 	st := summary.ByRoute[out.route]
 	st.Attempted++
 	st.ChorusVoices += out.voices
 	st.QloopQuestions += out.questions
+	st.QloopGates += out.diag.QloopGates
+	st.QloopGenerated += out.diag.QloopGenerated
+	st.QloopRetries += out.diag.QloopRetries
+	st.BaseGenerated += out.diag.BaseGenerated
+	st.BaseRetries += out.diag.BaseRetries
+	st.BaseProbe += out.diag.BaseProbe
+	st.BaseRescue += out.diag.BaseRescue
+	st.BaseFailed += out.diag.BaseFailed
+	if out.diag.TimingSeen {
+		st.TimingSeen++
+	}
 	text := strings.TrimSpace(out.text)
 	if text == "" {
 		st.Empty++
 		summary.EmptyCandidates++
-		summary.Empties = append(summary.Empties, admissionRouteEmpty{Index: index, Route: out.route, Trigger: trigger, Seed: seed, Reason: "empty generation"})
+		reason := out.emptyHint
+		if reason == "" {
+			reason = "empty generation"
+		}
+		summary.Empties = append(summary.Empties, admissionRouteEmpty{Index: index, Route: out.route, Trigger: trigger, Seed: seed, Reason: reason})
 		summary.ByRoute[out.route] = st
 		return nil
 	}
