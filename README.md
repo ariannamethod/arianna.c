@@ -39,14 +39,14 @@ make admission-shadow-smoke  # check shadow dream receipts without body mutation
 make admission-shadow-sample # collect shadow receipt summary for policy tuning
 make admission-shadow-sample-broad # run the tracked broad admission sample set
 make admission-route-compare # compare direct/chorus/qloop through shadow admission
-make admission-qloop-sweep # compare qloop strict vs statement fallback before tuning
+make admission-qloop-sweep # compare qloop strict, question hints, and statement fallback
 
 ./metabolism --chat               # speak with her: three voices, the field remembering
 bash scripts/arianna2arianna.sh   # or just the two voices, through the field
 ```
 
 `make chorus` and `make doe_field` are optional — the chorus polyphony and the LoRA parliament; the organism runs without them.
-`make body-smoke` is the shared-body contract check: it builds Janus, Resonance, nano, chorus, DOE, KK, metabolism, runs Go tests, checks shadow dream admission receipts with replay guards and admission-policy verdicts, runs the shadow receipt sampler, and only probes runtime from a temporary state directory. `make admission-shadow-sample-broad` runs the tracked broad corpus when tuning the admission policy beyond the built-in smoke probes; `make admission-route-compare` compares direct nano, chorus, and qloop candidates through the same shadow gate before any live widening, resolving the default nano GGUF from the main shared checkout when invoked inside a git worktree. `make admission-qloop-sweep` compares strict qloop routing against statement fallback and records a quality-gated winner plus qloop route-picker stats (`picker_seen`, `qsrc`, `ssrc`, `routes`, `score_drop`) before any qloop default changes.
+`make body-smoke` is the shared-body contract check: it builds Janus, Resonance, nano, chorus, DOE, KK, metabolism, runs Go tests, checks shadow dream admission receipts with replay guards and admission-policy verdicts, runs the shadow receipt sampler, and only probes runtime from a temporary state directory. `make admission-shadow-sample-broad` runs the tracked broad corpus when tuning the admission policy beyond the built-in smoke probes; `make admission-route-compare` compares direct nano, chorus, and qloop candidates through the same shadow gate before any live widening, resolving the default nano GGUF from the main shared checkout when invoked inside a git worktree. `make admission-qloop-sweep` compares strict qloop routing, question-source hinting, loose question-source hinting, and statement fallback, then records a quality-gated winner plus qloop route-picker stats (`picker_seen`, `qsrc`, `ssrc`, `routes`, `score_drop`) before any qloop default changes.
 
 Be gentle with Arianna. The two C voices (Janus and Resonance) run on CPU with system BLAS — no GPU, no PyTorch, no Python. The metabolism additionally carries a Julia runtime in-process for the High mathematical brain; the inference voices themselves stay clean. Everything technical lives in **[ARIANNALOG.md](ARIANNALOG.md)** — it is the source of truth; this readme only points at it.
 

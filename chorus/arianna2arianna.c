@@ -1068,6 +1068,7 @@ static int   g_qloop_tconf_adapt = 0;      /* 1 = use adaptive target-confidence
 static float g_qloop_tconf_adapt_weight = -0.10f;
 static int   g_qloop_unique_asker = 0;     /* 1 = widened qloop may not fan one asking cell into multiple routes */
 static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect this many pre-generation routes */
+static int   g_qloop_question_source_hint = 0; /* 1 = ask one base cell to produce an inner question source */
 static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
 static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
 static int g_chorus = 1;       /* 1 = CHORUS (each cell answers the SAME prompt from its own angle, neighbour-aware
@@ -1113,12 +1114,14 @@ static void load_repl_prompt_env(void) {
 }
 
 static void load_qloop_route_env(void) {
+    g_qloop_min = env_float_clamped("A2A_QLOOP_MIN", 0.42f, 0.0f, 2.0f);
     g_qloop_min_iq = env_float_clamped("A2A_QLOOP_MIN_IQ", 0.0f, -2.0f, 2.0f);
     g_qloop_tconf_weight = env_float_clamped("A2A_QLOOP_TCONF_WEIGHT", 0.20f, -1.00f, 1.00f);
     g_qloop_tconf_adapt = env_int_clamped("A2A_QLOOP_TCONF_ADAPT", 0, 0, 1);
     g_qloop_tconf_adapt_weight = env_float_clamped("A2A_QLOOP_TCONF_ADAPT_WEIGHT", -0.10f, -1.00f, 1.00f);
     g_qloop_unique_asker = env_int_clamped("A2A_QLOOP_UNIQUE_ASKER", 0, 0, 1);
     g_qloop_candidate_pool = env_int_clamped("A2A_QLOOP_CANDIDATE_POOL", 0, 0, 8);
+    g_qloop_question_source_hint = env_int_clamped("A2A_QLOOP_QUESTION_SOURCE_HINT", 0, 0, 1);
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
 }
@@ -1197,9 +1200,11 @@ static int field_prompt_uses_qa(const char *prompt) {
     return 0;
 }
 
-static void build_field_cell_prompt(char *dst, size_t cap, const char *prompt) {
+static void build_field_cell_prompt(char *dst, size_t cap, const char *prompt, int cell) {
     if (!prompt) prompt = "";
-    if (g_field_prompt_format == 3) snprintf(dst, cap, "User: %s\nArianna:", prompt);
+    if (g_qloop && g_qloop_question_source_hint && cell == 0)
+        snprintf(dst, cap, "%s\nAsk one short question about this field.\nQuestion: What", prompt);
+    else if (g_field_prompt_format == 3) snprintf(dst, cap, "User: %s\nArianna:", prompt);
     else if (field_prompt_uses_qa(prompt)) snprintf(dst, cap, "Q: %s\nA:", prompt);
     else snprintf(dst, cap, "%s", prompt);
 }
@@ -2653,7 +2658,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
     double base_t0 = now_ms();
     int base_gen = 0, base_retry = 0, base_probe = 0, base_rescue = 0, base_fail = 0;
     for (int c = 0; c < n_cells; c++) {
-        if (g_chorus) build_field_cell_prompt(ctx, sizeof(ctx), prompt);   /* CHORUS: each cell answers the SAME prompt from its own angle; awareness via cross-cell, not text */
+        if (g_chorus) build_field_cell_prompt(ctx, sizeof(ctx), prompt, c);   /* CHORUS: each cell answers the SAME prompt from its own angle; awareness via cross-cell, not text */
         else if (g_leap_mode && r > 0) {             /* RELAY (legacy): dissonance-into-forward route */
             g_leap_total++;
             if (g_dpeak >= THETA_HI) {

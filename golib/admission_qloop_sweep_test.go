@@ -4,11 +4,17 @@ import "testing"
 
 func TestQloopSweepConfigs(t *testing.T) {
 	cfgs := qloopSweepConfigs()
-	if len(cfgs) != 2 || cfgs[0].Name != "strict" || cfgs[1].Name != "statement" {
+	if len(cfgs) != 4 || cfgs[0].Name != "strict" || cfgs[1].Name != "question_hint" || cfgs[2].Name != "question_hint_loose" || cfgs[3].Name != "statement" {
 		t.Fatalf("bad qloop sweep configs: %+v", cfgs)
 	}
-	if cfgs[1].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
-		t.Fatalf("statement config missing env: %+v", cfgs[1].Env)
+	if cfgs[1].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" {
+		t.Fatalf("question_hint config missing env: %+v", cfgs[1].Env)
+	}
+	if cfgs[2].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[2].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
+		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[2].Env)
+	}
+	if cfgs[3].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
+		t.Fatalf("statement config missing env: %+v", cfgs[3].Env)
 	}
 }
 

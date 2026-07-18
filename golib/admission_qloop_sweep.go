@@ -142,6 +142,12 @@ func runAdmissionQloopSweep() error {
 func qloopSweepConfigs() []admissionQloopSweepConfig {
 	return []admissionQloopSweepConfig{
 		{Name: "strict"},
+		{Name: "question_hint", Env: map[string]string{"A2A_QLOOP_QUESTION_SOURCE_HINT": "1"}},
+		{Name: "question_hint_loose", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
+			"A2A_QLOOP_MIN":                  "0.30",
+			"AM_ROUTE_COMPARE_FRAG":          "16",
+		}},
 		{Name: "statement", Env: map[string]string{"A2A_QLOOP_STATEMENT_ROUTES": "1"}},
 	}
 }
