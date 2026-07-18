@@ -53,6 +53,17 @@ func TestChorusQloopSeparated(t *testing.T) {
 	}
 }
 
+func TestChorusQloopKVBody(t *testing.T) {
+	out := "  ↳ qloop c1→c0 [kv] score 1.209:  what did the neighbour hear?   [entropy=4.2 I_Q^kv=+0.101]\n"
+	cells := parseField(out)
+	if len(cells) != 1 || !cells[0].qloop {
+		t.Fatalf("bad qloop kv parse: %+v", cells)
+	}
+	if cells[0].text != "what did the neighbour hear?" {
+		t.Fatalf("qloop kv body wrong: %q", cells[0].text)
+	}
+}
+
 func TestChorusTextCaps(t *testing.T) {
 	// a long polyphony must be capped before it is persisted into lastDream.
 	long := make([]chorusCell, 0, 30)

@@ -2781,3 +2781,9 @@ whether the route timing footer was seen. Empty qloop candidates carry a reason 
 `no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=N)`, so qloop tuning can distinguish a silent
 route from a parser failure or an admission rejection. The wrapper requires this timing telemetry in its default
 direct/chorus/qloop run.
+
+**Follow-up, same day — qloop parser/sweep repair.** Qloop `[kv]` lines put a bracketed route marker before
+`score`, so the old parser cut the line at `[kv]` and recorded `↳ qloop cN→cM` instead of the generated text.
+`chorusBody` now finds the `score ...:` frame before removing trailing metrics. The route wrapper also accepts
+route subsets: qloop-only strict runs may produce only summary empties, while qloop-only statement-fallback runs
+must still write full shadow receipts when candidates appear.

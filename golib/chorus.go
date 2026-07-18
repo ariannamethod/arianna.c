@@ -87,12 +87,11 @@ func parseChorusCells(out string) []chorusCell {
 // text that itself contains a colon is not truncated.
 func chorusBody(line string, isQloop bool) string {
 	p := line
-	if b := strings.Index(p, "["); b >= 0 { // cut at the first bracket — the metrics blocks (Δ_R^kv, entropy) all follow the text
-		p = p[:b]
-	}
 	head := 0
 	if isQloop {
 		// "… score 1.097:  <text>" — the colon right after the score number.
+		// Qloop routes may include "[kv]" before "score", so find the score frame
+		// before cutting bracketed metrics.
 		if s := strings.Index(p, "score "); s >= 0 {
 			if c := strings.IndexByte(p[s:], ':'); c >= 0 {
 				head = s + c + 1
@@ -102,7 +101,11 @@ func chorusBody(line string, isQloop bool) string {
 		// "… (T=0.60):  <text>" — the colon that closes the temperature.
 		head = c + 2
 	}
-	frag := strings.TrimSpace(p[head:])
+	p = p[head:]
+	if b := strings.Index(p, "["); b >= 0 { // cut trailing metrics blocks (Δ_R^kv, entropy, I_Q^kv)
+		p = p[:b]
+	}
+	frag := strings.TrimSpace(p)
 	frag = strings.TrimSpace(strings.TrimPrefix(frag, "A:"))
 	frag = strings.TrimSpace(strings.TrimPrefix(frag, "-"))
 	// sanitize per cell at the source — the chorus engine's SPM <0xXX> byte fallback
