@@ -38,6 +38,8 @@ Before a path can become default:
 - read-only eval leaves soma, field, cooc, delta, KK, and DOE state unchanged;
 - `AM_DREAM_ADMISSION=shadow` observes nano/chorus dreams as typed candidates
   without mutating inner-world, lastDream, Resonance cooc, delta, KK, or DOE;
+- `AM_DREAM_ADMISSION_LOG=<path>` appends JSONL admission receipts; if a live
+  path is requested and cannot be written, admission fails closed;
 - regression prompts show improvement or bounded tradeoff;
 - timeout, parser, child-process, and unknown-architecture failures are visible
   and fail closed.

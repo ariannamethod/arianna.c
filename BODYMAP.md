@@ -48,7 +48,9 @@ The first architectural merge is nano/subconscious:
 `AM_DREAM_ADMISSION=shadow` is the current pre-live switch: direct nano and
 chorus dreams become typed `arianna.dream_candidate.v1` observations and are
 printed, but they do not update the inner world, `lastDream`, Resonance's dream
-inject, or downstream consolidation.
+inject, or downstream consolidation. `AM_DREAM_ADMISSION_LOG=<path>` appends
+JSONL receipts for those decisions; if a live admission explicitly requests a
+ledger and the ledger cannot be written, the admission fails closed.
 
 ## Open Questions
 

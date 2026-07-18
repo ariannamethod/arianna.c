@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"strings"
 	"time"
@@ -17,20 +18,20 @@ const (
 // and letting it mutate Arianna.c state. Default live mode preserves existing
 // behavior; AM_DREAM_ADMISSION=shadow records the candidate and rejects mutation.
 type dreamCandidate struct {
-	Schema    string
-	RunID     string
-	Mode      string
-	Source    string
-	Trigger   string
-	Seed      string
-	Fragment  string
-	Text      string
-	Kind      string
-	Cells     int
-	Questions int
-	Accepted  bool
-	Reason    string
-	Created   time.Time
+	Schema    string    `json:"schema"`
+	RunID     string    `json:"run_id"`
+	Mode      string    `json:"mode"`
+	Source    string    `json:"source"`
+	Trigger   string    `json:"trigger"`
+	Seed      string    `json:"seed"`
+	Fragment  string    `json:"fragment,omitempty"`
+	Text      string    `json:"text"`
+	Kind      string    `json:"kind"`
+	Cells     int       `json:"cells"`
+	Questions int       `json:"questions"`
+	Accepted  bool      `json:"accepted"`
+	Reason    string    `json:"reason"`
+	Created   time.Time `json:"created"`
 }
 
 func dreamAdmissionMode() string {
@@ -85,6 +86,32 @@ func decideDreamCandidate(c dreamCandidate) dreamCandidate {
 	return c
 }
 
+func recordDreamCandidate(c dreamCandidate) error {
+	path := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(c)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func rejectOnAdmissionLogError(c dreamCandidate, err error) dreamCandidate {
+	if err == nil {
+		return c
+	}
+	c.Accepted = false
+	c.Reason = "admission log failed: " + err.Error()
+	return c
+}
+
 func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool {
 	if r == nil || strings.TrimSpace(r.dream) == "" {
 		return false
@@ -95,6 +122,7 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 	}
 	c.Trigger = trigger
 	c = decideDreamCandidate(c)
+	c = rejectOnAdmissionLogError(c, recordDreamCandidate(c))
 	r.candidate = c
 	if !c.Accepted {
 		return false
