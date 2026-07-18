@@ -254,10 +254,36 @@ func generateAdmissionRoute(ctx context.Context, route, bin, model, prompt strin
 		}
 		cells = filterChorusCells(cells, true)
 		voices, questions := chorusCounts(cells)
-		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
+		return admissionRouteOutput{route: route, text: qloopAdmissionText(cells), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
 	default:
 		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
 	}
+}
+
+func qloopAdmissionText(cells []chorusCell) string {
+	best := ""
+	bestPenalty := 1 << 30
+	bestWords := -1
+	for _, cell := range cells {
+		text := strings.TrimSpace(cell.text)
+		if text == "" {
+			continue
+		}
+		words, leak, debt := qloopSweepTextStats(text)
+		penalty := len(debt) * 20
+		if leak {
+			penalty += 100
+		}
+		if words < 3 {
+			penalty += 10 + (3 - words)
+		}
+		if penalty < bestPenalty || (penalty == bestPenalty && words > bestWords) {
+			best = text
+			bestPenalty = penalty
+			bestWords = words
+		}
+	}
+	return best
 }
 
 func generateAdmissionDirect(ctx context.Context, bin, model, prompt string) (string, error) {

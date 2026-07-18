@@ -2838,3 +2838,10 @@ Verified after the change: `AM_QLOOP_SWEEP_MIN_PRODUCED` defaults to the sweep l
 Strict, question-hint, and loose question-hint all produce 0/2 after C surface gates; statement fallback produces
 1/2 and is rejected with `produced_below_2` plus Go-level `slash_join` surface debt from multi-qloop aggregation.
 Replay/policy stay clean, `gate_passed=false`, no winner; `make admission-route-compare` still passes.
+
+**Follow-up, same day — qloop aggregation split.** Admission qloop no longer folds multiple qloop lines through
+the chorus ` / ` joiner. The normal chorus dream still aggregates cells as one murmur, but route admission needs
+one candidate text, so qloop now selects the best single qloop line by surface debt, route-label leakage, shortness,
+and word count. Verified sweep: the previous statement aggregate `the other-ness. / he has been alive.` becomes the
+single clean candidate `he has been alive.`; Go-level `slash_join` debt disappears. The route still has no production
+winner because standard coverage is 1/2, not 2/2, so the gate remains conservative.
