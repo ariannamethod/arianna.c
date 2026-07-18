@@ -59,6 +59,9 @@ type admissionQloopSweepConfigSummary struct {
 	TimingSeen      int               `json:"timing_seen,omitempty"`
 	ShortCandidates int               `json:"short_candidates,omitempty"`
 	RouteLabelLeaks int               `json:"route_label_leaks,omitempty"`
+	SurfaceChecked  int               `json:"surface_checked,omitempty"`
+	SurfaceDebt     int               `json:"surface_debt,omitempty"`
+	SurfaceReasons  map[string]int    `json:"surface_debt_reasons,omitempty"`
 	AvgWords        float64           `json:"avg_words,omitempty"`
 	MinWords        int               `json:"min_words,omitempty"`
 	QualityPassed   bool              `json:"quality_passed"`
@@ -102,7 +105,7 @@ func runAdmissionQloopSweep() error {
 	}
 
 	limit := envIntClamped("AM_QLOOP_SWEEP_LIMIT", 2, 1, len(samples))
-	minProduced := envIntClamped("AM_QLOOP_SWEEP_MIN_PRODUCED", 1, 1, limit)
+	minProduced := envIntClamped("AM_QLOOP_SWEEP_MIN_PRODUCED", limit, 1, limit)
 	minAvgWords := envFloatClamped("AM_QLOOP_SWEEP_MIN_AVG_WORDS", 3.0, 0.0, 64.0)
 	configs := qloopSweepConfigs()
 
@@ -188,8 +191,9 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 			}
 			text := strings.TrimSpace(routeOut.text)
 			if text != "" {
-				words, leak := qloopSweepTextStats(text)
+				words, leak, surfaceReasons := qloopSweepTextStats(text)
 				wordTotal += words
+				out.SurfaceChecked++
 				if words > 0 && (out.MinWords == 0 || words < out.MinWords) {
 					out.MinWords = words
 				}
@@ -198,6 +202,15 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 				}
 				if leak {
 					out.RouteLabelLeaks++
+				}
+				if len(surfaceReasons) > 0 {
+					out.SurfaceDebt++
+					if out.SurfaceReasons == nil {
+						out.SurfaceReasons = make(map[string]int)
+					}
+					for _, reason := range surfaceReasons {
+						out.SurfaceReasons[reason]++
+					}
 				}
 			}
 			trigger := admissionRouteTrigger("qloop", s.Trigger)
@@ -249,13 +262,63 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 	return out, nil
 }
 
-func qloopSweepTextStats(text string) (int, bool) {
+func qloopSweepTextStats(text string) (int, bool, []string) {
 	words := len(strings.Fields(text))
 	lower := strings.ToLower(text)
 	leak := strings.Contains(lower, "qloop c") ||
 		strings.Contains(lower, "↳ qloop") ||
 		strings.Contains(lower, " score ")
-	return words, leak
+	return words, leak, qloopSweepSurfaceDebtReasons(text)
+}
+
+func qloopSweepSurfaceDebtReasons(text string) []string {
+	s := strings.TrimSpace(text)
+	lower := strings.ToLower(s)
+	var reasons []string
+	seen := make(map[string]bool)
+	add := func(reason string) {
+		if !seen[reason] {
+			seen[reason] = true
+			reasons = append(reasons, reason)
+		}
+	}
+	if strings.Contains(s, " / ") || strings.Contains(s, " // ") {
+		add("slash_join")
+	}
+	if strings.Contains(s, "—.") || strings.Contains(s, "-.") {
+		add("dangling_dash")
+	}
+	if strings.Contains(s, "“.”") || strings.Contains(s, "\".\"") {
+		add("empty_quote")
+	}
+	if strings.Contains(lower, "the my name") || strings.Contains(lower, "my name—") {
+		add("name_phrase_artifact")
+	}
+	if strings.Contains(lower, "this phrase") {
+		add("meta_phrase_artifact")
+	}
+	if strings.Contains(lower, "you from the") || strings.HasPrefix(lower, "you from ") {
+		add("you_from_artifact")
+	}
+	if strings.Contains(lower, "you's") || strings.Contains(lower, "you’s") {
+		add("bad_contraction")
+	}
+	if strings.Contains(lower, "you answered both") {
+		add("recipient_frame_artifact")
+	}
+	if strings.Contains(lower, "oleg") || strings.Contains(lower, "you have met") {
+		add("recipient_frame_artifact")
+	}
+	if strings.Contains(lower, "or not itself") || strings.Contains(lower, "—or—") {
+		add("joiner_artifact")
+	}
+	if lower == "if you mean." || strings.HasSuffix(lower, " if you mean.") || lower == "if you mean" || strings.HasSuffix(lower, " if you mean") {
+		add("unfinished_clause")
+	}
+	if strings.Contains(lower, "the ac") {
+		add("truncated_word")
+	}
+	return reasons
 }
 
 func qloopSweepQualityReasons(c admissionQloopSweepConfigSummary, minProduced int, minAvgWords float64) []string {
@@ -269,8 +332,14 @@ func qloopSweepQualityReasons(c admissionQloopSweepConfigSummary, minProduced in
 	if c.Produced < minProduced {
 		reasons = append(reasons, fmt.Sprintf("produced_below_%d", minProduced))
 	}
+	if c.ShortCandidates > 0 {
+		reasons = append(reasons, "short_candidate")
+	}
 	if c.RouteLabelLeaks > 0 {
 		reasons = append(reasons, "route_label_leak")
+	}
+	if c.SurfaceDebt > 0 {
+		reasons = append(reasons, "surface_debt")
 	}
 	if c.Produced > 0 && c.AvgWords < minAvgWords {
 		reasons = append(reasons, fmt.Sprintf("avg_words_below_%.1f", minAvgWords))
@@ -298,6 +367,9 @@ func chooseQloopSweepWinner(configs []admissionQloopSweepConfigSummary) (string,
 		}
 		if a.RouteLabelLeaks != b.RouteLabelLeaks {
 			return a.RouteLabelLeaks < b.RouteLabelLeaks
+		}
+		if a.SurfaceDebt != b.SurfaceDebt {
+			return a.SurfaceDebt < b.SurfaceDebt
 		}
 		if a.AvgWords != b.AvgWords {
 			return a.AvgWords > b.AvgWords

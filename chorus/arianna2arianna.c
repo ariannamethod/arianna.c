@@ -2246,6 +2246,23 @@ static int qloop_answer_surface_debt(const char *s) {
     if (answer_has_recipient_artifact(p) ||
         answer_contains_phrase_ci(p, "from another angle"))
         return 1;
+    if (strstr(p, " / ") || strstr(p, " // ") ||
+        strstr(p, "—.") || strstr(p, "-.") ||
+        strstr(p, "“.”") || strstr(p, "\".\""))
+        return 1;
+    if (answer_contains_phrase_ci(p, "the my name") ||
+        answer_contains_phrase_ci(p, "this phrase") ||
+        answer_contains_phrase_ci(p, "you from the") ||
+        ascii_starts_ci(p, "you from ") ||
+        answer_contains_phrase_ci(p, "you's") ||
+        answer_contains_phrase_ci(p, "you’s") ||
+        answer_contains_phrase_ci(p, "you answered both") ||
+        answer_contains_phrase_ci(p, "you have met") ||
+        answer_contains_phrase_ci(p, "oleg") ||
+        answer_contains_phrase_ci(p, "or not itself") ||
+        strstr(p, "—or—") ||
+        answer_contains_phrase_ci(p, "if you mean."))
+        return 1;
     if (direct_answer_notation_token(p) ||
         ascii_starts_ci(p, "answer:") ||
         ascii_starts_ci(p, "arianna:") ||
@@ -3002,11 +3019,24 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                         float rent = cell_speak(m, tok, rctx_ids, rnp, 2, rtemp, 40, 1.4f,
                                                 seed_base ^ 0xb17a5u ^ (unsigned)(qcell[route] * 131 + tcell[route] * 7919 + next * 4057 + r * 7919),
                                                 eos, max_seq, rfrag, sizeof(rfrag), 0, rids, &rn, NULL, NULL, NULL);
-                        for (int i = 0; hist && i < rn; i++) if (rids[i] >= 0 && rids[i] < m->vocab) hist[rids[i]]++;
-                        add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", rfrag);
-                        if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
-                        printf("\n  ↳ qloop trigger c%d→c%d score %.3f: %s   [entropy=%.2f]", tcell[route], next, best, rfrag, rent);
-                        if (flog) fprintf(flog, "- qloop-trigger c%d->c%d (score=%.3f, entropy=%.2f):%s\n", tcell[route], next, best, rent, rfrag);
+                        clean_answer_fragment(rfrag);
+                        trim_open_answer_after_closed_sentence(rfrag);
+                        trim_open_clause_tail(rfrag);
+                        truncate_open_phrase_tail(rfrag, sizeof(rfrag));
+                        trim_terminal_function_word_tail(rfrag);
+                        close_short_answer_sentence(rfrag, sizeof(rfrag));
+                        if (qloop_answer_surface_debt(rfrag)) {
+                            printf("\n  ↳ qloop gate c%d→c%d score %.3f: rejected %s   [entropy=%.2f reason=surface]",
+                                   tcell[route], next, best, rfrag, rent);
+                            if (flog) fprintf(flog, "- qloop-gate c%d->c%d (score=%.3f, entropy=%.2f, reason=surface):%s\n",
+                                              tcell[route], next, best, rent, rfrag);
+                        } else {
+                            for (int i = 0; hist && i < rn; i++) if (rids[i] >= 0 && rids[i] < m->vocab) hist[rids[i]]++;
+                            add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", rfrag);
+                            if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
+                            printf("\n  ↳ qloop trigger c%d→c%d score %.3f: %s   [entropy=%.2f]", tcell[route], next, best, rfrag, rent);
+                            if (flog) fprintf(flog, "- qloop-trigger c%d->c%d (score=%.3f, entropy=%.2f):%s\n", tcell[route], next, best, rent, rfrag);
+                        }
                     }
                     free(qcent);
                 }
@@ -3106,13 +3136,20 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
             g_nbr = save_nbr; g_nbr_len = save_nbr_len; g_nbr_shuf = save_nbr_shuf; g_field_on = save_field_on; g_xcell = save_xcell;
             clean_direct_answer_surface(qfrag_off, sizeof(qfrag_off));
             float qinfl = qent_off - qent;
-            for (int i = 0; hist && i < qn; i++) if (qids[i] >= 0 && qids[i] < m->vocab) hist[qids[i]]++;
-            int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", qfrag);
-            if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
-            printf("\n  ↳ qloop user→c%d [user-kv] score %.3f: %s   [entropy=%.2f I_U^kv=%+.3f no-user-kv: %s]",
-                   tcell, best, qfrag, qent, qinfl, qfrag_off);
-            if (flog) fprintf(flog, "- qloop user->c%d [user-kv] (score=%.3f, entropy=%.2f, I_U^kv=%+.3f, no_user_kv=%s):%s\n",
-                              tcell, best, qent, qinfl, qfrag_off, qfrag);
+            if (qloop_answer_surface_debt(qfrag)) {
+                printf("\n  ↳ qloop gate user→c%d [user-kv] score %.3f: rejected %s   [entropy=%.2f I_U^kv=%+.3f reason=surface no-user-kv: %s]",
+                       tcell, best, qfrag, qent, qinfl, qfrag_off);
+                if (flog) fprintf(flog, "- qloop-gate user->c%d [user-kv] (score=%.3f, entropy=%.2f, I_U^kv=%+.3f, reason=surface, no_user_kv=%s):%s\n",
+                                  tcell, best, qent, qinfl, qfrag_off, qfrag);
+            } else {
+                for (int i = 0; hist && i < qn; i++) if (qids[i] >= 0 && qids[i] < m->vocab) hist[qids[i]]++;
+                int add = snprintf(this_chorus + tc, sizeof(this_chorus) - tc, " %s", qfrag);
+                if (add > 0 && tc + add < (int)sizeof(this_chorus)) tc += add;
+                printf("\n  ↳ qloop user→c%d [user-kv] score %.3f: %s   [entropy=%.2f I_U^kv=%+.3f no-user-kv: %s]",
+                       tcell, best, qfrag, qent, qinfl, qfrag_off);
+                if (flog) fprintf(flog, "- qloop user->c%d [user-kv] (score=%.3f, entropy=%.2f, I_U^kv=%+.3f, no_user_kv=%s):%s\n",
+                                  tcell, best, qent, qinfl, qfrag_off, qfrag);
+            }
             kv_free(user_kv);
         }
         free(qcent);

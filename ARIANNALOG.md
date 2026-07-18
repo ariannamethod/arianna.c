@@ -2823,3 +2823,18 @@ surface-gated after generation; loose question hint produces 2/2 with clean repl
 gate (`avg_words=9.5`, `min_words=6`), beating statement fallback (`avg_words=4.5`, `min_words=2`). The receipts
 still show rough surface (`you from The My Name—...`, `You're not — you answered both.`), so this is a proved
 route, not a runtime default.
+
+**Follow-up, same day — qloop surface debt gate.** The qloop sweep no longer treats mechanical liveness as
+production quality. Go summaries now record `surface_checked`, `surface_debt`, and per-reason
+`surface_debt_reasons` for produced qloop texts; short candidates also fail quality. Rough artifacts such as
+`The My Name—`, slash-joined fragments, empty quote shells, bad `you's` contractions, `Oleg` recipient leakage,
+and unfinished `if you mean` clauses fail the config quality gate as `surface_debt`. `make admission-qloop-sweep`
+remains a valid diagnostic target when no production winner exists: it requires the explicit
+`no config passed quality gate` verdict instead of pretending rough qloop speech is admissible. The C surface
+guard now covers main qloop answers, qloop-trigger answers, and the direct `user→cell` qloop bridge before those
+lines can enter the parsed chorus.
+
+Verified after the change: `AM_QLOOP_SWEEP_MIN_PRODUCED` defaults to the sweep limit (2/2 in the standard run).
+Strict, question-hint, and loose question-hint all produce 0/2 after C surface gates; statement fallback produces
+1/2 and is rejected with `produced_below_2` plus Go-level `slash_join` surface debt from multi-qloop aggregation.
+Replay/policy stay clean, `gate_passed=false`, no winner; `make admission-route-compare` still passes.
