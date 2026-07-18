@@ -36,8 +36,13 @@ env_args=(
     AM_DREAM_ADMISSION_SUMMARY="$SUMMARY"
 )
 if [[ -n "${A2A_ADMISSION_SAMPLE_FILE:-}" ]]; then
-    [[ -f "$A2A_ADMISSION_SAMPLE_FILE" ]] || die "sample file missing: $A2A_ADMISSION_SAMPLE_FILE"
-    env_args+=(AM_DREAM_ADMISSION_SAMPLE_FILE="$A2A_ADMISSION_SAMPLE_FILE")
+    sample_file="$A2A_ADMISSION_SAMPLE_FILE"
+    case "$sample_file" in
+        /*) ;;
+        *) sample_file="$ROOT/$sample_file" ;;
+    esac
+    [[ -f "$sample_file" ]] || die "sample file missing: $sample_file"
+    env_args+=(AM_DREAM_ADMISSION_SAMPLE_FILE="$sample_file")
 fi
 
 if ! (cd "$WORKDIR" && env "${env_args[@]}" "$ROOT/metabolism" --admission-sample) >"$RUN_LOG" 2>&1; then
@@ -55,7 +60,7 @@ grep -q '"matched":true' "$LOG" || die "replay guard did not match"
 grep -q '"admission_policy":{' "$LOG" || die "admission policy missing"
 grep -q '"schema": "arianna.dream_admission_sample_summary.v1"' "$SUMMARY" || die "summary schema missing"
 grep -q '"replay_failed": 0' "$SUMMARY" || die "sampler replay failures found"
-if [[ -z "${A2A_ADMISSION_SAMPLE_FILE:-}" ]]; then
+if [[ -z "${A2A_ADMISSION_SAMPLE_FILE:-}" || "${A2A_ADMISSION_SAMPLE_REQUIRE_POLICY_FAIL:-0}" == "1" ]]; then
     grep -Eq '"policy_failed": [1-9][0-9]*' "$SUMMARY" || die "builtin sample did not exercise policy failure"
 fi
 grep -q '\[admission-sample\] pass:' "$RUN_LOG" || die "pass sentinel missing"

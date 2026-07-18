@@ -2750,3 +2750,13 @@ mutation by default.
 sample, and writes both typed JSONL receipts plus `arianna.dream_admission_sample_summary.v1`. The sampler
 accepts built-in probes or a JSONL/plain-text file via `A2A_ADMISSION_SAMPLE_FILE`, so threshold tuning can
 measure replay failures, policy failures, and max counterfactual deltas before any live admission widening.
+
+**Follow-up, same day — broad sampler corpus.** The sampler now has a tracked broad corpus:
+`samples/dream_admission_broad.jsonl`, runnable with `make admission-shadow-sample-broad`. The wrapper resolves
+relative `A2A_ADMISSION_SAMPLE_FILE` paths against the repo root before it enters the scratch directory, so a
+Makefile target can safely run from isolated state while reading committed prompts. The broad target requires at
+least one policy failure, making it a real threshold probe rather than a pass-only ritual.
+
+The summary also now carries diagnostic buckets: counts by source, trigger, and language hint, plus a compact
+failure list with sample index, run id, source, trigger, seed, replay reason, and policy reasons. Threshold
+tuning can now answer "which route broke?" without hand-reading every receipt line first.

@@ -62,8 +62,9 @@ prophecy, or loop counters outside the current policy.
 `make admission-shadow-smoke` verifies the single receipt path. `make
 admission-shadow-sample` runs a built-in or JSONL sample set through the same
 shadow-only boundary and writes an aggregate policy summary for threshold tuning.
-`make body-smoke` verifies both paths from scratch without writing durable
-organism state.
+`make admission-shadow-sample-broad` points that sampler at the tracked broad
+corpus in `samples/dream_admission_broad.jsonl`. `make body-smoke` verifies both
+paths from scratch without writing durable organism state.
 
 ## Open Questions
 

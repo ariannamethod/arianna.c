@@ -43,6 +43,27 @@ func TestAdmissionSampleBuiltinsWriteSummary(t *testing.T) {
 	if summary.MaxTrauma <= 0 || summary.MaxAbsCoherence <= 0 {
 		t.Fatalf("summary did not accumulate counterfactual deltas: %+v", summary)
 	}
+	if summary.BySource["nano"] == 0 || summary.BySource["chorus"] == 0 {
+		t.Fatalf("summary did not bucket sources: %+v", summary.BySource)
+	}
+	if summary.ByTrigger["admission-sample"] != summary.Samples {
+		t.Fatalf("summary did not bucket default triggers: %+v", summary.ByTrigger)
+	}
+	if summary.ByLanguage["en"] != summary.Samples {
+		t.Fatalf("summary did not bucket language hints: %+v", summary.ByLanguage)
+	}
+	if len(summary.Failures) == 0 {
+		t.Fatalf("summary did not record failing sample identities: %+v", summary)
+	}
+	foundFailure := false
+	for _, f := range summary.Failures {
+		if f.Source == "nano" && f.Seed == "trauma-spike" && len(f.Reasons) > 0 {
+			foundFailure = true
+		}
+	}
+	if !foundFailure {
+		t.Fatalf("summary failure list did not name trauma-spike: %+v", summary.Failures)
+	}
 
 	rawLog, err := os.ReadFile(logPath)
 	if err != nil {

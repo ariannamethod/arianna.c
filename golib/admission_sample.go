@@ -17,23 +17,37 @@ type dreamAdmissionSample struct {
 }
 
 type dreamAdmissionSampleSummary struct {
-	Schema              string         `json:"schema"`
-	Samples             int            `json:"samples"`
-	PolicyPassed        int            `json:"policy_passed"`
-	PolicyFailed        int            `json:"policy_failed"`
-	ReplayFailed        int            `json:"replay_failed"`
-	MaxAbsArousal       float32        `json:"max_abs_arousal"`
-	MaxAbsValence       float32        `json:"max_abs_valence"`
-	MaxAbsEntropy       float32        `json:"max_abs_entropy"`
-	MaxAbsCoherence     float32        `json:"max_abs_coherence"`
-	MaxTrauma           float32        `json:"max_trauma"`
-	MaxMemoryPressure   float32        `json:"max_memory_pressure"`
-	MaxProphecyDebt     float32        `json:"max_prophecy_debt"`
-	MaxLoopCount        int            `json:"max_loop_count"`
-	MaxAbstractionDepth int            `json:"max_abstraction_depth"`
-	MaxSelfRefCount     int            `json:"max_self_ref_count"`
-	Reasons             map[string]int `json:"reasons,omitempty"`
-	LogPath             string         `json:"log_path,omitempty"`
+	Schema              string                        `json:"schema"`
+	Samples             int                           `json:"samples"`
+	PolicyPassed        int                           `json:"policy_passed"`
+	PolicyFailed        int                           `json:"policy_failed"`
+	ReplayFailed        int                           `json:"replay_failed"`
+	MaxAbsArousal       float32                       `json:"max_abs_arousal"`
+	MaxAbsValence       float32                       `json:"max_abs_valence"`
+	MaxAbsEntropy       float32                       `json:"max_abs_entropy"`
+	MaxAbsCoherence     float32                       `json:"max_abs_coherence"`
+	MaxTrauma           float32                       `json:"max_trauma"`
+	MaxMemoryPressure   float32                       `json:"max_memory_pressure"`
+	MaxProphecyDebt     float32                       `json:"max_prophecy_debt"`
+	MaxLoopCount        int                           `json:"max_loop_count"`
+	MaxAbstractionDepth int                           `json:"max_abstraction_depth"`
+	MaxSelfRefCount     int                           `json:"max_self_ref_count"`
+	Reasons             map[string]int                `json:"reasons,omitempty"`
+	BySource            map[string]int                `json:"by_source,omitempty"`
+	ByTrigger           map[string]int                `json:"by_trigger,omitempty"`
+	ByLanguage          map[string]int                `json:"by_language,omitempty"`
+	Failures            []dreamAdmissionSampleFailure `json:"failures,omitempty"`
+	LogPath             string                        `json:"log_path,omitempty"`
+}
+
+type dreamAdmissionSampleFailure struct {
+	Index   int      `json:"index"`
+	RunID   string   `json:"run_id"`
+	Source  string   `json:"source"`
+	Trigger string   `json:"trigger"`
+	Seed    string   `json:"seed"`
+	Reasons []string `json:"reasons,omitempty"`
+	Replay  string   `json:"replay,omitempty"`
 }
 
 func runAdmissionSample() error {
@@ -57,9 +71,12 @@ func runAdmissionSample() error {
 	defer iw.Stop()
 
 	summary := dreamAdmissionSampleSummary{
-		Schema:  "arianna.dream_admission_sample_summary.v1",
-		Reasons: make(map[string]int),
-		LogPath: logPath,
+		Schema:     "arianna.dream_admission_sample_summary.v1",
+		Reasons:    make(map[string]int),
+		BySource:   make(map[string]int),
+		ByTrigger:  make(map[string]int),
+		ByLanguage: make(map[string]int),
+		LogPath:    logPath,
 	}
 	for i, s := range samples {
 		text := strings.TrimSpace(s.Text)
@@ -92,7 +109,7 @@ func runAdmissionSample() error {
 		if after != before {
 			return fmt.Errorf("sample %d mutated live inner-world: before=%+v after=%+v", i+1, before, after)
 		}
-		if err := accumulateAdmissionSample(&summary, r.candidate); err != nil {
+		if err := accumulateAdmissionSample(&summary, i+1, r.candidate); err != nil {
 			return fmt.Errorf("sample %d: %w", i+1, err)
 		}
 	}
@@ -167,7 +184,7 @@ func loadAdmissionSamples(path string) ([]dreamAdmissionSample, error) {
 	return samples, nil
 }
 
-func accumulateAdmissionSample(summary *dreamAdmissionSampleSummary, c dreamCandidate) error {
+func accumulateAdmissionSample(summary *dreamAdmissionSampleSummary, index int, c dreamCandidate) error {
 	if c.Counterfactual == nil {
 		return fmt.Errorf("missing counterfactual")
 	}
@@ -175,10 +192,25 @@ func accumulateAdmissionSample(summary *dreamAdmissionSampleSummary, c dreamCand
 		return fmt.Errorf("missing admission policy")
 	}
 	summary.Samples++
+	countKey(summary.BySource, c.Source)
+	countKey(summary.ByTrigger, c.Trigger)
+	countKey(summary.ByLanguage, c.Counterfactual.Text.LanguageHint)
 	if counterfactualReplayOK(c.Counterfactual) {
 		// Replay success is the expected path; keep only failures as a risk count.
 	} else {
 		summary.ReplayFailed++
+		replay := "missing replay"
+		if c.Counterfactual.Replay != nil && c.Counterfactual.Replay.Reason != "" {
+			replay = c.Counterfactual.Replay.Reason
+		}
+		summary.Failures = append(summary.Failures, dreamAdmissionSampleFailure{
+			Index:   index,
+			RunID:   c.RunID,
+			Source:  c.Source,
+			Trigger: c.Trigger,
+			Seed:    c.Seed,
+			Replay:  replay,
+		})
 	}
 	if c.Admission.Passed {
 		summary.PolicyPassed++
@@ -187,6 +219,14 @@ func accumulateAdmissionSample(summary *dreamAdmissionSampleSummary, c dreamCand
 		for _, reason := range c.Admission.Reasons {
 			summary.Reasons[reason]++
 		}
+		summary.Failures = append(summary.Failures, dreamAdmissionSampleFailure{
+			Index:   index,
+			RunID:   c.RunID,
+			Source:  c.Source,
+			Trigger: c.Trigger,
+			Seed:    c.Seed,
+			Reasons: append([]string(nil), c.Admission.Reasons...),
+		})
 	}
 	d := c.Counterfactual.Delta
 	summary.MaxAbsArousal = max32(summary.MaxAbsArousal, abs32(d.Arousal))
@@ -200,6 +240,14 @@ func accumulateAdmissionSample(summary *dreamAdmissionSampleSummary, c dreamCand
 	summary.MaxAbstractionDepth = max(summary.MaxAbstractionDepth, d.AbstractionDepth)
 	summary.MaxSelfRefCount = max(summary.MaxSelfRefCount, d.SelfRefCount)
 	return nil
+}
+
+func countKey(m map[string]int, key string) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = "unknown"
+	}
+	m[key]++
 }
 
 func writeAdmissionSampleSummary(path string, summary dreamAdmissionSampleSummary) error {
