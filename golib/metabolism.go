@@ -382,6 +382,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-route-compare" {
+		if err := runAdmissionRouteCompare(); err != nil {
+			fmt.Println("admission-route-compare:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	prompt := "What is resonance?"
 	if len(os.Args) > 1 {
 		prompt = os.Args[1]

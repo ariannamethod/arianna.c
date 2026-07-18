@@ -2760,3 +2760,17 @@ least one policy failure, making it a real threshold probe rather than a pass-on
 The summary also now carries diagnostic buckets: counts by source, trigger, and language hint, plus a compact
 failure list with sample index, run id, source, trigger, seed, replay reason, and policy reasons. Threshold
 tuning can now answer "which route broke?" without hand-reading every receipt line first.
+
+**Follow-up, same day — route compare harness.** `metabolism --admission-route-compare` and
+`make admission-route-compare` now compare direct nano, field chorus, and qloop candidates over the tracked
+broad corpus while staying in shadow mode. Each generated route candidate is fed through the same typed
+admission receipt path and replay/policy gates, then summarized as
+`arianna.dream_admission_route_compare_summary.v1` with per-route attempted/produced/empty/pass/fail counts.
+The wrapper runs from an isolated scratch directory, resolves the committed sample file and GGUF model before
+entering scratch, falls back from a git worktree to the main shared checkout for the default nano GGUF, and
+fails if any durable organism state appears there.
+
+The chorus parser now ignores rejected `qloop gate` diagnostic lines instead of counting them as qloop
+questions. This keeps route comparison honest: a rejected gate stays telemetry, not a candidate voice.
+Validation showed direct 2/2 and chorus 2/2 produced on the first broad probes; qloop produced 0/2 true
+questions and was recorded as empty, with replay failures still at 0.
