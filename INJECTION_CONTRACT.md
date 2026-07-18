@@ -40,6 +40,9 @@ Before a path can become default:
   without mutating inner-world, lastDream, Resonance cooc, delta, KK, or DOE;
 - `AM_DREAM_ADMISSION_LOG=<path>` appends JSONL admission receipts; if a live
   path is requested and cannot be written, admission fails closed;
+- each admission receipt includes a scratch `inner_world` counterfactual
+  (pre/post state hashes, deltas, text-analysis, language and recipient metrics)
+  computed without touching the live organism;
 - regression prompts show improvement or bounded tradeoff;
 - timeout, parser, child-process, and unknown-architecture failures are visible
   and fail closed.

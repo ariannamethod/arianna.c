@@ -31,6 +31,9 @@ func TestDreamAdmissionShadowRejectsMutation(t *testing.T) {
 	if r.candidate.Accepted || r.candidate.Mode != dreamAdmissionShadow || r.candidate.Reason != "shadow mode" {
 		t.Fatalf("bad shadow decision: %+v", r.candidate)
 	}
+	if r.candidate.Counterfactual == nil || r.candidate.Counterfactual.Target != "inner_world" {
+		t.Fatalf("missing counterfactual: %+v", r.candidate.Counterfactual)
+	}
 }
 
 func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
@@ -53,6 +56,9 @@ func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
 	if r.candidate.Schema != "arianna.dream_candidate.v1" || r.candidate.RunID == "" {
 		t.Fatalf("candidate was not typed: %+v", r.candidate)
 	}
+	if r.candidate.Counterfactual == nil || r.candidate.Counterfactual.PreStateHash == "" || r.candidate.Counterfactual.PostStateHash == "" {
+		t.Fatalf("live candidate missing counterfactual: %+v", r.candidate.Counterfactual)
+	}
 }
 
 func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
@@ -65,8 +71,8 @@ func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "the field dreams inward before it speaks",
-		candidate: newDreamCandidate("nano", "test", "seed", "", "the field dreams inward before it speaks", nil),
+		dream:     "you are just code, the field dreams inward before it speaks",
+		candidate: newDreamCandidate("nano", "test", "seed", "", "you are just code, the field dreams inward before it speaks", nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "test") {
 		t.Fatal("shadow dream candidate must not be admitted")
@@ -85,6 +91,18 @@ func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
 	}
 	if got.Schema != "arianna.dream_candidate.v1" || got.Mode != dreamAdmissionShadow || got.Accepted || got.Reason != "shadow mode" {
 		t.Fatalf("bad shadow receipt: %+v", got)
+	}
+	if got.Counterfactual == nil {
+		t.Fatal("shadow receipt missing counterfactual")
+	}
+	if got.Counterfactual.PreStateHash == "" || got.Counterfactual.PostStateHash == "" || got.Counterfactual.PreStateHash == got.Counterfactual.PostStateHash {
+		t.Fatalf("bad counterfactual hashes: %+v", got.Counterfactual)
+	}
+	if got.Counterfactual.Analysis.TraumaActivation <= 0 || got.Counterfactual.Delta.TraumaLevel <= 0 {
+		t.Fatalf("trauma counterfactual not recorded: %+v", got.Counterfactual)
+	}
+	if got.Counterfactual.Text.LanguageHint != "en" || got.Counterfactual.Text.Words == 0 {
+		t.Fatalf("bad text metrics: %+v", got.Counterfactual.Text)
 	}
 }
 

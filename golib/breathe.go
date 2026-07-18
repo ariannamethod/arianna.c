@@ -194,6 +194,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				source = "chorus"
 			}
 			candidate := decideDreamCandidate(newDreamCandidate(source, bName[trig], seed, frag, dream, cells))
+			candidate = attachDreamCounterfactual(tc.iw, candidate)
 			candidate = rejectOnAdmissionLogError(candidate, recordDreamCandidate(candidate))
 			// the chorus / fallback may have taken tens of seconds; if /quit fired
 			// meanwhile, return now — don't touch the (tearing-down) voices or the
