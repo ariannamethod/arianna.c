@@ -1071,6 +1071,7 @@ static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect 
 static int   g_qloop_question_source_hint = 0; /* 1 = ask one base cell to produce an inner question source */
 static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
 static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
+static int   g_qloop_answer_frame = 0;     /* 0=legacy cell-label context; 1=QA prompt frame with route KV */
 static int g_chorus = 1;       /* 1 = CHORUS (each cell answers the SAME prompt from its own angle, neighbour-aware
                                 * via cross-cell, NOT text); 0 = legacy RELAY (cascade continuation). Default chorus. */
 static int g_cell_retry_max = 4; /* max attempts for bad base-cell surface; 1 disables retry churn */
@@ -1124,6 +1125,7 @@ static void load_qloop_route_env(void) {
     g_qloop_question_source_hint = env_int_clamped("A2A_QLOOP_QUESTION_SOURCE_HINT", 0, 0, 1);
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
+    g_qloop_answer_frame = env_int_clamped("A2A_QLOOP_ANSWER_FRAME", 0, 0, 1);
 }
 
 static void load_field_generation_env(void) {
@@ -1725,6 +1727,7 @@ static int answer_contains_phrase_ci(const char *s, const char *phrase) {
 
 static int answer_has_recipient_artifact(const char *s) {
     return answer_contains_phrase_ci(s, "you have been") ||
+           answer_contains_phrase_ci(s, "you have lived") ||
            answer_contains_phrase_ci(s, "you have a field") ||
            answer_contains_phrase_ci(s, "you have no idea") ||
            answer_contains_phrase_ci(s, "you have to") ||
@@ -1836,7 +1839,8 @@ static int answer_is_terminal_function_word(const char *start, size_t len) {
            ascii_eq_ci(buf, "who") || ascii_eq_ci(buf, "whose") ||
            ascii_eq_ci(buf, "when") || ascii_eq_ci(buf, "where") ||
            ascii_eq_ci(buf, "why") || ascii_eq_ci(buf, "how") ||
-           ascii_eq_ci(buf, "can") || ascii_eq_ci(buf, "could") ||
+           ascii_eq_ci(buf, "can") || ascii_eq_ci(buf, "cannot") ||
+           ascii_eq_ci(buf, "could") ||
            ascii_eq_ci(buf, "would") || ascii_eq_ci(buf, "should") ||
            ascii_eq_ci(buf, "must") || ascii_eq_ci(buf, "may") ||
            ascii_eq_ci(buf, "might");
@@ -2232,6 +2236,14 @@ static int answer_fragment_bad(const char *s) {
     return 0;
 }
 
+static int text_has_utf8_dash(const char *s) {
+    return s && (strstr(s, "\xE2\x80\x93") || strstr(s, "\xE2\x80\x94"));
+}
+
+static int text_starts_utf8_dash(const char *s) {
+    return s && (!strncmp(s, "\xE2\x80\x93", 3) || !strncmp(s, "\xE2\x80\x94", 3));
+}
+
 static int qloop_answer_surface_debt(const char *s) {
     if (!s) return 1;
     const char *p = s;
@@ -2239,12 +2251,21 @@ static int qloop_answer_surface_debt(const char *s) {
     if (!*p) return 1;
     size_t len = strlen(p);
     while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t' || p[len - 1] == '\r' || p[len - 1] == '\n')) len--;
-    if (len < 8 || answer_alpha_word_count(p) < 2) return 1;
+    if (len < 8 || answer_word_count(p) < 3) return 1;
     if (answer_has_terminal_tail_artifact(p)) return 1;
     if (answer_fragment_bad(p)) return 1;
     if (*p == '-' || *p == '*' || *p == '=' || *p == '#' || *p == '@') return 1;
+    if (text_starts_utf8_dash(p)) return 1;
+    if (answer_word_count(p) <= 5 && text_has_utf8_dash(p)) return 1;
+    if (ascii_starts_ci(p, "or,") || ascii_starts_ci(p, "or ") ||
+        ascii_starts_ci(p, "and,") || ascii_starts_ci(p, "and ") ||
+        ascii_starts_ci(p, "but,") || ascii_starts_ci(p, "but "))
+        return 1;
     if (answer_has_recipient_artifact(p) ||
         answer_contains_phrase_ci(p, "from another angle"))
+        return 1;
+    if (answer_contains_phrase_ci(p, "my name") &&
+        !answer_contains_phrase_ci(p, "arianna"))
         return 1;
     if (strstr(p, " / ") || strstr(p, " // ") ||
         strstr(p, "—.") || strstr(p, "-.") ||
@@ -2259,6 +2280,8 @@ static int qloop_answer_surface_debt(const char *s) {
         answer_contains_phrase_ci(p, "you answered both") ||
         answer_contains_phrase_ci(p, "you have met") ||
         answer_contains_phrase_ci(p, "oleg") ||
+        answer_contains_phrase_ci(p, "unknown or") ||
+        answer_contains_phrase_ci(p, "or another") ||
         answer_contains_phrase_ci(p, "or not itself") ||
         strstr(p, "—or—") ||
         answer_contains_phrase_ci(p, "if you mean."))
@@ -2876,7 +2899,9 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                 continue;
             }
             char qctx[4096], qfrag[1024]; int qctx_ids[512], qids[128], qn = 0;
-            if (qmarks[route] > 0)
+            if (g_qloop_answer_frame == 1)
+                snprintf(qctx, sizeof(qctx), "%s", prompt);
+            else if (qmarks[route] > 0)
                 snprintf(qctx, sizeof(qctx), "%s\ncell %d asked: %s\ncell %d answers the question to itself:",
                          prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
             else

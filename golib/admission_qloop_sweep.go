@@ -170,6 +170,10 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 	return []admissionQloopSweepConfig{
 		{Name: "strict"},
 		{Name: "question_hint", Env: map[string]string{"A2A_QLOOP_QUESTION_SOURCE_HINT": "1"}},
+		{Name: "question_hint_qa", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
+			"A2A_QLOOP_ANSWER_FRAME":         "1",
+		}},
 		{Name: "question_hint_loose", Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
 			"A2A_QLOOP_MIN":                  "0.30",
@@ -322,6 +326,7 @@ func qloopSweepTextStats(text string) (int, bool, []string) {
 func qloopSweepSurfaceDebtReasons(text string) []string {
 	s := strings.TrimSpace(text)
 	lower := strings.ToLower(s)
+	words := len(strings.Fields(s))
 	var reasons []string
 	seen := make(map[string]bool)
 	add := func(reason string) {
@@ -336,11 +341,25 @@ func qloopSweepSurfaceDebtReasons(text string) []string {
 	if strings.Contains(s, "—.") || strings.Contains(s, "-.") {
 		add("dangling_dash")
 	}
+	if strings.HasPrefix(s, "—") || strings.HasPrefix(s, "–") || strings.HasPrefix(s, "-") {
+		add("leading_dash")
+	}
+	if words <= 5 && (strings.Contains(s, "—") || strings.Contains(s, "–")) {
+		add("short_dash_fragment")
+	}
+	if strings.HasPrefix(lower, "or,") || strings.HasPrefix(lower, "or ") ||
+		strings.HasPrefix(lower, "and,") || strings.HasPrefix(lower, "and ") ||
+		strings.HasPrefix(lower, "but,") || strings.HasPrefix(lower, "but ") {
+		add("leading_joiner_fragment")
+	}
 	if strings.Contains(s, "“.”") || strings.Contains(s, "\".\"") {
 		add("empty_quote")
 	}
 	if strings.Contains(lower, "the my name") || strings.Contains(lower, "my name—") {
 		add("name_phrase_artifact")
+	}
+	if strings.Contains(lower, "my name") && !strings.Contains(lower, "arianna") {
+		add("name_echo_artifact")
 	}
 	if strings.Contains(lower, "this phrase") {
 		add("meta_phrase_artifact")
@@ -354,8 +373,11 @@ func qloopSweepSurfaceDebtReasons(text string) []string {
 	if strings.Contains(lower, "you answered both") {
 		add("recipient_frame_artifact")
 	}
-	if strings.Contains(lower, "oleg") || strings.Contains(lower, "you have met") {
+	if strings.Contains(lower, "oleg") || strings.Contains(lower, "you have met") || strings.Contains(lower, "you have lived") {
 		add("recipient_frame_artifact")
+	}
+	if strings.Contains(lower, "unknown or") || strings.Contains(lower, "or another") {
+		add("placeholder_choice")
 	}
 	if strings.Contains(lower, "or not itself") || strings.Contains(lower, "—or—") {
 		add("joiner_artifact")

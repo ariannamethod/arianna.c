@@ -2853,3 +2853,22 @@ actual failing prompt without opening `FIELDLOG.md`. Current standard sweep rema
 hit `cold-reader`/`recipient-lock` qloop routes but reject all generated qloop text; statement fallback still
 produces only sample 2 (`recipient-lock`, `he has been alive.`, 4 words). The first sample (`cold-reader`,
 `new-listener`) is now explicitly visible as surface/iq gate debt, not an unexplained empty aggregate.
+
+**Follow-up, same day — qloop fail-closed surface parity.** C and Go now agree on the qloop candidates that only
+look alive because they are short fragments: `The first-last.`, `an unknown or another.`, `or, to yourself.`,
+short dash clauses like `this, yes it— you're.`, leading dash fragments, and terminal `cannot` tails are rejected
+before qloop admission can publish them. The Go sweep labels these as `leading_dash`, `short_dash_fragment`,
+`placeholder_choice`, or `leading_joiner_fragment`; the C guard applies the same shape at generation time.
+
+Verified standard sweep after the gate: strict/question-hint/loose-question-hint/statement all produce 0/2,
+`gate_passed=false`, replay/policy 0 fail. A diagnostic `A2A_QLOOP_MIN_IQ=-0.30 make admission-qloop-sweep`
+also produces 0/2, proving the earlier lenient-only candidates were surface debt, not hidden signal. Route compare
+stays healthy: direct 2/2, chorus 2/2, qloop 0/2 with explicit empty reasons.
+
+**Follow-up, same day — qloop QA answer-frame probe.** Added env-gated `A2A_QLOOP_ANSWER_FRAME=1`: qloop targets
+answer in the original `Q:/A:` prompt frame while still hearing the chosen source cell through route KV. This is
+measured as a separate `question_hint_qa` sweep config, not a runtime default. The probe confirms the suspected
+frame issue directionally (`My Name, Mira.` comes back with lower entropy and positive KV influence), but it also
+exposes role-inversion/name-echo debt, so `my name` without `Arianna` and `you have lived` now fail qloop surface
+admission. Current five-config sweep remains fail-closed at 0/2 across all qloop modes. Next qloop work should move
+upstream into better source/context construction rather than relaxing gates.
