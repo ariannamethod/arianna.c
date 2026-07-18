@@ -49,6 +49,8 @@ Before a path can become default:
   counterfactual deltas; replay alone is not sufficient for live mutation;
 - `make admission-shadow-smoke`, `make admission-shadow-sample`, and
   `make body-smoke` must pass the runtime shadow receipt path from scratch;
+- `make admission-shadow-sample-broad` must pass before tuning policy thresholds
+  against the tracked broad corpus;
 - regression prompts show improvement or bounded tradeoff;
 - timeout, parser, child-process, and unknown-architecture failures are visible
   and fail closed.

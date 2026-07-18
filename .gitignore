@@ -74,7 +74,8 @@ debug_*.py
 conversation*.py
 ask_arianna.py
 reexport_weights.py
-samples/
+samples/*
+!samples/dream_admission_broad.jsonl
 
 # Editor
 .vscode/
