@@ -53,6 +53,21 @@ func TestParseAdmissionRouteDiagnosticsIncludesQloopPickerStats(t *testing.T) {
 	}
 }
 
+func TestQloopAdmissionTextChoosesSingleCandidate(t *testing.T) {
+	cells := []chorusCell{
+		{text: "the other-ness.", qloop: true},
+		{text: "he has been alive.", qloop: true},
+	}
+	if got := qloopAdmissionText(cells); got != "he has been alive." {
+		t.Fatalf("qloop admission should choose one clean candidate, got %q", got)
+	}
+
+	_, _, debt := qloopSweepTextStats(qloopAdmissionText(cells))
+	if len(debt) != 0 {
+		t.Fatalf("single qloop admission candidate should not inherit aggregation debt: %v", debt)
+	}
+}
+
 func TestRecordAdmissionRouteCandidateSummarizesBuckets(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 	t.Setenv("AM_DREAM_ADMISSION_LOG", t.TempDir()+"/route.jsonl")
