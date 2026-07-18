@@ -32,23 +32,28 @@ type admissionRouteCompareSummary struct {
 }
 
 type admissionRouteStats struct {
-	Attempted      int `json:"attempted"`
-	Produced       int `json:"produced"`
-	Empty          int `json:"empty"`
-	PolicyPassed   int `json:"policy_passed"`
-	PolicyFailed   int `json:"policy_failed"`
-	ReplayFailed   int `json:"replay_failed"`
-	ChorusVoices   int `json:"chorus_voices,omitempty"`
-	QloopQuestions int `json:"qloop_questions,omitempty"`
-	QloopGates     int `json:"qloop_gates,omitempty"`
-	QloopGenerated int `json:"qloop_generated,omitempty"`
-	QloopRetries   int `json:"qloop_retries,omitempty"`
-	BaseGenerated  int `json:"base_generated,omitempty"`
-	BaseRetries    int `json:"base_retries,omitempty"`
-	BaseProbe      int `json:"base_probe,omitempty"`
-	BaseRescue     int `json:"base_rescue,omitempty"`
-	BaseFailed     int `json:"base_failed,omitempty"`
-	TimingSeen     int `json:"timing_seen,omitempty"`
+	Attempted       int `json:"attempted"`
+	Produced        int `json:"produced"`
+	Empty           int `json:"empty"`
+	PolicyPassed    int `json:"policy_passed"`
+	PolicyFailed    int `json:"policy_failed"`
+	ReplayFailed    int `json:"replay_failed"`
+	ChorusVoices    int `json:"chorus_voices,omitempty"`
+	QloopQuestions  int `json:"qloop_questions,omitempty"`
+	QloopGates      int `json:"qloop_gates,omitempty"`
+	QloopGenerated  int `json:"qloop_generated,omitempty"`
+	QloopRetries    int `json:"qloop_retries,omitempty"`
+	QloopRoutes     int `json:"qloop_routes,omitempty"`
+	QloopQSrc       int `json:"qloop_qsrc,omitempty"`
+	QloopSSrc       int `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop  int `json:"qloop_score_drop,omitempty"`
+	QloopPickerSeen int `json:"qloop_picker_seen,omitempty"`
+	BaseGenerated   int `json:"base_generated,omitempty"`
+	BaseRetries     int `json:"base_retries,omitempty"`
+	BaseProbe       int `json:"base_probe,omitempty"`
+	BaseRescue      int `json:"base_rescue,omitempty"`
+	BaseFailed      int `json:"base_failed,omitempty"`
+	TimingSeen      int `json:"timing_seen,omitempty"`
 }
 
 type admissionRouteFailure struct {
@@ -81,15 +86,20 @@ type admissionRouteOutput struct {
 }
 
 type admissionRouteDiagnostics struct {
-	QloopGates     int
-	QloopGenerated int
-	QloopRetries   int
-	BaseGenerated  int
-	BaseRetries    int
-	BaseProbe      int
-	BaseRescue     int
-	BaseFailed     int
-	TimingSeen     bool
+	QloopGates      int
+	QloopGenerated  int
+	QloopRetries    int
+	QloopRoutes     int
+	QloopQSrc       int
+	QloopSSrc       int
+	QloopScoreDrop  int
+	QloopPickerSeen bool
+	BaseGenerated   int
+	BaseRetries     int
+	BaseProbe       int
+	BaseRescue      int
+	BaseFailed      int
+	TimingSeen      bool
 }
 
 func runAdmissionRouteCompare() error {
@@ -283,7 +293,15 @@ func generateAdmissionChorus(ctx context.Context, bin, model, prompt string, qlo
 		return nil, admissionRouteDiagnostics{}, fmt.Errorf("%w: %s", err, strings.TrimSpace(strings.ToValidUTF8(string(out), "")))
 	}
 	raw := string(out)
-	return parseChorusCells(raw), parseAdmissionRouteDiagnostics(raw), nil
+	diag := parseAdmissionRouteDiagnostics(raw)
+	if qloop <= 0 {
+		diag.QloopRoutes = 0
+		diag.QloopQSrc = 0
+		diag.QloopSSrc = 0
+		diag.QloopScoreDrop = 0
+		diag.QloopPickerSeen = false
+	}
+	return parseChorusCells(raw), diag, nil
 }
 
 func parseAdmissionDirectOutput(out, prompt string) string {
@@ -314,14 +332,14 @@ func filterChorusCells(cells []chorusCell, qloop bool) []chorusCell {
 	return out
 }
 
-var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_retry=(\d+) base_probe=(\d+) base_rescue=(\d+) base_fail=(\d+) qloop_ms=\S+ qloop_gen=(\d+) qloop_retry=(\d+)`)
+var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_retry=(\d+) base_probe=(\d+) base_rescue=(\d+) base_fail=(\d+) qloop_ms=\S+ qloop_gen=(\d+) qloop_retry=(\d+)(?: qloop_routes=(\d+) qloop_qsrc=(\d+) qloop_ssrc=(\d+) qloop_score_reject=(\d+))?`)
 
 func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 	diag := admissionRouteDiagnostics{
 		QloopGates: strings.Count(out, "↳ qloop gate "),
 	}
 	m := routeTimingRe.FindStringSubmatch(out)
-	if len(m) == 8 {
+	if len(m) >= 8 {
 		diag.TimingSeen = true
 		diag.BaseGenerated = atoiZero(m[1])
 		diag.BaseRetries = atoiZero(m[2])
@@ -330,6 +348,13 @@ func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 		diag.BaseFailed = atoiZero(m[5])
 		diag.QloopGenerated = atoiZero(m[6])
 		diag.QloopRetries = atoiZero(m[7])
+		if len(m) >= 12 && m[8] != "" {
+			diag.QloopPickerSeen = true
+			diag.QloopRoutes = atoiZero(m[8])
+			diag.QloopQSrc = atoiZero(m[9])
+			diag.QloopSSrc = atoiZero(m[10])
+			diag.QloopScoreDrop = atoiZero(m[11])
+		}
 	}
 	return diag
 }
@@ -339,7 +364,12 @@ func routeEmptyHint(route string, diag admissionRouteDiagnostics) string {
 		return "empty generation"
 	}
 	if diag.TimingSeen {
-		return fmt.Sprintf("no qloop candidate lines (qloop_gen=%d qloop_retry=%d qloop_gates=%d)", diag.QloopGenerated, diag.QloopRetries, diag.QloopGates)
+		reason := fmt.Sprintf("no qloop candidate lines (qloop_gen=%d qloop_retry=%d qloop_gates=%d)", diag.QloopGenerated, diag.QloopRetries, diag.QloopGates)
+		if diag.QloopPickerSeen {
+			reason = fmt.Sprintf("%s routes=%d qsrc=%d ssrc=%d score_drop=%d",
+				reason, diag.QloopRoutes, diag.QloopQSrc, diag.QloopSSrc, diag.QloopScoreDrop)
+		}
+		return reason
 	}
 	if diag.QloopGates > 0 {
 		return fmt.Sprintf("only rejected qloop gates (qloop_gates=%d)", diag.QloopGates)
@@ -360,6 +390,13 @@ func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompar
 	st.QloopGates += out.diag.QloopGates
 	st.QloopGenerated += out.diag.QloopGenerated
 	st.QloopRetries += out.diag.QloopRetries
+	st.QloopRoutes += out.diag.QloopRoutes
+	st.QloopQSrc += out.diag.QloopQSrc
+	st.QloopSSrc += out.diag.QloopSSrc
+	st.QloopScoreDrop += out.diag.QloopScoreDrop
+	if out.diag.QloopPickerSeen {
+		st.QloopPickerSeen++
+	}
 	st.BaseGenerated += out.diag.BaseGenerated
 	st.BaseRetries += out.diag.BaseRetries
 	st.BaseProbe += out.diag.BaseProbe

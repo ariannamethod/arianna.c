@@ -2537,13 +2537,24 @@ static int insert_qloop_route(int *out_q, int *out_t, float *out_score, float *o
 static int pick_question_routes(const char frag[8][1024], const float *cent, int n_cells, int embed,
                                 int *out_q, int *out_t, float *out_score, float *out_dist,
                                 float *out_qopen, float *out_tconf, int *out_qmarks,
-                                int max_routes) {
+                                int max_routes, int *out_qsrc, int *out_ssrc, int *out_score_reject) {
     int lim = n_cells < 8 ? n_cells : 8;
     int n = 0;
+    if (out_qsrc) *out_qsrc = 0;
+    if (out_ssrc) *out_ssrc = 0;
+    if (out_score_reject) *out_score_reject = 0;
     if (!cent || lim < 2) return 0;
     int statement_limit = g_qloop_statement_pool > 0 ? g_qloop_statement_pool : max_routes;
     if (statement_limit > max_routes) statement_limit = max_routes;
     if (statement_limit < 1) statement_limit = 1;
+    for (int q = 0; q < lim; q++) {
+        int qmarks = frag_question_count(frag[q]);
+        if (qmarks > 0) {
+            if (out_qsrc) (*out_qsrc)++;
+        } else if (qloop_statement_source_ok(frag[q])) {
+            if (out_ssrc) (*out_ssrc)++;
+        }
+    }
     /* Same-asker uniqueness is an acceptance policy, not a pre-generation
      * filter: a gated first target must not erase that asker's fallback route. */
     for (int pass = 0; pass < 2; pass++) {
@@ -2565,7 +2576,10 @@ static int pick_question_routes(const char frag[8][1024], const float *cent, int
                 float score = dist + 0.15f * qopen + tconf_weight * confidence;
                 if (qmarks > 0) score += 0.05f * (float)(qmarks - 1);
                 else score -= 0.03f;
-                if (score < g_qloop_min) continue;
+                if (score < g_qloop_min) {
+                    if (out_score_reject) (*out_score_reject)++;
+                    continue;
+                }
                 insert_qloop_route(out_q, out_t, out_score, out_dist, out_qopen, out_tconf, out_qmarks,
                                    &n, pass_limit, q, t, score, dist, qopen, confidence, qmarks);
             }
@@ -2818,6 +2832,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
     double base_ms = now_ms() - base_t0;
     double qloop_ms = 0.0;
     int qloop_gen = 0, qloop_retry = 0;
+    int qloop_routes = 0, qloop_qsrc = 0, qloop_ssrc = 0, qloop_score_reject = 0;
     if (g_qloop && verbose && out_disso && cent) {
         double qloop_t0 = now_ms();
         int qcell[8] = {0}, tcell[8] = {0};
@@ -2830,7 +2845,9 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         if (candidate_routes < max_routes) candidate_routes = max_routes;
         if (candidate_routes > 8) candidate_routes = 8;
         int routes = pick_question_routes(cur_frag, cent, n_cells, m->embed, qcell, tcell, qscore,
-                                          qdist, qopen, qtconf, qmarks, candidate_routes);
+                                          qdist, qopen, qtconf, qmarks, candidate_routes,
+                                          &qloop_qsrc, &qloop_ssrc, &qloop_score_reject);
+        qloop_routes = routes;
         int accepted_routes = 0;
         for (int route = 0; route < routes && accepted_routes < max_routes; route++) {
             if (g_qloop_unique_asker && g_qloop > 1 && qcell[route] >= 0 && qcell[route] < 8 && accepted_qseen[qcell[route]]) {
@@ -2992,8 +3009,8 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         }
         qloop_ms = now_ms() - qloop_t0;
     }
-    if (verbose) printf("\n  timing: base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry);
-    if (flog) fprintf(flog, "- timing base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d\n", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry);
+    if (verbose) printf("\n  timing: base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject);
+    if (flog) fprintf(flog, "- timing base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d\n", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject);
     if (g_user_q && *g_user_q && g_qloop && verbose && out_disso && cent && g_xcell > 0) {
         int qids_prompt[512], qnprompt = bpe_encode(tok, g_user_q, qids_prompt, 512);
         float *qcent = (float*)xzalloc(m->embed, sizeof(float));

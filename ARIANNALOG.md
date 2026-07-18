@@ -2787,3 +2787,23 @@ direct/chorus/qloop run.
 `chorusBody` now finds the `score ...:` frame before removing trailing metrics. The route wrapper also accepts
 route subsets: qloop-only strict runs may produce only summary empties, while qloop-only statement-fallback runs
 must still write full shadow receipts when candidates appear.
+
+**Follow-up, same day — qloop sweep gate.** `metabolism --admission-qloop-sweep` and
+`make admission-qloop-sweep` now run qloop strict and qloop statement-fallback configs over the same tracked
+broad samples, each in shadow mode with separate receipt logs. The aggregate summary
+`arianna.dream_admission_qloop_sweep_summary.v1` records per-config production, empty counts, replay/policy
+failures, qloop timing counters, short-output counts, route-label leaks, average words, and a quality-gated
+winner. The default gate requires at least one produced candidate, zero replay/policy failures, zero parser
+leaks, and average qloop text length >= 3 words; it measures statement fallback before any runtime default is
+changed.
+
+Manual knob probes after the gate: `A2A_QLOOP_STATEMENT_POOL=1` produced only 1/2 and read worse than the
+plain statement fallback; `A2A_QLOOP_UNIQUE_ASKER=1` matched the plain statement output on the first broad
+samples. Current conclusion: statement fallback wins as a diagnostic liveness route, not as a production
+default. The next qloop work should improve source prompt/route quality rather than widen the bridge by default.
+
+**Follow-up, same day — qloop route-picker xray.** The chorus timing footer now carries route-picker stats:
+`qloop_routes`, `qloop_qsrc`, `qloop_ssrc`, and `qloop_score_reject`. Go summaries propagate them into
+route-compare and qloop-sweep JSON with an explicit `qloop_picker_seen` sentinel, and both shell gates require
+that sentinel whenever qloop is measured. This separates four failure modes: no question source, statement-only
+source, score-threshold drop, and generated-but-rejected qloop text.
