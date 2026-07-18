@@ -2807,3 +2807,19 @@ default. The next qloop work should improve source prompt/route quality rather t
 route-compare and qloop-sweep JSON with an explicit `qloop_picker_seen` sentinel, and both shell gates require
 that sentinel whenever qloop is measured. This separates four failure modes: no question source, statement-only
 source, score-threshold drop, and generated-but-rejected qloop text.
+
+**Follow-up, same day — qloop question-source probe.** Added env-gated
+`A2A_QLOOP_QUESTION_SOURCE_HINT=1`: when qloop is enabled, cell 0 may receive a base prompt asking for one short
+inner question source. This is a diagnostic route, not a default. `A2A_QLOOP_MIN` is now env-tunable with the
+same default `0.42`, so score-threshold experiments are explicit. `make admission-qloop-sweep` now compares
+strict, question hint, loose question hint (`A2A_QLOOP_MIN=0.30`, `AM_ROUTE_COMPARE_FRAG=16`), and statement
+fallback; the winner is data-driven instead of hard-coded. Raw probe result before the full sweep: question hint
+creates `qsrc=1`; loose threshold lets qloop emit 2 candidates, but their surface is still too rough for a
+production default.
+
+Full sweep result: strict stays silent (`qsrc=0`, `ssrc=8` total); question hint creates sources
+(`qsrc=2`, `routes=2`) but produces 0 accepted qloop texts because one probe is score-dropped and one probe is
+surface-gated after generation; loose question hint produces 2/2 with clean replay/policy and wins the mechanical
+gate (`avg_words=9.5`, `min_words=6`), beating statement fallback (`avg_words=4.5`, `min_words=2`). The receipts
+still show rough surface (`you from The My Name—...`, `You're not — you answered both.`), so this is a proved
+route, not a runtime default.
