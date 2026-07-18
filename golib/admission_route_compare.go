@@ -32,28 +32,30 @@ type admissionRouteCompareSummary struct {
 }
 
 type admissionRouteStats struct {
-	Attempted       int `json:"attempted"`
-	Produced        int `json:"produced"`
-	Empty           int `json:"empty"`
-	PolicyPassed    int `json:"policy_passed"`
-	PolicyFailed    int `json:"policy_failed"`
-	ReplayFailed    int `json:"replay_failed"`
-	ChorusVoices    int `json:"chorus_voices,omitempty"`
-	QloopQuestions  int `json:"qloop_questions,omitempty"`
-	QloopGates      int `json:"qloop_gates,omitempty"`
-	QloopGenerated  int `json:"qloop_generated,omitempty"`
-	QloopRetries    int `json:"qloop_retries,omitempty"`
-	QloopRoutes     int `json:"qloop_routes,omitempty"`
-	QloopQSrc       int `json:"qloop_qsrc,omitempty"`
-	QloopSSrc       int `json:"qloop_ssrc,omitempty"`
-	QloopScoreDrop  int `json:"qloop_score_drop,omitempty"`
-	QloopPickerSeen int `json:"qloop_picker_seen,omitempty"`
-	BaseGenerated   int `json:"base_generated,omitempty"`
-	BaseRetries     int `json:"base_retries,omitempty"`
-	BaseProbe       int `json:"base_probe,omitempty"`
-	BaseRescue      int `json:"base_rescue,omitempty"`
-	BaseFailed      int `json:"base_failed,omitempty"`
-	TimingSeen      int `json:"timing_seen,omitempty"`
+	Attempted        int `json:"attempted"`
+	Produced         int `json:"produced"`
+	Empty            int `json:"empty"`
+	PolicyPassed     int `json:"policy_passed"`
+	PolicyFailed     int `json:"policy_failed"`
+	ReplayFailed     int `json:"replay_failed"`
+	ChorusVoices     int `json:"chorus_voices,omitempty"`
+	QloopQuestions   int `json:"qloop_questions,omitempty"`
+	QloopGates       int `json:"qloop_gates,omitempty"`
+	QloopGateSurface int `json:"qloop_gate_surface,omitempty"`
+	QloopGateIQ      int `json:"qloop_gate_iq,omitempty"`
+	QloopGenerated   int `json:"qloop_generated,omitempty"`
+	QloopRetries     int `json:"qloop_retries,omitempty"`
+	QloopRoutes      int `json:"qloop_routes,omitempty"`
+	QloopQSrc        int `json:"qloop_qsrc,omitempty"`
+	QloopSSrc        int `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop   int `json:"qloop_score_drop,omitempty"`
+	QloopPickerSeen  int `json:"qloop_picker_seen,omitempty"`
+	BaseGenerated    int `json:"base_generated,omitempty"`
+	BaseRetries      int `json:"base_retries,omitempty"`
+	BaseProbe        int `json:"base_probe,omitempty"`
+	BaseRescue       int `json:"base_rescue,omitempty"`
+	BaseFailed       int `json:"base_failed,omitempty"`
+	TimingSeen       int `json:"timing_seen,omitempty"`
 }
 
 type admissionRouteFailure struct {
@@ -86,20 +88,22 @@ type admissionRouteOutput struct {
 }
 
 type admissionRouteDiagnostics struct {
-	QloopGates      int
-	QloopGenerated  int
-	QloopRetries    int
-	QloopRoutes     int
-	QloopQSrc       int
-	QloopSSrc       int
-	QloopScoreDrop  int
-	QloopPickerSeen bool
-	BaseGenerated   int
-	BaseRetries     int
-	BaseProbe       int
-	BaseRescue      int
-	BaseFailed      int
-	TimingSeen      bool
+	QloopGates       int
+	QloopGateSurface int
+	QloopGateIQ      int
+	QloopGenerated   int
+	QloopRetries     int
+	QloopRoutes      int
+	QloopQSrc        int
+	QloopSSrc        int
+	QloopScoreDrop   int
+	QloopPickerSeen  bool
+	BaseGenerated    int
+	BaseRetries      int
+	BaseProbe        int
+	BaseRescue       int
+	BaseFailed       int
+	TimingSeen       bool
 }
 
 func runAdmissionRouteCompare() error {
@@ -362,7 +366,9 @@ var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_
 
 func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 	diag := admissionRouteDiagnostics{
-		QloopGates: strings.Count(out, "↳ qloop gate "),
+		QloopGates:       strings.Count(out, "↳ qloop gate "),
+		QloopGateSurface: countQloopGateReason(out, "surface"),
+		QloopGateIQ:      countQloopGateReason(out, "iq"),
 	}
 	m := routeTimingRe.FindStringSubmatch(out)
 	if len(m) >= 8 {
@@ -383,6 +389,17 @@ func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 		}
 	}
 	return diag
+}
+
+func countQloopGateReason(out, reason string) int {
+	n := 0
+	needle := "reason=" + reason
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "qloop gate") && strings.Contains(line, needle) {
+			n++
+		}
+	}
+	return n
 }
 
 func routeEmptyHint(route string, diag admissionRouteDiagnostics) string {
@@ -414,6 +431,8 @@ func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompar
 	st.ChorusVoices += out.voices
 	st.QloopQuestions += out.questions
 	st.QloopGates += out.diag.QloopGates
+	st.QloopGateSurface += out.diag.QloopGateSurface
+	st.QloopGateIQ += out.diag.QloopGateIQ
 	st.QloopGenerated += out.diag.QloopGenerated
 	st.QloopRetries += out.diag.QloopRetries
 	st.QloopRoutes += out.diag.QloopRoutes

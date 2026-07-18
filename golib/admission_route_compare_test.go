@@ -31,12 +31,14 @@ func TestParseChorusCellsDropsRejectedQloopGates(t *testing.T) {
 
 func TestParseAdmissionRouteDiagnostics(t *testing.T) {
 	out := "  ↳ qloop gate c1→c2 [kv] score 0.100: rejected not a question   [entropy=4.0]\n" +
+		"  ↳ qloop gate c2→c3 [kv] score 0.200: rejected The ac.   [entropy=3.0 reason=surface]\n" +
+		"  ↳ qloop gate c3→c1 [kv] score 0.300: rejected hidden drop   [entropy=2.0 reason=iq]\n" +
 		"  timing: base_ms=2206 base_gen=19 base_retry=3 base_probe=12 base_rescue=1 base_fail=0 qloop_ms=0 qloop_gen=0 qloop_retry=0"
 	diag := parseAdmissionRouteDiagnostics(out)
-	if !diag.TimingSeen || diag.QloopGates != 1 || diag.BaseGenerated != 19 || diag.BaseRetries != 3 || diag.BaseProbe != 12 || diag.BaseRescue != 1 || diag.QloopGenerated != 0 {
+	if !diag.TimingSeen || diag.QloopGates != 3 || diag.QloopGateSurface != 1 || diag.QloopGateIQ != 1 || diag.BaseGenerated != 19 || diag.BaseRetries != 3 || diag.BaseProbe != 12 || diag.BaseRescue != 1 || diag.QloopGenerated != 0 {
 		t.Fatalf("bad diagnostics: %+v", diag)
 	}
-	if got := routeEmptyHint("qloop", diag); got != "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=1)" {
+	if got := routeEmptyHint("qloop", diag); got != "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=3)" {
 		t.Fatalf("bad empty hint: %q", got)
 	}
 }
@@ -102,13 +104,13 @@ func TestRecordAdmissionRouteCandidateKeepsQloopEmptyDiagnostics(t *testing.T) {
 	}
 	out := admissionRouteOutput{
 		route:     "qloop",
-		diag:      admissionRouteDiagnostics{QloopGates: 2, QloopGenerated: 0, TimingSeen: true},
+		diag:      admissionRouteDiagnostics{QloopGates: 2, QloopGateSurface: 1, QloopGateIQ: 1, QloopGenerated: 0, TimingSeen: true},
 		emptyHint: "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=2)",
 	}
 	if err := recordAdmissionRouteCandidate(NewInnerWorld(), &summary, 2, out, "qloop-test", "seed", "frag"); err != nil {
 		t.Fatal(err)
 	}
-	if summary.EmptyCandidates != 1 || summary.ByRoute["qloop"].Empty != 1 || summary.ByRoute["qloop"].QloopGates != 2 {
+	if summary.EmptyCandidates != 1 || summary.ByRoute["qloop"].Empty != 1 || summary.ByRoute["qloop"].QloopGates != 2 || summary.ByRoute["qloop"].QloopGateSurface != 1 || summary.ByRoute["qloop"].QloopGateIQ != 1 {
 		t.Fatalf("bad empty summary: %+v", summary)
 	}
 	if len(summary.Empties) != 1 || summary.Empties[0].Reason != out.emptyHint {

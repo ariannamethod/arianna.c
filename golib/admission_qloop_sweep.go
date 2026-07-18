@@ -34,40 +34,64 @@ type admissionQloopSweepConfig struct {
 }
 
 type admissionQloopSweepConfigSummary struct {
-	Name            string            `json:"name"`
-	Env             map[string]string `json:"env,omitempty"`
-	Attempted       int               `json:"attempted"`
-	Produced        int               `json:"produced"`
-	Empty           int               `json:"empty"`
-	PolicyPassed    int               `json:"policy_passed"`
-	PolicyFailed    int               `json:"policy_failed"`
-	ReplayFailed    int               `json:"replay_failed"`
-	QloopQuestions  int               `json:"qloop_questions,omitempty"`
-	QloopGates      int               `json:"qloop_gates,omitempty"`
-	QloopGenerated  int               `json:"qloop_generated,omitempty"`
-	QloopRetries    int               `json:"qloop_retries,omitempty"`
-	QloopRoutes     int               `json:"qloop_routes,omitempty"`
-	QloopQSrc       int               `json:"qloop_qsrc,omitempty"`
-	QloopSSrc       int               `json:"qloop_ssrc,omitempty"`
-	QloopScoreDrop  int               `json:"qloop_score_drop,omitempty"`
-	QloopPickerSeen int               `json:"qloop_picker_seen,omitempty"`
-	BaseGenerated   int               `json:"base_generated,omitempty"`
-	BaseRetries     int               `json:"base_retries,omitempty"`
-	BaseProbe       int               `json:"base_probe,omitempty"`
-	BaseRescue      int               `json:"base_rescue,omitempty"`
-	BaseFailed      int               `json:"base_failed,omitempty"`
-	TimingSeen      int               `json:"timing_seen,omitempty"`
-	ShortCandidates int               `json:"short_candidates,omitempty"`
-	RouteLabelLeaks int               `json:"route_label_leaks,omitempty"`
-	SurfaceChecked  int               `json:"surface_checked,omitempty"`
-	SurfaceDebt     int               `json:"surface_debt,omitempty"`
-	SurfaceReasons  map[string]int    `json:"surface_debt_reasons,omitempty"`
-	AvgWords        float64           `json:"avg_words,omitempty"`
-	MinWords        int               `json:"min_words,omitempty"`
-	QualityPassed   bool              `json:"quality_passed"`
-	QualityReasons  []string          `json:"quality_reasons,omitempty"`
-	EmptyReasons    map[string]int    `json:"empty_reasons,omitempty"`
-	LogPath         string            `json:"log_path,omitempty"`
+	Name             string                             `json:"name"`
+	Env              map[string]string                  `json:"env,omitempty"`
+	Attempted        int                                `json:"attempted"`
+	Produced         int                                `json:"produced"`
+	Empty            int                                `json:"empty"`
+	PolicyPassed     int                                `json:"policy_passed"`
+	PolicyFailed     int                                `json:"policy_failed"`
+	ReplayFailed     int                                `json:"replay_failed"`
+	QloopQuestions   int                                `json:"qloop_questions,omitempty"`
+	QloopGates       int                                `json:"qloop_gates,omitempty"`
+	QloopGateSurface int                                `json:"qloop_gate_surface,omitempty"`
+	QloopGateIQ      int                                `json:"qloop_gate_iq,omitempty"`
+	QloopGenerated   int                                `json:"qloop_generated,omitempty"`
+	QloopRetries     int                                `json:"qloop_retries,omitempty"`
+	QloopRoutes      int                                `json:"qloop_routes,omitempty"`
+	QloopQSrc        int                                `json:"qloop_qsrc,omitempty"`
+	QloopSSrc        int                                `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop   int                                `json:"qloop_score_drop,omitempty"`
+	QloopPickerSeen  int                                `json:"qloop_picker_seen,omitempty"`
+	BaseGenerated    int                                `json:"base_generated,omitempty"`
+	BaseRetries      int                                `json:"base_retries,omitempty"`
+	BaseProbe        int                                `json:"base_probe,omitempty"`
+	BaseRescue       int                                `json:"base_rescue,omitempty"`
+	BaseFailed       int                                `json:"base_failed,omitempty"`
+	TimingSeen       int                                `json:"timing_seen,omitempty"`
+	ShortCandidates  int                                `json:"short_candidates,omitempty"`
+	RouteLabelLeaks  int                                `json:"route_label_leaks,omitempty"`
+	SurfaceChecked   int                                `json:"surface_checked,omitempty"`
+	SurfaceDebt      int                                `json:"surface_debt,omitempty"`
+	SurfaceReasons   map[string]int                     `json:"surface_debt_reasons,omitempty"`
+	AvgWords         float64                            `json:"avg_words,omitempty"`
+	MinWords         int                                `json:"min_words,omitempty"`
+	QualityPassed    bool                               `json:"quality_passed"`
+	QualityReasons   []string                           `json:"quality_reasons,omitempty"`
+	EmptyReasons     map[string]int                     `json:"empty_reasons,omitempty"`
+	Samples          []admissionQloopSweepSampleSummary `json:"samples,omitempty"`
+	LogPath          string                             `json:"log_path,omitempty"`
+}
+
+type admissionQloopSweepSampleSummary struct {
+	Index            int      `json:"index"`
+	Trigger          string   `json:"trigger,omitempty"`
+	Seed             string   `json:"seed,omitempty"`
+	Produced         bool     `json:"produced"`
+	Text             string   `json:"text,omitempty"`
+	Words            int      `json:"words,omitempty"`
+	RouteLabelLeak   bool     `json:"route_label_leak,omitempty"`
+	SurfaceReasons   []string `json:"surface_reasons,omitempty"`
+	EmptyReason      string   `json:"empty_reason,omitempty"`
+	QloopGates       int      `json:"qloop_gates,omitempty"`
+	QloopGateSurface int      `json:"qloop_gate_surface,omitempty"`
+	QloopGateIQ      int      `json:"qloop_gate_iq,omitempty"`
+	QloopGenerated   int      `json:"qloop_generated,omitempty"`
+	QloopRetries     int      `json:"qloop_retries,omitempty"`
+	QloopRoutes      int      `json:"qloop_routes,omitempty"`
+	QloopQSrc        int      `json:"qloop_qsrc,omitempty"`
+	QloopSSrc        int      `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop   int      `json:"qloop_score_drop,omitempty"`
 }
 
 func runAdmissionQloopSweep() error {
@@ -190,9 +214,33 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 				return fmt.Errorf("qloop sweep config %s sample %d: %w", cfg.Name, i+1, err)
 			}
 			text := strings.TrimSpace(routeOut.text)
+			trigger := admissionRouteTrigger("qloop", s.Trigger)
+			seed := strings.TrimSpace(s.Seed)
+			if seed == "" {
+				seed = fmt.Sprintf("sample-%02d", i+1)
+			}
+			sampleSummary := admissionQloopSweepSampleSummary{
+				Index:            i + 1,
+				Trigger:          trigger,
+				Seed:             seed,
+				Produced:         text != "",
+				Text:             text,
+				QloopGates:       routeOut.diag.QloopGates,
+				QloopGateSurface: routeOut.diag.QloopGateSurface,
+				QloopGateIQ:      routeOut.diag.QloopGateIQ,
+				QloopGenerated:   routeOut.diag.QloopGenerated,
+				QloopRetries:     routeOut.diag.QloopRetries,
+				QloopRoutes:      routeOut.diag.QloopRoutes,
+				QloopQSrc:        routeOut.diag.QloopQSrc,
+				QloopSSrc:        routeOut.diag.QloopSSrc,
+				QloopScoreDrop:   routeOut.diag.QloopScoreDrop,
+			}
 			if text != "" {
 				words, leak, surfaceReasons := qloopSweepTextStats(text)
 				wordTotal += words
+				sampleSummary.Words = words
+				sampleSummary.RouteLabelLeak = leak
+				sampleSummary.SurfaceReasons = surfaceReasons
 				out.SurfaceChecked++
 				if words > 0 && (out.MinWords == 0 || words < out.MinWords) {
 					out.MinWords = words
@@ -212,12 +260,10 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 						out.SurfaceReasons[reason]++
 					}
 				}
+			} else {
+				sampleSummary.EmptyReason = routeOut.emptyHint
 			}
-			trigger := admissionRouteTrigger("qloop", s.Trigger)
-			seed := strings.TrimSpace(s.Seed)
-			if seed == "" {
-				seed = fmt.Sprintf("sample-%02d", i+1)
-			}
+			out.Samples = append(out.Samples, sampleSummary)
 			if err := recordAdmissionRouteCandidate(iw, &routeSummary, i+1, routeOut, trigger, seed, s.Fragment); err != nil {
 				return err
 			}
@@ -237,6 +283,8 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 	out.ReplayFailed = st.ReplayFailed
 	out.QloopQuestions = st.QloopQuestions
 	out.QloopGates = st.QloopGates
+	out.QloopGateSurface = st.QloopGateSurface
+	out.QloopGateIQ = st.QloopGateIQ
 	out.QloopGenerated = st.QloopGenerated
 	out.QloopRetries = st.QloopRetries
 	out.QloopRoutes = st.QloopRoutes
