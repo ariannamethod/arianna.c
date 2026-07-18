@@ -43,6 +43,8 @@ Before a path can become default:
 - each admission receipt includes a scratch `inner_world` counterfactual
   (pre/post state hashes, deltas, text-analysis, language and recipient metrics)
   computed without touching the live organism;
+- each counterfactual includes a replay guard, and live admission fails closed if
+  the second scratch pass does not reproduce the same hashes;
 - `make admission-shadow-smoke` and `make body-smoke` must pass the runtime
   shadow receipt path from scratch;
 - regression prompts show improvement or bounded tradeoff;

@@ -52,6 +52,9 @@ inject, or downstream consolidation. `AM_DREAM_ADMISSION_LOG=<path>` appends
 JSONL receipts for those decisions, including scratch `inner_world`
 counterfactual deltas and text metrics; if a live admission explicitly requests
 a ledger and the ledger cannot be written, the admission fails closed.
+Each counterfactual carries an `arianna.dream_replay_guard.v1` pass: the same
+pre-state and text are replayed through a second scratch `inner_world`, and live
+admission fails closed unless the replay hashes match.
 `make admission-shadow-smoke` and `make body-smoke` verify this receipt path from
 scratch without writing durable organism state.
 

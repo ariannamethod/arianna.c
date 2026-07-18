@@ -46,6 +46,21 @@ type dreamCounterfactual struct {
 	Delta         dreamSnapshotDelta `json:"delta"`
 	Analysis      TextAnalysis       `json:"analysis"`
 	Text          dreamTextMetrics   `json:"text"`
+	Replay        *dreamReplayGuard  `json:"replay,omitempty"`
+}
+
+type dreamReplayGuard struct {
+	Schema        string `json:"schema"`
+	Engine        string `json:"engine"`
+	Checked       bool   `json:"checked"`
+	Matched       bool   `json:"matched"`
+	Passes        int    `json:"passes"`
+	PreStateHash  string `json:"pre_state_hash"`
+	PostStateHash string `json:"post_state_hash"`
+	DeltaHash     string `json:"delta_hash"`
+	AnalysisHash  string `json:"analysis_hash"`
+	TextHash      string `json:"text_hash"`
+	Reason        string `json:"reason,omitempty"`
 }
 
 type dreamSnapshotDelta struct {
@@ -71,6 +86,21 @@ type dreamTextMetrics struct {
 	CyrillicRunes  int      `json:"cyrillic_runes"`
 	LanguageHint   string   `json:"language_hint"`
 	RecipientTerms []string `json:"recipient_terms,omitempty"`
+}
+
+// dreamStableAnalysis excludes stochastic prophecy wormhole fields. A replay
+// guard should verify the deterministic counterfactual transform, not collapse
+// legitimate field randomness into a false admission failure.
+type dreamStableAnalysis struct {
+	TraumaActivation float32 `json:"trauma_activation"`
+	IdentityPull     float32 `json:"identity_pull"`
+	RepetitionScore  float32 `json:"repetition_score"`
+	AbstractionScore float32 `json:"abstraction_score"`
+	SelfRefScore     float32 `json:"self_ref_score"`
+	OverthinkTotal   float32 `json:"overthink_total"`
+	FocusStrength    float32 `json:"focus_strength"`
+	WanderDirection  string  `json:"wander_direction"`
+	DestinyBias      float32 `json:"destiny_bias"`
 }
 
 func dreamAdmissionMode() string {
@@ -156,25 +186,80 @@ func attachDreamCounterfactual(iw *InnerWorld, c dreamCandidate) dreamCandidate 
 		return c
 	}
 	before := iw.GetSnapshot()
+	cf := simulateDreamCounterfactual(before, c.Text)
+	cf.Replay = replayDreamCounterfactual(before, c.Text, cf)
+	c.Counterfactual = &cf
+	return c
+}
+
+func simulateDreamCounterfactual(before Snapshot, text string) dreamCounterfactual {
 	scratch := NewInnerWorld()
 	applySnapshot(scratch, before)
 	scratch.Start(false)
 	syncScratchProcesses(scratch, before)
-	analysis := scratch.ProcessText(c.Text)
+	analysis := scratch.ProcessText(text)
 	syncEmotionalPosition(scratch)
 	after := scratch.GetSnapshot()
 	scratch.Stop()
 
-	c.Counterfactual = &dreamCounterfactual{
+	return dreamCounterfactual{
 		Schema:        "arianna.dream_counterfactual.v1",
 		Target:        "inner_world",
 		PreStateHash:  hashSnapshot(before),
 		PostStateHash: hashSnapshot(after),
 		Delta:         diffSnapshot(before, after),
 		Analysis:      analysis,
-		Text:          measureDreamText(c.Text),
+		Text:          measureDreamText(text),
+	}
+}
+
+func replayDreamCounterfactual(before Snapshot, text string, first dreamCounterfactual) *dreamReplayGuard {
+	second := simulateDreamCounterfactual(before, text)
+	replay := &dreamReplayGuard{
+		Schema:        "arianna.dream_replay_guard.v1",
+		Engine:        "inner_world.process_text",
+		Checked:       true,
+		Passes:        2,
+		PreStateHash:  second.PreStateHash,
+		PostStateHash: second.PostStateHash,
+		DeltaHash:     hashJSON(second.Delta),
+		AnalysisHash:  hashStableAnalysis(second.Analysis),
+		TextHash:      hashJSON(second.Text),
+	}
+	replay.Matched = first.PreStateHash == second.PreStateHash &&
+		first.PostStateHash == second.PostStateHash &&
+		hashJSON(first.Delta) == replay.DeltaHash &&
+		hashStableAnalysis(first.Analysis) == replay.AnalysisHash &&
+		hashJSON(first.Text) == replay.TextHash
+	if !replay.Matched {
+		replay.Reason = "counterfactual replay mismatch"
+	}
+	return replay
+}
+
+func guardDreamCandidate(c dreamCandidate) dreamCandidate {
+	if !c.Accepted {
+		return c
+	}
+	if !counterfactualReplayOK(c.Counterfactual) {
+		c.Accepted = false
+		c.Reason = "counterfactual replay failed"
 	}
 	return c
+}
+
+func counterfactualReplayOK(cf *dreamCounterfactual) bool {
+	if cf == nil || cf.Replay == nil {
+		return false
+	}
+	return cf.Replay.Checked &&
+		cf.Replay.Matched &&
+		cf.Replay.Passes >= 2 &&
+		cf.Replay.PreStateHash == cf.PreStateHash &&
+		cf.Replay.PostStateHash == cf.PostStateHash &&
+		cf.Replay.DeltaHash == hashJSON(cf.Delta) &&
+		cf.Replay.AnalysisHash == hashStableAnalysis(cf.Analysis) &&
+		cf.Replay.TextHash == hashJSON(cf.Text)
 }
 
 func applySnapshot(iw *InnerWorld, s Snapshot) {
@@ -229,6 +314,29 @@ func hashSnapshot(s Snapshot) string {
 		s.MemoryPressure, s.FocusStrength, s.WanderPull,
 		s.ProphecyDebt, s.DestinyPull, s.WormholeChance)
 	return hex.EncodeToString(h.Sum(nil)[:8])
+}
+
+func hashJSON(v any) string {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	h := sha256.Sum256(raw)
+	return hex.EncodeToString(h[:8])
+}
+
+func hashStableAnalysis(a TextAnalysis) string {
+	return hashJSON(dreamStableAnalysis{
+		TraumaActivation: a.TraumaActivation,
+		IdentityPull:     a.IdentityPull,
+		RepetitionScore:  a.RepetitionScore,
+		AbstractionScore: a.AbstractionScore,
+		SelfRefScore:     a.SelfRefScore,
+		OverthinkTotal:   a.OverthinkTotal,
+		FocusStrength:    a.FocusStrength,
+		WanderDirection:  a.WanderDirection,
+		DestinyBias:      a.DestinyBias,
+	})
 }
 
 func diffSnapshot(before, after Snapshot) dreamSnapshotDelta {
@@ -291,6 +399,7 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 	c.Trigger = trigger
 	c = decideDreamCandidate(c)
 	c = attachDreamCounterfactual(iw, c)
+	c = guardDreamCandidate(c)
 	c = rejectOnAdmissionLogError(c, recordDreamCandidate(c))
 	r.candidate = c
 	if !c.Accepted {
