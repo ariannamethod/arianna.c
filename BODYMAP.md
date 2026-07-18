@@ -49,8 +49,9 @@ The first architectural merge is nano/subconscious:
 chorus dreams become typed `arianna.dream_candidate.v1` observations and are
 printed, but they do not update the inner world, `lastDream`, Resonance's dream
 inject, or downstream consolidation. `AM_DREAM_ADMISSION_LOG=<path>` appends
-JSONL receipts for those decisions; if a live admission explicitly requests a
-ledger and the ledger cannot be written, the admission fails closed.
+JSONL receipts for those decisions, including scratch `inner_world`
+counterfactual deltas and text metrics; if a live admission explicitly requests
+a ledger and the ledger cannot be written, the admission fails closed.
 
 ## Open Questions
 
