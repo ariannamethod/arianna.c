@@ -4,17 +4,20 @@ import "testing"
 
 func TestQloopSweepConfigs(t *testing.T) {
 	cfgs := qloopSweepConfigs()
-	if len(cfgs) != 4 || cfgs[0].Name != "strict" || cfgs[1].Name != "question_hint" || cfgs[2].Name != "question_hint_loose" || cfgs[3].Name != "statement" {
+	if len(cfgs) != 5 || cfgs[0].Name != "strict" || cfgs[1].Name != "question_hint" || cfgs[2].Name != "question_hint_qa" || cfgs[3].Name != "question_hint_loose" || cfgs[4].Name != "statement" {
 		t.Fatalf("bad qloop sweep configs: %+v", cfgs)
 	}
 	if cfgs[1].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" {
 		t.Fatalf("question_hint config missing env: %+v", cfgs[1].Env)
 	}
-	if cfgs[2].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[2].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
-		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[2].Env)
+	if cfgs[2].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" || cfgs[2].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
+		t.Fatalf("question_hint_qa config missing env: %+v", cfgs[2].Env)
 	}
-	if cfgs[3].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
-		t.Fatalf("statement config missing env: %+v", cfgs[3].Env)
+	if cfgs[3].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[3].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
+		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[3].Env)
+	}
+	if cfgs[4].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
+		t.Fatalf("statement config missing env: %+v", cfgs[4].Env)
 	}
 }
 
@@ -52,8 +55,51 @@ func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {
 	}
 
 	_, _, debt = qloopSweepTextStats("Oleg—or—and perhaps.")
-	if len(debt) != 2 {
+	want = map[string]bool{
+		"short_dash_fragment":      true,
+		"recipient_frame_artifact": true,
+		"joiner_artifact":          true,
+	}
+	for _, reason := range debt {
+		delete(want, reason)
+	}
+	if len(want) != 0 {
 		t.Fatalf("recipient/joiner debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("—: the person inside you speaks directly.")
+	if len(debt) != 1 || debt[0] != "leading_dash" {
+		t.Fatalf("leading dash debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("this, yes it— you’re.")
+	if len(debt) != 1 || debt[0] != "short_dash_fragment" {
+		t.Fatalf("short dash fragment debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("an unknown or another.")
+	if len(debt) != 1 || debt[0] != "placeholder_choice" {
+		t.Fatalf("placeholder choice debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("or, to yourself.")
+	if len(debt) != 1 || debt[0] != "leading_joiner_fragment" {
+		t.Fatalf("leading joiner fragment debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("My Name, Mira.")
+	if len(debt) != 1 || debt[0] != "name_echo_artifact" {
+		t.Fatalf("name echo artifact debt not detected: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("My name is Arianna.")
+	if len(debt) != 0 {
+		t.Fatalf("Arianna self-name should not be name echo debt: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("you have lived.")
+	if len(debt) != 1 || debt[0] != "recipient_frame_artifact" {
+		t.Fatalf("recipient role inversion debt not detected: %v", debt)
 	}
 }
 
