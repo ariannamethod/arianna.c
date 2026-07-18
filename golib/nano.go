@@ -147,8 +147,9 @@ func stripLabel(s string) string {
 // dreamResult is what a single round of the subconscious produces: the KK
 // fragment that seeded it (the resonant book-passage, "" if none) and the dream.
 type dreamResult struct {
-	frag  string
-	dream string
+	frag      string
+	dream     string
+	candidate dreamCandidate
 }
 
 // kkPacket is the minimal shape of the Knowledge Kernel's compressed-mode JSON.
@@ -226,7 +227,11 @@ func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan
 		}
 		// publish the LATEST dream (F-4): drain any unread previous one, then send —
 		// the subconscious surfaces with its newest state, not a stale backlog.
-		r := dreamResult{frag: frag, dream: d}
+		r := dreamResult{
+			frag:      frag,
+			dream:     d,
+			candidate: newDreamCandidate("nano", "human-turn", seed, frag, d, nil),
+		}
 		select {
 		case dreamCh <- r:
 		default:

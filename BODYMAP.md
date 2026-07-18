@@ -9,7 +9,7 @@ responsibility, state ownership, injection surface, or required smoke gate.
 | --- | --- | --- | --- |
 | Janus | external mouth, world-facing voice, shape holder | `arianna.aml`, `tools/yent_forward.h` | `weights/arianna_v4_sft_f16.gguf`, `weights/arianna.cooc.j`, `weights/arianna.delta.j` |
 | Resonance | inner-world / field-receptive voice | `arianna_resonance.aml`, `tools/resonance_forward.h` | `weights/arianna_resonance_v3_f16.gguf`, `weights/arianna.cooc.r`, `weights/arianna.delta.r` |
-| nano-Arianna | subconscious / dream substrate | `golib/nano.go`, `nanollama/` | `weights/nano_arianna_f16.gguf`, `weights/nano.kk.db*` |
+| nano-Arianna | subconscious / dream substrate | `golib/nano.go`, `golib/dream_admission.go`, `nanollama/` | `weights/nano_arianna_f16.gguf`, `weights/nano.kk.db*` |
 | chorus | measured multi-cell nano substrate | `golib/chorus.go`, `chorus/arianna2arianna.c` | built `chorus-arianna`, lab source pinned in `CHORUS_VENDOR_MANIFEST.md` |
 | DOE | notorch-native LoRA parliament / Hebbian runtime substrate | `doe/`, `golib/doe.go` | `doe_mycelium/`, opt-in training state |
 | KK | Knowledge Kernel retrieval substrate | `kk/`, `golib/nano.go` | `weights/*.kk.db*` |
@@ -44,6 +44,11 @@ The first architectural merge is nano/subconscious:
    and the Go inner world.
 4. Let accepted nano traces influence Janus or Resonance only through explicit
    gates, receipts, and rollback handles.
+
+`AM_DREAM_ADMISSION=shadow` is the current pre-live switch: direct nano and
+chorus dreams become typed `arianna.dream_candidate.v1` observations and are
+printed, but they do not update the inner world, `lastDream`, Resonance's dream
+inject, or downstream consolidation.
 
 ## Open Questions
 

@@ -156,8 +156,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			voiceMu.Unlock()
 			cue := dreamCue(s, fs, prevLD)
 			seed := cue
-			if frag := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); frag != "" {
-				seed = frag
+			frag := ""
+			if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
+				frag = f
+				seed = f
 			}
 			// the autonomous dream is a CHORUS (a polyphony over the one nano) when
 			// the chorus engine is present and produces cells.
@@ -187,6 +189,11 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				b.lastTrigger[trig] = time.Now()
 				continue
 			}
+			source := "nano"
+			if len(cells) > 0 {
+				source = "chorus"
+			}
+			candidate := decideDreamCandidate(newDreamCandidate(source, bName[trig], seed, frag, dream, cells))
 			// the chorus / fallback may have taken tens of seconds; if /quit fired
 			// meanwhile, return now — don't touch the (tearing-down) voices or the
 			// shared lastDream.
@@ -196,6 +203,12 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			default:
 			}
 			voiceMu.Lock()
+			if !candidate.Accepted {
+				fmt.Printf("│  ◌ (%s) dream candidate (%s): %s\n", bName[trig], candidate.Reason, ellipsize(dream, 90))
+				b.lastTrigger[trig] = time.Now()
+				voiceMu.Unlock()
+				continue
+			}
 			tc.iw.ProcessText(dream)
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream

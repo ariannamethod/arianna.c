@@ -349,7 +349,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 		}
 		sendLatest(tc.seedCh, cue)
 		if r, ok := recvDream(tc.dreamCh); ok {
-			tc.iw.ProcessText(r.dream)
+			admitDreamToInnerWorld(tc.iw, &r, "human-turn")
 			dr, hasDream = r, true
 		}
 	}
@@ -410,11 +410,15 @@ func runDemo(prompt string) {
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
 		prevReson = reson
 		if hasDream {
-			lastDream = dr.dream
-			if dr.frag != "" {
-				fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(dr.frag, 90))
+			if dr.admitted() {
+				lastDream = dr.dream
+				if dr.frag != "" {
+					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(dr.frag, 90))
+				}
+				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, dr.dream)
+			} else {
+				fmt.Printf("│  ◓ [%d/%d] nano candidate (%s): %s\n", i, nExch, dr.admissionLabel(), ellipsize(dr.dream, 90))
 			}
-			fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, dr.dream)
 		}
 
 		// M3: if a voice fell silent, stop instead of looping over empty turns.
