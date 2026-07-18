@@ -2707,3 +2707,28 @@ each wired tensor's `n_elements` in the wiring loop, and both the chat banner an
 `[doe] host: nano_arianna_f16.gguf (nlama, 88M params)` (was 36M), generation unregressed. The same one-line
 formula lives byte-identical in the canon `~/arianna/doe` and Yent's DoE (Fable-verified line numbers) — the
 identical diff carries to both next.
+
+---
+
+## 2026-07-18 — Shadow dream receipts gained a replay guard
+
+The dream-admission boundary is now executable, typed, and replay-checked. `AM_DREAM_ADMISSION=shadow` still
+records `arianna.dream_candidate.v1` JSONL receipts without mutating the live organism, but each receipt now
+carries an `arianna.dream_replay_guard.v1`: the same text is run through a second scratch `inner_world` from the
+same pre-state, and live admission fails closed unless the replay guard verifies.
+
+Important finding from the first failed `make body-smoke`: a full-byte replay of the whole `TextAnalysis` is too
+strict because `ProphecyDebtAccumulation.CheckWormhole()` intentionally contains stochastic wormhole activation.
+The correct contract is therefore stable replay, not frozen randomness. The guard hashes pre/post state, deltas,
+text metrics, and a deterministic analysis projection; stochastic wormhole fields remain in the receipt as live
+observation, but do not create false admission failures. This is the right boundary: measure the transformation
+twice before admitting it, while letting the field keep its legal randomness.
+
+Validation:
+- `go test ./...` in `golib`;
+- `git diff --check`;
+- `make admission-shadow-smoke`;
+- weighted `make body-smoke` with local F16 Janus/Resonance/nano weights and `A2A_BODY_SMOKE_TOKENS=1`.
+
+Next: put an explicit admission-threshold policy on top of the replay guard, so live dream admission depends not
+only on reproducibility but also on bounded counterfactual deltas.

@@ -57,8 +57,11 @@ func runAdmissionSmoke() error {
 	if got.Counterfactual == nil || got.Counterfactual.PreStateHash == "" || got.Counterfactual.PostStateHash == "" {
 		return fmt.Errorf("logged candidate missing counterfactual: %+v", got.Counterfactual)
 	}
+	if !counterfactualReplayOK(got.Counterfactual) {
+		return fmt.Errorf("logged candidate replay guard failed: %+v", got.Counterfactual.Replay)
+	}
 
-	fmt.Printf("[admission-smoke] pass: log=%s run_id=%s trauma_delta=%.4f\n",
-		logPath, got.RunID, got.Counterfactual.Delta.TraumaLevel)
+	fmt.Printf("[admission-smoke] pass: log=%s run_id=%s trauma_delta=%.4f replay=%t\n",
+		logPath, got.RunID, got.Counterfactual.Delta.TraumaLevel, got.Counterfactual.Replay.Matched)
 	return nil
 }

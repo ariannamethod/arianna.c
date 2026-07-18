@@ -34,6 +34,9 @@ func TestDreamAdmissionShadowRejectsMutation(t *testing.T) {
 	if r.candidate.Counterfactual == nil || r.candidate.Counterfactual.Target != "inner_world" {
 		t.Fatalf("missing counterfactual: %+v", r.candidate.Counterfactual)
 	}
+	if !counterfactualReplayOK(r.candidate.Counterfactual) {
+		t.Fatalf("shadow counterfactual replay guard failed: %+v", r.candidate.Counterfactual.Replay)
+	}
 }
 
 func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
@@ -58,6 +61,9 @@ func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
 	}
 	if r.candidate.Counterfactual == nil || r.candidate.Counterfactual.PreStateHash == "" || r.candidate.Counterfactual.PostStateHash == "" {
 		t.Fatalf("live candidate missing counterfactual: %+v", r.candidate.Counterfactual)
+	}
+	if !counterfactualReplayOK(r.candidate.Counterfactual) {
+		t.Fatalf("live counterfactual replay guard failed: %+v", r.candidate.Counterfactual.Replay)
 	}
 }
 
@@ -104,6 +110,12 @@ func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
 	if got.Counterfactual.Text.LanguageHint != "en" || got.Counterfactual.Text.Words == 0 {
 		t.Fatalf("bad text metrics: %+v", got.Counterfactual.Text)
 	}
+	if got.Counterfactual.Replay == nil || !got.Counterfactual.Replay.Checked || !got.Counterfactual.Replay.Matched {
+		t.Fatalf("shadow receipt missing replay guard: %+v", got.Counterfactual.Replay)
+	}
+	if !counterfactualReplayOK(got.Counterfactual) {
+		t.Fatalf("shadow receipt replay guard does not verify: %+v", got.Counterfactual.Replay)
+	}
 }
 
 func TestDreamAdmissionLiveFailsClosedWhenRequestedLogCannotWrite(t *testing.T) {
@@ -123,5 +135,49 @@ func TestDreamAdmissionLiveFailsClosedWhenRequestedLogCannotWrite(t *testing.T) 
 	}
 	if !strings.HasPrefix(r.candidate.Reason, "admission log failed:") {
 		t.Fatalf("bad log failure reason: %+v", r.candidate)
+	}
+}
+
+func TestDreamAdmissionLiveFailsClosedWithoutReplayGuard(t *testing.T) {
+	c := newDreamCandidate("nano", "test", "seed", "", "the field wants to become state", nil)
+	c.Mode = dreamAdmissionLive
+	c.Accepted = true
+	c.Reason = "live admission"
+	c.Counterfactual = &dreamCounterfactual{
+		Schema:        "arianna.dream_counterfactual.v1",
+		Target:        "inner_world",
+		PreStateHash:  "pre",
+		PostStateHash: "post",
+	}
+
+	c = guardDreamCandidate(c)
+	if c.Accepted {
+		t.Fatal("live admission without a replay guard must fail closed")
+	}
+	if c.Reason != "counterfactual replay failed" {
+		t.Fatalf("bad guard failure reason: %+v", c)
+	}
+}
+
+func TestDreamAdmissionLiveFailsClosedOnReplayMismatch(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	c := newDreamCandidate("nano", "test", "seed", "", "the field wants to become state", nil)
+	c.Mode = dreamAdmissionLive
+	c.Accepted = true
+	c.Reason = "live admission"
+	c = attachDreamCounterfactual(iw, c)
+	c.Counterfactual.PostStateHash = "tampered"
+
+	c = guardDreamCandidate(c)
+	if c.Accepted {
+		t.Fatal("live admission with a mismatched replay guard must fail closed")
+	}
+	if c.Reason != "counterfactual replay failed" {
+		t.Fatalf("bad guard failure reason: %+v", c)
 	}
 }
