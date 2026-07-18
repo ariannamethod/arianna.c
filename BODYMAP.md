@@ -55,6 +55,10 @@ a ledger and the ledger cannot be written, the admission fails closed.
 Each counterfactual carries an `arianna.dream_replay_guard.v1` pass: the same
 pre-state and text are replayed through a second scratch `inner_world`, and live
 admission fails closed unless the replay hashes match.
+Each candidate also carries an `arianna.dream_admission_policy.v1` verdict with
+bounded counterfactual-delta thresholds; live admission fails closed when a
+replay-verified dream would still move trauma, coherence, affect, memory,
+prophecy, or loop counters outside the current policy.
 `make admission-shadow-smoke` and `make body-smoke` verify this receipt path from
 scratch without writing durable organism state.
 

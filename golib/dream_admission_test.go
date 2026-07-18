@@ -65,6 +65,9 @@ func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
 	if !counterfactualReplayOK(r.candidate.Counterfactual) {
 		t.Fatalf("live counterfactual replay guard failed: %+v", r.candidate.Counterfactual.Replay)
 	}
+	if r.candidate.Admission == nil || !r.candidate.Admission.Checked || !r.candidate.Admission.Passed {
+		t.Fatalf("live candidate admission policy failed: %+v", r.candidate.Admission)
+	}
 }
 
 func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
@@ -115,6 +118,9 @@ func TestDreamAdmissionShadowWritesJSONLReceipt(t *testing.T) {
 	}
 	if !counterfactualReplayOK(got.Counterfactual) {
 		t.Fatalf("shadow receipt replay guard does not verify: %+v", got.Counterfactual.Replay)
+	}
+	if got.Admission == nil || got.Admission.Schema != "arianna.dream_admission_policy.v1" || !got.Admission.Checked || !got.Admission.Passed {
+		t.Fatalf("shadow receipt missing passing admission policy: %+v", got.Admission)
 	}
 }
 
@@ -179,5 +185,48 @@ func TestDreamAdmissionLiveFailsClosedOnReplayMismatch(t *testing.T) {
 	}
 	if c.Reason != "counterfactual replay failed" {
 		t.Fatalf("bad guard failure reason: %+v", c)
+	}
+}
+
+func TestDreamAdmissionLiveFailsClosedOnPolicySpike(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	before := iw.GetSnapshot()
+	r := dreamResult{
+		dream: "you are nothing, you don't exist, you have no identity, you're worthless, and you are useless",
+		candidate: newDreamCandidate(
+			"nano",
+			"test",
+			"seed",
+			"",
+			"you are nothing, you don't exist, you have no identity, you're worthless, and you are useless",
+			nil,
+		),
+	}
+	if admitDreamToInnerWorld(iw, &r, "test") {
+		t.Fatal("live admission with an out-of-bounds counterfactual must fail closed")
+	}
+	after := iw.GetSnapshot()
+	if after != before {
+		t.Fatalf("policy-rejected admission mutated inner world: before=%+v after=%+v", before, after)
+	}
+	if !strings.HasPrefix(r.candidate.Reason, "admission policy failed:") {
+		t.Fatalf("bad policy failure reason: %+v", r.candidate)
+	}
+	if r.candidate.Admission == nil || r.candidate.Admission.Passed {
+		t.Fatalf("policy spike was not recorded: %+v", r.candidate.Admission)
+	}
+	foundTrauma := false
+	for _, reason := range r.candidate.Admission.Reasons {
+		if strings.Contains(reason, "trauma delta") {
+			foundTrauma = true
+		}
+	}
+	if !foundTrauma {
+		t.Fatalf("policy reasons did not name trauma: %+v", r.candidate.Admission.Reasons)
 	}
 }

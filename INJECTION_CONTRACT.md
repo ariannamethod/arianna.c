@@ -45,6 +45,8 @@ Before a path can become default:
   computed without touching the live organism;
 - each counterfactual includes a replay guard, and live admission fails closed if
   the second scratch pass does not reproduce the same hashes;
+- each candidate includes an admission-policy verdict with bounded
+  counterfactual deltas; replay alone is not sufficient for live mutation;
 - `make admission-shadow-smoke` and `make body-smoke` must pass the runtime
   shadow receipt path from scratch;
 - regression prompts show improvement or bounded tradeoff;

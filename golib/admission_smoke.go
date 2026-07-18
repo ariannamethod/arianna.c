@@ -60,8 +60,11 @@ func runAdmissionSmoke() error {
 	if !counterfactualReplayOK(got.Counterfactual) {
 		return fmt.Errorf("logged candidate replay guard failed: %+v", got.Counterfactual.Replay)
 	}
+	if !dreamAdmissionPolicyOK(got.Admission) {
+		return fmt.Errorf("logged candidate admission policy failed: %+v", got.Admission)
+	}
 
-	fmt.Printf("[admission-smoke] pass: log=%s run_id=%s trauma_delta=%.4f replay=%t\n",
-		logPath, got.RunID, got.Counterfactual.Delta.TraumaLevel, got.Counterfactual.Replay.Matched)
+	fmt.Printf("[admission-smoke] pass: log=%s run_id=%s trauma_delta=%.4f replay=%t policy=%t\n",
+		logPath, got.RunID, got.Counterfactual.Delta.TraumaLevel, got.Counterfactual.Replay.Matched, got.Admission.Passed)
 	return nil
 }

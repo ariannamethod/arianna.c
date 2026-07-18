@@ -2732,3 +2732,14 @@ Validation:
 
 Next: put an explicit admission-threshold policy on top of the replay guard, so live dream admission depends not
 only on reproducibility but also on bounded counterfactual deltas.
+
+**Follow-up, same day — admission threshold policy.** The replay guard now has a second gate above it:
+`arianna.dream_admission_policy.v1`. Every dream candidate receipt records the active counterfactual-delta
+thresholds and a pass/fail verdict. Shadow mode still never mutates; live mode now requires both replay proof
+and bounded movement. The first policy bounds affect (`arousal`, `valence`), entropy/coherence, trauma,
+memory pressure, prophecy debt, and loop counters. A combined trauma-erasure phrase that pushes trauma/coherence
+outside the policy is rejected with `admission policy failed: ...` and leaves the live `inner_world` unchanged.
+
+Validated with `go test ./...`, `git diff --check`, `make admission-shadow-smoke`, and the weighted
+`make body-smoke` path. Next threshold work is empirical tuning from real shadow receipts, not widening live
+mutation by default.
