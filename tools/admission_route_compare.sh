@@ -102,6 +102,7 @@ grep -q '"replay_failed": 0' "$SUMMARY" || die "route replay failures found"
 grep -q '"direct"' "$SUMMARY" || die "direct route missing from summary"
 grep -q '"chorus"' "$SUMMARY" || die "chorus route missing from summary"
 grep -q '"qloop"' "$SUMMARY" || die "qloop route missing from summary"
+grep -q '"timing_seen":' "$SUMMARY" || die "route timing telemetry missing from summary"
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
 STATE_HITS="$WORKDIR/state_hits.txt"
