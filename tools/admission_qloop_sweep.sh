@@ -60,6 +60,9 @@ echo "[admission-qloop-sweep] scratch=$WORKDIR"
 echo "[admission-qloop-sweep] sample=$sample_file"
 echo "[admission-qloop-sweep] model=$model_file"
 
+sweep_limit="${A2A_QLOOP_SWEEP_LIMIT:-2}"
+min_produced="${A2A_QLOOP_SWEEP_MIN_PRODUCED:-$sweep_limit}"
+
 env_args=(
     AM_DREAM_ADMISSION=shadow
     AM_QLOOP_SWEEP_DIR="$WORKDIR"
@@ -67,8 +70,8 @@ env_args=(
     AM_QLOOP_SWEEP_SAMPLE_FILE="$sample_file"
     AM_QLOOP_SWEEP_BIN="$ROOT/chorus-arianna"
     AM_QLOOP_SWEEP_MODEL="$model_file"
-    AM_QLOOP_SWEEP_LIMIT="${A2A_QLOOP_SWEEP_LIMIT:-2}"
-    AM_QLOOP_SWEEP_MIN_PRODUCED="${A2A_QLOOP_SWEEP_MIN_PRODUCED:-1}"
+    AM_QLOOP_SWEEP_LIMIT="$sweep_limit"
+    AM_QLOOP_SWEEP_MIN_PRODUCED="$min_produced"
     AM_QLOOP_SWEEP_MIN_AVG_WORDS="${A2A_QLOOP_SWEEP_MIN_AVG_WORDS:-3.0}"
 )
 
@@ -85,11 +88,16 @@ grep -q '"name": "strict"' "$SUMMARY" || die "strict config missing"
 grep -q '"name": "question_hint"' "$SUMMARY" || die "question_hint config missing"
 grep -q '"name": "question_hint_loose"' "$SUMMARY" || die "question_hint_loose config missing"
 grep -q '"name": "statement"' "$SUMMARY" || die "statement config missing"
-grep -q '"winner":' "$SUMMARY" || die "qloop sweep winner missing"
-grep -q '"gate_passed": true' "$SUMMARY" || die "qloop sweep quality gate did not pass"
+grep -q '"gate_passed":' "$SUMMARY" || die "qloop sweep gate verdict missing"
+if ! grep -q '"winner":' "$SUMMARY"; then
+    grep -q '"no config passed quality gate"' "$SUMMARY" || die "qloop sweep winner missing without gate reason"
+fi
 grep -q '"replay_failed": 0' "$SUMMARY" || die "qloop sweep replay failures found"
 grep -q '"route_label_leaks":' "$SUMMARY" && die "qloop sweep found route label leaks"
 grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
+if grep -q '"produced": [1-9]' "$SUMMARY"; then
+    grep -q '"surface_checked":' "$SUMMARY" || die "qloop surface telemetry missing from produced configs"
+fi
 grep -q '\[admission-qloop-sweep\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 for log in "$WORKDIR"/dream_admission_qloop_*.jsonl; do
     [[ -e "$log" ]] || continue

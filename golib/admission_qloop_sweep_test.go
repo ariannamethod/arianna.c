@@ -19,13 +19,85 @@ func TestQloopSweepConfigs(t *testing.T) {
 }
 
 func TestQloopSweepTextStats(t *testing.T) {
-	words, leak := qloopSweepTextStats("what did the neighbour hear?")
-	if words != 5 || leak {
-		t.Fatalf("bad clean stats: words=%d leak=%v", words, leak)
+	words, leak, debt := qloopSweepTextStats("what did the neighbour hear?")
+	if words != 5 || leak || len(debt) != 0 {
+		t.Fatalf("bad clean stats: words=%d leak=%v debt=%v", words, leak, debt)
 	}
-	_, leak = qloopSweepTextStats("↳ qloop c1→c0 score 1.2: broken")
+	_, leak, _ = qloopSweepTextStats("↳ qloop c1→c0 score 1.2: broken")
 	if !leak {
 		t.Fatal("route label leak not detected")
+	}
+}
+
+func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {
+	_, _, debt := qloopSweepTextStats("you from The My Name—. / my identity as — “.” This phrase.")
+	want := map[string]bool{
+		"you_from_artifact":    true,
+		"name_phrase_artifact": true,
+		"dangling_dash":        true,
+		"slash_join":           true,
+		"empty_quote":          true,
+		"meta_phrase_artifact": true,
+	}
+	for _, reason := range debt {
+		delete(want, reason)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing debt reasons: %v in %v", want, debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("you’s being.")
+	if len(debt) != 1 || debt[0] != "bad_contraction" {
+		t.Fatalf("bad contraction debt not isolated: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("Oleg—or—and perhaps.")
+	if len(debt) != 2 {
+		t.Fatalf("recipient/joiner debt not detected: %v", debt)
+	}
+}
+
+func TestQloopSweepQualityRejectsSurfaceDebt(t *testing.T) {
+	cfg := admissionQloopSweepConfigSummary{
+		Name:           "question_hint_loose",
+		Produced:       2,
+		PolicyPassed:   2,
+		SurfaceChecked: 2,
+		SurfaceDebt:    1,
+		AvgWords:       9.5,
+	}
+	reasons := qloopSweepQualityReasons(cfg, 1, 3.0)
+	if len(reasons) != 1 || reasons[0] != "surface_debt" {
+		t.Fatalf("surface debt should block quality gate: %v", reasons)
+	}
+}
+
+func TestQloopSweepQualityRejectsShortCandidates(t *testing.T) {
+	cfg := admissionQloopSweepConfigSummary{
+		Name:            "question_hint_loose",
+		Produced:        2,
+		PolicyPassed:    2,
+		SurfaceChecked:  2,
+		ShortCandidates: 1,
+		AvgWords:        4.0,
+	}
+	reasons := qloopSweepQualityReasons(cfg, 1, 3.0)
+	if len(reasons) != 1 || reasons[0] != "short_candidate" {
+		t.Fatalf("short qloop candidate should block quality gate: %v", reasons)
+	}
+}
+
+func TestQloopSweepQualityRejectsLowCoverage(t *testing.T) {
+	cfg := admissionQloopSweepConfigSummary{
+		Name:           "statement",
+		Produced:       1,
+		PolicyPassed:   1,
+		SurfaceChecked: 1,
+		AvgWords:       4.0,
+	}
+	reasons := qloopSweepQualityReasons(cfg, 2, 3.0)
+	if len(reasons) != 1 || reasons[0] != "produced_below_2" {
+		t.Fatalf("low qloop coverage should block quality gate: %v", reasons)
 	}
 }
 
