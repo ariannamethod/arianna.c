@@ -2872,3 +2872,33 @@ frame issue directionally (`My Name, Mira.` comes back with lower entropy and po
 exposes role-inversion/name-echo debt, so `my name` without `Arianna` and `you have lived` now fail qloop surface
 admission. Current five-config sweep remains fail-closed at 0/2 across all qloop modes. Next qloop work should move
 upstream into better source/context construction rather than relaxing gates.
+
+**Follow-up, same day - qloop source-frame sweep.** Added env-gated
+`A2A_QLOOP_QUESTION_SOURCE_FRAME` for the question-source hint, with `legacy` preserving the old
+`Question: What` stem and new measured frames `qa` (`Q: ... A: ... Q: What`) and `user_arianna`
+(`User: ... Arianna: ... User: What`). Runtime default remains `legacy`; this is a sweep axis, not a live flip.
+
+Final 9-config receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.YF1vYv/qloop_sweep_summary.json`.
+`question_source_user_arianna` is the first qloop config to pass the quality gate: 2/2 produced,
+`qsrc=2`, `routes=4`, `qloop_generated=8`, `qloop_retries=2`, replay 0, no surface/IQ gates, winner
+`question_source_user_arianna`, `gate_passed=true`. Its admitted lines are short but clean:
+`not a human.` for cold-reader and `this person exists.` for recipient-lock. The same source with
+`A2A_QLOOP_ANSWER_FRAME=1` drops back to 0/2, so the current evidence says: ask/source in
+`User:/Arianna:` role, answer with the legacy cell-label KV context. `question_source_qa` produces only 1/2
+(`If yes the field.`) and fails coverage. Next: widen the prompt set and/or raise semantic quality before any
+production default changes.
+
+**Follow-up, same day - qloop broad source-frame check.** Added `make admission-qloop-sweep-broad`, which runs
+the same source-frame matrix with `A2A_QLOOP_SWEEP_LIMIT=6` by default. This keeps the normal qloop sweep fast
+while giving tuning work a wider gate.
+
+Broad receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.hXKAI7/qloop_sweep_summary.json`.
+Result: no production winner on 6 prompts (`gate_passed=false`, replay 0). `question_source_user_arianna`
+stays clean but covers only 2/6 (`not a human.`, `this person exists.`). Legacy `question_hint`,
+`question_hint_loose`, and `statement` each reach 3/6, but they do it with more gates/retries and thinner or
+rougher lines (`my interior ofness.`, `for memory and rec.`, `If someone or any kind said.`,
+`it has been forgotten.`). Conclusion: `User:/Arianna:` is a real qloop source-frame bridge for recipient
+boundary prompts, not yet a default. Next tuning layer should improve source selection/coverage on identity,
+polyphony, qloop, and statement prompts while preserving fail-closed admission.
