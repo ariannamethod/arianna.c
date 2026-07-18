@@ -76,6 +76,10 @@ echo "[body-smoke] admission shadow receipt"
 A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
     bash "$ROOT/tools/admission_shadow_smoke.sh"
 
+echo "[body-smoke] admission shadow sample"
+A2A_ADMISSION_SAMPLE_WORKDIR="$WORKDIR/admission-sample" \
+    bash "$ROOT/tools/admission_shadow_sample.sh"
+
 if [[ ! -f "$JANUS_MODEL" || ! -f "$RESONANCE_MODEL" || ! -f "$NANO_MODEL" ]]; then
     if [[ "$REQUIRE_WEIGHTS" == "1" ]]; then
         die "missing one or more GGUFs: $JANUS_MODEL | $RESONANCE_MODEL | $NANO_MODEL"
