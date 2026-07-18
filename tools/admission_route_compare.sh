@@ -104,6 +104,7 @@ if grep -Eq '"candidates": [1-9][0-9]*' "$SUMMARY"; then
 fi
 IFS=',' read -r -a requested_routes <<< "$routes_csv"
 want_timing=0
+want_qloop=0
 for route in "${requested_routes[@]}"; do
     route="${route//[[:space:]]/}"
     [[ -z "$route" ]] && continue
@@ -111,9 +112,15 @@ for route in "${requested_routes[@]}"; do
     if [[ "$route" == "chorus" || "$route" == "qloop" ]]; then
         want_timing=1
     fi
+    if [[ "$route" == "qloop" ]]; then
+        want_qloop=1
+    fi
 done
 if [[ "$want_timing" == "1" ]]; then
     grep -q '"timing_seen":' "$SUMMARY" || die "route timing telemetry missing from summary"
+fi
+if [[ "$want_qloop" == "1" ]]; then
+    grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
 fi
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
