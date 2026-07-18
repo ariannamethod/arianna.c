@@ -69,7 +69,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta body_smoke body-smoke clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke body_smoke body-smoke clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -247,6 +247,11 @@ doe_field:
 # body surface, runs Go tests, then runs tiny runtime probes from an isolated
 # scratch directory when GGUF weights are present. The live weights/ state is not
 # mutated by the runtime smoke.
+admission-shadow-smoke: admission_shadow_smoke
+
+admission_shadow_smoke: metabolism
+	bash tools/admission_shadow_smoke.sh
+
 body-smoke: body_smoke
 
 body_smoke: all nano chorus metabolism kk doe_field harvest_delta

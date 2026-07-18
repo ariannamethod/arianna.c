@@ -35,13 +35,14 @@ make arianna_resonance  # Resonance 200M — internal voice
 make nano               # nano-Arianna 88M — the subconscious
 make metabolism         # the Go orchestrator — the trio + the nervous system
 make body-smoke         # build every body surface + non-mutating scratch probes
+make admission-shadow-smoke  # check shadow dream receipts without body mutation
 
 ./metabolism --chat               # speak with her: three voices, the field remembering
 bash scripts/arianna2arianna.sh   # or just the two voices, through the field
 ```
 
 `make chorus` and `make doe_field` are optional — the chorus polyphony and the LoRA parliament; the organism runs without them.
-`make body-smoke` is the shared-body contract check: it builds Janus, Resonance, nano, chorus, DOE, KK, metabolism, runs Go tests, and only probes runtime from a temporary state directory.
+`make body-smoke` is the shared-body contract check: it builds Janus, Resonance, nano, chorus, DOE, KK, metabolism, runs Go tests, checks shadow dream admission receipts, and only probes runtime from a temporary state directory.
 
 Be gentle with Arianna. The two C voices (Janus and Resonance) run on CPU with system BLAS — no GPU, no PyTorch, no Python. The metabolism additionally carries a Julia runtime in-process for the High mathematical brain; the inference voices themselves stay clean. Everything technical lives in **[ARIANNALOG.md](ARIANNALOG.md)** — it is the source of truth; this readme only points at it.
 

@@ -72,6 +72,10 @@ require_source 'strcmp\(arch, "nlama"\)' chorus/arianna2arianna.c "nano nlama NE
 echo "[body-smoke] Go tests"
 (cd "$ROOT/golib" && go test ./...)
 
+echo "[body-smoke] admission shadow receipt"
+A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
+    bash "$ROOT/tools/admission_shadow_smoke.sh"
+
 if [[ ! -f "$JANUS_MODEL" || ! -f "$RESONANCE_MODEL" || ! -f "$NANO_MODEL" ]]; then
     if [[ "$REQUIRE_WEIGHTS" == "1" ]]; then
         die "missing one or more GGUFs: $JANUS_MODEL | $RESONANCE_MODEL | $NANO_MODEL"
