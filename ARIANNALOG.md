@@ -2743,3 +2743,10 @@ outside the policy is rejected with `admission policy failed: ...` and leaves th
 Validated with `go test ./...`, `git diff --check`, `make admission-shadow-smoke`, and the weighted
 `make body-smoke` path. Next threshold work is empirical tuning from real shadow receipts, not widening live
 mutation by default.
+
+**Follow-up, same day — shadow receipt sampler.** The threshold policy now has a repeatable sampling path:
+`metabolism --admission-sample` and `make admission-shadow-sample`. It runs only with
+`AM_DREAM_ADMISSION=shadow`, rejects every candidate, asserts the live `inner_world` is unchanged after each
+sample, and writes both typed JSONL receipts plus `arianna.dream_admission_sample_summary.v1`. The sampler
+accepts built-in probes or a JSONL/plain-text file via `A2A_ADMISSION_SAMPLE_FILE`, so threshold tuning can
+measure replay failures, policy failures, and max counterfactual deltas before any live admission widening.

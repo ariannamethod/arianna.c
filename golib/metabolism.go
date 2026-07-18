@@ -375,6 +375,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-sample" {
+		if err := runAdmissionSample(); err != nil {
+			fmt.Println("admission-sample:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	prompt := "What is resonance?"
 	if len(os.Args) > 1 {
 		prompt = os.Args[1]

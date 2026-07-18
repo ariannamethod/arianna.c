@@ -59,8 +59,11 @@ Each candidate also carries an `arianna.dream_admission_policy.v1` verdict with
 bounded counterfactual-delta thresholds; live admission fails closed when a
 replay-verified dream would still move trauma, coherence, affect, memory,
 prophecy, or loop counters outside the current policy.
-`make admission-shadow-smoke` and `make body-smoke` verify this receipt path from
-scratch without writing durable organism state.
+`make admission-shadow-smoke` verifies the single receipt path. `make
+admission-shadow-sample` runs a built-in or JSONL sample set through the same
+shadow-only boundary and writes an aggregate policy summary for threshold tuning.
+`make body-smoke` verifies both paths from scratch without writing durable
+organism state.
 
 ## Open Questions
 
