@@ -2845,3 +2845,11 @@ one candidate text, so qloop now selects the best single qloop line by surface d
 and word count. Verified sweep: the previous statement aggregate `the other-ness. / he has been alive.` becomes the
 single clean candidate `he has been alive.`; Go-level `slash_join` debt disappears. The route still has no production
 winner because standard coverage is 1/2, not 2/2, so the gate remains conservative.
+
+**Follow-up, same day — qloop coverage receipts.** Qloop sweep summaries now include per-sample receipts and
+split rejected qloop gates into `qloop_gate_surface` and `qloop_gate_iq`, so the next tuning pass can see the
+actual failing prompt without opening `FIELDLOG.md`. Current standard sweep remains conservative
+(`gate_passed=false`): strict is statement-only and produces 0/2; question-hint and loose question-hint both
+hit `cold-reader`/`recipient-lock` qloop routes but reject all generated qloop text; statement fallback still
+produces only sample 2 (`recipient-lock`, `he has been alive.`, 4 words). The first sample (`cold-reader`,
+`new-listener`) is now explicitly visible as surface/iq gate debt, not an unexplained empty aggregate.
