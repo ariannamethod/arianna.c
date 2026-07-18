@@ -52,6 +52,8 @@ inject, or downstream consolidation. `AM_DREAM_ADMISSION_LOG=<path>` appends
 JSONL receipts for those decisions, including scratch `inner_world`
 counterfactual deltas and text metrics; if a live admission explicitly requests
 a ledger and the ledger cannot be written, the admission fails closed.
+`make admission-shadow-smoke` and `make body-smoke` verify this receipt path from
+scratch without writing durable organism state.
 
 ## Open Questions
 
