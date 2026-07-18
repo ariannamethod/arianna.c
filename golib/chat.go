@@ -107,11 +107,15 @@ func runChat() {
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson
 		if hasDream {
-			lastDream = dr.dream
-			if dr.frag != "" {
-				fmt.Printf("│  ◌ from the books: %s\n", ellipsize(dr.frag, 90))
+			if dr.admitted() {
+				lastDream = dr.dream
+				if dr.frag != "" {
+					fmt.Printf("│  ◌ from the books: %s\n", ellipsize(dr.frag, 90))
+				}
+				fmt.Printf("│  ◓ nano (subconscious): %s\n", dr.dream)
+			} else {
+				fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(dr.dream, 90))
 			}
-			fmt.Printf("│  ◓ nano (subconscious): %s\n", dr.dream)
 		}
 		// A hot voice daemon can fall silent after a turn or two (it stops framing <END>).
 		// Revive it in place instead of ending the session — the trio survives one voice's

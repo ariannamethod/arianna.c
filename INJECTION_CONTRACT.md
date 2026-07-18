@@ -20,7 +20,7 @@ enabled and logged.
 | Janus-to-Resonance | Janus | Resonance | field direction / summary trace / logits | planned |
 | Resonance-to-Janus | Resonance | Janus | field direction / summary trace / logits | planned |
 | Resonance-to-nano | Resonance | nano | KK fragment / dream seed / field pressure | planned |
-| nano-to-Resonance | nano / chorus | Resonance | dream trace / qloop question / field metric | planned |
+| nano-to-Resonance | nano / chorus | Resonance | dream trace / qloop question / field metric | active, admission-gated |
 | nano-to-nano | nano | nano | qloop / self-dream / chorus recurrence | experimental |
 | DOE-to-voice | DOE parliament | selected voice | LoRA/expert pressure and logits | opt-in |
 | field-to-all | Dario / AML field | Janus, Resonance, nano | logits and field overlays | active/planned |
@@ -36,6 +36,10 @@ Before a path can become default:
 - nano is not exposed as the main user-facing speaker unless explicitly
   requested for debugging;
 - read-only eval leaves soma, field, cooc, delta, KK, and DOE state unchanged;
+- `AM_DREAM_ADMISSION=shadow` observes nano/chorus dreams as typed candidates
+  without mutating inner-world, lastDream, Resonance cooc, delta, KK, or DOE;
+- `AM_DREAM_ADMISSION_LOG=<path>` appends JSONL admission receipts; if a live
+  path is requested and cannot be written, admission fails closed;
 - regression prompts show improvement or bounded tradeoff;
 - timeout, parser, child-process, and unknown-architecture failures are visible
   and fail closed.
