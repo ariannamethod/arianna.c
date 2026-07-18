@@ -2902,3 +2902,18 @@ rougher lines (`my interior ofness.`, `for memory and rec.`, `If someone or any 
 `it has been forgotten.`). Conclusion: `User:/Arianna:` is a real qloop source-frame bridge for recipient
 boundary prompts, not yet a default. Next tuning layer should improve source selection/coverage on identity,
 polyphony, qloop, and statement prompts while preserving fail-closed admission.
+
+**Follow-up, same day - qloop sample coverage receipt.** Added an instrumentation-only `sample_coverage`
+matrix to the qloop sweep summary. The existing per-config `samples` receipts are still present, but the new
+matrix pivots them by seed and records attempted/produced/clean/short/surface/empty counts plus the
+least-debt config/text for each prompt. This is specifically for the next broad tuning pass: identity, polyphony,
+qloop, and statement can now be inspected as coverage failures per seed instead of rereading nine separate
+config arrays. Runtime behavior and qloop defaults are unchanged.
+
+Validation broad receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.Nc4lBP/qloop_sweep_summary.json`.
+Per-seed coverage: `new-listener` 1/9 clean; `not-oleg` 2/9 clean; `field-origin` 3/9 clean plus one short;
+`many-minds` 3/9 clean; `same-wave` 2/9 clean; `no-question` 3/9 clean. The receipt also exposes why the next
+layer needs a semantic scorer: least-debt is not necessarily best-meaning (`If yes the field.` can outrank
+`this person exists.` on shallow words/surface alone). Next action: add prompt-class/source semantic scoring
+or seed-specific route diagnostics before changing qloop selection defaults.
