@@ -69,7 +69,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke admission_shadow_sample admission-shadow-sample admission_shadow_sample_broad admission-shadow-sample-broad body_smoke body-smoke clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke admission_shadow_sample admission-shadow-sample admission_shadow_sample_broad admission-shadow-sample-broad admission_route_compare admission-route-compare body_smoke body-smoke clean weights distclean
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -263,6 +263,11 @@ admission_shadow_sample_broad: metabolism
 	A2A_ADMISSION_SAMPLE_FILE=samples/dream_admission_broad.jsonl \
 	A2A_ADMISSION_SAMPLE_REQUIRE_POLICY_FAIL=1 \
 	    bash tools/admission_shadow_sample.sh
+
+admission-route-compare: admission_route_compare
+
+admission_route_compare: chorus metabolism
+	bash tools/admission_route_compare.sh
 
 body-smoke: body_smoke
 

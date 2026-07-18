@@ -68,20 +68,5 @@ func TestChorusTextCaps(t *testing.T) {
 // parseField runs choir()'s line parser over canned output (choir() itself spawns
 // a subprocess; this tests the parse in isolation).
 func parseField(out string) []chorusCell {
-	var cells []chorusCell
-	for _, line := range strings.Split(out, "\n") {
-		isQloop := strings.Contains(line, "qloop")
-		isCell := strings.Contains(line, "(T=")
-		if !isCell && !isQloop {
-			continue
-		}
-		frag := chorusBody(line, isQloop)
-		if len(frag) > 3 {
-			cells = append(cells, chorusCell{text: frag, qloop: isQloop})
-			if len(cells) >= maxChorusCells {
-				break
-			}
-		}
-	}
-	return cells
+	return parseChorusCells(out)
 }

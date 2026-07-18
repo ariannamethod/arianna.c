@@ -56,11 +56,16 @@ func choir(ctx context.Context, bin, gguf, seed string, nCells int) []chorusCell
 	if err != nil {
 		return nil
 	}
+	return parseChorusCells(string(out))
+}
+
+func parseChorusCells(out string) []chorusCell {
 	var cells []chorusCell
-	for _, line := range strings.Split(string(out), "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		// cell lines: "  r1 cell 0 (T=0.60):  <text>  [entropy=…]"
 		// qloop lines: "  ↳ qloop c3→c0 score 1.097:  <text>  [entropy=…]"
-		isQloop := strings.Contains(line, "qloop")
+		trimmed := strings.TrimSpace(line)
+		isQloop := strings.HasPrefix(trimmed, "↳ qloop ") && !strings.HasPrefix(trimmed, "↳ qloop gate ")
 		isCell := strings.Contains(line, "(T=")
 		if !isCell && !isQloop {
 			continue
