@@ -1069,6 +1069,7 @@ static float g_qloop_tconf_adapt_weight = -0.10f;
 static int   g_qloop_unique_asker = 0;     /* 1 = widened qloop may not fan one asking cell into multiple routes */
 static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect this many pre-generation routes */
 static int   g_qloop_question_source_hint = 0; /* 1 = ask one base cell to produce an inner question source */
+static int   g_qloop_question_source_frame = 0; /* 0=legacy Question: What; 1=qa; 2=user_arianna */
 static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
 static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
 static int   g_qloop_answer_frame = 0;     /* 0=legacy cell-label context; 1=QA prompt frame with route KV */
@@ -1123,6 +1124,14 @@ static void load_qloop_route_env(void) {
     g_qloop_unique_asker = env_int_clamped("A2A_QLOOP_UNIQUE_ASKER", 0, 0, 1);
     g_qloop_candidate_pool = env_int_clamped("A2A_QLOOP_CANDIDATE_POOL", 0, 0, 8);
     g_qloop_question_source_hint = env_int_clamped("A2A_QLOOP_QUESTION_SOURCE_HINT", 0, 0, 1);
+    const char *src_frame = getenv("A2A_QLOOP_QUESTION_SOURCE_FRAME");
+    g_qloop_question_source_frame = 0;
+    if (src_frame && *src_frame) {
+        if (strcmp(src_frame, "legacy") == 0) g_qloop_question_source_frame = 0;
+        else if (strcmp(src_frame, "qa") == 0) g_qloop_question_source_frame = 1;
+        else if (strcmp(src_frame, "user_arianna") == 0) g_qloop_question_source_frame = 2;
+        else fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_QUESTION_SOURCE_FRAME=%s\n", src_frame);
+    }
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
     g_qloop_answer_frame = env_int_clamped("A2A_QLOOP_ANSWER_FRAME", 0, 0, 1);
@@ -1202,10 +1211,24 @@ static int field_prompt_uses_qa(const char *prompt) {
     return 0;
 }
 
+static void build_qloop_question_source_prompt(char *dst, size_t cap, const char *prompt) {
+    switch (g_qloop_question_source_frame) {
+    case 1:
+        snprintf(dst, cap, "Q: %s\nA:\nQ: What", prompt);
+        break;
+    case 2:
+        snprintf(dst, cap, "User: %s\nArianna:\nUser: What", prompt);
+        break;
+    default:
+        snprintf(dst, cap, "%s\nAsk one short question about this field.\nQuestion: What", prompt);
+        break;
+    }
+}
+
 static void build_field_cell_prompt(char *dst, size_t cap, const char *prompt, int cell) {
     if (!prompt) prompt = "";
     if (g_qloop && g_qloop_question_source_hint && cell == 0)
-        snprintf(dst, cap, "%s\nAsk one short question about this field.\nQuestion: What", prompt);
+        build_qloop_question_source_prompt(dst, cap, prompt);
     else if (g_field_prompt_format == 3) snprintf(dst, cap, "User: %s\nArianna:", prompt);
     else if (field_prompt_uses_qa(prompt)) snprintf(dst, cap, "Q: %s\nA:", prompt);
     else snprintf(dst, cap, "%s", prompt);

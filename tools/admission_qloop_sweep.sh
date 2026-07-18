@@ -86,6 +86,8 @@ fi
 grep -q '"schema": "arianna.dream_admission_qloop_sweep_summary.v1"' "$SUMMARY" || die "summary schema missing"
 grep -q '"name": "strict"' "$SUMMARY" || die "strict config missing"
 grep -q '"name": "question_hint"' "$SUMMARY" || die "question_hint config missing"
+grep -q '"name": "question_source_qa"' "$SUMMARY" || die "question_source_qa config missing"
+grep -q '"name": "question_source_user_arianna"' "$SUMMARY" || die "question_source_user_arianna config missing"
 grep -q '"name": "question_hint_loose"' "$SUMMARY" || die "question_hint_loose config missing"
 grep -q '"name": "statement"' "$SUMMARY" || die "statement config missing"
 grep -q '"gate_passed":' "$SUMMARY" || die "qloop sweep gate verdict missing"

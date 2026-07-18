@@ -174,6 +174,24 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 			"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
 			"A2A_QLOOP_ANSWER_FRAME":         "1",
 		}},
+		{Name: "question_source_qa", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "qa",
+		}},
+		{Name: "question_source_qa_answer_qa", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "qa",
+			"A2A_QLOOP_ANSWER_FRAME":          "1",
+		}},
+		{Name: "question_source_user_arianna", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+		}},
+		{Name: "question_source_user_arianna_answer_qa", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+			"A2A_QLOOP_ANSWER_FRAME":          "1",
+		}},
 		{Name: "question_hint_loose", Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
 			"A2A_QLOOP_MIN":                  "0.30",
