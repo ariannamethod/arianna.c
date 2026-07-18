@@ -132,14 +132,24 @@ kk-cli
 
 # Knowledge Kernel SQLite DB (the nano's library of dreams — ingested locally)
 weights/*.db
+weights/*.db-*
 weights/*.state
 *.kk.db
+*.kk.db-*
 
 # Live shared field (B/F-8) — mmap'd, local runtime state
 weights/*.field
+weights/*.cooc.*
+weights/*.delta.*
+weights/*.nerve
+weights/field_archive_*/
 field_probe
 chorus-arianna
 harvest_delta
+
+# Shared checkout coordination scratch.
+.worktrees/
+LOCAL_STATE.md
 
 # Chorus / dream runtime traces + local KK book corpus (not distribution)
 FIELDLOG.md
