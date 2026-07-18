@@ -35,7 +35,8 @@ type dreamCandidate struct {
 	Reason    string    `json:"reason"`
 	Created   time.Time `json:"created"`
 
-	Counterfactual *dreamCounterfactual `json:"counterfactual,omitempty"`
+	Counterfactual *dreamCounterfactual  `json:"counterfactual,omitempty"`
+	Admission      *dreamAdmissionPolicy `json:"admission_policy,omitempty"`
 }
 
 type dreamCounterfactual struct {
@@ -61,6 +62,23 @@ type dreamReplayGuard struct {
 	AnalysisHash  string `json:"analysis_hash"`
 	TextHash      string `json:"text_hash"`
 	Reason        string `json:"reason,omitempty"`
+}
+
+type dreamAdmissionPolicy struct {
+	Schema              string   `json:"schema"`
+	Checked             bool     `json:"checked"`
+	Passed              bool     `json:"passed"`
+	MaxAbsArousal       float32  `json:"max_abs_arousal"`
+	MaxAbsValence       float32  `json:"max_abs_valence"`
+	MaxAbsEntropy       float32  `json:"max_abs_entropy"`
+	MaxAbsCoherence     float32  `json:"max_abs_coherence"`
+	MaxTrauma           float32  `json:"max_trauma"`
+	MaxMemoryPressure   float32  `json:"max_memory_pressure"`
+	MaxProphecyDebt     float32  `json:"max_prophecy_debt"`
+	MaxLoopCount        int      `json:"max_loop_count"`
+	MaxAbstractionDepth int      `json:"max_abstraction_depth"`
+	MaxSelfRefCount     int      `json:"max_self_ref_count"`
+	Reasons             []string `json:"reasons,omitempty"`
 }
 
 type dreamSnapshotDelta struct {
@@ -238,12 +256,21 @@ func replayDreamCounterfactual(before Snapshot, text string, first dreamCounterf
 }
 
 func guardDreamCandidate(c dreamCandidate) dreamCandidate {
+	if c.Counterfactual != nil {
+		policy := evaluateDreamAdmissionPolicy(c.Counterfactual)
+		c.Admission = &policy
+	}
 	if !c.Accepted {
 		return c
 	}
 	if !counterfactualReplayOK(c.Counterfactual) {
 		c.Accepted = false
 		c.Reason = "counterfactual replay failed"
+		return c
+	}
+	if !dreamAdmissionPolicyOK(c.Admission) {
+		c.Accepted = false
+		c.Reason = "admission policy failed: " + strings.Join(c.Admission.Reasons, "; ")
 	}
 	return c
 }
@@ -260,6 +287,58 @@ func counterfactualReplayOK(cf *dreamCounterfactual) bool {
 		cf.Replay.DeltaHash == hashJSON(cf.Delta) &&
 		cf.Replay.AnalysisHash == hashStableAnalysis(cf.Analysis) &&
 		cf.Replay.TextHash == hashJSON(cf.Text)
+}
+
+func evaluateDreamAdmissionPolicy(cf *dreamCounterfactual) dreamAdmissionPolicy {
+	p := dreamAdmissionPolicy{
+		Schema:              "arianna.dream_admission_policy.v1",
+		Checked:             true,
+		Passed:              true,
+		MaxAbsArousal:       0.55,
+		MaxAbsValence:       0.55,
+		MaxAbsEntropy:       0.35,
+		MaxAbsCoherence:     0.35,
+		MaxTrauma:           0.35,
+		MaxMemoryPressure:   0.50,
+		MaxProphecyDebt:     0.50,
+		MaxLoopCount:        2,
+		MaxAbstractionDepth: 2,
+		MaxSelfRefCount:     2,
+	}
+	if cf == nil {
+		p.Passed = false
+		p.Reasons = append(p.Reasons, "missing counterfactual")
+		return p
+	}
+	d := cf.Delta
+	add := func(ok bool, reason string) {
+		if !ok {
+			p.Reasons = append(p.Reasons, reason)
+		}
+	}
+	add(abs32(d.Arousal) <= p.MaxAbsArousal, fmt.Sprintf("arousal delta %.3f exceeds %.3f", d.Arousal, p.MaxAbsArousal))
+	add(abs32(d.Valence) <= p.MaxAbsValence, fmt.Sprintf("valence delta %.3f exceeds %.3f", d.Valence, p.MaxAbsValence))
+	add(abs32(d.Entropy) <= p.MaxAbsEntropy, fmt.Sprintf("entropy delta %.3f exceeds %.3f", d.Entropy, p.MaxAbsEntropy))
+	add(abs32(d.Coherence) <= p.MaxAbsCoherence, fmt.Sprintf("coherence delta %.3f exceeds %.3f", d.Coherence, p.MaxAbsCoherence))
+	add(d.TraumaLevel <= p.MaxTrauma, fmt.Sprintf("trauma delta %.3f exceeds %.3f", d.TraumaLevel, p.MaxTrauma))
+	add(d.MemoryPressure <= p.MaxMemoryPressure, fmt.Sprintf("memory pressure delta %.3f exceeds %.3f", d.MemoryPressure, p.MaxMemoryPressure))
+	add(d.ProphecyDebt <= p.MaxProphecyDebt, fmt.Sprintf("prophecy debt delta %.3f exceeds %.3f", d.ProphecyDebt, p.MaxProphecyDebt))
+	add(d.LoopCount <= p.MaxLoopCount, fmt.Sprintf("loop count delta %d exceeds %d", d.LoopCount, p.MaxLoopCount))
+	add(d.AbstractionDepth <= p.MaxAbstractionDepth, fmt.Sprintf("abstraction depth delta %d exceeds %d", d.AbstractionDepth, p.MaxAbstractionDepth))
+	add(d.SelfRefCount <= p.MaxSelfRefCount, fmt.Sprintf("self-ref count delta %d exceeds %d", d.SelfRefCount, p.MaxSelfRefCount))
+	p.Passed = len(p.Reasons) == 0
+	return p
+}
+
+func dreamAdmissionPolicyOK(p *dreamAdmissionPolicy) bool {
+	return p != nil && p.Checked && p.Passed
+}
+
+func abs32(v float32) float32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func applySnapshot(iw *InnerWorld, s Snapshot) {
