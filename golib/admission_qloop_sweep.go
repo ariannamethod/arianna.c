@@ -20,6 +20,7 @@ type admissionQloopSweepSummary struct {
 	SamplesRun     int                                 `json:"samples_run"`
 	Configs        []admissionQloopSweepConfigSummary  `json:"configs"`
 	SampleCoverage []admissionQloopSweepSampleCoverage `json:"sample_coverage,omitempty"`
+	TargetHint     *admissionQloopTargetHintRollup     `json:"target_hint_review,omitempty"`
 	Winner         string                              `json:"winner,omitempty"`
 	GatePassed     bool                                `json:"gate_passed"`
 	GateReasons    []string                            `json:"gate_reasons,omitempty"`
@@ -33,6 +34,11 @@ type admissionQloopSweepConfig struct {
 	Name string
 	Env  map[string]string
 }
+
+const (
+	qloopSweepClassSourceConfigName = "question_source_class_user_arianna"
+	qloopSweepTargetHintConfigName  = "question_source_class_target_user_arianna"
+)
 
 type admissionQloopSweepConfigSummary struct {
 	Name             string                             `json:"name"`
@@ -126,7 +132,37 @@ type admissionQloopSweepSampleCoverage struct {
 	BestSemanticClean  bool                               `json:"best_semantic_clean,omitempty"`
 	BestSemanticScore  int                                `json:"best_semantic_score"`
 	BestSemanticText   string                             `json:"best_semantic_text,omitempty"`
+	TargetHintReview   *admissionQloopTargetHintReview    `json:"target_hint_review,omitempty"`
 	Configs            []admissionQloopSweepSampleOutcome `json:"configs,omitempty"`
+}
+
+type admissionQloopTargetHintReview struct {
+	BaselineConfig        string `json:"baseline_config,omitempty"`
+	TargetConfig          string `json:"target_config,omitempty"`
+	Decision              string `json:"decision"`
+	Reason                string `json:"reason,omitempty"`
+	BestConfig            string `json:"best_config,omitempty"`
+	BestText              string `json:"best_text,omitempty"`
+	ScoreDelta            int    `json:"score_delta"`
+	SurfacePenaltyDelta   int    `json:"surface_penalty_delta,omitempty"`
+	BaselineProduced      bool   `json:"baseline_produced"`
+	TargetProduced        bool   `json:"target_produced"`
+	BaselineClean         bool   `json:"baseline_clean"`
+	TargetClean           bool   `json:"target_clean"`
+	BaselineSemanticScore int    `json:"baseline_semantic_score"`
+	TargetSemanticScore   int    `json:"target_semantic_score"`
+	BaselineWords         int    `json:"baseline_words,omitempty"`
+	TargetWords           int    `json:"target_words,omitempty"`
+}
+
+type admissionQloopTargetHintRollup struct {
+	Reviews         int `json:"reviews"`
+	TargetKept      int `json:"target_kept"`
+	RolledBack      int `json:"rolled_back"`
+	TieRolledBack   int `json:"tie_rolled_back,omitempty"`
+	NoCandidate     int `json:"no_candidate"`
+	TargetMissing   int `json:"target_missing,omitempty"`
+	BaselineMissing int `json:"baseline_missing,omitempty"`
 }
 
 type admissionQloopSweepSampleOutcome struct {
@@ -212,6 +248,7 @@ func runAdmissionQloopSweep() error {
 		summary.Configs = append(summary.Configs, cfgSummary)
 	}
 	summary.SampleCoverage = buildQloopSweepSampleCoverage(summary.Configs)
+	summary.TargetHint = summarizeQloopTargetHintReviews(summary.SampleCoverage)
 	summary.Winner, summary.GatePassed, summary.GateReasons = chooseQloopSweepWinner(summary.Configs)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_QLOOP_SWEEP_SUMMARY"))
@@ -246,12 +283,12 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
 		}},
-		{Name: "question_source_class_user_arianna", Env: map[string]string{
+		{Name: qloopSweepClassSourceConfigName, Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
 			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
 		}},
-		{Name: "question_source_class_target_user_arianna", Env: map[string]string{
+		{Name: qloopSweepTargetHintConfigName, Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
 			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
@@ -514,9 +551,150 @@ func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) [
 	sort.Ints(order)
 	out := make([]admissionQloopSweepSampleCoverage, 0, len(order))
 	for _, index := range order {
-		out = append(out, *byIndex[index])
+		cov := *byIndex[index]
+		cov.TargetHintReview = buildQloopTargetHintReview(cov.Configs)
+		out = append(out, cov)
 	}
 	return out
+}
+
+func buildQloopTargetHintReview(outcomes []admissionQloopSweepSampleOutcome) *admissionQloopTargetHintReview {
+	baseline := qloopSweepOutcomeByConfig(outcomes, qloopSweepClassSourceConfigName)
+	target := qloopSweepOutcomeByConfig(outcomes, qloopSweepTargetHintConfigName)
+	if baseline == nil && target == nil {
+		return nil
+	}
+	review := &admissionQloopTargetHintReview{
+		BaselineConfig: qloopSweepClassSourceConfigName,
+		TargetConfig:   qloopSweepTargetHintConfigName,
+		Decision:       "no_candidate",
+		Reason:         "missing_pair",
+	}
+	if baseline != nil {
+		review.BaselineProduced = baseline.Produced
+		review.BaselineClean = baseline.Clean
+		review.BaselineSemanticScore = baseline.SemanticScore
+		review.BaselineWords = baseline.Words
+	}
+	if target != nil {
+		review.TargetProduced = target.Produced
+		review.TargetClean = target.Clean
+		review.TargetSemanticScore = target.SemanticScore
+		review.TargetWords = target.Words
+	}
+	if baseline != nil && target != nil {
+		review.ScoreDelta = target.SemanticScore - baseline.SemanticScore
+		if baseline.Produced && target.Produced {
+			review.SurfacePenaltyDelta = qloopSweepOutcomePenalty(*target) - qloopSweepOutcomePenalty(*baseline)
+		}
+	}
+
+	best, decision, reason := chooseQloopTargetHintCandidate(baseline, target)
+	review.Decision = decision
+	review.Reason = reason
+	if best != nil {
+		review.BestConfig = best.Name
+		review.BestText = best.Text
+	}
+	return review
+}
+
+func qloopSweepOutcomeByConfig(outcomes []admissionQloopSweepSampleOutcome, name string) *admissionQloopSweepSampleOutcome {
+	for i := range outcomes {
+		if outcomes[i].Name == name {
+			return &outcomes[i]
+		}
+	}
+	return nil
+}
+
+func chooseQloopTargetHintCandidate(baseline, target *admissionQloopSweepSampleOutcome) (*admissionQloopSweepSampleOutcome, string, string) {
+	baselineClean := baseline != nil && baseline.Clean
+	targetClean := target != nil && target.Clean
+	switch {
+	case targetClean && !baselineClean:
+		return target, "target", "target_only_clean"
+	case baselineClean && !targetClean:
+		return baseline, "baseline", "target_not_clean"
+	case !baselineClean && !targetClean:
+		return nil, "no_candidate", "no_clean_candidate"
+	}
+	if target.SemanticScore != baseline.SemanticScore {
+		if target.SemanticScore > baseline.SemanticScore {
+			return target, "target", "target_semantic_score"
+		}
+		return baseline, "baseline", "baseline_semantic_score"
+	}
+	if target.SemanticPassed != baseline.SemanticPassed {
+		if target.SemanticPassed {
+			return target, "target", "target_semantic_pass"
+		}
+		return baseline, "baseline", "baseline_semantic_pass"
+	}
+	targetPenalty := qloopSweepOutcomePenalty(*target)
+	baselinePenalty := qloopSweepOutcomePenalty(*baseline)
+	if targetPenalty != baselinePenalty {
+		if targetPenalty < baselinePenalty {
+			return target, "target", "target_lower_surface_penalty"
+		}
+		return baseline, "baseline", "baseline_lower_surface_penalty"
+	}
+	if target.Words != baseline.Words {
+		if target.Words > baseline.Words {
+			return target, "target", "target_longer"
+		}
+		return baseline, "baseline", "baseline_longer"
+	}
+	return baseline, "baseline", "tie_baseline"
+}
+
+func qloopSweepOutcomePenalty(outcome admissionQloopSweepSampleOutcome) int {
+	if !outcome.Produced {
+		return 1 << 30
+	}
+	penalty := len(outcome.SurfaceReasons) * 20
+	if outcome.RouteLabelLeak {
+		penalty += 100
+	}
+	if outcome.Words < 3 {
+		penalty += 10 + (3 - outcome.Words)
+	}
+	return penalty
+}
+
+func summarizeQloopTargetHintReviews(coverage []admissionQloopSweepSampleCoverage) *admissionQloopTargetHintRollup {
+	if len(coverage) == 0 {
+		return nil
+	}
+	out := admissionQloopTargetHintRollup{}
+	for _, cov := range coverage {
+		review := cov.TargetHintReview
+		if review == nil {
+			continue
+		}
+		out.Reviews++
+		switch review.Decision {
+		case "target":
+			out.TargetKept++
+		case "baseline":
+			out.RolledBack++
+			if review.Reason == "tie_baseline" {
+				out.TieRolledBack++
+			}
+		default:
+			out.NoCandidate++
+		}
+		if !review.TargetProduced {
+			out.TargetMissing++
+		}
+		if !review.BaselineProduced {
+			out.BaselineMissing++
+		}
+	}
+	if out.Reviews == 0 {
+		return nil
+	}
+	return &out
 }
 
 func qloopSweepSampleClean(sample admissionQloopSweepSampleSummary) bool {
@@ -851,12 +1029,32 @@ func chooseQloopSweepWinner(configs []admissionQloopSweepConfigSummary) (string,
 		if a.SurfaceDebt != b.SurfaceDebt {
 			return a.SurfaceDebt < b.SurfaceDebt
 		}
+		if a.SemanticPassed != b.SemanticPassed {
+			return a.SemanticPassed > b.SemanticPassed
+		}
+		if a.SemanticScore != b.SemanticScore {
+			return a.SemanticScore > b.SemanticScore
+		}
 		if a.AvgWords != b.AvgWords {
 			return a.AvgWords > b.AvgWords
+		}
+		if priA, priB := qloopSweepConfigTiePriority(a.Name), qloopSweepConfigTiePriority(b.Name); priA != priB {
+			return priA < priB
 		}
 		return a.Name < b.Name
 	})
 	return candidates[0].Name, true, nil
+}
+
+func qloopSweepConfigTiePriority(name string) int {
+	switch name {
+	case qloopSweepClassSourceConfigName:
+		return 0
+	case qloopSweepTargetHintConfigName:
+		return 1
+	default:
+		return 10
+	}
 }
 
 func writeAdmissionQloopSweepSummary(path string, summary admissionQloopSweepSummary) error {

@@ -3022,3 +3022,28 @@ repair both are semantic passes. But target hint loses coverage versus class-sou
 target-side hints are a useful identity-shaping diagnostic, not a default. Next qloop work should add per-route
 rollback / best-of routing between class-source and target-hint candidates, or attack `same-wave` source
 formation separately; do not globally force target hints.
+
+**Follow-up, same day - qloop target-hint rollback receipts.** The qloop sweep now writes a per-seed
+`target_hint_review` comparing `question_source_class_user_arianna` against
+`question_source_class_target_user_arianna`, plus a top-level rollup. The decision is fail-closed: target-side
+class hints must beat the class-source baseline by cleanliness, semantic score/pass, surface penalty, or length;
+ties roll back to baseline. The qloop sweep winner now uses semantic pass/score before word count and explicitly
+keeps the class-source baseline ahead of target-hint on a full tie, preventing config-name order from promoting
+a no-op target hint into a production-looking winner.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.26uv69/qloop_sweep_summary.json` and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.eh68JY/qloop_sweep_summary.json`;
+route-compare neighbor smoke:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.T0M2ne/dream_admission_route_compare.json`.
+Standard two-prompt sweep now chooses `question_source_class_user_arianna` as winner while target-hint reports
+`reviews=2`, `target_kept=0`, `rolled_back=2`, `tie_rolled_back=2`; both narrow outputs are identical
+(`not a human.`, `this person exists.`), so target does not win on alphabetic order. Broad six-prompt sweep
+remains fail-closed (`gate_passed=false`, no winner) and makes the target-hint diagnosis sharper:
+`reviews=6`, `target_kept=0`, `rolled_back=4`, `tie_rolled_back=3`, `no_candidate=2`, `target_missing=3`,
+`baseline_missing=2`. Target still improves the identity wording in the general `best_semantic_*` field
+(`my own internal trace.`), but rollback keeps baseline (`not the outer face.`) because score/cleanliness/length
+tie exactly. `many-minds` and `same-wave` have no clean baseline-target pair; `no-question` rolls back because
+target is missing and baseline still has the weak `there exists a kind.` candidate. Conclusion: target-hint is
+now instrumented and contained. Next qloop lift should attack `same-wave` source formation and statement-class
+semantics separately rather than widening target-hint default behavior.
