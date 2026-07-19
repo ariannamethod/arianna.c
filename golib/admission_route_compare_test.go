@@ -70,6 +70,19 @@ func TestQloopAdmissionTextChoosesSingleCandidate(t *testing.T) {
 	}
 }
 
+func TestQloopAdmissionTextForClassUsesSemanticTieBreak(t *testing.T) {
+	cells := []chorusCell{
+		{text: "If yes the field.", qloop: true},
+		{text: "this person exists.", qloop: true},
+	}
+	if got := qloopAdmissionText(cells); got != "If yes the field." {
+		t.Fatalf("legacy qloop admission should preserve least-debt tie order, got %q", got)
+	}
+	if got := qloopAdmissionTextForClass(cells, "recipient-lock"); got != "this person exists." {
+		t.Fatalf("semantic qloop admission should choose recipient answer, got %q", got)
+	}
+}
+
 func TestRecordAdmissionRouteCandidateSummarizesBuckets(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 	t.Setenv("AM_DREAM_ADMISSION_LOG", t.TempDir()+"/route.jsonl")

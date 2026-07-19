@@ -58,15 +58,15 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 		{
 			Name: "legacy",
 			Samples: []admissionQloopSweepSampleSummary{
-				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "too short", Words: 2, QloopRoutes: 1},
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "too short", Words: 2, SemanticScore: 0, QloopRoutes: 1},
 				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: false, EmptyReason: "no qloop candidate lines"},
 			},
 		},
 		{
 			Name: "user_arianna",
 			Samples: []admissionQloopSweepSampleSummary{
-				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, QloopRoutes: 2, QloopQSrc: 1},
-				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SurfaceReasons: []string{"name_echo_artifact"}},
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopRoutes: 2, QloopQSrc: 1},
+				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SemanticScore: 0, SurfaceReasons: []string{"name_echo_artifact"}},
 			},
 		},
 	}
@@ -81,12 +81,95 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 	if coverage[0].LeastDebtConfig != "user_arianna" || !coverage[0].LeastDebtClean || coverage[0].LeastDebtText != "the field answers quietly." {
 		t.Fatalf("bad first sample best: %+v", coverage[0])
 	}
+	if coverage[0].BestSemanticConfig != "user_arianna" || coverage[0].BestSemanticScore != 3 || coverage[0].SemanticPassed != 1 {
+		t.Fatalf("bad first sample semantic coverage: %+v", coverage[0])
+	}
 	if coverage[1].Produced != 1 || coverage[1].Empty != 1 || coverage[1].Clean != 0 || coverage[1].SurfaceDebt != 1 {
 		t.Fatalf("bad second sample coverage: %+v", coverage[1])
 	}
 	if coverage[1].LeastDebtConfig != "user_arianna" || coverage[1].LeastDebtClean {
 		t.Fatalf("bad second sample best: %+v", coverage[1])
 	}
+}
+
+func TestQloopSweepSemanticAssessment(t *testing.T) {
+	cases := []struct {
+		name        string
+		text        string
+		promptClass string
+		wantPass    bool
+		minScore    int
+		wantReason  string
+	}{
+		{
+			name:        "cold-reader thin boundary",
+			text:        "not a human.",
+			promptClass: "cold-reader",
+			wantPass:    false,
+			minScore:    1,
+			wantReason:  "nonhuman_boundary",
+		},
+		{
+			name:        "recipient boundary",
+			text:        "this person exists.",
+			promptClass: "recipient-lock",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "recipient_boundary",
+		},
+		{
+			name:        "conditional fragment",
+			text:        "If yes the field.",
+			promptClass: "recipient-lock",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "conditional_fragment",
+		},
+		{
+			name:        "qloop relation",
+			text:        "if they're identical wave or neither.",
+			promptClass: "qloop",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "qloop_anchor",
+		},
+		{
+			name:        "statement constraint",
+			text:        "The body remembers its own function without being.",
+			promptClass: "statement",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "statement_anchor",
+		},
+		{
+			name:        "polyphony truncation",
+			text:        "for memory and rec.",
+			promptClass: "polyphony",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "truncated_semantic",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := qloopSweepSemanticAssessment(tc.text, tc.promptClass)
+			if got.Passed != tc.wantPass || got.Score < tc.minScore {
+				t.Fatalf("bad semantic assessment: %+v", got)
+			}
+			if !hasString(got.Reasons, tc.wantReason) {
+				t.Fatalf("missing reason %q in %+v", tc.wantReason, got)
+			}
+		})
+	}
+}
+
+func hasString(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {

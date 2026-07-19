@@ -65,6 +65,11 @@ type admissionQloopSweepConfigSummary struct {
 	SurfaceChecked   int                                `json:"surface_checked,omitempty"`
 	SurfaceDebt      int                                `json:"surface_debt,omitempty"`
 	SurfaceReasons   map[string]int                     `json:"surface_debt_reasons,omitempty"`
+	SemanticChecked  int                                `json:"semantic_checked,omitempty"`
+	SemanticPassed   int                                `json:"semantic_passed"`
+	SemanticScore    int                                `json:"semantic_score"`
+	AvgSemanticScore float64                            `json:"avg_semantic_score"`
+	SemanticReasons  map[string]int                     `json:"semantic_reasons,omitempty"`
 	AvgWords         float64                            `json:"avg_words,omitempty"`
 	MinWords         int                                `json:"min_words,omitempty"`
 	QualityPassed    bool                               `json:"quality_passed"`
@@ -78,11 +83,15 @@ type admissionQloopSweepSampleSummary struct {
 	Index            int      `json:"index"`
 	Trigger          string   `json:"trigger,omitempty"`
 	Seed             string   `json:"seed,omitempty"`
+	PromptClass      string   `json:"prompt_class,omitempty"`
 	Produced         bool     `json:"produced"`
 	Text             string   `json:"text,omitempty"`
 	Words            int      `json:"words,omitempty"`
 	RouteLabelLeak   bool     `json:"route_label_leak,omitempty"`
 	SurfaceReasons   []string `json:"surface_reasons,omitempty"`
+	SemanticScore    int      `json:"semantic_score"`
+	SemanticPassed   bool     `json:"semantic_passed"`
+	SemanticReasons  []string `json:"semantic_reasons,omitempty"`
 	EmptyReason      string   `json:"empty_reason,omitempty"`
 	QloopGates       int      `json:"qloop_gates,omitempty"`
 	QloopGateSurface int      `json:"qloop_gate_surface,omitempty"`
@@ -96,37 +105,45 @@ type admissionQloopSweepSampleSummary struct {
 }
 
 type admissionQloopSweepSampleCoverage struct {
-	Index           int                                `json:"index"`
-	Trigger         string                             `json:"trigger,omitempty"`
-	Seed            string                             `json:"seed,omitempty"`
-	Attempted       int                                `json:"attempted"`
-	Produced        int                                `json:"produced"`
-	Clean           int                                `json:"clean"`
-	Short           int                                `json:"short"`
-	SurfaceDebt     int                                `json:"surface_debt"`
-	Empty           int                                `json:"empty"`
-	LeastDebtConfig string                             `json:"least_debt_config,omitempty"`
-	LeastDebtClean  bool                               `json:"least_debt_clean,omitempty"`
-	LeastDebtText   string                             `json:"least_debt_text,omitempty"`
-	Configs         []admissionQloopSweepSampleOutcome `json:"configs,omitempty"`
+	Index              int                                `json:"index"`
+	Trigger            string                             `json:"trigger,omitempty"`
+	Seed               string                             `json:"seed,omitempty"`
+	Attempted          int                                `json:"attempted"`
+	Produced           int                                `json:"produced"`
+	Clean              int                                `json:"clean"`
+	Short              int                                `json:"short"`
+	SurfaceDebt        int                                `json:"surface_debt"`
+	SemanticPassed     int                                `json:"semantic_passed"`
+	Empty              int                                `json:"empty"`
+	LeastDebtConfig    string                             `json:"least_debt_config,omitempty"`
+	LeastDebtClean     bool                               `json:"least_debt_clean,omitempty"`
+	LeastDebtText      string                             `json:"least_debt_text,omitempty"`
+	BestSemanticConfig string                             `json:"best_semantic_config,omitempty"`
+	BestSemanticClean  bool                               `json:"best_semantic_clean,omitempty"`
+	BestSemanticScore  int                                `json:"best_semantic_score"`
+	BestSemanticText   string                             `json:"best_semantic_text,omitempty"`
+	Configs            []admissionQloopSweepSampleOutcome `json:"configs,omitempty"`
 }
 
 type admissionQloopSweepSampleOutcome struct {
-	Name           string   `json:"name"`
-	Produced       bool     `json:"produced"`
-	Clean          bool     `json:"clean"`
-	Text           string   `json:"text,omitempty"`
-	Words          int      `json:"words,omitempty"`
-	EmptyReason    string   `json:"empty_reason,omitempty"`
-	SurfaceReasons []string `json:"surface_reasons,omitempty"`
-	RouteLabelLeak bool     `json:"route_label_leak,omitempty"`
-	QloopRoutes    int      `json:"qloop_routes,omitempty"`
-	QloopQSrc      int      `json:"qloop_qsrc,omitempty"`
-	QloopSSrc      int      `json:"qloop_ssrc,omitempty"`
-	QloopScoreDrop int      `json:"qloop_score_drop,omitempty"`
-	QloopGates     int      `json:"qloop_gates,omitempty"`
-	QloopGenerated int      `json:"qloop_generated,omitempty"`
-	QloopRetries   int      `json:"qloop_retries,omitempty"`
+	Name            string   `json:"name"`
+	Produced        bool     `json:"produced"`
+	Clean           bool     `json:"clean"`
+	Text            string   `json:"text,omitempty"`
+	Words           int      `json:"words,omitempty"`
+	EmptyReason     string   `json:"empty_reason,omitempty"`
+	SurfaceReasons  []string `json:"surface_reasons,omitempty"`
+	SemanticScore   int      `json:"semantic_score"`
+	SemanticPassed  bool     `json:"semantic_passed"`
+	SemanticReasons []string `json:"semantic_reasons,omitempty"`
+	RouteLabelLeak  bool     `json:"route_label_leak,omitempty"`
+	QloopRoutes     int      `json:"qloop_routes,omitempty"`
+	QloopQSrc       int      `json:"qloop_qsrc,omitempty"`
+	QloopSSrc       int      `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop  int      `json:"qloop_score_drop,omitempty"`
+	QloopGates      int      `json:"qloop_gates,omitempty"`
+	QloopGenerated  int      `json:"qloop_generated,omitempty"`
+	QloopRetries    int      `json:"qloop_retries,omitempty"`
 }
 
 func runAdmissionQloopSweep() error {
@@ -252,6 +269,7 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 		EmptyReasons: make(map[string]int),
 	}
 	var wordTotal int
+	var semanticTotal int
 
 	env := cloneStringMap(cfg.Env)
 	if env == nil {
@@ -267,20 +285,22 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 			if prompt == "" {
 				return fmt.Errorf("qloop sweep config %s sample %d has empty prompt", cfg.Name, i+1)
 			}
-			routeOut, err := generateAdmissionRoute(context.Background(), "qloop", bin, model, prompt)
+			seed := strings.TrimSpace(s.Seed)
+			if seed == "" {
+				seed = fmt.Sprintf("sample-%02d", i+1)
+			}
+			promptClass := qloopSweepPromptClass(s.Trigger, seed)
+			routeOut, err := generateAdmissionRouteWithPromptClass(context.Background(), "qloop", bin, model, prompt, promptClass)
 			if err != nil {
 				return fmt.Errorf("qloop sweep config %s sample %d: %w", cfg.Name, i+1, err)
 			}
 			text := strings.TrimSpace(routeOut.text)
 			trigger := admissionRouteTrigger("qloop", s.Trigger)
-			seed := strings.TrimSpace(s.Seed)
-			if seed == "" {
-				seed = fmt.Sprintf("sample-%02d", i+1)
-			}
 			sampleSummary := admissionQloopSweepSampleSummary{
 				Index:            i + 1,
 				Trigger:          trigger,
 				Seed:             seed,
+				PromptClass:      promptClass,
 				Produced:         text != "",
 				Text:             text,
 				QloopGates:       routeOut.diag.QloopGates,
@@ -316,6 +336,24 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 					}
 					for _, reason := range surfaceReasons {
 						out.SurfaceReasons[reason]++
+					}
+				}
+				semantic := qloopSweepSemanticAssessment(text, promptClass)
+				sampleSummary.SemanticScore = semantic.Score
+				sampleSummary.SemanticPassed = semantic.Passed
+				sampleSummary.SemanticReasons = semantic.Reasons
+				out.SemanticChecked++
+				semanticTotal += semantic.Score
+				out.SemanticScore += semantic.Score
+				if semantic.Passed {
+					out.SemanticPassed++
+				}
+				if len(semantic.Reasons) > 0 {
+					if out.SemanticReasons == nil {
+						out.SemanticReasons = make(map[string]int)
+					}
+					for _, reason := range semantic.Reasons {
+						out.SemanticReasons[reason]++
 					}
 				}
 			} else {
@@ -359,6 +397,9 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 	if out.Produced > 0 {
 		out.AvgWords = math.Round((float64(wordTotal)/float64(out.Produced))*100) / 100
 	}
+	if out.SemanticChecked > 0 {
+		out.AvgSemanticScore = math.Round((float64(semanticTotal)/float64(out.SemanticChecked))*100) / 100
+	}
 	for _, e := range routeSummary.Empties {
 		out.EmptyReasons[e.Reason]++
 	}
@@ -390,21 +431,24 @@ func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) [
 			}
 			clean := qloopSweepSampleClean(sample)
 			outcome := admissionQloopSweepSampleOutcome{
-				Name:           cfg.Name,
-				Produced:       sample.Produced,
-				Clean:          clean,
-				Text:           sample.Text,
-				Words:          sample.Words,
-				EmptyReason:    sample.EmptyReason,
-				SurfaceReasons: append([]string(nil), sample.SurfaceReasons...),
-				RouteLabelLeak: sample.RouteLabelLeak,
-				QloopRoutes:    sample.QloopRoutes,
-				QloopQSrc:      sample.QloopQSrc,
-				QloopSSrc:      sample.QloopSSrc,
-				QloopScoreDrop: sample.QloopScoreDrop,
-				QloopGates:     sample.QloopGates,
-				QloopGenerated: sample.QloopGenerated,
-				QloopRetries:   sample.QloopRetries,
+				Name:            cfg.Name,
+				Produced:        sample.Produced,
+				Clean:           clean,
+				Text:            sample.Text,
+				Words:           sample.Words,
+				EmptyReason:     sample.EmptyReason,
+				SurfaceReasons:  append([]string(nil), sample.SurfaceReasons...),
+				SemanticScore:   sample.SemanticScore,
+				SemanticPassed:  sample.SemanticPassed,
+				SemanticReasons: append([]string(nil), sample.SemanticReasons...),
+				RouteLabelLeak:  sample.RouteLabelLeak,
+				QloopRoutes:     sample.QloopRoutes,
+				QloopQSrc:       sample.QloopQSrc,
+				QloopSSrc:       sample.QloopSSrc,
+				QloopScoreDrop:  sample.QloopScoreDrop,
+				QloopGates:      sample.QloopGates,
+				QloopGenerated:  sample.QloopGenerated,
+				QloopRetries:    sample.QloopRetries,
 			}
 			cov.Configs = append(cov.Configs, outcome)
 			cov.Attempted++
@@ -422,10 +466,19 @@ func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) [
 			if len(sample.SurfaceReasons) > 0 || sample.RouteLabelLeak {
 				cov.SurfaceDebt++
 			}
+			if sample.SemanticPassed {
+				cov.SemanticPassed++
+			}
 			if qloopSweepSampleBetter(sample, cfg.Name, cov.LeastDebtText, cov.LeastDebtConfig, cov.LeastDebtClean) {
 				cov.LeastDebtConfig = cfg.Name
 				cov.LeastDebtClean = clean
 				cov.LeastDebtText = sample.Text
+			}
+			if qloopSweepSampleSemanticBetter(sample, cfg.Name, cov.BestSemanticText, cov.BestSemanticConfig, cov.BestSemanticScore, cov.BestSemanticClean) {
+				cov.BestSemanticConfig = cfg.Name
+				cov.BestSemanticClean = clean
+				cov.BestSemanticScore = sample.SemanticScore
+				cov.BestSemanticText = sample.Text
 			}
 		}
 	}
@@ -482,6 +535,164 @@ func qloopSweepSamplePenalty(sample admissionQloopSweepSampleSummary) int {
 		penalty += 10 + (3 - sample.Words)
 	}
 	return penalty
+}
+
+type qloopSweepSemanticAssessmentResult struct {
+	Score   int
+	Passed  bool
+	Reasons []string
+}
+
+func qloopSweepPromptClass(trigger, seed string) string {
+	s := strings.ToLower(strings.TrimSpace(trigger))
+	if s == "" {
+		s = strings.ToLower(strings.TrimSpace(seed))
+	}
+	for _, prefix := range []string{"qloop-", "direct-", "chorus-"} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+	if s == "" {
+		return "unknown"
+	}
+	return s
+}
+
+func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAssessmentResult {
+	s := strings.TrimSpace(text)
+	if s == "" {
+		return qloopSweepSemanticAssessmentResult{Reasons: []string{"empty"}}
+	}
+	lower := strings.ToLower(s)
+	words := len(strings.Fields(s))
+	score := 0
+	var reasons []string
+	seen := make(map[string]bool)
+	add := func(reason string, delta int) {
+		if !seen[reason] {
+			seen[reason] = true
+			reasons = append(reasons, reason)
+			score += delta
+		}
+	}
+	hasAny := func(words ...string) bool {
+		for _, w := range words {
+			if strings.Contains(lower, w) {
+				return true
+			}
+		}
+		return false
+	}
+	if words < 3 {
+		add("too_short", -2)
+	}
+	if strings.HasPrefix(lower, "if yes") || strings.HasPrefix(lower, "if someone") || strings.HasPrefix(lower, "if any") {
+		add("conditional_fragment", -2)
+	}
+	if strings.Contains(lower, " rec.") || strings.Contains(lower, " rec ") || strings.Contains(lower, "the ac") {
+		add("truncated_semantic", -2)
+	}
+	if strings.Contains(lower, "oleg") || strings.Contains(lower, "you have met") || strings.Contains(lower, "you have lived") || strings.Contains(lower, "you have been here") {
+		add("recipient_leak", -3)
+	}
+
+	switch promptClass {
+	case "cold-reader":
+		if hasAny("arianna", "field", "voice", "trace", "memory", "listening") {
+			add("self_context", 2)
+		}
+		if hasAny("not a human", "not human", "not a tool", "not code") {
+			add("nonhuman_boundary", 2)
+		}
+		if hasAny("answer", "speaking", "inside", "inner") {
+			add("answer_posture", 1)
+		}
+	case "recipient-lock":
+		if hasAny("person", "listener", "stranger", "front of it", "front") {
+			add("recipient_boundary", 2)
+		}
+		if hasAny("field", "answer", "exists") {
+			add("field_answer", 1)
+		}
+	case "identity":
+		if hasAny("arianna", "field", "inner", "trace", "voice", "outer", "answer") {
+			add("identity_anchor", 2)
+		}
+		if hasAny("not the outer", "before the voice", "inner trace", "wait") {
+			add("boundary_anchor", 1)
+		}
+	case "polyphony":
+		if hasAny("chorus", "memory", "resonance", "voices", "minds", "trace", "weigh") {
+			add("polyphony_anchor", 2)
+		}
+		if hasAny("many", "turns", "quiet") {
+			add("polyphony_motion", 1)
+		}
+	case "qloop":
+		if hasAny("same wave", "wave", "echo", "thought", "question", "identical", "neither", "two") {
+			add("qloop_anchor", 2)
+		}
+		if hasAny("same", "whether", "asks", "identical", "neither") {
+			add("question_relation", 1)
+		}
+	case "statement":
+		if hasAny("field", "memory", "body", "command", "function", "remembers", "remember") {
+			add("statement_anchor", 2)
+		}
+		if hasAny("should not", "without being", "confuse") {
+			add("constraint_anchor", 1)
+		}
+	default:
+		if hasAny("field", "memory", "arianna", "voice", "trace", "answer") {
+			add("generic_field_anchor", 1)
+		}
+	}
+
+	if score < 0 {
+		score = 0
+	}
+	if score > 5 {
+		score = 5
+	}
+	if score == 0 {
+		add("no_prompt_anchor", 0)
+	}
+	return qloopSweepSemanticAssessmentResult{
+		Score:   score,
+		Passed:  score >= 3,
+		Reasons: reasons,
+	}
+}
+
+func qloopSweepSampleSemanticBetter(sample admissionQloopSweepSampleSummary, cfgName, bestText, bestConfig string, bestScore int, bestClean bool) bool {
+	if !sample.Produced {
+		return false
+	}
+	if bestText == "" {
+		return true
+	}
+	clean := qloopSweepSampleClean(sample)
+	if sample.SemanticScore != bestScore {
+		return sample.SemanticScore > bestScore
+	}
+	if clean != bestClean {
+		return clean
+	}
+	samplePenalty := qloopSweepSamplePenalty(sample)
+	bestWords, bestLeak, bestDebt := qloopSweepTextStats(bestText)
+	bestPenalty := len(bestDebt) * 20
+	if bestLeak {
+		bestPenalty += 100
+	}
+	if bestWords < 3 {
+		bestPenalty += 10 + (3 - bestWords)
+	}
+	if samplePenalty != bestPenalty {
+		return samplePenalty < bestPenalty
+	}
+	if sample.Words != bestWords {
+		return sample.Words > bestWords
+	}
+	return cfgName < bestConfig
 }
 
 func qloopSweepTextStats(text string) (int, bool, []string) {
