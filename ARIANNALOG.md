@@ -3047,3 +3047,43 @@ tie exactly. `many-minds` and `same-wave` have no clean baseline-target pair; `n
 target is missing and baseline still has the weak `there exists a kind.` candidate. Conclusion: target-hint is
 now instrumented and contained. Next qloop lift should attack `same-wave` source formation and statement-class
 semantics separately rather than widening target-hint default behavior.
+
+**Follow-up, same day - same-wave qloop source formation.** The qloop prompt-class stem for `same-wave` is now
+literal instead of meta: `Are two thoughts the same wave or only an echo`. This keeps the diagnostic
+`A2A_QLOOP_SOURCE_CLASS=qloop` path aligned with the measured failure instead of asking the nano voice to infer
+"same question returns" from an abstract description. The semantic receipt scorer now accepts compact
+wave/echo answers such as `not one wave.` and `both an echo.` while still rejecting contextless fragments such
+as `that's both.` because they stay too short and lack a qloop anchor. Runtime defaults are unchanged.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.xD2IS5/qloop_sweep_summary.json`.
+Broad sweep remains fail-closed (`gate_passed=false`, no winner), but the failure moved: `same-wave` now has
+4/12 produced candidates across the matrix, 3 clean, and 2 semantic passes. The typed-source diagnostic is the
+clean lift: `question_source_typed_user_arianna` produces `not one wave.` with semantic score 3
+(`qloop_anchor`, `question_relation`); class-source opens routes (`qloop_qsrc=1`, `qloop_routes=2`) but its
+surface candidate is still `that's both.` and is rejected as too thin/contextless. Target-hint rollback remains
+contained (`target_kept=0`, `rolled_back=4`) and baseline-missing fell from 2 to 1, proving the source is no
+longer fully silent. Conclusion: `same-wave` source formation is partly repaired, not admitted. Next layer
+should add typed-source admission/rollback or route-context shaping for qloop, while statement semantics remain
+a separate debt.
+
+**Follow-up, same day - qloop-scoped typed-source rollback receipt.** The qloop sweep now records a second
+per-seed review: `typed_source_review`, comparing `question_source_class_user_arianna` against
+`question_source_typed_user_arianna` with the same fail-closed ranking used by target-hint rollback. This is
+receipt-only; it does not admit typed-source into runtime defaults. The typed-source diagnostic is now
+class-scoped with `A2A_QLOOP_TYPED_SOURCE_CLASS=qloop`, so it can rescue `same-wave` without rewriting
+identity/polyphony/statement source routes. Ties and equal clean candidates roll back to the class-source
+baseline, while typed-source can win a seed only by being the sole clean candidate or by beating the baseline on
+semantic score/pass, surface penalty, or length.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.PqiFg2/qloop_sweep_summary.json`.
+Broad sweep remains fail-closed (`gate_passed=false`, no winner), but the scoped typed-source config is now the
+strongest diagnostic source by semantic signal: `produced=5/6`, `semantic_passed=3`, `semantic_score=11`,
+`avg_words=3.4`, blocked only by `produced_below_6`; `qloop_tsrc=1` proves the typed route fired only on the
+qloop-class seed. Rollup: `candidate_kept=1`, `rolled_back=4`, `tie_rolled_back=4`, `no_candidate=1`,
+`candidate_missing=1`, `baseline_missing=1`. The kept seed is exactly `same-wave`: baseline class-source
+produced dirty/short `that's both.` while typed-source produced clean `not one wave.` (`score_delta=3`,
+`surface_penalty_delta=-11`). This makes typed-source a proven seed-level rescue, not a global winner. Next
+layer should add a guarded best-of/admission path around this scoped rescue, while keeping broad qloop
+fail-closed until coverage clears the gate.

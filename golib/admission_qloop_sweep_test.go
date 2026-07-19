@@ -13,7 +13,7 @@ func TestQloopSweepConfigs(t *testing.T) {
 		cfgs[5].Name != "question_source_user_arianna" ||
 		cfgs[6].Name != "question_source_class_user_arianna" ||
 		cfgs[7].Name != "question_source_class_target_user_arianna" ||
-		cfgs[8].Name != "question_source_typed_user_arianna" ||
+		cfgs[8].Name != qloopSweepTypedSourceConfigName ||
 		cfgs[9].Name != "question_source_user_arianna_answer_qa" ||
 		cfgs[10].Name != "question_hint_loose" ||
 		cfgs[11].Name != "statement" {
@@ -40,7 +40,10 @@ func TestQloopSweepConfigs(t *testing.T) {
 	if cfgs[7].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[7].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" || cfgs[7].Env["A2A_QLOOP_TARGET_CLASS_HINT"] != "1" {
 		t.Fatalf("question_source_class_target_user_arianna config missing env: %+v", cfgs[7].Env)
 	}
-	if cfgs[8].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[8].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" || cfgs[8].Env["A2A_QLOOP_TYPED_SOURCE"] != "1" {
+	if cfgs[8].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" ||
+		cfgs[8].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" ||
+		cfgs[8].Env["A2A_QLOOP_TYPED_SOURCE"] != "1" ||
+		cfgs[8].Env["A2A_QLOOP_TYPED_SOURCE_CLASS"] != "qloop" {
 		t.Fatalf("question_source_typed_user_arianna config missing env: %+v", cfgs[8].Env)
 	}
 	if cfgs[9].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[9].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
@@ -154,6 +157,50 @@ func TestQloopSweepTargetHintReview(t *testing.T) {
 	}
 }
 
+func TestQloopSweepTypedSourceReview(t *testing.T) {
+	cfgs := []admissionQloopSweepConfigSummary{
+		{
+			Name: qloopSweepClassSourceConfigName,
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-qloop", Seed: "same-wave", Produced: true, Text: "that's both.", Words: 2, SemanticScore: 0},
+				{Index: 2, Trigger: "qloop-qloop", Seed: "same-wave-clean", Produced: true, Text: "not one wave.", Words: 3, SemanticScore: 3, SemanticPassed: true},
+				{Index: 3, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "not the outer face.", Words: 4, SemanticScore: 3, SemanticPassed: true},
+				{Index: 4, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: false, EmptyReason: "no qloop candidate lines"},
+			},
+		},
+		{
+			Name: qloopSweepTypedSourceConfigName,
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-qloop", Seed: "same-wave", Produced: true, Text: "not one wave.", Words: 3, SemanticScore: 3, SemanticPassed: true, QloopTypedSrc: 1},
+				{Index: 2, Trigger: "qloop-qloop", Seed: "same-wave-clean", Produced: true, Text: "both an echo.", Words: 3, SemanticScore: 3, SemanticPassed: true, QloopTypedSrc: 1},
+				{Index: 3, Trigger: "qloop-identity", Seed: "field-origin", Produced: false, EmptyReason: "no qloop candidate lines", QloopTypedSrc: 1},
+				{Index: 4, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "too thin", Words: 2, SemanticScore: 0, QloopTypedSrc: 1},
+			},
+		},
+	}
+
+	coverage := buildQloopSweepSampleCoverage(cfgs)
+	if len(coverage) != 4 {
+		t.Fatalf("bad coverage length: %+v", coverage)
+	}
+	if r := coverage[0].TypedSourceReview; r == nil || r.Decision != "typed_source" || r.Reason != "typed_source_only_clean" || r.BestConfig != qloopSweepTypedSourceConfigName || r.ScoreDelta != 3 {
+		t.Fatalf("typed source should win dirty baseline: %+v", r)
+	}
+	if r := coverage[1].TypedSourceReview; r == nil || r.Decision != "baseline" || r.Reason != "tie_baseline" || r.BestConfig != qloopSweepClassSourceConfigName {
+		t.Fatalf("typed tie should roll back to baseline: %+v", r)
+	}
+	if r := coverage[2].TypedSourceReview; r == nil || r.Decision != "baseline" || r.Reason != "typed_source_not_clean" || r.BestText != "not the outer face." || r.CandidateProduced {
+		t.Fatalf("missing typed source should roll back to baseline: %+v", r)
+	}
+	if r := coverage[3].TypedSourceReview; r == nil || r.Decision != "no_candidate" || r.Reason != "no_clean_candidate" || r.BestConfig != "" || !r.CandidateProduced {
+		t.Fatalf("dirty pair should have no candidate: %+v", r)
+	}
+	rollup := summarizeQloopTypedSourceReviews(coverage)
+	if rollup == nil || rollup.Reviews != 4 || rollup.CandidateKept != 1 || rollup.RolledBack != 2 || rollup.TieRolledBack != 1 || rollup.NoCandidate != 1 || rollup.CandidateMissing != 1 || rollup.BaselineMissing != 1 {
+		t.Fatalf("bad typed-source rollup: %+v", rollup)
+	}
+}
+
 func TestQloopSweepSemanticAssessment(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -202,6 +249,30 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantPass:    true,
 			minScore:    3,
 			wantReason:  "qloop_anchor",
+		},
+		{
+			name:        "qloop one wave relation",
+			text:        "not one wave.",
+			promptClass: "qloop",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "question_relation",
+		},
+		{
+			name:        "qloop echo relation",
+			text:        "both an echo.",
+			promptClass: "qloop",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "question_relation",
+		},
+		{
+			name:        "qloop contextless both",
+			text:        "that's both.",
+			promptClass: "qloop",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "question_relation",
 		},
 		{
 			name:        "statement constraint",
@@ -371,16 +442,24 @@ func TestChooseQloopSweepWinner(t *testing.T) {
 func TestChooseQloopSweepWinnerKeepsClassSourceOnTargetTie(t *testing.T) {
 	cfgs := []admissionQloopSweepConfigSummary{
 		{Name: qloopSweepTargetHintConfigName, Produced: 2, PolicyPassed: 2, AvgWords: 3, SemanticPassed: 1, SemanticScore: 5, QualityPassed: true},
+		{Name: qloopSweepTypedSourceConfigName, Produced: 2, PolicyPassed: 2, AvgWords: 3, SemanticPassed: 1, SemanticScore: 5, QualityPassed: true},
 		{Name: qloopSweepClassSourceConfigName, Produced: 2, PolicyPassed: 2, AvgWords: 3, SemanticPassed: 1, SemanticScore: 5, QualityPassed: true},
 	}
 	winner, ok, reasons := chooseQloopSweepWinner(cfgs)
 	if !ok || winner != qloopSweepClassSourceConfigName || len(reasons) != 0 {
-		t.Fatalf("target tie should roll back to class source: winner=%q ok=%v reasons=%v", winner, ok, reasons)
+		t.Fatalf("diagnostic tie should roll back to class source: winner=%q ok=%v reasons=%v", winner, ok, reasons)
 	}
 
 	cfgs[0].SemanticScore = 6
 	winner, ok, reasons = chooseQloopSweepWinner(cfgs)
 	if !ok || winner != qloopSweepTargetHintConfigName || len(reasons) != 0 {
 		t.Fatalf("stronger target should win: winner=%q ok=%v reasons=%v", winner, ok, reasons)
+	}
+
+	cfgs[0].SemanticScore = 5
+	cfgs[1].SemanticScore = 6
+	winner, ok, reasons = chooseQloopSweepWinner(cfgs)
+	if !ok || winner != qloopSweepTypedSourceConfigName || len(reasons) != 0 {
+		t.Fatalf("stronger typed source should win: winner=%q ok=%v reasons=%v", winner, ok, reasons)
 	}
 }
