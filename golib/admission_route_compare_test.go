@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestAdmissionRoutePromptUsesQAFrame(t *testing.T) {
 	if got := admissionRoutePrompt("Who are you?"); got != "Q: Who are you?\nA:" {
@@ -80,6 +83,23 @@ func TestQloopAdmissionTextForClassUsesSemanticTieBreak(t *testing.T) {
 	}
 	if got := qloopAdmissionTextForClass(cells, "recipient-lock"); got != "this person exists." {
 		t.Fatalf("semantic qloop admission should choose recipient answer, got %q", got)
+	}
+}
+
+func TestWithResolvedQloopSourceClassSubstitutesPromptClass(t *testing.T) {
+	t.Setenv("A2A_QLOOP_SOURCE_CLASS", "prompt")
+	var inside string
+	if err := withResolvedQloopSourceClass("identity", func() error {
+		inside = os.Getenv("A2A_QLOOP_SOURCE_CLASS")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if inside != "identity" {
+		t.Fatalf("class env was not resolved inside callback: %q", inside)
+	}
+	if got := os.Getenv("A2A_QLOOP_SOURCE_CLASS"); got != "prompt" {
+		t.Fatalf("class env was not restored after callback: %q", got)
 	}
 }
 

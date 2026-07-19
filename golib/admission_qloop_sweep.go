@@ -240,6 +240,11 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
 		}},
+		{Name: "question_source_class_user_arianna", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
+		}},
 		{Name: "question_source_user_arianna_answer_qa", Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",

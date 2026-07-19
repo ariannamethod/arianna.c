@@ -257,7 +257,13 @@ func generateAdmissionRouteWithPromptClass(ctx context.Context, route, bin, mode
 		voices, questions := chorusCounts(cells)
 		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag}, nil
 	case "qloop":
-		cells, diag, err := generateAdmissionChorus(ctx, bin, model, prompt, 2)
+		var cells []chorusCell
+		var diag admissionRouteDiagnostics
+		err := withResolvedQloopSourceClass(promptClass, func() error {
+			var err error
+			cells, diag, err = generateAdmissionChorus(ctx, bin, model, prompt, 2)
+			return err
+		})
 		if err != nil {
 			return admissionRouteOutput{route: route}, err
 		}
@@ -267,6 +273,17 @@ func generateAdmissionRouteWithPromptClass(ctx context.Context, route, bin, mode
 	default:
 		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
 	}
+}
+
+func withResolvedQloopSourceClass(promptClass string, fn func() error) error {
+	if strings.TrimSpace(os.Getenv("A2A_QLOOP_SOURCE_CLASS")) != "prompt" {
+		return fn()
+	}
+	promptClass = qloopSweepPromptClass(promptClass, promptClass)
+	if promptClass == "" || promptClass == "unknown" {
+		return fn()
+	}
+	return withTemporaryEnv(map[string]string{"A2A_QLOOP_SOURCE_CLASS": promptClass}, fn)
 }
 
 func qloopAdmissionText(cells []chorusCell) string {

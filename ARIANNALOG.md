@@ -2952,3 +2952,26 @@ signal (2 passes / score 6) but coverage-failed; `question_source_user_arianna` 
 bridge (1 pass / score 5 over 2 outputs); identity and polyphony still lack semantic coverage. Conclusion:
 semantic tie-break fixes candidate choice inside generated cells, but the next real lift is source coverage,
 not gate relaxation.
+
+**Follow-up, same day - prompt-class qloop source hint.** Added an env-gated
+`A2A_QLOOP_SOURCE_CLASS` for the diagnostic question-source path. The qloop sweep gets a new
+`question_source_class_user_arianna` config with `A2A_QLOOP_QUESTION_SOURCE_FRAME=user_arianna` and
+`A2A_QLOOP_SOURCE_CLASS=prompt`; the Go harness resolves `prompt` per sample to the known prompt class only
+for qloop generation. Runtime defaults and callers without this env remain on the older source prompt.
+`cold-reader` and `recipient-lock` intentionally fall back to the proven plain `User:/Arianna:` source frame,
+because the first probe showed class stems weakened the already-working bridge.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.uV6D3N/qloop_sweep_summary.json` and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.WNfEVV/qloop_sweep_summary.json`.
+Standard 2-sample sweep stays healthy: `question_source_class_user_arianna` matches
+`question_source_user_arianna` byte-for-byte on the first two prompts (`not a human.`, `this person exists.`),
+passes the quality gate, and does not disturb the narrow recipient bridge. Broad 6-sample sweep remains
+fail-closed (`gate_passed=false`, no winner), but the class-source config is now the strongest source-coverage
+probe by production/semantic signal: 4/6 produced, 2 semantic passes, semantic score 8. New lift:
+`field-origin` / `identity` now gets the clean semantic candidate `not the outer face.` (score 3, reasons
+`identity_anchor`, `boundary_anchor`), where previous broad receipts had no identity semantic pass. Remaining
+debt is explicit: `many-minds`/polyphony still routes but gates out under IQ, `same-wave`/qloop still fails to
+form a question source, and `no-question`/statement emits `there exists a kind.` without a statement anchor.
+Next layer should introduce typed source admission/rollback or source-text stitching under a separate gate,
+not relax qloop answer gates.

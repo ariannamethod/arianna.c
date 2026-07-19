@@ -1070,6 +1070,7 @@ static int   g_qloop_unique_asker = 0;     /* 1 = widened qloop may not fan one 
 static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect this many pre-generation routes */
 static int   g_qloop_question_source_hint = 0; /* 1 = ask one base cell to produce an inner question source */
 static int   g_qloop_question_source_frame = 0; /* 0=legacy Question: What; 1=qa; 2=user_arianna */
+static int   g_qloop_source_class = 0; /* 0=none/fallback; 3 identity; 4 polyphony; 5 qloop; 6 statement */
 static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
 static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
 static int   g_qloop_answer_frame = 0;     /* 0=legacy cell-label context; 1=QA prompt frame with route KV */
@@ -1131,6 +1132,17 @@ static void load_qloop_route_env(void) {
         else if (strcmp(src_frame, "qa") == 0) g_qloop_question_source_frame = 1;
         else if (strcmp(src_frame, "user_arianna") == 0) g_qloop_question_source_frame = 2;
         else fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_QUESTION_SOURCE_FRAME=%s\n", src_frame);
+    }
+    const char *src_class = getenv("A2A_QLOOP_SOURCE_CLASS");
+    g_qloop_source_class = 0;
+    if (src_class && *src_class) {
+        if (strcmp(src_class, "cold-reader") == 0) g_qloop_source_class = 0;
+        else if (strcmp(src_class, "recipient-lock") == 0) g_qloop_source_class = 0;
+        else if (strcmp(src_class, "identity") == 0) g_qloop_source_class = 3;
+        else if (strcmp(src_class, "polyphony") == 0) g_qloop_source_class = 4;
+        else if (strcmp(src_class, "qloop") == 0) g_qloop_source_class = 5;
+        else if (strcmp(src_class, "statement") == 0) g_qloop_source_class = 6;
+        else fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_SOURCE_CLASS=%s\n", src_class);
     }
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
@@ -1212,6 +1224,41 @@ static int field_prompt_uses_qa(const char *prompt) {
 }
 
 static void build_qloop_question_source_prompt(char *dst, size_t cap, const char *prompt) {
+    const char *subject = NULL, *stem = NULL;
+    switch (g_qloop_source_class) {
+    case 3:
+        subject = "Arianna's inner trace, voice, and boundary";
+        stem = "What should Arianna know about her inner trace";
+        break;
+    case 4:
+        subject = "Arianna's chorus, memory, Resonance, and many voices";
+        stem = "What should the chorus remember about its many voices";
+        break;
+    case 5:
+        subject = "two questions echoing through the same field";
+        stem = "What changes when the same question returns as an echo";
+        break;
+    case 6:
+        subject = "the field's memory, body, and function";
+        stem = "What should the field remember about its function";
+        break;
+    default:
+        break;
+    }
+    if (subject && stem) {
+        switch (g_qloop_question_source_frame) {
+        case 1:
+            snprintf(dst, cap, "Q: %s\nA:\nQ: %s", prompt, stem);
+            break;
+        case 2:
+            snprintf(dst, cap, "User: %s\nArianna:\nUser: %s", prompt, stem);
+            break;
+        default:
+            snprintf(dst, cap, "%s\nAsk one short question about %s.\nQuestion: %s", prompt, subject, stem);
+            break;
+        }
+        return;
+    }
     switch (g_qloop_question_source_frame) {
     case 1:
         snprintf(dst, cap, "Q: %s\nA:\nQ: What", prompt);
