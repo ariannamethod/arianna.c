@@ -110,6 +110,50 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 	}
 }
 
+func TestQloopSweepTargetHintReview(t *testing.T) {
+	cfgs := []admissionQloopSweepConfigSummary{
+		{
+			Name: qloopSweepClassSourceConfigName,
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field speaks now.", Words: 4, SemanticScore: 2},
+				{Index: 2, Trigger: "qloop-identity", Seed: "field-boundary", Produced: true, Text: "not the outer face.", Words: 4, SemanticScore: 3, SemanticPassed: true},
+				{Index: 3, Trigger: "qloop-statement", Seed: "statement-body", Produced: true, Text: "there exists a kind.", Words: 4, SemanticScore: 3, SemanticPassed: true},
+				{Index: 4, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: false, EmptyReason: "no qloop candidate lines"},
+			},
+		},
+		{
+			Name: qloopSweepTargetHintConfigName,
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "my own internal trace.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopTargetCtx: 1},
+				{Index: 2, Trigger: "qloop-identity", Seed: "field-boundary", Produced: true, Text: "my own internal trace.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopTargetCtx: 1},
+				{Index: 3, Trigger: "qloop-statement", Seed: "statement-body", Produced: false, EmptyReason: "no qloop candidate lines", QloopTargetCtx: 1},
+				{Index: 4, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "too thin", Words: 2, SemanticScore: 0, QloopTargetCtx: 1},
+			},
+		},
+	}
+
+	coverage := buildQloopSweepSampleCoverage(cfgs)
+	if len(coverage) != 4 {
+		t.Fatalf("bad coverage length: %+v", coverage)
+	}
+	if r := coverage[0].TargetHintReview; r == nil || r.Decision != "target" || r.Reason != "target_semantic_score" || r.BestConfig != qloopSweepTargetHintConfigName || r.ScoreDelta != 1 {
+		t.Fatalf("target should win first sample: %+v", r)
+	}
+	if r := coverage[1].TargetHintReview; r == nil || r.Decision != "baseline" || r.Reason != "tie_baseline" || r.BestConfig != qloopSweepClassSourceConfigName {
+		t.Fatalf("tie should roll back to baseline: %+v", r)
+	}
+	if r := coverage[2].TargetHintReview; r == nil || r.Decision != "baseline" || r.Reason != "target_not_clean" || r.BestText != "there exists a kind." || r.TargetProduced {
+		t.Fatalf("missing target should roll back to baseline: %+v", r)
+	}
+	if r := coverage[3].TargetHintReview; r == nil || r.Decision != "no_candidate" || r.Reason != "no_clean_candidate" || r.BestConfig != "" || !r.TargetProduced {
+		t.Fatalf("dirty pair should have no candidate: %+v", r)
+	}
+	rollup := summarizeQloopTargetHintReviews(coverage)
+	if rollup == nil || rollup.Reviews != 4 || rollup.TargetKept != 1 || rollup.RolledBack != 2 || rollup.TieRolledBack != 1 || rollup.NoCandidate != 1 || rollup.TargetMissing != 1 || rollup.BaselineMissing != 1 {
+		t.Fatalf("bad target-hint rollup: %+v", rollup)
+	}
+}
+
 func TestQloopSweepSemanticAssessment(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -321,5 +365,22 @@ func TestChooseQloopSweepWinner(t *testing.T) {
 	winner, ok, reasons := chooseQloopSweepWinner(cfgs)
 	if !ok || winner != "statement" || len(reasons) != 0 {
 		t.Fatalf("bad winner: winner=%q ok=%v reasons=%v", winner, ok, reasons)
+	}
+}
+
+func TestChooseQloopSweepWinnerKeepsClassSourceOnTargetTie(t *testing.T) {
+	cfgs := []admissionQloopSweepConfigSummary{
+		{Name: qloopSweepTargetHintConfigName, Produced: 2, PolicyPassed: 2, AvgWords: 3, SemanticPassed: 1, SemanticScore: 5, QualityPassed: true},
+		{Name: qloopSweepClassSourceConfigName, Produced: 2, PolicyPassed: 2, AvgWords: 3, SemanticPassed: 1, SemanticScore: 5, QualityPassed: true},
+	}
+	winner, ok, reasons := chooseQloopSweepWinner(cfgs)
+	if !ok || winner != qloopSweepClassSourceConfigName || len(reasons) != 0 {
+		t.Fatalf("target tie should roll back to class source: winner=%q ok=%v reasons=%v", winner, ok, reasons)
+	}
+
+	cfgs[0].SemanticScore = 6
+	winner, ok, reasons = chooseQloopSweepWinner(cfgs)
+	if !ok || winner != qloopSweepTargetHintConfigName || len(reasons) != 0 {
+		t.Fatalf("stronger target should win: winner=%q ok=%v reasons=%v", winner, ok, reasons)
 	}
 }
