@@ -54,6 +54,7 @@ type admissionQloopSweepConfigSummary struct {
 	QloopSSrc        int                                `json:"qloop_ssrc,omitempty"`
 	QloopScoreDrop   int                                `json:"qloop_score_drop,omitempty"`
 	QloopTypedSrc    int                                `json:"qloop_tsrc,omitempty"`
+	QloopTargetCtx   int                                `json:"qloop_tctx,omitempty"`
 	QloopPickerSeen  int                                `json:"qloop_picker_seen,omitempty"`
 	BaseGenerated    int                                `json:"base_generated,omitempty"`
 	BaseRetries      int                                `json:"base_retries,omitempty"`
@@ -104,6 +105,7 @@ type admissionQloopSweepSampleSummary struct {
 	QloopSSrc        int      `json:"qloop_ssrc,omitempty"`
 	QloopScoreDrop   int      `json:"qloop_score_drop,omitempty"`
 	QloopTypedSrc    int      `json:"qloop_tsrc,omitempty"`
+	QloopTargetCtx   int      `json:"qloop_tctx,omitempty"`
 }
 
 type admissionQloopSweepSampleCoverage struct {
@@ -144,6 +146,7 @@ type admissionQloopSweepSampleOutcome struct {
 	QloopSSrc       int      `json:"qloop_ssrc,omitempty"`
 	QloopScoreDrop  int      `json:"qloop_score_drop,omitempty"`
 	QloopTypedSrc   int      `json:"qloop_tsrc,omitempty"`
+	QloopTargetCtx  int      `json:"qloop_tctx,omitempty"`
 	QloopGates      int      `json:"qloop_gates,omitempty"`
 	QloopGenerated  int      `json:"qloop_generated,omitempty"`
 	QloopRetries    int      `json:"qloop_retries,omitempty"`
@@ -248,6 +251,12 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
 			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
 		}},
+		{Name: "question_source_class_target_user_arianna", Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
+			"A2A_QLOOP_TARGET_CLASS_HINT":     "1",
+		}},
 		{Name: "question_source_typed_user_arianna", Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
 			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
@@ -327,6 +336,7 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 				QloopSSrc:        routeOut.diag.QloopSSrc,
 				QloopScoreDrop:   routeOut.diag.QloopScoreDrop,
 				QloopTypedSrc:    routeOut.diag.QloopTypedSrc,
+				QloopTargetCtx:   routeOut.diag.QloopTargetCtx,
 			}
 			if text != "" {
 				words, leak, surfaceReasons := qloopSweepTextStats(text)
@@ -403,6 +413,7 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 	out.QloopSSrc = st.QloopSSrc
 	out.QloopScoreDrop = st.QloopScoreDrop
 	out.QloopTypedSrc = st.QloopTypedSrc
+	out.QloopTargetCtx = st.QloopTargetCtx
 	out.QloopPickerSeen = st.QloopPickerSeen
 	out.BaseGenerated = st.BaseGenerated
 	out.BaseRetries = st.BaseRetries
@@ -463,6 +474,7 @@ func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) [
 				QloopSSrc:       sample.QloopSSrc,
 				QloopScoreDrop:  sample.QloopScoreDrop,
 				QloopTypedSrc:   sample.QloopTypedSrc,
+				QloopTargetCtx:  sample.QloopTargetCtx,
 				QloopGates:      sample.QloopGates,
 				QloopGenerated:  sample.QloopGenerated,
 				QloopRetries:    sample.QloopRetries,
@@ -634,7 +646,7 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 		if hasAny("arianna", "field", "inner", "trace", "voice", "outer", "answer") {
 			add("identity_anchor", 2)
 		}
-		if hasAny("not the outer", "before the voice", "inner trace", "wait") {
+		if hasAny("not the outer", "before the voice", "inner trace", "internal trace", "own internal", "own trace", "wait") {
 			add("boundary_anchor", 1)
 		}
 	case "polyphony":

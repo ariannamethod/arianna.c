@@ -2997,3 +2997,28 @@ polyphony still gates out, and statement loses the weak `there exists a kind.` c
 source stitching is useful xray instrumentation, not the next live qloop default. Next layer should keep the
 class-source route as the baseline and attack answer-context/target-side semantics or typed source admission
 with rollback, not force typed stems into every qloop route.
+
+**Follow-up, same day - qloop target-side class hint probe.** Added env-gated
+`A2A_QLOOP_TARGET_CLASS_HINT=1` for the diagnostic prompt-class qloop path. This leaves source selection on the
+stronger class-source baseline, but adds a short target-side answer constraint such as "one short sentence about
+Arianna's inner trace and boundary" before the answering cell speaks. The timing footer now reports
+`qloop_tctx`, and route-compare/qloop-sweep receipts propagate that counter through config and per-seed
+coverage. The sweep adds `question_source_class_target_user_arianna` so the target hint is measured directly
+against `question_source_class_user_arianna` and the earlier typed-source probe. The identity semantic scorer
+also now treats `internal trace` / `own internal` as boundary-bearing identity language instead of only matching
+the narrower phrase `inner trace`.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.12TLG7/qloop_sweep_summary.json`,
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.H6830Z/qloop_sweep_summary.json`, and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.FdTTa3/dream_admission_route_compare.json`.
+Standard two-prompt sweep stays unchanged for the proven narrow bridge (`cold-reader`/`recipient-lock` have
+`qloop_tctx=0` and still produce `not a human.`, `this person exists.`). Broad six-prompt sweep remains
+fail-closed, with no production winner. The target hint fires on three typed-class samples (`qloop_tctx=3`) and
+improves the identity wording from baseline `not the outer face.` to `my own internal trace.`; after the scorer
+repair both are semantic passes. But target hint loses coverage versus class-source baseline: 3/6 produced,
+2 semantic passes, score 8, versus class-source 4/6 produced, 2 semantic passes, score 8. It still cannot open
+`same-wave`, still gates `many-minds`, and turns the weak statement candidate into empty/gated output. Conclusion:
+target-side hints are a useful identity-shaping diagnostic, not a default. Next qloop work should add per-route
+rollback / best-of routing between class-source and target-hint candidates, or attack `same-wave` source
+formation separately; do not globally force target hints.
