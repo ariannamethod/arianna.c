@@ -2975,3 +2975,25 @@ debt is explicit: `many-minds`/polyphony still routes but gates out under IQ, `s
 form a question source, and `no-question`/statement emits `there exists a kind.` without a statement anchor.
 Next layer should introduce typed source admission/rollback or source-text stitching under a separate gate,
 not relax qloop answer gates.
+
+**Follow-up, same day - typed qloop source stitching probe.** Added env-gated
+`A2A_QLOOP_TYPED_SOURCE=1` for the diagnostic qloop source-class path. When a prompt-class source stem is
+available, qloop route selection and answer scoring can use that typed stem as the route text for cell 0 while
+leaving the actual base chorus fragments and runtime defaults untouched. The timing footer now reports
+`qloop_tsrc`, and the Go route-compare/qloop-sweep receipts propagate it into config and per-seed coverage
+telemetry. The sweep adds `question_source_typed_user_arianna` so this bridge can be compared directly against
+the existing prompt-class source frame.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.Xgqcoc/qloop_sweep_summary.json` and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.r1A7Lk/qloop_sweep_summary.json`.
+Standard two-prompt sweep stays healthy and unchanged: the typed config is a no-op for `cold-reader` and
+`recipient-lock`, matching `question_source_class_user_arianna` (`not a human.`, `this person exists.`) and
+leaving the quality winner intact. Broad six-prompt sweep proves the new bridge is active on the typed classes
+(`qloop_tsrc=4`) but not a default candidate: it produces 4/6 with only 1 semantic pass and score 5, weaker than
+`question_source_class_user_arianna` at 4/6, 2 semantic passes, score 8. It mechanically revives `same-wave`
+from no route to `if it still.`, but degrades the identity seed from `not the outer face.` to `If you know.`;
+polyphony still gates out, and statement loses the weak `there exists a kind.` candidate. Conclusion: typed
+source stitching is useful xray instrumentation, not the next live qloop default. Next layer should keep the
+class-source route as the baseline and attack answer-context/target-side semantics or typed source admission
+with rollback, not force typed stems into every qloop route.

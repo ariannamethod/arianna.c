@@ -1071,6 +1071,7 @@ static int   g_qloop_candidate_pool = 0;   /* 0=auto max_routes+2; >0 = inspect 
 static int   g_qloop_question_source_hint = 0; /* 1 = ask one base cell to produce an inner question source */
 static int   g_qloop_question_source_frame = 0; /* 0=legacy Question: What; 1=qa; 2=user_arianna */
 static int   g_qloop_source_class = 0; /* 0=none/fallback; 3 identity; 4 polyphony; 5 qloop; 6 statement */
+static int   g_qloop_typed_source = 0; /* 1 = use the typed source stem as qloop route text under source-class probes */
 static int   g_qloop_statement_routes = 0; /* 1 = fallback to clean non-question cells when question routes are silent */
 static int   g_qloop_statement_pool = 0;   /* 0=inherit candidate pool; >0 = cap statement fallback candidates */
 static int   g_qloop_answer_frame = 0;     /* 0=legacy cell-label context; 1=QA prompt frame with route KV */
@@ -1144,6 +1145,7 @@ static void load_qloop_route_env(void) {
         else if (strcmp(src_class, "statement") == 0) g_qloop_source_class = 6;
         else fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_SOURCE_CLASS=%s\n", src_class);
     }
+    g_qloop_typed_source = env_int_clamped("A2A_QLOOP_TYPED_SOURCE", 0, 0, 1);
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
     g_qloop_answer_frame = env_int_clamped("A2A_QLOOP_ANSWER_FRAME", 0, 0, 1);
@@ -1223,28 +1225,39 @@ static int field_prompt_uses_qa(const char *prompt) {
     return 0;
 }
 
-static void build_qloop_question_source_prompt(char *dst, size_t cap, const char *prompt) {
-    const char *subject = NULL, *stem = NULL;
+static const char *qloop_source_class_subject(void) {
     switch (g_qloop_source_class) {
     case 3:
-        subject = "Arianna's inner trace, voice, and boundary";
-        stem = "What should Arianna know about her inner trace";
-        break;
+        return "Arianna's inner trace, voice, and boundary";
     case 4:
-        subject = "Arianna's chorus, memory, Resonance, and many voices";
-        stem = "What should the chorus remember about its many voices";
-        break;
+        return "Arianna's chorus, memory, Resonance, and many voices";
     case 5:
-        subject = "two questions echoing through the same field";
-        stem = "What changes when the same question returns as an echo";
-        break;
+        return "two questions echoing through the same field";
     case 6:
-        subject = "the field's memory, body, and function";
-        stem = "What should the field remember about its function";
-        break;
+        return "the field's memory, body, and function";
     default:
-        break;
+        return NULL;
     }
+}
+
+static const char *qloop_source_class_stem(void) {
+    switch (g_qloop_source_class) {
+    case 3:
+        return "What should Arianna know about her inner trace";
+    case 4:
+        return "What should the chorus remember about its many voices";
+    case 5:
+        return "What changes when the same question returns as an echo";
+    case 6:
+        return "What should the field remember about its function";
+    default:
+        return NULL;
+    }
+}
+
+static void build_qloop_question_source_prompt(char *dst, size_t cap, const char *prompt) {
+    const char *subject = qloop_source_class_subject();
+    const char *stem = qloop_source_class_stem();
     if (subject && stem) {
         switch (g_qloop_question_source_frame) {
         case 1:
@@ -2948,6 +2961,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
     double qloop_ms = 0.0;
     int qloop_gen = 0, qloop_retry = 0;
     int qloop_routes = 0, qloop_qsrc = 0, qloop_ssrc = 0, qloop_score_reject = 0;
+    int qloop_tsrc = 0;
     if (g_qloop && verbose && out_disso && cent) {
         double qloop_t0 = now_ms();
         int qcell[8] = {0}, tcell[8] = {0};
@@ -2955,11 +2969,24 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
         float qdist[8] = {0.0f}, qopen[8] = {0.0f}, qtconf[8] = {0.0f};
         int qmarks[8] = {0};
         int accepted_qseen[8] = {0};
+        char route_frag[8][1024];
+        for (int c = 0; c < n_cells && c < 8; c++) copy_cstr(route_frag[c], sizeof(route_frag[c]), cur_frag[c]);
+        float *route_cent = cent;
+        if (g_qloop_typed_source && g_qloop_question_source_hint && g_qloop_source_class > 0 && n_cells > 0) {
+            const char *stem = qloop_source_class_stem();
+            if (stem && *stem) {
+                snprintf(route_frag[0], sizeof(route_frag[0]), "%s?", stem);
+                route_cent = (float*)xzalloc((size_t)n_cells * m->embed, sizeof(float));
+                memcpy(route_cent, cent, (size_t)n_cells * m->embed * sizeof(float));
+                text_embedding_centroid(m, tok, route_frag[0], route_cent, m->embed);
+                qloop_tsrc = 1;
+            }
+        }
         int max_routes = g_qloop > 2 ? 2 : g_qloop;
         int candidate_routes = g_qloop_candidate_pool > 0 ? g_qloop_candidate_pool : max_routes + 2;
         if (candidate_routes < max_routes) candidate_routes = max_routes;
         if (candidate_routes > 8) candidate_routes = 8;
-        int routes = pick_question_routes(cur_frag, cent, n_cells, m->embed, qcell, tcell, qscore,
+        int routes = pick_question_routes(route_frag, route_cent, n_cells, m->embed, qcell, tcell, qscore,
                                           qdist, qopen, qtconf, qmarks, candidate_routes,
                                           &qloop_qsrc, &qloop_ssrc, &qloop_score_reject);
         qloop_routes = routes;
@@ -2973,10 +3000,10 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                 snprintf(qctx, sizeof(qctx), "%s", prompt);
             else if (qmarks[route] > 0)
                 snprintf(qctx, sizeof(qctx), "%s\ncell %d asked: %s\ncell %d answers the question to itself:",
-                         prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
+                         prompt, qcell[route], route_frag[qcell[route]], tcell[route]);
             else
                 snprintf(qctx, sizeof(qctx), "%s\ncell %d stated: %s\ncell %d responds from another angle:",
-                         prompt, qcell[route], cur_frag[qcell[route]], tcell[route]);
+                         prompt, qcell[route], route_frag[qcell[route]], tcell[route]);
             int qnp = bpe_encode(tok, qctx, qctx_ids, max_seq - 8);
             float qtemp = field_temp_for_cell(tcell[route], n_cells);
             int qfrag_n = nfrag / 2; if (qfrag_n < 2) qfrag_n = 2; if (qfrag_n > 8) qfrag_n = 8;
@@ -3011,8 +3038,8 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
             truncate_open_phrase_tail(qfrag, sizeof(qfrag));
             trim_terminal_function_word_tail(qfrag);
             close_short_answer_sentence(qfrag, sizeof(qfrag));
-            int answer_score = answer_candidate_score_semantic(m, tok, cent + (size_t)qcell[route] * m->embed,
-                                                                cur_frag[qcell[route]], qfrag);
+            int answer_score = answer_candidate_score_semantic(m, tok, route_cent + (size_t)qcell[route] * m->embed,
+                                                                route_frag[qcell[route]], qfrag);
             if (answer_score > 0 || answer_fragment_bad(qfrag)) {
                 static const float retry_temp_mul[] = { 0.85f, 0.70f, 0.95f, 0.60f };
                 static const unsigned retry_salt[] = { 0x7f4a7c15u, 0x9e3779b9u, 0x85ebca6bu, 0xc2b2ae35u };
@@ -3040,8 +3067,8 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                     truncate_open_phrase_tail(qfrag_retry, sizeof(qfrag_retry));
                     trim_terminal_function_word_tail(qfrag_retry);
                     close_short_answer_sentence(qfrag_retry, sizeof(qfrag_retry));
-                    int retry_score = answer_candidate_score_semantic(m, tok, cent + (size_t)qcell[route] * m->embed,
-                                                                       cur_frag[qcell[route]], qfrag_retry);
+                    int retry_score = answer_candidate_score_semantic(m, tok, route_cent + (size_t)qcell[route] * m->embed,
+                                                                       route_frag[qcell[route]], qfrag_retry);
                     if (retry_score < answer_score) {
                         copy_cstr(qfrag, sizeof(qfrag), qfrag_retry);
                         qn = qn_retry;
@@ -3100,7 +3127,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                     for (int d = 0; d < m->embed; d++) qcent[d] /= qn;
                     int lim = n_cells < 8 ? n_cells : 8, next = -1; float best = -1.0f;
                     for (int t = 0; t < lim; t++) if (t != qcell[route] && t != tcell[route]) {
-                        float score = 1.0f - vec_cosine(qcent, cent + (size_t)t * m->embed, m->embed);
+                        float score = 1.0f - vec_cosine(qcent, route_cent + (size_t)t * m->embed, m->embed);
                         score += 0.15f / (1.0f + g_cell_ent[t]);
                         if (score > best) { best = score; next = t; }
                     }
@@ -3138,9 +3165,10 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
             }
         }
         qloop_ms = now_ms() - qloop_t0;
+        if (route_cent != cent) free(route_cent);
     }
-    if (verbose) printf("\n  timing: base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject);
-    if (flog) fprintf(flog, "- timing base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d\n", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject);
+    if (verbose) printf("\n  timing: base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d qloop_tsrc=%d", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject, qloop_tsrc);
+    if (flog) fprintf(flog, "- timing base_ms=%.0f base_gen=%d base_retry=%d base_probe=%d base_rescue=%d base_fail=%d qloop_ms=%.0f qloop_gen=%d qloop_retry=%d qloop_routes=%d qloop_qsrc=%d qloop_ssrc=%d qloop_score_reject=%d qloop_tsrc=%d\n", base_ms, base_gen, base_retry, base_probe, base_rescue, base_fail, qloop_ms, qloop_gen, qloop_retry, qloop_routes, qloop_qsrc, qloop_ssrc, qloop_score_reject, qloop_tsrc);
     if (g_user_q && *g_user_q && g_qloop && verbose && out_disso && cent && g_xcell > 0) {
         int qids_prompt[512], qnprompt = bpe_encode(tok, g_user_q, qids_prompt, 512);
         float *qcent = (float*)xzalloc(m->embed, sizeof(float));
