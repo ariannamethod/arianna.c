@@ -163,17 +163,18 @@ func runAdmissionRouteCompare() error {
 		if prompt == "" {
 			return fmt.Errorf("sample %d has empty prompt", i+1)
 		}
+		seed := strings.TrimSpace(s.Seed)
+		if seed == "" {
+			seed = fmt.Sprintf("sample-%02d", i+1)
+		}
+		promptClass := qloopSweepPromptClass(s.Trigger, seed)
 		summary.SamplesRun++
 		for _, route := range routes {
-			out, err := generateAdmissionRoute(context.Background(), route, bin, model, prompt)
+			out, err := generateAdmissionRouteWithPromptClass(context.Background(), route, bin, model, prompt, promptClass)
 			if err != nil {
 				return fmt.Errorf("sample %d route %s: %w", i+1, route, err)
 			}
 			trigger := admissionRouteTrigger(route, s.Trigger)
-			seed := strings.TrimSpace(s.Seed)
-			if seed == "" {
-				seed = fmt.Sprintf("sample-%02d", i+1)
-			}
 			if err := recordAdmissionRouteCandidate(iw, &summary, i+1, out, trigger, seed, s.Fragment); err != nil {
 				return err
 			}
@@ -239,6 +240,10 @@ func admissionRouteTrigger(route, trigger string) string {
 }
 
 func generateAdmissionRoute(ctx context.Context, route, bin, model, prompt string) (admissionRouteOutput, error) {
+	return generateAdmissionRouteWithPromptClass(ctx, route, bin, model, prompt, "")
+}
+
+func generateAdmissionRouteWithPromptClass(ctx context.Context, route, bin, model, prompt, promptClass string) (admissionRouteOutput, error) {
 	switch route {
 	case "direct":
 		text, err := generateAdmissionDirect(ctx, bin, model, prompt)
@@ -252,42 +257,80 @@ func generateAdmissionRoute(ctx context.Context, route, bin, model, prompt strin
 		voices, questions := chorusCounts(cells)
 		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag}, nil
 	case "qloop":
-		cells, diag, err := generateAdmissionChorus(ctx, bin, model, prompt, 2)
+		var cells []chorusCell
+		var diag admissionRouteDiagnostics
+		err := withResolvedQloopSourceClass(promptClass, func() error {
+			var err error
+			cells, diag, err = generateAdmissionChorus(ctx, bin, model, prompt, 2)
+			return err
+		})
 		if err != nil {
 			return admissionRouteOutput{route: route}, err
 		}
 		cells = filterChorusCells(cells, true)
 		voices, questions := chorusCounts(cells)
-		return admissionRouteOutput{route: route, text: qloopAdmissionText(cells), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
+		return admissionRouteOutput{route: route, text: qloopAdmissionTextForClass(cells, promptClass), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
 	default:
 		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
 	}
 }
 
+func withResolvedQloopSourceClass(promptClass string, fn func() error) error {
+	if strings.TrimSpace(os.Getenv("A2A_QLOOP_SOURCE_CLASS")) != "prompt" {
+		return fn()
+	}
+	promptClass = qloopSweepPromptClass(promptClass, promptClass)
+	if promptClass == "" || promptClass == "unknown" {
+		return fn()
+	}
+	return withTemporaryEnv(map[string]string{"A2A_QLOOP_SOURCE_CLASS": promptClass}, fn)
+}
+
 func qloopAdmissionText(cells []chorusCell) string {
+	return qloopAdmissionTextForClass(cells, "")
+}
+
+func qloopAdmissionTextForClass(cells []chorusCell, promptClass string) string {
 	best := ""
 	bestPenalty := 1 << 30
 	bestWords := -1
+	bestClean := false
+	bestSemantic := -1
 	for _, cell := range cells {
 		text := strings.TrimSpace(cell.text)
 		if text == "" {
 			continue
 		}
-		words, leak, debt := qloopSweepTextStats(text)
-		penalty := len(debt) * 20
-		if leak {
-			penalty += 100
+		words, penalty, clean := qloopAdmissionCandidateStats(text)
+		semantic := 0
+		if strings.TrimSpace(promptClass) != "" {
+			semantic = qloopSweepSemanticAssessment(text, promptClass).Score
 		}
-		if words < 3 {
-			penalty += 10 + (3 - words)
-		}
-		if penalty < bestPenalty || (penalty == bestPenalty && words > bestWords) {
+		if best == "" ||
+			(clean != bestClean && clean) ||
+			(clean == bestClean && semantic != bestSemantic && semantic > bestSemantic) ||
+			(clean == bestClean && semantic == bestSemantic && penalty < bestPenalty) ||
+			(clean == bestClean && semantic == bestSemantic && penalty == bestPenalty && words > bestWords) {
 			best = text
 			bestPenalty = penalty
 			bestWords = words
+			bestClean = clean
+			bestSemantic = semantic
 		}
 	}
 	return best
+}
+
+func qloopAdmissionCandidateStats(text string) (words, penalty int, clean bool) {
+	words, leak, debt := qloopSweepTextStats(text)
+	penalty = len(debt) * 20
+	if leak {
+		penalty += 100
+	}
+	if words < 3 {
+		penalty += 10 + (3 - words)
+	}
+	return words, penalty, penalty == 0 && words >= 3
 }
 
 func generateAdmissionDirect(ctx context.Context, bin, model, prompt string) (string, error) {

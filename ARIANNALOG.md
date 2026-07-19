@@ -2917,3 +2917,61 @@ Per-seed coverage: `new-listener` 1/9 clean; `not-oleg` 2/9 clean; `field-origin
 layer needs a semantic scorer: least-debt is not necessarily best-meaning (`If yes the field.` can outrank
 `this person exists.` on shallow words/surface alone). Next action: add prompt-class/source semantic scoring
 or seed-specific route diagnostics before changing qloop selection defaults.
+
+**Follow-up, same day - qloop semantic coverage receipt.** Added deterministic prompt-class semantic scoring
+to qloop sweep receipts. This is receipt-only: runtime selection and qloop quality gates are unchanged. Each
+produced sample now gets `prompt_class`, `semantic_score` (0..5), `semantic_passed` (score >= 3), and
+`semantic_reasons`; config summaries aggregate semantic counts/scores; `sample_coverage` now carries both
+`least_debt_*` and `best_semantic_*`. The scorer is deliberately small and auditable: class anchors cover
+`cold-reader`, `recipient-lock`, `identity`, `polyphony`, `qloop`, and `statement`, with penalties for
+conditional fragments, truncation, and recipient leakage.
+
+Validation broad receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.XI8Sng/qloop_sweep_summary.json`.
+Semantic coverage on the first six prompts: `new-listener` 0/1 pass (`not a human.` score 2, boundary but too
+thin); `not-oleg` 1/2 pass (`least_debt=If yes the field.` score 0, `best_semantic=this person exists.` score
+3); `field-origin` 0/4 pass (identity anchor still missing); `many-minds` 0/3 pass (best is `The chorus begins.`
+score 2, too generic); `same-wave` 1/2 pass; `no-question` 1/3 pass. Config-level semantic signal: strongest
+current config is `question_hint_loose` (2 semantic passes / score 6) but it is still coverage-failed; narrow
+recipient bridge remains `question_source_user_arianna` (1 semantic pass / score 5 over 2 outputs). Next layer:
+use semantic score as an admission/selection tie-break or diagnostic gate before any qloop default widening.
+
+**Follow-up, same day - semantic qloop selection tie-break.** Wired the semantic scorer into the Go admission
+harness selection path only: when route-compare/qloop-sweep knows a prompt class, `qloopAdmissionTextForClass`
+chooses among already generated qloop cells with surface safety first, then semantic score, then shallow-debt
+penalty/word count. The legacy `qloopAdmissionText(cells)` path remains unchanged for callers without a prompt
+class, and C runtime generation is untouched.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.M6fHTH/qloop_sweep_summary.json` and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.3SvusH/dream_admission_route_compare.json`.
+Short smoke confirms the key effect: `question_source_user_arianna` selects `this person exists.` for
+`not-oleg` (semantic score 3) while `question_source_qa` still exposes `If yes the field.` as a zero-score
+least-debt candidate. Broad sweep remains fail-closed: `question_hint_loose` is still strongest by semantic
+signal (2 passes / score 6) but coverage-failed; `question_source_user_arianna` remains the narrow recipient
+bridge (1 pass / score 5 over 2 outputs); identity and polyphony still lack semantic coverage. Conclusion:
+semantic tie-break fixes candidate choice inside generated cells, but the next real lift is source coverage,
+not gate relaxation.
+
+**Follow-up, same day - prompt-class qloop source hint.** Added an env-gated
+`A2A_QLOOP_SOURCE_CLASS` for the diagnostic question-source path. The qloop sweep gets a new
+`question_source_class_user_arianna` config with `A2A_QLOOP_QUESTION_SOURCE_FRAME=user_arianna` and
+`A2A_QLOOP_SOURCE_CLASS=prompt`; the Go harness resolves `prompt` per sample to the known prompt class only
+for qloop generation. Runtime defaults and callers without this env remain on the older source prompt.
+`cold-reader` and `recipient-lock` intentionally fall back to the proven plain `User:/Arianna:` source frame,
+because the first probe showed class stems weakened the already-working bridge.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.uV6D3N/qloop_sweep_summary.json` and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.WNfEVV/qloop_sweep_summary.json`.
+Standard 2-sample sweep stays healthy: `question_source_class_user_arianna` matches
+`question_source_user_arianna` byte-for-byte on the first two prompts (`not a human.`, `this person exists.`),
+passes the quality gate, and does not disturb the narrow recipient bridge. Broad 6-sample sweep remains
+fail-closed (`gate_passed=false`, no winner), but the class-source config is now the strongest source-coverage
+probe by production/semantic signal: 4/6 produced, 2 semantic passes, semantic score 8. New lift:
+`field-origin` / `identity` now gets the clean semantic candidate `not the outer face.` (score 3, reasons
+`identity_anchor`, `boundary_anchor`), where previous broad receipts had no identity semantic pass. Remaining
+debt is explicit: `many-minds`/polyphony still routes but gates out under IQ, `same-wave`/qloop still fails to
+form a question source, and `no-question`/statement emits `there exists a kind.` without a statement anchor.
+Next layer should introduce typed source admission/rollback or source-text stitching under a separate gate,
+not relax qloop answer gates.

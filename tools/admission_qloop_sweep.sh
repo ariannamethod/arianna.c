@@ -99,6 +99,8 @@ grep -q '"route_label_leaks":' "$SUMMARY" && die "qloop sweep found route label 
 grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
 grep -q '"samples":' "$SUMMARY" || die "qloop per-sample receipts missing from summary"
 grep -q '"sample_coverage":' "$SUMMARY" || die "qloop sample coverage matrix missing from summary"
+grep -q '"semantic_score":' "$SUMMARY" || die "qloop semantic score telemetry missing from summary"
+grep -q '"best_semantic_config":' "$SUMMARY" || die "qloop best semantic coverage missing from summary"
 if ! grep -q '"qloop_gate_surface":' "$SUMMARY" && ! grep -q '"qloop_gate_iq":' "$SUMMARY"; then
     die "qloop gate-reason telemetry missing from summary"
 fi

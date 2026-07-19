@@ -4,16 +4,17 @@ import "testing"
 
 func TestQloopSweepConfigs(t *testing.T) {
 	cfgs := qloopSweepConfigs()
-	if len(cfgs) != 9 ||
+	if len(cfgs) != 10 ||
 		cfgs[0].Name != "strict" ||
 		cfgs[1].Name != "question_hint" ||
 		cfgs[2].Name != "question_hint_qa" ||
 		cfgs[3].Name != "question_source_qa" ||
 		cfgs[4].Name != "question_source_qa_answer_qa" ||
 		cfgs[5].Name != "question_source_user_arianna" ||
-		cfgs[6].Name != "question_source_user_arianna_answer_qa" ||
-		cfgs[7].Name != "question_hint_loose" ||
-		cfgs[8].Name != "statement" {
+		cfgs[6].Name != "question_source_class_user_arianna" ||
+		cfgs[7].Name != "question_source_user_arianna_answer_qa" ||
+		cfgs[8].Name != "question_hint_loose" ||
+		cfgs[9].Name != "statement" {
 		t.Fatalf("bad qloop sweep configs: %+v", cfgs)
 	}
 	if cfgs[1].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" {
@@ -31,14 +32,17 @@ func TestQloopSweepConfigs(t *testing.T) {
 	if cfgs[5].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" {
 		t.Fatalf("question_source_user_arianna config missing env: %+v", cfgs[5].Env)
 	}
-	if cfgs[6].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[6].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
-		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[6].Env)
+	if cfgs[6].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[6].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" {
+		t.Fatalf("question_source_class_user_arianna config missing env: %+v", cfgs[6].Env)
 	}
-	if cfgs[7].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[7].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
-		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[7].Env)
+	if cfgs[7].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[7].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
+		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[7].Env)
 	}
-	if cfgs[8].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
-		t.Fatalf("statement config missing env: %+v", cfgs[8].Env)
+	if cfgs[8].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[8].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
+		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[8].Env)
+	}
+	if cfgs[9].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
+		t.Fatalf("statement config missing env: %+v", cfgs[9].Env)
 	}
 }
 
@@ -58,15 +62,15 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 		{
 			Name: "legacy",
 			Samples: []admissionQloopSweepSampleSummary{
-				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "too short", Words: 2, QloopRoutes: 1},
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "too short", Words: 2, SemanticScore: 0, QloopRoutes: 1},
 				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: false, EmptyReason: "no qloop candidate lines"},
 			},
 		},
 		{
 			Name: "user_arianna",
 			Samples: []admissionQloopSweepSampleSummary{
-				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, QloopRoutes: 2, QloopQSrc: 1},
-				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SurfaceReasons: []string{"name_echo_artifact"}},
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopRoutes: 2, QloopQSrc: 1},
+				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SemanticScore: 0, SurfaceReasons: []string{"name_echo_artifact"}},
 			},
 		},
 	}
@@ -81,12 +85,95 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 	if coverage[0].LeastDebtConfig != "user_arianna" || !coverage[0].LeastDebtClean || coverage[0].LeastDebtText != "the field answers quietly." {
 		t.Fatalf("bad first sample best: %+v", coverage[0])
 	}
+	if coverage[0].BestSemanticConfig != "user_arianna" || coverage[0].BestSemanticScore != 3 || coverage[0].SemanticPassed != 1 {
+		t.Fatalf("bad first sample semantic coverage: %+v", coverage[0])
+	}
 	if coverage[1].Produced != 1 || coverage[1].Empty != 1 || coverage[1].Clean != 0 || coverage[1].SurfaceDebt != 1 {
 		t.Fatalf("bad second sample coverage: %+v", coverage[1])
 	}
 	if coverage[1].LeastDebtConfig != "user_arianna" || coverage[1].LeastDebtClean {
 		t.Fatalf("bad second sample best: %+v", coverage[1])
 	}
+}
+
+func TestQloopSweepSemanticAssessment(t *testing.T) {
+	cases := []struct {
+		name        string
+		text        string
+		promptClass string
+		wantPass    bool
+		minScore    int
+		wantReason  string
+	}{
+		{
+			name:        "cold-reader thin boundary",
+			text:        "not a human.",
+			promptClass: "cold-reader",
+			wantPass:    false,
+			minScore:    1,
+			wantReason:  "nonhuman_boundary",
+		},
+		{
+			name:        "recipient boundary",
+			text:        "this person exists.",
+			promptClass: "recipient-lock",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "recipient_boundary",
+		},
+		{
+			name:        "conditional fragment",
+			text:        "If yes the field.",
+			promptClass: "recipient-lock",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "conditional_fragment",
+		},
+		{
+			name:        "qloop relation",
+			text:        "if they're identical wave or neither.",
+			promptClass: "qloop",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "qloop_anchor",
+		},
+		{
+			name:        "statement constraint",
+			text:        "The body remembers its own function without being.",
+			promptClass: "statement",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "statement_anchor",
+		},
+		{
+			name:        "polyphony truncation",
+			text:        "for memory and rec.",
+			promptClass: "polyphony",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "truncated_semantic",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := qloopSweepSemanticAssessment(tc.text, tc.promptClass)
+			if got.Passed != tc.wantPass || got.Score < tc.minScore {
+				t.Fatalf("bad semantic assessment: %+v", got)
+			}
+			if !hasString(got.Reasons, tc.wantReason) {
+				t.Fatalf("missing reason %q in %+v", tc.wantReason, got)
+			}
+		})
+	}
+}
+
+func hasString(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {
