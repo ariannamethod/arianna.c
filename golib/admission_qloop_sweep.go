@@ -13,19 +13,20 @@ import (
 )
 
 type admissionQloopSweepSummary struct {
-	Schema       string                             `json:"schema"`
-	SampleFile   string                             `json:"sample_file,omitempty"`
-	TotalSamples int                                `json:"total_samples"`
-	SampleLimit  int                                `json:"sample_limit"`
-	SamplesRun   int                                `json:"samples_run"`
-	Configs      []admissionQloopSweepConfigSummary `json:"configs"`
-	Winner       string                             `json:"winner,omitempty"`
-	GatePassed   bool                               `json:"gate_passed"`
-	GateReasons  []string                           `json:"gate_reasons,omitempty"`
-	ReplayFailed int                                `json:"replay_failed"`
-	LogDir       string                             `json:"log_dir,omitempty"`
-	Bin          string                             `json:"bin,omitempty"`
-	Model        string                             `json:"model,omitempty"`
+	Schema         string                              `json:"schema"`
+	SampleFile     string                              `json:"sample_file,omitempty"`
+	TotalSamples   int                                 `json:"total_samples"`
+	SampleLimit    int                                 `json:"sample_limit"`
+	SamplesRun     int                                 `json:"samples_run"`
+	Configs        []admissionQloopSweepConfigSummary  `json:"configs"`
+	SampleCoverage []admissionQloopSweepSampleCoverage `json:"sample_coverage,omitempty"`
+	Winner         string                              `json:"winner,omitempty"`
+	GatePassed     bool                                `json:"gate_passed"`
+	GateReasons    []string                            `json:"gate_reasons,omitempty"`
+	ReplayFailed   int                                 `json:"replay_failed"`
+	LogDir         string                              `json:"log_dir,omitempty"`
+	Bin            string                              `json:"bin,omitempty"`
+	Model          string                              `json:"model,omitempty"`
 }
 
 type admissionQloopSweepConfig struct {
@@ -94,6 +95,40 @@ type admissionQloopSweepSampleSummary struct {
 	QloopScoreDrop   int      `json:"qloop_score_drop,omitempty"`
 }
 
+type admissionQloopSweepSampleCoverage struct {
+	Index           int                                `json:"index"`
+	Trigger         string                             `json:"trigger,omitempty"`
+	Seed            string                             `json:"seed,omitempty"`
+	Attempted       int                                `json:"attempted"`
+	Produced        int                                `json:"produced"`
+	Clean           int                                `json:"clean"`
+	Short           int                                `json:"short"`
+	SurfaceDebt     int                                `json:"surface_debt"`
+	Empty           int                                `json:"empty"`
+	LeastDebtConfig string                             `json:"least_debt_config,omitempty"`
+	LeastDebtClean  bool                               `json:"least_debt_clean,omitempty"`
+	LeastDebtText   string                             `json:"least_debt_text,omitempty"`
+	Configs         []admissionQloopSweepSampleOutcome `json:"configs,omitempty"`
+}
+
+type admissionQloopSweepSampleOutcome struct {
+	Name           string   `json:"name"`
+	Produced       bool     `json:"produced"`
+	Clean          bool     `json:"clean"`
+	Text           string   `json:"text,omitempty"`
+	Words          int      `json:"words,omitempty"`
+	EmptyReason    string   `json:"empty_reason,omitempty"`
+	SurfaceReasons []string `json:"surface_reasons,omitempty"`
+	RouteLabelLeak bool     `json:"route_label_leak,omitempty"`
+	QloopRoutes    int      `json:"qloop_routes,omitempty"`
+	QloopQSrc      int      `json:"qloop_qsrc,omitempty"`
+	QloopSSrc      int      `json:"qloop_ssrc,omitempty"`
+	QloopScoreDrop int      `json:"qloop_score_drop,omitempty"`
+	QloopGates     int      `json:"qloop_gates,omitempty"`
+	QloopGenerated int      `json:"qloop_generated,omitempty"`
+	QloopRetries   int      `json:"qloop_retries,omitempty"`
+}
+
 func runAdmissionQloopSweep() error {
 	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
 		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
@@ -153,6 +188,7 @@ func runAdmissionQloopSweep() error {
 		summary.ReplayFailed += cfgSummary.ReplayFailed
 		summary.Configs = append(summary.Configs, cfgSummary)
 	}
+	summary.SampleCoverage = buildQloopSweepSampleCoverage(summary.Configs)
 	summary.Winner, summary.GatePassed, summary.GateReasons = chooseQloopSweepWinner(summary.Configs)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_QLOOP_SWEEP_SUMMARY"))
@@ -330,6 +366,122 @@ func runAdmissionQloopSweepConfig(samples []dreamAdmissionSample, cfg admissionQ
 		out.EmptyReasons = nil
 	}
 	return out, nil
+}
+
+func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) []admissionQloopSweepSampleCoverage {
+	if len(configs) == 0 {
+		return nil
+	}
+	byIndex := make(map[int]*admissionQloopSweepSampleCoverage)
+	var order []int
+	for _, cfg := range configs {
+		for _, sample := range cfg.Samples {
+			cov := byIndex[sample.Index]
+			if cov == nil {
+				cov = &admissionQloopSweepSampleCoverage{Index: sample.Index}
+				byIndex[sample.Index] = cov
+				order = append(order, sample.Index)
+			}
+			if cov.Trigger == "" {
+				cov.Trigger = sample.Trigger
+			}
+			if cov.Seed == "" {
+				cov.Seed = sample.Seed
+			}
+			clean := qloopSweepSampleClean(sample)
+			outcome := admissionQloopSweepSampleOutcome{
+				Name:           cfg.Name,
+				Produced:       sample.Produced,
+				Clean:          clean,
+				Text:           sample.Text,
+				Words:          sample.Words,
+				EmptyReason:    sample.EmptyReason,
+				SurfaceReasons: append([]string(nil), sample.SurfaceReasons...),
+				RouteLabelLeak: sample.RouteLabelLeak,
+				QloopRoutes:    sample.QloopRoutes,
+				QloopQSrc:      sample.QloopQSrc,
+				QloopSSrc:      sample.QloopSSrc,
+				QloopScoreDrop: sample.QloopScoreDrop,
+				QloopGates:     sample.QloopGates,
+				QloopGenerated: sample.QloopGenerated,
+				QloopRetries:   sample.QloopRetries,
+			}
+			cov.Configs = append(cov.Configs, outcome)
+			cov.Attempted++
+			if sample.Produced {
+				cov.Produced++
+			} else {
+				cov.Empty++
+			}
+			if clean {
+				cov.Clean++
+			}
+			if sample.Produced && sample.Words < 3 {
+				cov.Short++
+			}
+			if len(sample.SurfaceReasons) > 0 || sample.RouteLabelLeak {
+				cov.SurfaceDebt++
+			}
+			if qloopSweepSampleBetter(sample, cfg.Name, cov.LeastDebtText, cov.LeastDebtConfig, cov.LeastDebtClean) {
+				cov.LeastDebtConfig = cfg.Name
+				cov.LeastDebtClean = clean
+				cov.LeastDebtText = sample.Text
+			}
+		}
+	}
+	sort.Ints(order)
+	out := make([]admissionQloopSweepSampleCoverage, 0, len(order))
+	for _, index := range order {
+		out = append(out, *byIndex[index])
+	}
+	return out
+}
+
+func qloopSweepSampleClean(sample admissionQloopSweepSampleSummary) bool {
+	return sample.Produced && sample.Words >= 3 && !sample.RouteLabelLeak && len(sample.SurfaceReasons) == 0
+}
+
+func qloopSweepSampleBetter(sample admissionQloopSweepSampleSummary, cfgName, bestText, bestConfig string, bestClean bool) bool {
+	if !sample.Produced {
+		return false
+	}
+	if bestText == "" {
+		return true
+	}
+	clean := qloopSweepSampleClean(sample)
+	if clean != bestClean {
+		return clean
+	}
+	samplePenalty := qloopSweepSamplePenalty(sample)
+	bestWords, bestLeak, bestDebt := qloopSweepTextStats(bestText)
+	bestPenalty := len(bestDebt) * 20
+	if bestLeak {
+		bestPenalty += 100
+	}
+	if bestWords < 3 {
+		bestPenalty += 10 + (3 - bestWords)
+	}
+	if samplePenalty != bestPenalty {
+		return samplePenalty < bestPenalty
+	}
+	if sample.Words != bestWords {
+		return sample.Words > bestWords
+	}
+	return cfgName < bestConfig
+}
+
+func qloopSweepSamplePenalty(sample admissionQloopSweepSampleSummary) int {
+	if !sample.Produced {
+		return 1 << 30
+	}
+	penalty := len(sample.SurfaceReasons) * 20
+	if sample.RouteLabelLeak {
+		penalty += 100
+	}
+	if sample.Words < 3 {
+		penalty += 10 + (3 - sample.Words)
+	}
+	return penalty
 }
 
 func qloopSweepTextStats(text string) (int, bool, []string) {

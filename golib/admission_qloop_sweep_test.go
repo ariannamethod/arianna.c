@@ -53,6 +53,42 @@ func TestQloopSweepTextStats(t *testing.T) {
 	}
 }
 
+func TestBuildQloopSweepSampleCoverage(t *testing.T) {
+	cfgs := []admissionQloopSweepConfigSummary{
+		{
+			Name: "legacy",
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "too short", Words: 2, QloopRoutes: 1},
+				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: false, EmptyReason: "no qloop candidate lines"},
+			},
+		},
+		{
+			Name: "user_arianna",
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, QloopRoutes: 2, QloopQSrc: 1},
+				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SurfaceReasons: []string{"name_echo_artifact"}},
+			},
+		},
+	}
+
+	coverage := buildQloopSweepSampleCoverage(cfgs)
+	if len(coverage) != 2 {
+		t.Fatalf("bad coverage length: %+v", coverage)
+	}
+	if coverage[0].Index != 1 || coverage[0].Seed != "field-origin" || coverage[0].Produced != 2 || coverage[0].Clean != 1 || coverage[0].Short != 1 {
+		t.Fatalf("bad first sample coverage: %+v", coverage[0])
+	}
+	if coverage[0].LeastDebtConfig != "user_arianna" || !coverage[0].LeastDebtClean || coverage[0].LeastDebtText != "the field answers quietly." {
+		t.Fatalf("bad first sample best: %+v", coverage[0])
+	}
+	if coverage[1].Produced != 1 || coverage[1].Empty != 1 || coverage[1].Clean != 0 || coverage[1].SurfaceDebt != 1 {
+		t.Fatalf("bad second sample coverage: %+v", coverage[1])
+	}
+	if coverage[1].LeastDebtConfig != "user_arianna" || coverage[1].LeastDebtClean {
+		t.Fatalf("bad second sample best: %+v", coverage[1])
+	}
+}
+
 func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {
 	_, _, debt := qloopSweepTextStats("you from The My Name—. / my identity as — “.” This phrase.")
 	want := map[string]bool{
