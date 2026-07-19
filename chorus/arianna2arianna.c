@@ -1118,6 +1118,17 @@ static void load_repl_prompt_env(void) {
     }
 }
 
+static int qloop_source_class_code(const char *src_class) {
+    if (!src_class || !*src_class) return 0;
+    if (strcmp(src_class, "cold-reader") == 0) return 0;
+    if (strcmp(src_class, "recipient-lock") == 0) return 0;
+    if (strcmp(src_class, "identity") == 0) return 3;
+    if (strcmp(src_class, "polyphony") == 0) return 4;
+    if (strcmp(src_class, "qloop") == 0) return 5;
+    if (strcmp(src_class, "statement") == 0) return 6;
+    return -1;
+}
+
 static void load_qloop_route_env(void) {
     g_qloop_min = env_float_clamped("A2A_QLOOP_MIN", 0.42f, 0.0f, 2.0f);
     g_qloop_min_iq = env_float_clamped("A2A_QLOOP_MIN_IQ", 0.0f, -2.0f, 2.0f);
@@ -1138,15 +1149,20 @@ static void load_qloop_route_env(void) {
     const char *src_class = getenv("A2A_QLOOP_SOURCE_CLASS");
     g_qloop_source_class = 0;
     if (src_class && *src_class) {
-        if (strcmp(src_class, "cold-reader") == 0) g_qloop_source_class = 0;
-        else if (strcmp(src_class, "recipient-lock") == 0) g_qloop_source_class = 0;
-        else if (strcmp(src_class, "identity") == 0) g_qloop_source_class = 3;
-        else if (strcmp(src_class, "polyphony") == 0) g_qloop_source_class = 4;
-        else if (strcmp(src_class, "qloop") == 0) g_qloop_source_class = 5;
-        else if (strcmp(src_class, "statement") == 0) g_qloop_source_class = 6;
+        int src_code = qloop_source_class_code(src_class);
+        if (src_code >= 0) g_qloop_source_class = src_code;
         else fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_SOURCE_CLASS=%s\n", src_class);
     }
     g_qloop_typed_source = env_int_clamped("A2A_QLOOP_TYPED_SOURCE", 0, 0, 1);
+    const char *typed_class = getenv("A2A_QLOOP_TYPED_SOURCE_CLASS");
+    if (g_qloop_typed_source && typed_class && *typed_class) {
+        int typed_code = qloop_source_class_code(typed_class);
+        if (typed_code < 0) {
+            fprintf(stderr, "warning: ignoring invalid A2A_QLOOP_TYPED_SOURCE_CLASS=%s\n", typed_class);
+        } else if (typed_code != g_qloop_source_class) {
+            g_qloop_typed_source = 0;
+        }
+    }
     g_qloop_target_class_hint = env_int_clamped("A2A_QLOOP_TARGET_CLASS_HINT", 0, 0, 1);
     g_qloop_statement_routes = env_int_clamped("A2A_QLOOP_STATEMENT_ROUTES", 0, 0, 1);
     g_qloop_statement_pool = env_int_clamped("A2A_QLOOP_STATEMENT_POOL", 0, 0, 8);
@@ -1249,7 +1265,7 @@ static const char *qloop_source_class_stem(void) {
     case 4:
         return "What should the chorus remember about its many voices";
     case 5:
-        return "What changes when the same question returns as an echo";
+        return "Are two thoughts the same wave or only an echo";
     case 6:
         return "What should the field remember about its function";
     default:
