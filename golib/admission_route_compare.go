@@ -50,6 +50,7 @@ type admissionRouteStats struct {
 	QloopSSrc        int `json:"qloop_ssrc,omitempty"`
 	QloopScoreDrop   int `json:"qloop_score_drop,omitempty"`
 	QloopTypedSrc    int `json:"qloop_tsrc,omitempty"`
+	QloopTargetCtx   int `json:"qloop_tctx,omitempty"`
 	QloopPickerSeen  int `json:"qloop_picker_seen,omitempty"`
 	BaseGenerated    int `json:"base_generated,omitempty"`
 	BaseRetries      int `json:"base_retries,omitempty"`
@@ -99,6 +100,7 @@ type admissionRouteDiagnostics struct {
 	QloopSSrc        int
 	QloopScoreDrop   int
 	QloopTypedSrc    int
+	QloopTargetCtx   int
 	QloopPickerSeen  bool
 	BaseGenerated    int
 	BaseRetries      int
@@ -407,7 +409,7 @@ func filterChorusCells(cells []chorusCell, qloop bool) []chorusCell {
 	return out
 }
 
-var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_retry=(\d+) base_probe=(\d+) base_rescue=(\d+) base_fail=(\d+) qloop_ms=\S+ qloop_gen=(\d+) qloop_retry=(\d+)(?: qloop_routes=(\d+) qloop_qsrc=(\d+) qloop_ssrc=(\d+) qloop_score_reject=(\d+)(?: qloop_tsrc=(\d+))?)?`)
+var routeTimingRe = regexp.MustCompile(`timing: base_ms=\S+ base_gen=(\d+) base_retry=(\d+) base_probe=(\d+) base_rescue=(\d+) base_fail=(\d+) qloop_ms=\S+ qloop_gen=(\d+) qloop_retry=(\d+)(?: qloop_routes=(\d+) qloop_qsrc=(\d+) qloop_ssrc=(\d+) qloop_score_reject=(\d+)(?: qloop_tsrc=(\d+))?(?: qloop_tctx=(\d+))?)?`)
 
 func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 	diag := admissionRouteDiagnostics{
@@ -433,6 +435,9 @@ func parseAdmissionRouteDiagnostics(out string) admissionRouteDiagnostics {
 			diag.QloopScoreDrop = atoiZero(m[11])
 			if len(m) >= 13 {
 				diag.QloopTypedSrc = atoiZero(m[12])
+			}
+			if len(m) >= 14 {
+				diag.QloopTargetCtx = atoiZero(m[13])
 			}
 		}
 	}
@@ -488,6 +493,7 @@ func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompar
 	st.QloopSSrc += out.diag.QloopSSrc
 	st.QloopScoreDrop += out.diag.QloopScoreDrop
 	st.QloopTypedSrc += out.diag.QloopTypedSrc
+	st.QloopTargetCtx += out.diag.QloopTargetCtx
 	if out.diag.QloopPickerSeen {
 		st.QloopPickerSeen++
 	}

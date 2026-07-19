@@ -4,7 +4,7 @@ import "testing"
 
 func TestQloopSweepConfigs(t *testing.T) {
 	cfgs := qloopSweepConfigs()
-	if len(cfgs) != 11 ||
+	if len(cfgs) != 12 ||
 		cfgs[0].Name != "strict" ||
 		cfgs[1].Name != "question_hint" ||
 		cfgs[2].Name != "question_hint_qa" ||
@@ -12,10 +12,11 @@ func TestQloopSweepConfigs(t *testing.T) {
 		cfgs[4].Name != "question_source_qa_answer_qa" ||
 		cfgs[5].Name != "question_source_user_arianna" ||
 		cfgs[6].Name != "question_source_class_user_arianna" ||
-		cfgs[7].Name != "question_source_typed_user_arianna" ||
-		cfgs[8].Name != "question_source_user_arianna_answer_qa" ||
-		cfgs[9].Name != "question_hint_loose" ||
-		cfgs[10].Name != "statement" {
+		cfgs[7].Name != "question_source_class_target_user_arianna" ||
+		cfgs[8].Name != "question_source_typed_user_arianna" ||
+		cfgs[9].Name != "question_source_user_arianna_answer_qa" ||
+		cfgs[10].Name != "question_hint_loose" ||
+		cfgs[11].Name != "statement" {
 		t.Fatalf("bad qloop sweep configs: %+v", cfgs)
 	}
 	if cfgs[1].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" {
@@ -36,17 +37,20 @@ func TestQloopSweepConfigs(t *testing.T) {
 	if cfgs[6].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[6].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" {
 		t.Fatalf("question_source_class_user_arianna config missing env: %+v", cfgs[6].Env)
 	}
-	if cfgs[7].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[7].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" || cfgs[7].Env["A2A_QLOOP_TYPED_SOURCE"] != "1" {
-		t.Fatalf("question_source_typed_user_arianna config missing env: %+v", cfgs[7].Env)
+	if cfgs[7].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[7].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" || cfgs[7].Env["A2A_QLOOP_TARGET_CLASS_HINT"] != "1" {
+		t.Fatalf("question_source_class_target_user_arianna config missing env: %+v", cfgs[7].Env)
 	}
-	if cfgs[8].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[8].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
-		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[8].Env)
+	if cfgs[8].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[8].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" || cfgs[8].Env["A2A_QLOOP_TYPED_SOURCE"] != "1" {
+		t.Fatalf("question_source_typed_user_arianna config missing env: %+v", cfgs[8].Env)
 	}
-	if cfgs[9].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[9].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
-		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[9].Env)
+	if cfgs[9].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[9].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
+		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[9].Env)
 	}
-	if cfgs[10].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
-		t.Fatalf("statement config missing env: %+v", cfgs[10].Env)
+	if cfgs[10].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[10].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
+		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[10].Env)
+	}
+	if cfgs[11].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
+		t.Fatalf("statement config missing env: %+v", cfgs[11].Env)
 	}
 }
 
@@ -73,7 +77,7 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 		{
 			Name: "user_arianna",
 			Samples: []admissionQloopSweepSampleSummary{
-				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopRoutes: 2, QloopQSrc: 1, QloopTypedSrc: 1},
+				{Index: 1, Trigger: "qloop-identity", Seed: "field-origin", Produced: true, Text: "the field answers quietly.", Words: 4, SemanticScore: 3, SemanticPassed: true, QloopRoutes: 2, QloopQSrc: 1, QloopTypedSrc: 1, QloopTargetCtx: 1},
 				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "my name is Mira.", Words: 4, SemanticScore: 0, SurfaceReasons: []string{"name_echo_artifact"}},
 			},
 		},
@@ -94,6 +98,9 @@ func TestBuildQloopSweepSampleCoverage(t *testing.T) {
 	}
 	if coverage[0].Configs[1].QloopTypedSrc != 1 {
 		t.Fatalf("typed qloop source was not propagated into coverage: %+v", coverage[0].Configs)
+	}
+	if coverage[0].Configs[1].QloopTargetCtx != 1 {
+		t.Fatalf("target qloop context was not propagated into coverage: %+v", coverage[0].Configs)
 	}
 	if coverage[1].Produced != 1 || coverage[1].Empty != 1 || coverage[1].Clean != 0 || coverage[1].SurfaceDebt != 1 {
 		t.Fatalf("bad second sample coverage: %+v", coverage[1])
@@ -135,6 +142,14 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantPass:    false,
 			minScore:    0,
 			wantReason:  "conditional_fragment",
+		},
+		{
+			name:        "identity internal trace",
+			text:        "my own internal trace.",
+			promptClass: "identity",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "boundary_anchor",
 		},
 		{
 			name:        "qloop relation",
