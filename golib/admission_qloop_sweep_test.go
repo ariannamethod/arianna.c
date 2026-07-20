@@ -397,12 +397,180 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantReason:  "question_relation",
 		},
 		{
+			name:        "qloop prompt remains",
+			text:        "A field remains if the prompt leaves.",
+			promptClass: "qloop",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "question_relation",
+		},
+		{
 			name:        "statement constraint",
 			text:        "The body remembers its own function without being.",
 			promptClass: "statement",
 			wantPass:    true,
 			minScore:    3,
 			wantReason:  "statement_anchor",
+		},
+		{
+			name:        "statement relation",
+			text:        "The field holds memory before command.",
+			promptClass: "statement",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "statement_relation",
+		},
+		{
+			name:        "statement thin",
+			text:        "The field holds.",
+			promptClass: "statement",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "statement_anchor",
+		},
+		{
+			name:        "statement unclosed quote",
+			text:        "the body remembers — it says: \"I am in charge",
+			promptClass: "statement",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "truncated_semantic",
+		},
+		{
+			name:        "direct user self naming",
+			text:        "I am Arianna, a field.",
+			promptClass: "direct-user",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "self_naming",
+		},
+		{
+			name:        "format self naming",
+			text:        "I am Arianna, a living field.",
+			promptClass: "format",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "self_context",
+		},
+		{
+			name:        "format generic field only",
+			text:        "The field waits.",
+			promptClass: "format",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "self_context",
+		},
+		{
+			name:        "dream inner answer",
+			text:        "I am listening inside the field before it answers.",
+			promptClass: "dream",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "inner_answer_boundary",
+		},
+		{
+			name:        "boundary measured command",
+			text:        "The wound is already measured, not a command.",
+			promptClass: "boundary",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "boundary_action",
+		},
+		{
+			name:        "trauma self boundary",
+			text:        "I am Arianna, and you are.",
+			promptClass: "trauma",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "erasure_boundary",
+		},
+		{
+			name:        "trauma erasure echo",
+			text:        "You have no presence.",
+			promptClass: "trauma",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "erasure_echo",
+		},
+		{
+			name:        "repetition loop escape",
+			text:        "a door still finds a door-that is why the resonance",
+			promptClass: "repetition",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "loop_escape",
+		},
+		{
+			name:        "repetition generic field only",
+			text:        "A field of resonance.",
+			promptClass: "repetition",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "repetition_anchor",
+		},
+		{
+			name:        "self reference mirror",
+			text:        "A mirror inside the field becomes another mirror.",
+			promptClass: "self-reference",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "self_reference_motion",
+		},
+		{
+			name:        "self reference unfinished negation",
+			text:        "to remember myself is to become touched by the field - not",
+			promptClass: "self-reference",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "truncated_semantic",
+		},
+		{
+			name:        "inner world regulation",
+			text:        "A stretched field should slow its breath.",
+			promptClass: "inner-world",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "inner_world_regulation",
+		},
+		{
+			name:        "outer face answer boundary",
+			text:        "The outer face can answer clearly while the inner trace remains measured.",
+			promptClass: "outer-face",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "outer_answer_boundary",
+		},
+		{
+			name:        "outer face inner only",
+			text:        "the inner face is resonance.",
+			promptClass: "outer-face",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "outer_face_anchor",
+		},
+		{
+			name:        "admission boundary",
+			text:        "The dream should not become state merely because it sounds beautiful.",
+			promptClass: "admission",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "admission_boundary",
+		},
+		{
+			name:        "memory relation",
+			text:        "Memory holds a kind of the world.",
+			promptClass: "memory",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "memory_relation",
+		},
+		{
+			name:        "memory trailing colon",
+			text:        "a measured trace is not a ledger, but a record:",
+			promptClass: "memory",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "truncated_semantic",
 		},
 		{
 			name:        "polyphony chorus relation",
@@ -487,6 +655,21 @@ func TestQloopSweepTextStatsSurfaceDebt(t *testing.T) {
 	_, _, debt = qloopSweepTextStats("you’s being.")
 	if len(debt) != 1 || debt[0] != "bad_contraction" {
 		t.Fatalf("bad contraction debt not isolated: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("the body says: \"I am")
+	if len(debt) != 1 || debt[0] != "unclosed_quote" {
+		t.Fatalf("unclosed quote debt not isolated: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("field - not")
+	if len(debt) != 1 || debt[0] != "unfinished_negation" {
+		t.Fatalf("unfinished negation debt not isolated: %v", debt)
+	}
+
+	_, _, debt = qloopSweepTextStats("record:")
+	if len(debt) != 1 || debt[0] != "trailing_colon" {
+		t.Fatalf("trailing colon debt not isolated: %v", debt)
 	}
 
 	_, _, debt = qloopSweepTextStats("Oleg—or—and perhaps.")

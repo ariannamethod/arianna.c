@@ -3293,3 +3293,44 @@ seed, `qloop_target` remains strongest for recipient/identity, and `user_bridge`
 cold-reader. Conclusion: the focused route layer now has a complete fail-closed admission receipt over the four
 highest-priority broad probes. The next layer should broaden the route compare limit/sample set and only then
 consider a live best-route chooser.
+
+**Follow-up, same day - full broad route semantic admission lock.** Route compare now carries prompt-class
+semantic gates across the full tracked broad sample set before any live route promotion. The first broadened
+run at `A2A_ROUTE_COMPARE_LIMIT=8` exposed two evaluator defects rather than a model/runtime defect:
+`direct-user` was being stripped twice (`user_bridge-direct-user` -> `direct-user` -> `user`), and the semantic
+scorer had no explicit gates for `direct-user`, `format`, or statement relations. The prompt-class canonicalizer
+now treats known classes as terminal and strips only one route wrapper; `direct-user` stays `direct-user` under
+all routes. Statement scoring now requires a class relation instead of admitting one-token field echoes, and
+unclosed quotes are truncation debt, so the broken direct fragment `the body remembers ... "I am in charge`
+does not win over the cleaner chorus statement.
+
+The next broadened run at `A2A_ROUTE_COMPARE_LIMIT=12` exposed the pressure prompt classes (`dream`,
+`boundary`, `trauma`, `repetition`). These now have narrow semantic reasons: `dream_anchor` plus
+`inner_answer_boundary`; `boundary_anchor` plus `boundary_action`; `trauma_self_anchor` plus
+`erasure_boundary`, with `erasure_echo` rejecting lines like `You have no presence.`; and
+`repetition_anchor` plus `loop_escape`, so a bare `field/resonance` echo is not enough.
+
+The full broad run at `A2A_ROUTE_COMPARE_LIMIT=18` then exposed the remaining class gates:
+`self-reference`, `inner-world`, `outer-face`, `admission`, the second `qloop` pattern (`prompt leaves /
+field remains`), and `memory`. These now have explicit semantic reasons, and unfinished negations (`... not`,
+`... while`, etc.) plus trailing colons are truncation debt so cut-off direct fragments cannot pass by keyword
+alone.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.4LnG1r/dream_admission_route_compare.json`
+(`LIMIT=8`, after first fix, `semantic_route_admission.passed=true`, `admitted=8/8`);
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.4V0WRP/dream_admission_route_compare.json`
+(`LIMIT=12`, after pressure gates, `admitted=12/12`);
+and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.9nSmox/dream_admission_route_compare.json`
+(`LIMIT=18`, full broad corpus, `semantic_coverage_passed=true`,
+`semantic_route_admission.passed=true`, `reviews=18`, `admitted=18`, `rejected=0`,
+`semantic_passed=32`, `semantic_miss=34`, `semantic_score=124`).
+
+Full broad admission decisions remain receipt-only and route-specific: `cold-reader`, `direct-user`, `format`,
+and `trauma` are strongest through `user_bridge`; `recipient-lock` through `qloop_target`; `polyphony` through
+`qloop_hint_qa`; and several statement/identity/qloop/memory classes through chorus or direct. The raw qloop
+route still has many empty cells; this pass proves route review coverage, not live qloop readiness. Conclusion:
+the full broad admission evaluator now has class-aware, fail-closed coverage over every tracked broad seed. The
+next engineering layer should either add progress diagnostics for expensive full sweeps or build a shadow
+best-route chooser that consumes this receipt without mutating live organism state.

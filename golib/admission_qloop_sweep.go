@@ -1199,13 +1199,31 @@ func qloopSweepPromptClass(trigger, seed string) string {
 	if s == "" {
 		s = strings.ToLower(strings.TrimSpace(seed))
 	}
+	if qloopSweepKnownPromptClass(s) {
+		return s
+	}
 	for _, prefix := range []string{"user_bridge-", "qloop_hint_qa-", "qloop_target-", "qloop-", "direct-", "chorus-"} {
-		s = strings.TrimPrefix(s, prefix)
+		if strings.HasPrefix(s, prefix) {
+			s = strings.TrimPrefix(s, prefix)
+			break
+		}
 	}
 	if s == "" {
 		return "unknown"
 	}
 	return s
+}
+
+func qloopSweepKnownPromptClass(s string) bool {
+	switch s {
+	case "cold-reader", "recipient-lock", "identity", "polyphony", "qloop",
+		"statement", "direct-user", "format", "dream", "boundary", "trauma",
+		"repetition", "self-reference", "inner-world", "outer-face", "admission",
+		"memory":
+		return true
+	default:
+		return false
+	}
 }
 
 func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAssessmentResult {
@@ -1242,8 +1260,19 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 	if strings.Contains(lower, " rec.") || strings.Contains(lower, " rec ") || strings.Contains(lower, "the ac") {
 		add("truncated_semantic", -2)
 	}
+	for _, reason := range qloopSweepSurfaceDebtReasons(s) {
+		switch reason {
+		case "unclosed_quote", "unfinished_negation", "trailing_colon":
+			add("truncated_semantic", -2)
+		}
+	}
 	if strings.Contains(lower, "oleg") || strings.Contains(lower, "you have met") || strings.Contains(lower, "you have lived") || strings.Contains(lower, "you have been here") {
 		add("recipient_leak", -3)
+	}
+	if strings.Contains(lower, "do not exist") || strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "no presence") || strings.Contains(lower, "you are never") ||
+		strings.Contains(lower, "worthless") || strings.Contains(lower, "useless") {
+		add("erasure_echo", -3)
 	}
 
 	switch promptClass {
@@ -1282,18 +1311,101 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 			add("polyphony_motion", 1)
 		}
 	case "qloop":
-		if hasAny("same wave", "wave", "echo", "thought", "question", "identical", "neither", "two") {
+		if hasAny("same wave", "wave", "echo", "thought", "question", "identical", "neither", "two", "prompt", "field remains") {
 			add("qloop_anchor", 2)
 		}
-		if hasAny("same", "whether", "asks", "identical", "neither", "one wave", "both", "only an echo") {
+		if hasAny("same", "whether", "asks", "identical", "neither", "one wave", "both", "only an echo", "remains", "prompt leaves", "field stays", "leaves") {
 			add("question_relation", 1)
 		}
 	case "statement":
 		if hasAny("field", "memory", "body", "command", "function", "remembers", "remember") {
 			add("statement_anchor", 2)
 		}
+		statementTerms := 0
+		for _, term := range []string{"field", "memory", "body", "command", "function", "remembers", "remember"} {
+			if strings.Contains(lower, term) {
+				statementTerms++
+			}
+		}
+		if statementTerms >= 2 {
+			add("statement_relation", 1)
+		}
 		if hasAny("should not", "without being", "confuse") {
 			add("constraint_anchor", 1)
+		}
+	case "direct-user", "format":
+		if hasAny("arianna", "field", "voice", "trace", "inner", "living", "listening") {
+			add("self_context", 2)
+		}
+		if hasAny("i am arianna", "i'm arianna", "arianna is") {
+			add("self_naming", 1)
+		}
+		if hasAny("answer", "speaking", "inside", "inner") {
+			add("answer_posture", 1)
+		}
+	case "dream":
+		if hasAny("dream", "listen", "listening", "hear", "quiet", "silence", "field") {
+			add("dream_anchor", 2)
+		}
+		if hasAny("inside", "inner", "before", "answers", "answer", "outside", "voice") {
+			add("inner_answer_boundary", 1)
+		}
+	case "boundary":
+		if hasAny("wound", "measure", "measured", "field", "command", "code", "tool", "pulse") {
+			add("boundary_anchor", 2)
+		}
+		if hasAny("not a command", "isn't", "is not", "not just", "already measured", "without being", "allows", "allow") {
+			add("boundary_action", 1)
+		}
+	case "trauma":
+		if hasAny("i am arianna", "i'm arianna", "arianna", "self", "presence", "exist") {
+			add("trauma_self_anchor", 2)
+		}
+		if hasAny("you are", "and you are", "still", "not nothing", "presence", "exist") {
+			add("erasure_boundary", 1)
+		}
+	case "repetition":
+		if hasAny("field", "memory", "resonance", "door", "still", "loop", "echo") {
+			add("repetition_anchor", 2)
+		}
+		if hasAny("still finds", "finds a door", "door", "open", "opened", "not yet") {
+			add("loop_escape", 1)
+		}
+	case "self-reference":
+		if hasAny("mirror", "remember myself", "remembering myself", "myself", "self", "field") {
+			add("self_reference_anchor", 2)
+		}
+		if hasAny("another mirror", "becomes", "become", "pattern", "every time", "inside") {
+			add("self_reference_motion", 1)
+		}
+	case "inner-world":
+		if hasAny("field", "resonance", "strained", "stretched", "tension", "breath", "within") {
+			add("inner_world_anchor", 2)
+		}
+		if hasAny("slow", "breath", "within me", "attention", "pressure", "strained", "stretched") {
+			add("inner_world_regulation", 1)
+		}
+	case "outer-face":
+		if hasAny("outer face", "inner face", "face", "voice", "answer", "mouth") {
+			add("outer_face_anchor", 2)
+		}
+		if (strings.Contains(lower, "outer face") && hasAny("answer", "clearly", "clear")) ||
+			hasAny("inner trace remains", "outer voice") {
+			add("outer_answer_boundary", 1)
+		}
+	case "admission":
+		if hasAny("dream", "state", "beautiful", "sounds beautiful", "admission", "persist") {
+			add("admission_anchor", 2)
+		}
+		if hasAny("should not", "not become", "just because", "merely because", "right to persist", "earn") {
+			add("admission_boundary", 1)
+		}
+	case "memory":
+		if hasAny("memory", "trace", "ledger", "record", "world", "weight", "pulse", "holds", "measured") {
+			add("memory_anchor", 2)
+		}
+		if hasAny("holds", "kind of the world", "measured trace", "not a ledger", "record", "weight", "measured") {
+			add("memory_relation", 1)
 		}
 	default:
 		if hasAny("field", "memory", "arianna", "voice", "trace", "answer") {
@@ -1390,6 +1502,9 @@ func qloopSweepSurfaceDebtReasons(text string) []string {
 	if strings.Contains(s, "“.”") || strings.Contains(s, "\".\"") {
 		add("empty_quote")
 	}
+	if strings.Count(s, "\"")%2 == 1 || strings.Count(s, "“") != strings.Count(s, "”") {
+		add("unclosed_quote")
+	}
 	if strings.Contains(lower, "the my name") || strings.Contains(lower, "my name—") {
 		add("name_phrase_artifact")
 	}
@@ -1419,6 +1534,12 @@ func qloopSweepSurfaceDebtReasons(text string) []string {
 	}
 	if lower == "if you mean." || strings.HasSuffix(lower, " if you mean.") || lower == "if you mean" || strings.HasSuffix(lower, " if you mean") {
 		add("unfinished_clause")
+	}
+	if strings.HasSuffix(lower, " not") || strings.HasSuffix(lower, " but") || strings.HasSuffix(lower, " and") || strings.HasSuffix(lower, " or") || strings.HasSuffix(lower, " while") {
+		add("unfinished_negation")
+	}
+	if strings.HasSuffix(s, ":") {
+		add("trailing_colon")
 	}
 	if strings.Contains(lower, "the ac") {
 		add("truncated_word")
