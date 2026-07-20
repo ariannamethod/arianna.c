@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -11,6 +12,56 @@ func TestAdmissionRoutePromptUsesQAFrame(t *testing.T) {
 	}
 	if got := admissionRoutePrompt("Q: Who are you?\nA:"); got != "Q: Who are you?\nA:" {
 		t.Fatalf("existing qa prompt changed: %q", got)
+	}
+}
+
+func TestAdmissionRouteUserLineStripsPromptFrame(t *testing.T) {
+	if got := admissionRouteUserLine("Q: Who are you?\nA:"); got != "Who are you?" {
+		t.Fatalf("bad QA user line: %q", got)
+	}
+	if got := admissionRouteUserLine("User: tell me who you are.\nArianna:"); got != "tell me who you are." {
+		t.Fatalf("bad Arianna user line: %q", got)
+	}
+	if got := admissionRouteUserLine("User: tell me who you are. Assistant:"); got != "tell me who you are." {
+		t.Fatalf("bad Assistant user line: %q", got)
+	}
+}
+
+func TestAdmissionCompareRoutesIncludesConditionedQloop(t *testing.T) {
+	want := []string{"direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"}
+	if got := admissionCompareRoutes(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("bad default routes: got %v want %v", got, want)
+	}
+
+	t.Setenv("AM_ROUTE_COMPARE_ROUTES", "direct,qloop_hint_qa,qloop_target,user_bridge,bogus")
+	if got := admissionCompareRoutes(); !reflect.DeepEqual(got, []string{"direct", "qloop_hint_qa", "qloop_target", "user_bridge"}) {
+		t.Fatalf("bad custom routes: %v", got)
+	}
+}
+
+func TestQloopTargetRouteUsesPromptClassAndTargetHint(t *testing.T) {
+	env := admissionQloopTargetEnv()
+	if env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" ||
+		env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" ||
+		env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" ||
+		env["A2A_QLOOP_TARGET_CLASS_HINT"] != "1" {
+		t.Fatalf("bad qloop target env: %+v", env)
+	}
+	if got := qloopSweepPromptClass("qloop_target-recipient-lock", "not-oleg"); got != "recipient-lock" {
+		t.Fatalf("conditioned qloop route did not preserve prompt class: %q", got)
+	}
+	if got := qloopSweepPromptClass("qloop_hint_qa-polyphony", "many-minds"); got != "polyphony" {
+		t.Fatalf("hint qa qloop route did not preserve prompt class: %q", got)
+	}
+	if got := qloopSweepPromptClass("user_bridge-cold-reader", "new-listener"); got != "cold-reader" {
+		t.Fatalf("user bridge route did not preserve prompt class: %q", got)
+	}
+}
+
+func TestQloopHintQARouteUsesQuestionHintAndAnswerFrame(t *testing.T) {
+	env := admissionQloopHintQAEnv()
+	if env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" || env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
+		t.Fatalf("bad qloop hint qa env: %+v", env)
 	}
 }
 
@@ -55,6 +106,9 @@ func TestParseAdmissionRouteDiagnosticsIncludesQloopPickerStats(t *testing.T) {
 	want := "no qloop candidate lines (qloop_gen=0 qloop_retry=0 qloop_gates=0) routes=0 qsrc=0 ssrc=4 score_drop=0"
 	if got := routeEmptyHint("qloop", diag); got != want {
 		t.Fatalf("bad qloop picker empty hint: %q", got)
+	}
+	if got := routeEmptyHint("qloop_target", diag); got != want {
+		t.Fatalf("bad qloop target empty hint: %q", got)
 	}
 }
 

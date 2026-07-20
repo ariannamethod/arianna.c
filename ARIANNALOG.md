@@ -3233,3 +3233,63 @@ best chorus route at score 2 because it has an anchor but no motion. Broad qloop
 only through the clean `The chorus begins.` candidate, and `new-listener` remains the sole semantic miss.
 Conclusion: the route layer now has a guarded admission contract, and polyphony no longer passes on trace/noise.
 The next repair should shape cold-reader and recipient-lock conditioning before any live route widening.
+
+**Follow-up, same day - target-conditioned qloop route compare.** Route compare now includes a fourth default
+shadow route, `qloop_target`, which reuses the qloop sweep target-conditioning frame:
+`A2A_QLOOP_QUESTION_SOURCE_HINT=1`, `A2A_QLOOP_QUESTION_SOURCE_FRAME=user_arianna`,
+`A2A_QLOOP_SOURCE_CLASS=prompt`, and `A2A_QLOOP_TARGET_CLASS_HINT=1`. This is not a live admission path; it is
+only a measured route in the shadow matrix, so direct/chorus/raw qloop behavior remains unchanged.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.KPjp4z/dream_admission_route_compare.json`.
+Focused route compare on the first four broad prompts now compares
+`direct`, `chorus`, `qloop`, and `qloop_target`. The new route attempts all 4 seeds, produces 3, passes policy
+on all produced candidates, and records `semantic_passed=2`, `semantic_miss=1`, `semantic_score=8`. The guarded
+route admission improves from one admitted seed to two: `not-oleg` / recipient-lock is now admitted through
+`qloop_target` with `this person exists.` (`score=3`, `recipient_boundary`, `field_answer`), while `field-origin`
+still admits through chorus. `new-listener` improves only to the thin boundary marker `not a human.`
+(`score=2`, still rejected), and `many-minds` remains rejected because the best chorus route has anchor without
+motion. Conclusion: recipient-lock conditioning is no longer the blocker in route compare. The next repair should
+focus cold-reader: it needs a real self-context answer, not only the nonhuman boundary marker.
+
+**Follow-up, same day - REPL user-bridge route compare.** Route compare now includes a fifth default
+shadow route, `user_bridge`, which runs one noninteractive `chorus-arianna repl` turn under
+`A2A_REPL_PROMPT_FORMAT=user_arianna` and `A2A_REPL_QLOOP=1`. The route unwraps the route prompt back to the
+actual user line, parses the REPL turn, and selects one best single cell/qloop candidate by the same prompt-class
+semantic tie-break. This is still receipt-only: it does not promote a live admission route and does not change
+ordinary field/qloop generation. The cold-reader semantic gate now treats explicit self-naming (`I am Arianna`,
+`Arianna is`) as one additional point, while `not a human.` remains score 2 and still rejected.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.mewH15/dream_admission_route_compare.json`.
+Focused route compare on the first four broad prompts now compares
+`direct`, `chorus`, `qloop`, `qloop_target`, and `user_bridge`. The guarded semantic route admission improves
+from 2/4 to 3/4 admitted seeds. `new-listener` / cold-reader now admits through `user_bridge` with
+`I am Arianna.` (`score=3`, `self_context`, `self_naming`); `not-oleg` / recipient-lock still admits through
+`qloop_target` with `this person exists.`; `field-origin` still admits through chorus. `many-minds` remains the
+only blocked seed: best route is chorus at score 2, with a polyphony anchor but no motion. A throwaway C
+class-map probe for `cold-reader`/`recipient-lock` was measured and reverted before commit because class stems
+made cold-reader qloop go empty and degraded recipient text; the working lift is the existing REPL bridge, not
+new C source classes. Conclusion: cold-reader is no longer the route-compare blocker. The next repair should
+focus polyphony motion for `many-minds` before any live widening.
+
+**Follow-up, same day - QA-hint qloop closes focused route admission.** Route compare now includes a sixth
+default shadow route, `qloop_hint_qa`, matching the qloop sweep `question_hint_qa` frame:
+`A2A_QLOOP_QUESTION_SOURCE_HINT=1` plus `A2A_QLOOP_ANSWER_FRAME=1`. This reuses the earlier measured polyphony
+ceiling instead of weakening the polyphony semantic gate. The route is receipt-only and does not change live
+admission or ordinary qloop defaults.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.jA7di2/dream_admission_route_compare.json`.
+Focused route compare on the first four broad prompts now compares
+`direct`, `chorus`, `qloop`, `qloop_hint_qa`, `qloop_target`, and `user_bridge`, with
+`semantic_coverage_passed=true` and `semantic_route_admission.passed=true`. The guarded admission admits all
+4/4 seeds without relaxing semantic thresholds: `new-listener` via `user_bridge` (`I am Arianna.`),
+`not-oleg` via `qloop_target` (`this person exists.`), `field-origin` via chorus
+(`I am Arianna's inner trace` inside the chorus text), and `many-minds` via `qloop_hint_qa`
+(`The chorus begins.`, `polyphony_anchor`, `polyphony_motion`). Route-level telemetry remains honest:
+raw `qloop` still produces 0/4, `qloop_hint_qa` produces only 2/4 and is useful specifically for the polyphony
+seed, `qloop_target` remains strongest for recipient/identity, and `user_bridge` remains strongest for
+cold-reader. Conclusion: the focused route layer now has a complete fail-closed admission receipt over the four
+highest-priority broad probes. The next layer should broaden the route compare limit/sample set and only then
+consider a live best-route chooser.

@@ -333,6 +333,14 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantReason:  "nonhuman_boundary",
 		},
 		{
+			name:        "cold-reader self naming",
+			text:        "I am Arianna, the first person.",
+			promptClass: "cold-reader",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "self_naming",
+		},
+		{
 			name:        "recipient boundary",
 			text:        "this person exists.",
 			promptClass: "recipient-lock",

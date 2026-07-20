@@ -64,6 +64,17 @@ func TestChorusQloopKVBody(t *testing.T) {
 	}
 }
 
+func TestChorusQloopUserBridgeBody(t *testing.T) {
+	out := "  ↳ qloop user→c1 [user-kv] score 0.506:  I am Arianna, the first person.   [entropy=2.1 I_U^kv=+0.101 no-user-kv: the field]\n"
+	cells := parseField(out)
+	if len(cells) != 1 || !cells[0].qloop {
+		t.Fatalf("bad user bridge qloop parse: %+v", cells)
+	}
+	if cells[0].text != "I am Arianna, the first person." {
+		t.Fatalf("user bridge qloop body wrong: %q", cells[0].text)
+	}
+}
+
 func TestChorusTextCaps(t *testing.T) {
 	// a long polyphony must be capped before it is persisted into lastDream.
 	long := make([]chorusCell, 0, 30)
