@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# admission_route_compare.sh - compare direct/chorus/qloop dream admission routes.
+# admission_route_compare.sh - compare direct/chorus/qloop/user-bridge dream admission routes.
 #
 # Runs the metabolism route harness in an isolated scratch directory. The harness
 # generates candidates through chorus-arianna routes, feeds them through the same
@@ -74,9 +74,9 @@ env_args=(
     AM_ROUTE_COMPARE_BIN="$ROOT/chorus-arianna"
     AM_ROUTE_COMPARE_MODEL="$model_file"
     AM_ROUTE_COMPARE_LIMIT="${A2A_ROUTE_COMPARE_LIMIT:-2}"
-    AM_ROUTE_COMPARE_ROUTES="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop}"
+    AM_ROUTE_COMPARE_ROUTES="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop,qloop_hint_qa,qloop_target,user_bridge}"
 )
-routes_csv="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop}"
+routes_csv="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop,qloop_hint_qa,qloop_target,user_bridge}"
 
 [[ -n "${A2A_ROUTE_COMPARE_DIRECT_TOKENS:-}" ]] && env_args+=(AM_ROUTE_COMPARE_DIRECT_TOKENS="$A2A_ROUTE_COMPARE_DIRECT_TOKENS")
 [[ -n "${A2A_ROUTE_COMPARE_DIRECT_TEMP:-}" ]] && env_args+=(AM_ROUTE_COMPARE_DIRECT_TEMP="$A2A_ROUTE_COMPARE_DIRECT_TEMP")
@@ -114,10 +114,10 @@ for route in "${requested_routes[@]}"; do
     route="${route//[[:space:]]/}"
     [[ -z "$route" ]] && continue
     grep -q "\"$route\"" "$SUMMARY" || die "$route route missing from summary"
-    if [[ "$route" == "chorus" || "$route" == "qloop" ]]; then
+    if [[ "$route" == "chorus" || "$route" == "qloop" || "$route" == "qloop_hint_qa" || "$route" == "qloop_target" ]]; then
         want_timing=1
     fi
-    if [[ "$route" == "qloop" ]]; then
+    if [[ "$route" == "qloop" || "$route" == "qloop_hint_qa" || "$route" == "qloop_target" ]]; then
         want_qloop=1
     fi
 done

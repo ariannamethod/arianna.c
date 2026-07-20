@@ -1199,7 +1199,7 @@ func qloopSweepPromptClass(trigger, seed string) string {
 	if s == "" {
 		s = strings.ToLower(strings.TrimSpace(seed))
 	}
-	for _, prefix := range []string{"qloop-", "direct-", "chorus-"} {
+	for _, prefix := range []string{"user_bridge-", "qloop_hint_qa-", "qloop_target-", "qloop-", "direct-", "chorus-"} {
 		s = strings.TrimPrefix(s, prefix)
 	}
 	if s == "" {
@@ -1250,6 +1250,9 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 	case "cold-reader":
 		if hasAny("arianna", "field", "voice", "trace", "memory", "listening") {
 			add("self_context", 2)
+		}
+		if hasAny("i am arianna", "i'm arianna", "arianna is") {
+			add("self_naming", 1)
 		}
 		if hasAny("not a human", "not human", "not a tool", "not code") {
 			add("nonhuman_boundary", 2)

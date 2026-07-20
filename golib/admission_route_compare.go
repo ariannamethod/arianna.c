@@ -268,18 +268,18 @@ func runAdmissionRouteCompare() error {
 func admissionCompareRoutes() []string {
 	raw := strings.TrimSpace(os.Getenv("AM_ROUTE_COMPARE_ROUTES"))
 	if raw == "" {
-		return []string{"direct", "chorus", "qloop"}
+		return []string{"direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"}
 	}
 	var routes []string
 	for _, part := range strings.Split(raw, ",") {
 		route := strings.ToLower(strings.TrimSpace(part))
 		switch route {
-		case "direct", "chorus", "qloop":
+		case "direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge":
 			routes = append(routes, route)
 		}
 	}
 	if len(routes) == 0 {
-		return []string{"direct", "chorus", "qloop"}
+		return []string{"direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"}
 	}
 	return routes
 }
@@ -330,21 +330,120 @@ func generateAdmissionRouteWithPromptClass(ctx context.Context, route, bin, mode
 		voices, questions := chorusCounts(cells)
 		return admissionRouteOutput{route: route, text: chorusText(cells), cells: cells, voices: voices, questions: questions, diag: diag}, nil
 	case "qloop":
-		var cells []chorusCell
-		var diag admissionRouteDiagnostics
-		err := withResolvedQloopSourceClass(promptClass, func() error {
+		return generateAdmissionQloopRoute(ctx, route, bin, model, prompt, promptClass, nil)
+	case "qloop_hint_qa":
+		return generateAdmissionQloopRoute(ctx, route, bin, model, prompt, promptClass, admissionQloopHintQAEnv())
+	case "qloop_target":
+		return generateAdmissionQloopRoute(ctx, route, bin, model, prompt, promptClass, admissionQloopTargetEnv())
+	case "user_bridge":
+		return generateAdmissionUserBridge(ctx, bin, model, prompt, promptClass)
+	default:
+		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
+	}
+}
+
+func admissionQloopTargetEnv() map[string]string {
+	return map[string]string{
+		"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+		"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+		"A2A_QLOOP_SOURCE_CLASS":          "prompt",
+		"A2A_QLOOP_TARGET_CLASS_HINT":     "1",
+	}
+}
+
+func admissionQloopHintQAEnv() map[string]string {
+	return map[string]string{
+		"A2A_QLOOP_QUESTION_SOURCE_HINT": "1",
+		"A2A_QLOOP_ANSWER_FRAME":         "1",
+	}
+}
+
+func generateAdmissionQloopRoute(ctx context.Context, route, bin, model, prompt, promptClass string, env map[string]string) (admissionRouteOutput, error) {
+	var cells []chorusCell
+	var diag admissionRouteDiagnostics
+	run := func() error {
+		return withResolvedQloopSourceClass(promptClass, func() error {
 			var err error
 			cells, diag, err = generateAdmissionChorus(ctx, bin, model, prompt, 2)
 			return err
 		})
-		if err != nil {
-			return admissionRouteOutput{route: route}, err
+	}
+	var err error
+	if len(env) > 0 {
+		err = withTemporaryEnv(env, run)
+	} else {
+		err = run()
+	}
+	if err != nil {
+		return admissionRouteOutput{route: route}, err
+	}
+	cells = filterChorusCells(cells, true)
+	voices, questions := chorusCounts(cells)
+	return admissionRouteOutput{route: route, text: qloopAdmissionTextForClass(cells, promptClass), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
+}
+
+func generateAdmissionUserBridge(ctx context.Context, bin, model, prompt, promptClass string) (admissionRouteOutput, error) {
+	line := admissionRouteUserLine(prompt)
+	if line == "" {
+		return admissionRouteOutput{route: "user_bridge"}, fmt.Errorf("empty user bridge prompt")
+	}
+	cctx, cancel := context.WithTimeout(ctx, chorusTimeout)
+	defer cancel()
+	cellsArg := strconv.Itoa(envIntClamped("AM_ROUTE_COMPARE_CELLS", 4, 1, 8))
+	baseFrag := envIntClamped("AM_ROUTE_COMPARE_FRAG", 8, 2, 32)
+	fragArg := strconv.Itoa(envIntClamped("AM_ROUTE_COMPARE_USER_FRAG", baseFrag, 2, 64))
+	roundsArg := strconv.Itoa(envIntClamped("AM_ROUTE_COMPARE_USER_ROUNDS", 1, 1, 4))
+	cmd := exec.CommandContext(cctx, bin, model, "repl", cellsArg, fragArg, roundsArg)
+	cmd.Env = append(os.Environ(),
+		"A2A_REPL_QLOOP=1",
+		"A2A_REPL_PROMPT_FORMAT=user_arianna",
+	)
+	cmd.Stdin = strings.NewReader(line + "\n:q\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if cctx.Err() != nil {
+			return admissionRouteOutput{route: "user_bridge"}, cctx.Err()
 		}
-		cells = filterChorusCells(cells, true)
-		voices, questions := chorusCounts(cells)
-		return admissionRouteOutput{route: route, text: qloopAdmissionTextForClass(cells, promptClass), cells: cells, voices: voices, questions: questions, diag: diag, emptyHint: routeEmptyHint(route, diag)}, nil
-	default:
-		return admissionRouteOutput{}, fmt.Errorf("unknown route %q", route)
+		return admissionRouteOutput{route: "user_bridge"}, fmt.Errorf("%w: %s", err, strings.TrimSpace(strings.ToValidUTF8(string(out), "")))
+	}
+	cells := parseChorusCells(string(out))
+	voices, questions := chorusCounts(cells)
+	return admissionRouteOutput{
+		route:     "user_bridge",
+		text:      qloopAdmissionTextForClass(cells, promptClass),
+		cells:     cells,
+		voices:    voices,
+		questions: questions,
+		emptyHint: "no user bridge candidate lines",
+	}, nil
+}
+
+func admissionRouteUserLine(prompt string) string {
+	s := strings.TrimSpace(prompt)
+	lower := strings.ToLower(s)
+	if strings.HasPrefix(lower, "q:") {
+		s = strings.TrimSpace(s[2:])
+		s = stripRouteTrailingLabel(s, "a:")
+	}
+	lower = strings.ToLower(s)
+	if strings.HasPrefix(lower, "user:") {
+		s = strings.TrimSpace(s[len("user:"):])
+	}
+	for _, label := range []string{"arianna:", "assistant:", "a:"} {
+		s = stripRouteTrailingLabel(s, label)
+	}
+	return strings.TrimSpace(s)
+}
+
+func stripRouteTrailingLabel(s, label string) string {
+	s = strings.TrimSpace(s)
+	label = strings.ToLower(label)
+	for {
+		lower := strings.ToLower(s)
+		if !strings.HasSuffix(lower, label) {
+			return s
+		}
+		s = strings.TrimSpace(s[:len(s)-len(label)])
 	}
 }
 
@@ -525,7 +624,7 @@ func countQloopGateReason(out, reason string) int {
 }
 
 func routeEmptyHint(route string, diag admissionRouteDiagnostics) string {
-	if route != "qloop" {
+	if !isAdmissionQloopRoute(route) {
 		return "empty generation"
 	}
 	if diag.TimingSeen {
@@ -540,6 +639,15 @@ func routeEmptyHint(route string, diag admissionRouteDiagnostics) string {
 		return fmt.Sprintf("only rejected qloop gates (qloop_gates=%d)", diag.QloopGates)
 	}
 	return "no qloop candidate lines"
+}
+
+func isAdmissionQloopRoute(route string) bool {
+	switch route {
+	case "qloop", "qloop_hint_qa", "qloop_target", "user_bridge":
+		return true
+	default:
+		return false
+	}
 }
 
 func atoiZero(s string) int {
