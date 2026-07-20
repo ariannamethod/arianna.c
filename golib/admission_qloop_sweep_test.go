@@ -4,7 +4,7 @@ import "testing"
 
 func TestQloopSweepConfigs(t *testing.T) {
 	cfgs := qloopSweepConfigs()
-	if len(cfgs) != 12 ||
+	if len(cfgs) != 13 ||
 		cfgs[0].Name != "strict" ||
 		cfgs[1].Name != "question_hint" ||
 		cfgs[2].Name != "question_hint_qa" ||
@@ -14,9 +14,10 @@ func TestQloopSweepConfigs(t *testing.T) {
 		cfgs[6].Name != "question_source_class_user_arianna" ||
 		cfgs[7].Name != "question_source_class_target_user_arianna" ||
 		cfgs[8].Name != qloopSweepTypedSourceConfigName ||
-		cfgs[9].Name != "question_source_user_arianna_answer_qa" ||
-		cfgs[10].Name != "question_hint_loose" ||
-		cfgs[11].Name != "statement" {
+		cfgs[9].Name != qloopSweepPolyphonyTypedSourceConfigName ||
+		cfgs[10].Name != "question_source_user_arianna_answer_qa" ||
+		cfgs[11].Name != "question_hint_loose" ||
+		cfgs[12].Name != "statement" {
 		t.Fatalf("bad qloop sweep configs: %+v", cfgs)
 	}
 	if cfgs[1].Env["A2A_QLOOP_QUESTION_SOURCE_HINT"] != "1" {
@@ -46,14 +47,20 @@ func TestQloopSweepConfigs(t *testing.T) {
 		cfgs[8].Env["A2A_QLOOP_TYPED_SOURCE_CLASS"] != "qloop" {
 		t.Fatalf("question_source_typed_user_arianna config missing env: %+v", cfgs[8].Env)
 	}
-	if cfgs[9].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[9].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
-		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[9].Env)
+	if cfgs[9].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" ||
+		cfgs[9].Env["A2A_QLOOP_SOURCE_CLASS"] != "prompt" ||
+		cfgs[9].Env["A2A_QLOOP_TYPED_SOURCE"] != "1" ||
+		cfgs[9].Env["A2A_QLOOP_TYPED_SOURCE_CLASS"] != "polyphony" {
+		t.Fatalf("question_source_polyphony_typed_user_arianna config missing env: %+v", cfgs[9].Env)
 	}
-	if cfgs[10].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[10].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
-		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[10].Env)
+	if cfgs[10].Env["A2A_QLOOP_QUESTION_SOURCE_FRAME"] != "user_arianna" || cfgs[10].Env["A2A_QLOOP_ANSWER_FRAME"] != "1" {
+		t.Fatalf("question_source_user_arianna_answer_qa config missing env: %+v", cfgs[10].Env)
 	}
-	if cfgs[11].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
-		t.Fatalf("statement config missing env: %+v", cfgs[11].Env)
+	if cfgs[11].Env["A2A_QLOOP_MIN"] != "0.30" || cfgs[11].Env["AM_ROUTE_COMPARE_FRAG"] != "16" {
+		t.Fatalf("question_hint_loose config missing env: %+v", cfgs[11].Env)
+	}
+	if cfgs[12].Env["A2A_QLOOP_STATEMENT_ROUTES"] != "1" {
+		t.Fatalf("statement config missing env: %+v", cfgs[12].Env)
 	}
 }
 
@@ -218,6 +225,32 @@ func TestQloopSweepTypedSourceReview(t *testing.T) {
 	if bestOf == nil || !bestOf.QualityPassed || len(bestOf.QualityReasons) != 0 {
 		t.Fatalf("best-of should pass at lower coverage threshold: %+v", bestOf)
 	}
+
+	semanticBestOf := buildQloopSemanticBestOf(coverage, 4, 3.0)
+	if semanticBestOf == nil || !semanticBestOf.Synthetic || semanticBestOf.Name != "synthetic_semantic_coverage_best_of" {
+		t.Fatalf("bad semantic best-of summary: %+v", semanticBestOf)
+	}
+	if semanticBestOf.Attempted != 4 || semanticBestOf.Produced != 3 || semanticBestOf.Empty != 1 || semanticBestOf.SemanticPassed != 3 || semanticBestOf.SemanticScore != 9 || semanticBestOf.QloopTypedSrc != 1 {
+		t.Fatalf("bad semantic best-of counts: %+v", semanticBestOf)
+	}
+	if len(semanticBestOf.QualityReasons) != 2 ||
+		semanticBestOf.QualityReasons[0] != "produced_below_4" ||
+		semanticBestOf.QualityReasons[1] != "semantic_passed_below_4" ||
+		semanticBestOf.QualityPassed {
+		t.Fatalf("semantic best-of should stay coverage-failed: passed=%v reasons=%v", semanticBestOf.QualityPassed, semanticBestOf.QualityReasons)
+	}
+	if semanticBestOf.Samples[0].Text != "not one wave." ||
+		semanticBestOf.Samples[1].Text != "not one wave." ||
+		semanticBestOf.Samples[2].Text != "not the outer face." ||
+		semanticBestOf.Samples[3].Produced ||
+		semanticBestOf.Samples[3].EmptyReason != "no_clean_semantic_candidate" {
+		t.Fatalf("bad semantic best-of samples: %+v", semanticBestOf.Samples)
+	}
+
+	semanticBestOf = buildQloopSemanticBestOf(coverage, 3, 3.0)
+	if semanticBestOf == nil || !semanticBestOf.QualityPassed || len(semanticBestOf.QualityReasons) != 0 {
+		t.Fatalf("semantic best-of should pass at lower semantic threshold: %+v", semanticBestOf)
+	}
 }
 
 func TestQloopSweepSemanticAssessment(t *testing.T) {
@@ -300,6 +333,30 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantPass:    true,
 			minScore:    3,
 			wantReason:  "statement_anchor",
+		},
+		{
+			name:        "polyphony chorus relation",
+			text:        "many voices, one chorus.",
+			promptClass: "polyphony",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "polyphony_motion",
+		},
+		{
+			name:        "polyphony begins",
+			text:        "The chorus begins.",
+			promptClass: "polyphony",
+			wantPass:    true,
+			minScore:    3,
+			wantReason:  "polyphony_motion",
+		},
+		{
+			name:        "polyphony short relation",
+			text:        "one chorus.",
+			promptClass: "polyphony",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "too_short",
 		},
 		{
 			name:        "polyphony truncation",

@@ -3106,3 +3106,48 @@ typed-source rescue is strong enough to explain the qloop gap, but the remaining
 selection mechanics. It is coverage: `many-minds`/polyphony still has no clean candidate, and statement semantics
 are still too weak for a live default. Next layer should attack polyphony source/answer formation before
 promoting any best-of route.
+
+**Follow-up, same day - polyphony qloop receipt repair.** Added a receipt-only
+`question_source_polyphony_typed_user_arianna` probe that runs the same typed-source stitching path with
+`A2A_QLOOP_TYPED_SOURCE_CLASS=polyphony`. This is not a runtime default and not a best-of admission path; it is
+an xray for the remaining `many-minds` failure. The semantic receipt scorer now recognizes compact polyphony
+motion such as `The chorus begins.` and `many voices, one chorus.` while still rejecting fragments like
+`for memory and rec.` as truncated and `one chorus.` as too short. The live C polyphony stem was explicitly
+left unchanged after a measured bad experiment: the alternate stem `What begins when many voices share memory`
+made focused output worse (`If nothing in it.` / empty typed routes), so it was rolled back before the final
+broad receipt.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.uUZa4J/qloop_sweep_summary.json`
+(focused 4-seed check after rollback) and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.dGMpHw/qloop_sweep_summary.json`
+(full six-prompt broad). Broad remains fail-closed (`gate_passed=false`, no winner). `many-minds` now records
+one semantic pass: `question_hint_qa` produces clean `The chorus begins.` with score 3
+(`polyphony_anchor`, `polyphony_motion`). The polyphony-typed probe fires (`qloop_tsrc=1`) but still has no clean
+candidate on `many-minds`; as a config it produces 5/6 with 2 semantic passes and score 8, blocked by
+`produced_below_6` and a short candidate. Existing qloop-scoped typed rescue remains the stronger diagnostic
+ceiling (`typed_source_best_of`: 5/6, 3 semantic passes, score 11, still blocked by `produced_below_6`). Conclusion:
+polyphony is no longer invisible to the scorer, but qloop source/answer formation still fails to admit the
+chorus route. Next lift should shape the polyphony route or expose a guarded source-side semantic candidate,
+not widen target/typed defaults blindly.
+
+**Follow-up, same day - semantic best-of ceiling receipt.** Added a second receipt-only oracle,
+`semantic_best_of`, built from the clean best-semantic candidate in `sample_coverage` for each seed. Like
+`typed_source_best_of`, it is synthetic and cannot become the real sweep winner; unlike the typed-source oracle,
+it measures the cross-config semantic ceiling instead of one scoped rescue mechanism. It also has its own
+semantic gate: a synthetic semantic ceiling is not `quality_passed` until `semantic_passed >= minProduced`, even
+if all produced texts are clean.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.F7MyCI/qloop_sweep_summary.json`
+(focused JSON integration) and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.QWv4rn/qloop_sweep_summary.json`
+(full six-prompt broad with the new field). The real sweep remains fail-closed (`gate_passed=false`, no winner).
+The semantic oracle produces 6/6 clean candidates, 5/6 semantic passes, semantic score 17, avg words 4.5, and
+is blocked only by `semantic_passed_below_6`. Selected ceiling texts:
+`not a human.` (cold-reader, score 2, the remaining semantic miss), `this person exists.`, `my own internal trace.`,
+`The chorus begins.`, `if they're identical wave or neither.`, and
+`The body remembers its own function without being.` Conclusion: coverage exists across the matrix; production
+admission is still correctly closed because the coverage is distributed across configs and one cold-reader seed
+is semantically thin. Next live work should design guarded semantic route admission/rollback from this receipt,
+or first repair the cold-reader scorer/prompt boundary, rather than adding another blind qloop config.

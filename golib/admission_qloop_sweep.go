@@ -23,6 +23,7 @@ type admissionQloopSweepSummary struct {
 	TargetHint     *admissionQloopTargetHintRollup     `json:"target_hint_review,omitempty"`
 	TypedSource    *admissionQloopCandidateRollup      `json:"typed_source_review,omitempty"`
 	TypedBestOf    *admissionQloopSweepConfigSummary   `json:"typed_source_best_of,omitempty"`
+	SemanticBestOf *admissionQloopSweepConfigSummary   `json:"semantic_best_of,omitempty"`
 	Winner         string                              `json:"winner,omitempty"`
 	GatePassed     bool                                `json:"gate_passed"`
 	GateReasons    []string                            `json:"gate_reasons,omitempty"`
@@ -38,9 +39,10 @@ type admissionQloopSweepConfig struct {
 }
 
 const (
-	qloopSweepClassSourceConfigName = "question_source_class_user_arianna"
-	qloopSweepTargetHintConfigName  = "question_source_class_target_user_arianna"
-	qloopSweepTypedSourceConfigName = "question_source_typed_user_arianna"
+	qloopSweepClassSourceConfigName          = "question_source_class_user_arianna"
+	qloopSweepTargetHintConfigName           = "question_source_class_target_user_arianna"
+	qloopSweepTypedSourceConfigName          = "question_source_typed_user_arianna"
+	qloopSweepPolyphonyTypedSourceConfigName = "question_source_polyphony_typed_user_arianna"
 )
 
 type admissionQloopSweepConfigSummary struct {
@@ -285,6 +287,7 @@ func runAdmissionQloopSweep() error {
 	summary.TargetHint = summarizeQloopTargetHintReviews(summary.SampleCoverage)
 	summary.TypedSource = summarizeQloopTypedSourceReviews(summary.SampleCoverage)
 	summary.TypedBestOf = buildQloopTypedSourceBestOf(summary.SampleCoverage, minProduced, minAvgWords)
+	summary.SemanticBestOf = buildQloopSemanticBestOf(summary.SampleCoverage, minProduced, minAvgWords)
 	summary.Winner, summary.GatePassed, summary.GateReasons = chooseQloopSweepWinner(summary.Configs)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_QLOOP_SWEEP_SUMMARY"))
@@ -336,6 +339,13 @@ func qloopSweepConfigs() []admissionQloopSweepConfig {
 			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
 			"A2A_QLOOP_TYPED_SOURCE":          "1",
 			"A2A_QLOOP_TYPED_SOURCE_CLASS":    "qloop",
+		}},
+		{Name: qloopSweepPolyphonyTypedSourceConfigName, Env: map[string]string{
+			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
+			"A2A_QLOOP_QUESTION_SOURCE_FRAME": "user_arianna",
+			"A2A_QLOOP_SOURCE_CLASS":          "prompt",
+			"A2A_QLOOP_TYPED_SOURCE":          "1",
+			"A2A_QLOOP_TYPED_SOURCE_CLASS":    "polyphony",
 		}},
 		{Name: "question_source_user_arianna_answer_qa", Env: map[string]string{
 			"A2A_QLOOP_QUESTION_SOURCE_HINT":  "1",
@@ -829,99 +839,147 @@ func buildQloopTypedSourceBestOf(coverage []admissionQloopSweepSampleCoverage, m
 		Env: map[string]string{
 			"synthetic_from": "typed_source_review",
 		},
-		EmptyReasons: make(map[string]int),
 	}
 	var wordTotal int
 	var semanticTotal int
 	for _, cov := range coverage {
-		out.Attempted++
 		review := cov.TypedSourceReview
 		var selected *admissionQloopSweepSampleOutcome
 		if review != nil && review.BestConfig != "" {
 			selected = qloopSweepOutcomeByConfig(cov.Configs, review.BestConfig)
 		}
-		sample := admissionQloopSweepSampleSummary{
-			Index:       cov.Index,
-			Trigger:     cov.Trigger,
-			Seed:        cov.Seed,
-			PromptClass: qloopSweepPromptClass(cov.Trigger, cov.Seed),
+		reason := "no_clean_candidate"
+		if review != nil && review.Reason != "" {
+			reason = review.Reason
 		}
-		if selected == nil || !selected.Produced {
-			out.Empty++
-			reason := "no_clean_candidate"
-			if review != nil && review.Reason != "" {
-				reason = review.Reason
-			}
-			sample.EmptyReason = reason
-			out.EmptyReasons[reason]++
-			out.Samples = append(out.Samples, sample)
-			continue
-		}
-		sample.Produced = true
-		sample.Text = selected.Text
-		sample.Words = selected.Words
-		sample.RouteLabelLeak = selected.RouteLabelLeak
-		sample.SurfaceReasons = append([]string(nil), selected.SurfaceReasons...)
-		sample.SemanticScore = selected.SemanticScore
-		sample.SemanticPassed = selected.SemanticPassed
-		sample.SemanticReasons = append([]string(nil), selected.SemanticReasons...)
-		sample.QloopGates = selected.QloopGates
-		sample.QloopGenerated = selected.QloopGenerated
-		sample.QloopRetries = selected.QloopRetries
-		sample.QloopRoutes = selected.QloopRoutes
-		sample.QloopQSrc = selected.QloopQSrc
-		sample.QloopSSrc = selected.QloopSSrc
-		sample.QloopScoreDrop = selected.QloopScoreDrop
-		sample.QloopTypedSrc = selected.QloopTypedSrc
-		sample.QloopTargetCtx = selected.QloopTargetCtx
-
-		out.Produced++
-		out.PolicyPassed++
-		out.SurfaceChecked++
-		out.SemanticChecked++
-		wordTotal += selected.Words
-		semanticTotal += selected.SemanticScore
-		out.SemanticScore += selected.SemanticScore
-		if selected.Words > 0 && (out.MinWords == 0 || selected.Words < out.MinWords) {
-			out.MinWords = selected.Words
-		}
-		if selected.Words < 3 {
-			out.ShortCandidates++
-		}
-		if selected.RouteLabelLeak {
-			out.RouteLabelLeaks++
-		}
-		if len(selected.SurfaceReasons) > 0 {
-			out.SurfaceDebt++
-			if out.SurfaceReasons == nil {
-				out.SurfaceReasons = make(map[string]int)
-			}
-			for _, reason := range selected.SurfaceReasons {
-				out.SurfaceReasons[reason]++
-			}
-		}
-		if selected.SemanticPassed {
-			out.SemanticPassed++
-		}
-		if len(selected.SemanticReasons) > 0 {
-			if out.SemanticReasons == nil {
-				out.SemanticReasons = make(map[string]int)
-			}
-			for _, reason := range selected.SemanticReasons {
-				out.SemanticReasons[reason]++
-			}
-		}
-		out.QloopGates += selected.QloopGates
-		out.QloopGenerated += selected.QloopGenerated
-		out.QloopRetries += selected.QloopRetries
-		out.QloopRoutes += selected.QloopRoutes
-		out.QloopQSrc += selected.QloopQSrc
-		out.QloopSSrc += selected.QloopSSrc
-		out.QloopScoreDrop += selected.QloopScoreDrop
-		out.QloopTypedSrc += selected.QloopTypedSrc
-		out.QloopTargetCtx += selected.QloopTargetCtx
-		out.Samples = append(out.Samples, sample)
+		appendQloopSyntheticBestOfSample(&out, cov, selected, reason, &wordTotal, &semanticTotal)
 	}
+	finalizeQloopSyntheticBestOf(&out, wordTotal, semanticTotal)
+	out.QualityReasons = qloopSweepQualityReasons(out, minProduced, minAvgWords)
+	out.QualityPassed = len(out.QualityReasons) == 0
+	return &out
+}
+
+func buildQloopSemanticBestOf(coverage []admissionQloopSweepSampleCoverage, minProduced int, minAvgWords float64) *admissionQloopSweepConfigSummary {
+	if len(coverage) == 0 {
+		return nil
+	}
+	out := admissionQloopSweepConfigSummary{
+		Name:      "synthetic_semantic_coverage_best_of",
+		Synthetic: true,
+		Env: map[string]string{
+			"synthetic_from": "sample_coverage.best_semantic",
+		},
+	}
+	var wordTotal int
+	var semanticTotal int
+	for _, cov := range coverage {
+		var selected *admissionQloopSweepSampleOutcome
+		for i := range cov.Configs {
+			candidate := &cov.Configs[i]
+			if !candidate.Clean {
+				continue
+			}
+			if selected == nil || qloopSweepOutcomeSemanticBetter(*candidate, *selected) {
+				selected = candidate
+			}
+		}
+		appendQloopSyntheticBestOfSample(&out, cov, selected, "no_clean_semantic_candidate", &wordTotal, &semanticTotal)
+	}
+	finalizeQloopSyntheticBestOf(&out, wordTotal, semanticTotal)
+	out.QualityReasons = qloopSweepSemanticBestOfQualityReasons(out, minProduced, minAvgWords)
+	out.QualityPassed = len(out.QualityReasons) == 0
+	return &out
+}
+
+func appendQloopSyntheticBestOfSample(out *admissionQloopSweepConfigSummary, cov admissionQloopSweepSampleCoverage, selected *admissionQloopSweepSampleOutcome, emptyReason string, wordTotal, semanticTotal *int) {
+	out.Attempted++
+	sample := admissionQloopSweepSampleSummary{
+		Index:       cov.Index,
+		Trigger:     cov.Trigger,
+		Seed:        cov.Seed,
+		PromptClass: qloopSweepPromptClass(cov.Trigger, cov.Seed),
+	}
+	if selected == nil || !selected.Produced {
+		out.Empty++
+		if emptyReason == "" {
+			emptyReason = "no_clean_candidate"
+		}
+		if out.EmptyReasons == nil {
+			out.EmptyReasons = make(map[string]int)
+		}
+		sample.EmptyReason = emptyReason
+		out.EmptyReasons[emptyReason]++
+		out.Samples = append(out.Samples, sample)
+		return
+	}
+	sample.Produced = true
+	sample.Text = selected.Text
+	sample.Words = selected.Words
+	sample.RouteLabelLeak = selected.RouteLabelLeak
+	sample.SurfaceReasons = append([]string(nil), selected.SurfaceReasons...)
+	sample.SemanticScore = selected.SemanticScore
+	sample.SemanticPassed = selected.SemanticPassed
+	sample.SemanticReasons = append([]string(nil), selected.SemanticReasons...)
+	sample.QloopGates = selected.QloopGates
+	sample.QloopGenerated = selected.QloopGenerated
+	sample.QloopRetries = selected.QloopRetries
+	sample.QloopRoutes = selected.QloopRoutes
+	sample.QloopQSrc = selected.QloopQSrc
+	sample.QloopSSrc = selected.QloopSSrc
+	sample.QloopScoreDrop = selected.QloopScoreDrop
+	sample.QloopTypedSrc = selected.QloopTypedSrc
+	sample.QloopTargetCtx = selected.QloopTargetCtx
+
+	out.Produced++
+	out.PolicyPassed++
+	out.SurfaceChecked++
+	out.SemanticChecked++
+	*wordTotal += selected.Words
+	*semanticTotal += selected.SemanticScore
+	out.SemanticScore += selected.SemanticScore
+	if selected.Words > 0 && (out.MinWords == 0 || selected.Words < out.MinWords) {
+		out.MinWords = selected.Words
+	}
+	if selected.Words < 3 {
+		out.ShortCandidates++
+	}
+	if selected.RouteLabelLeak {
+		out.RouteLabelLeaks++
+	}
+	if len(selected.SurfaceReasons) > 0 {
+		out.SurfaceDebt++
+		if out.SurfaceReasons == nil {
+			out.SurfaceReasons = make(map[string]int)
+		}
+		for _, reason := range selected.SurfaceReasons {
+			out.SurfaceReasons[reason]++
+		}
+	}
+	if selected.SemanticPassed {
+		out.SemanticPassed++
+	}
+	if len(selected.SemanticReasons) > 0 {
+		if out.SemanticReasons == nil {
+			out.SemanticReasons = make(map[string]int)
+		}
+		for _, reason := range selected.SemanticReasons {
+			out.SemanticReasons[reason]++
+		}
+	}
+	out.QloopGates += selected.QloopGates
+	out.QloopGenerated += selected.QloopGenerated
+	out.QloopRetries += selected.QloopRetries
+	out.QloopRoutes += selected.QloopRoutes
+	out.QloopQSrc += selected.QloopQSrc
+	out.QloopSSrc += selected.QloopSSrc
+	out.QloopScoreDrop += selected.QloopScoreDrop
+	out.QloopTypedSrc += selected.QloopTypedSrc
+	out.QloopTargetCtx += selected.QloopTargetCtx
+	out.Samples = append(out.Samples, sample)
+}
+
+func finalizeQloopSyntheticBestOf(out *admissionQloopSweepConfigSummary, wordTotal, semanticTotal int) {
 	if out.Produced > 0 {
 		out.AvgWords = math.Round((float64(wordTotal)/float64(out.Produced))*100) / 100
 	}
@@ -931,9 +989,32 @@ func buildQloopTypedSourceBestOf(coverage []admissionQloopSweepSampleCoverage, m
 	if len(out.EmptyReasons) == 0 {
 		out.EmptyReasons = nil
 	}
-	out.QualityReasons = qloopSweepQualityReasons(out, minProduced, minAvgWords)
-	out.QualityPassed = len(out.QualityReasons) == 0
-	return &out
+}
+
+func qloopSweepSemanticBestOfQualityReasons(summary admissionQloopSweepConfigSummary, minProduced int, minAvgWords float64) []string {
+	reasons := qloopSweepQualityReasons(summary, minProduced, minAvgWords)
+	if summary.SemanticPassed < minProduced {
+		reasons = append(reasons, fmt.Sprintf("semantic_passed_below_%d", minProduced))
+	}
+	return reasons
+}
+
+func qloopSweepOutcomeSemanticBetter(candidate, current admissionQloopSweepSampleOutcome) bool {
+	if candidate.SemanticScore != current.SemanticScore {
+		return candidate.SemanticScore > current.SemanticScore
+	}
+	if candidate.SemanticPassed != current.SemanticPassed {
+		return candidate.SemanticPassed
+	}
+	candidatePenalty := qloopSweepOutcomePenalty(candidate)
+	currentPenalty := qloopSweepOutcomePenalty(current)
+	if candidatePenalty != currentPenalty {
+		return candidatePenalty < currentPenalty
+	}
+	if candidate.Words != current.Words {
+		return candidate.Words > current.Words
+	}
+	return candidate.Name < current.Name
 }
 
 func qloopSweepSampleClean(sample admissionQloopSweepSampleSummary) bool {
@@ -1067,10 +1148,10 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 			add("boundary_anchor", 1)
 		}
 	case "polyphony":
-		if hasAny("chorus", "memory", "resonance", "voices", "minds", "trace", "weigh") {
+		if hasAny("chorus", "memory", "memories", "resonance", "voices", "minds", "trace", "weigh") {
 			add("polyphony_anchor", 2)
 		}
-		if hasAny("many", "turns", "quiet") {
+		if hasAny("many", "turns", "quiet", "one chorus", "separate", "together", "become", "becoming", "begins", "begin", "share", "sharing") {
 			add("polyphony_motion", 1)
 		}
 	case "qloop":
