@@ -3087,3 +3087,22 @@ produced dirty/short `that's both.` while typed-source produced clean `not one w
 `surface_penalty_delta=-11`). This makes typed-source a proven seed-level rescue, not a global winner. Next
 layer should add a guarded best-of/admission path around this scoped rescue, while keeping broad qloop
 fail-closed until coverage clears the gate.
+
+**Follow-up, same day - qloop scoped best-of receipt.** The qloop sweep now builds a synthetic
+`typed_source_best_of` summary from the per-seed `typed_source_review` decisions. This is a receipt-only oracle:
+it does not enter the real config list, does not affect the real sweep winner, and does not change runtime
+defaults. For each prompt seed it keeps the class-source baseline unless the scoped typed-source candidate wins
+under the rollback rules already recorded in `typed_source_review`. That makes the measured ceiling visible
+without giving synthetic stitching production authority.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.AQKNuj/qloop_sweep_summary.json`.
+The real broad sweep remains fail-closed (`gate_passed=false`, no winner). The synthetic best-of summary
+attempts 6 seeds, produces 5, passes policy on all 5 produced texts, has no surface failures, and records
+`semantic_passed=3`, `semantic_score=11`, `avg_words=3.4`; it is blocked only by `produced_below_6`. The selected
+seed texts are the contained rollback choices: `not a human.`, `this person exists.`, `not the outer face.`,
+empty `many-minds`, rescued `not one wave.`, and weak statement `there exists a kind.`. Conclusion: scoped
+typed-source rescue is strong enough to explain the qloop gap, but the remaining admission blocker is not
+selection mechanics. It is coverage: `many-minds`/polyphony still has no clean candidate, and statement semantics
+are still too weak for a live default. Next layer should attack polyphony source/answer formation before
+promoting any best-of route.

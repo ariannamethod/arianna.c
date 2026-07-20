@@ -199,6 +199,25 @@ func TestQloopSweepTypedSourceReview(t *testing.T) {
 	if rollup == nil || rollup.Reviews != 4 || rollup.CandidateKept != 1 || rollup.RolledBack != 2 || rollup.TieRolledBack != 1 || rollup.NoCandidate != 1 || rollup.CandidateMissing != 1 || rollup.BaselineMissing != 1 {
 		t.Fatalf("bad typed-source rollup: %+v", rollup)
 	}
+
+	bestOf := buildQloopTypedSourceBestOf(coverage, 4, 3.0)
+	if bestOf == nil || !bestOf.Synthetic || bestOf.Name != "synthetic_scoped_typed_rescue" {
+		t.Fatalf("bad typed-source best-of summary: %+v", bestOf)
+	}
+	if bestOf.Attempted != 4 || bestOf.Produced != 3 || bestOf.Empty != 1 || bestOf.SemanticPassed != 3 || bestOf.SemanticScore != 9 || bestOf.ShortCandidates != 0 || bestOf.SurfaceDebt != 0 || bestOf.QloopTypedSrc != 1 {
+		t.Fatalf("bad typed-source best-of counts: %+v", bestOf)
+	}
+	if len(bestOf.QualityReasons) != 1 || bestOf.QualityReasons[0] != "produced_below_4" || bestOf.QualityPassed {
+		t.Fatalf("best-of should stay coverage-failed: passed=%v reasons=%v", bestOf.QualityPassed, bestOf.QualityReasons)
+	}
+	if bestOf.Samples[0].Text != "not one wave." || bestOf.Samples[1].Text != "not one wave." || bestOf.Samples[2].Text != "not the outer face." || bestOf.Samples[3].Produced {
+		t.Fatalf("bad typed-source best-of samples: %+v", bestOf.Samples)
+	}
+
+	bestOf = buildQloopTypedSourceBestOf(coverage, 3, 3.0)
+	if bestOf == nil || !bestOf.QualityPassed || len(bestOf.QualityReasons) != 0 {
+		t.Fatalf("best-of should pass at lower coverage threshold: %+v", bestOf)
+	}
 }
 
 func TestQloopSweepSemanticAssessment(t *testing.T) {
