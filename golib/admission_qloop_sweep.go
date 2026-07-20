@@ -13,24 +13,26 @@ import (
 )
 
 type admissionQloopSweepSummary struct {
-	Schema         string                              `json:"schema"`
-	SampleFile     string                              `json:"sample_file,omitempty"`
-	TotalSamples   int                                 `json:"total_samples"`
-	SampleLimit    int                                 `json:"sample_limit"`
-	SamplesRun     int                                 `json:"samples_run"`
-	Configs        []admissionQloopSweepConfigSummary  `json:"configs"`
-	SampleCoverage []admissionQloopSweepSampleCoverage `json:"sample_coverage,omitempty"`
-	TargetHint     *admissionQloopTargetHintRollup     `json:"target_hint_review,omitempty"`
-	TypedSource    *admissionQloopCandidateRollup      `json:"typed_source_review,omitempty"`
-	TypedBestOf    *admissionQloopSweepConfigSummary   `json:"typed_source_best_of,omitempty"`
-	SemanticBestOf *admissionQloopSweepConfigSummary   `json:"semantic_best_of,omitempty"`
-	Winner         string                              `json:"winner,omitempty"`
-	GatePassed     bool                                `json:"gate_passed"`
-	GateReasons    []string                            `json:"gate_reasons,omitempty"`
-	ReplayFailed   int                                 `json:"replay_failed"`
-	LogDir         string                              `json:"log_dir,omitempty"`
-	Bin            string                              `json:"bin,omitempty"`
-	Model          string                              `json:"model,omitempty"`
+	Schema                  string                                 `json:"schema"`
+	SampleFile              string                                 `json:"sample_file,omitempty"`
+	TotalSamples            int                                    `json:"total_samples"`
+	SampleLimit             int                                    `json:"sample_limit"`
+	SamplesRun              int                                    `json:"samples_run"`
+	Configs                 []admissionQloopSweepConfigSummary     `json:"configs"`
+	SampleCoverage          []admissionQloopSweepSampleCoverage    `json:"sample_coverage,omitempty"`
+	TargetHint              *admissionQloopTargetHintRollup        `json:"target_hint_review,omitempty"`
+	TypedSource             *admissionQloopCandidateRollup         `json:"typed_source_review,omitempty"`
+	SemanticAdmission       *admissionQloopSemanticAdmissionRollup `json:"semantic_admission_review,omitempty"`
+	TypedBestOf             *admissionQloopSweepConfigSummary      `json:"typed_source_best_of,omitempty"`
+	SemanticBestOf          *admissionQloopSweepConfigSummary      `json:"semantic_best_of,omitempty"`
+	SemanticAdmissionBestOf *admissionQloopSweepConfigSummary      `json:"semantic_admission_best_of,omitempty"`
+	Winner                  string                                 `json:"winner,omitempty"`
+	GatePassed              bool                                   `json:"gate_passed"`
+	GateReasons             []string                               `json:"gate_reasons,omitempty"`
+	ReplayFailed            int                                    `json:"replay_failed"`
+	LogDir                  string                                 `json:"log_dir,omitempty"`
+	Bin                     string                                 `json:"bin,omitempty"`
+	Model                   string                                 `json:"model,omitempty"`
 }
 
 type admissionQloopSweepConfig struct {
@@ -121,26 +123,27 @@ type admissionQloopSweepSampleSummary struct {
 }
 
 type admissionQloopSweepSampleCoverage struct {
-	Index              int                                `json:"index"`
-	Trigger            string                             `json:"trigger,omitempty"`
-	Seed               string                             `json:"seed,omitempty"`
-	Attempted          int                                `json:"attempted"`
-	Produced           int                                `json:"produced"`
-	Clean              int                                `json:"clean"`
-	Short              int                                `json:"short"`
-	SurfaceDebt        int                                `json:"surface_debt"`
-	SemanticPassed     int                                `json:"semantic_passed"`
-	Empty              int                                `json:"empty"`
-	LeastDebtConfig    string                             `json:"least_debt_config,omitempty"`
-	LeastDebtClean     bool                               `json:"least_debt_clean,omitempty"`
-	LeastDebtText      string                             `json:"least_debt_text,omitempty"`
-	BestSemanticConfig string                             `json:"best_semantic_config,omitempty"`
-	BestSemanticClean  bool                               `json:"best_semantic_clean,omitempty"`
-	BestSemanticScore  int                                `json:"best_semantic_score"`
-	BestSemanticText   string                             `json:"best_semantic_text,omitempty"`
-	TargetHintReview   *admissionQloopTargetHintReview    `json:"target_hint_review,omitempty"`
-	TypedSourceReview  *admissionQloopCandidateReview     `json:"typed_source_review,omitempty"`
-	Configs            []admissionQloopSweepSampleOutcome `json:"configs,omitempty"`
+	Index                   int                                    `json:"index"`
+	Trigger                 string                                 `json:"trigger,omitempty"`
+	Seed                    string                                 `json:"seed,omitempty"`
+	Attempted               int                                    `json:"attempted"`
+	Produced                int                                    `json:"produced"`
+	Clean                   int                                    `json:"clean"`
+	Short                   int                                    `json:"short"`
+	SurfaceDebt             int                                    `json:"surface_debt"`
+	SemanticPassed          int                                    `json:"semantic_passed"`
+	Empty                   int                                    `json:"empty"`
+	LeastDebtConfig         string                                 `json:"least_debt_config,omitempty"`
+	LeastDebtClean          bool                                   `json:"least_debt_clean,omitempty"`
+	LeastDebtText           string                                 `json:"least_debt_text,omitempty"`
+	BestSemanticConfig      string                                 `json:"best_semantic_config,omitempty"`
+	BestSemanticClean       bool                                   `json:"best_semantic_clean,omitempty"`
+	BestSemanticScore       int                                    `json:"best_semantic_score"`
+	BestSemanticText        string                                 `json:"best_semantic_text,omitempty"`
+	TargetHintReview        *admissionQloopTargetHintReview        `json:"target_hint_review,omitempty"`
+	TypedSourceReview       *admissionQloopCandidateReview         `json:"typed_source_review,omitempty"`
+	SemanticAdmissionReview *admissionQloopSemanticAdmissionReview `json:"semantic_admission_review,omitempty"`
+	Configs                 []admissionQloopSweepSampleOutcome     `json:"configs,omitempty"`
 }
 
 type admissionQloopTargetHintReview struct {
@@ -199,6 +202,26 @@ type admissionQloopCandidateRollup struct {
 	NoCandidate      int `json:"no_candidate"`
 	CandidateMissing int `json:"candidate_missing,omitempty"`
 	BaselineMissing  int `json:"baseline_missing,omitempty"`
+}
+
+type admissionQloopSemanticAdmissionReview struct {
+	CandidateConfig         string `json:"candidate_config,omitempty"`
+	Decision                string `json:"decision"`
+	Reason                  string `json:"reason,omitempty"`
+	BestText                string `json:"best_text,omitempty"`
+	CandidateProduced       bool   `json:"candidate_produced"`
+	CandidateClean          bool   `json:"candidate_clean"`
+	CandidateSemanticScore  int    `json:"candidate_semantic_score"`
+	CandidateSemanticPassed bool   `json:"candidate_semantic_passed"`
+	CandidateWords          int    `json:"candidate_words,omitempty"`
+}
+
+type admissionQloopSemanticAdmissionRollup struct {
+	Reviews      int `json:"reviews"`
+	Admitted     int `json:"admitted"`
+	Rejected     int `json:"rejected"`
+	NoCandidate  int `json:"no_candidate"`
+	SemanticMiss int `json:"semantic_miss,omitempty"`
 }
 
 type admissionQloopSweepSampleOutcome struct {
@@ -286,8 +309,10 @@ func runAdmissionQloopSweep() error {
 	summary.SampleCoverage = buildQloopSweepSampleCoverage(summary.Configs)
 	summary.TargetHint = summarizeQloopTargetHintReviews(summary.SampleCoverage)
 	summary.TypedSource = summarizeQloopTypedSourceReviews(summary.SampleCoverage)
+	summary.SemanticAdmission = summarizeQloopSemanticAdmissionReviews(summary.SampleCoverage)
 	summary.TypedBestOf = buildQloopTypedSourceBestOf(summary.SampleCoverage, minProduced, minAvgWords)
 	summary.SemanticBestOf = buildQloopSemanticBestOf(summary.SampleCoverage, minProduced, minAvgWords)
+	summary.SemanticAdmissionBestOf = buildQloopSemanticAdmissionBestOf(summary.SampleCoverage, minProduced, minAvgWords)
 	summary.Winner, summary.GatePassed, summary.GateReasons = chooseQloopSweepWinner(summary.Configs)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_QLOOP_SWEEP_SUMMARY"))
@@ -601,6 +626,7 @@ func buildQloopSweepSampleCoverage(configs []admissionQloopSweepConfigSummary) [
 		cov := *byIndex[index]
 		cov.TargetHintReview = buildQloopTargetHintReview(cov.Configs)
 		cov.TypedSourceReview = buildQloopTypedSourceReview(cov.Configs)
+		cov.SemanticAdmissionReview = buildQloopSemanticAdmissionReview(cov.Configs)
 		out = append(out, cov)
 	}
 	return out
@@ -829,6 +855,73 @@ func summarizeQloopTypedSourceReviews(coverage []admissionQloopSweepSampleCovera
 	return &out
 }
 
+func buildQloopSemanticAdmissionReview(outcomes []admissionQloopSweepSampleOutcome) *admissionQloopSemanticAdmissionReview {
+	if len(outcomes) == 0 {
+		return nil
+	}
+	review := &admissionQloopSemanticAdmissionReview{
+		Decision: "no_candidate",
+		Reason:   "no_clean_semantic_candidate",
+	}
+	var selected *admissionQloopSweepSampleOutcome
+	for i := range outcomes {
+		candidate := &outcomes[i]
+		if !candidate.Clean {
+			continue
+		}
+		if selected == nil || qloopSweepOutcomeSemanticBetter(*candidate, *selected) {
+			selected = candidate
+		}
+	}
+	if selected == nil {
+		return review
+	}
+	review.CandidateConfig = selected.Name
+	review.BestText = selected.Text
+	review.CandidateProduced = selected.Produced
+	review.CandidateClean = selected.Clean
+	review.CandidateSemanticScore = selected.SemanticScore
+	review.CandidateSemanticPassed = selected.SemanticPassed
+	review.CandidateWords = selected.Words
+	if !selected.SemanticPassed {
+		review.Decision = "reject"
+		review.Reason = "semantic_below_gate"
+		return review
+	}
+	review.Decision = "admit"
+	review.Reason = "semantic_pass"
+	return review
+}
+
+func summarizeQloopSemanticAdmissionReviews(coverage []admissionQloopSweepSampleCoverage) *admissionQloopSemanticAdmissionRollup {
+	if len(coverage) == 0 {
+		return nil
+	}
+	out := admissionQloopSemanticAdmissionRollup{}
+	for _, cov := range coverage {
+		review := cov.SemanticAdmissionReview
+		if review == nil {
+			continue
+		}
+		out.Reviews++
+		switch review.Decision {
+		case "admit":
+			out.Admitted++
+		case "reject":
+			out.Rejected++
+			if review.Reason == "semantic_below_gate" {
+				out.SemanticMiss++
+			}
+		default:
+			out.NoCandidate++
+		}
+	}
+	if out.Reviews == 0 {
+		return nil
+	}
+	return &out
+}
+
 func buildQloopTypedSourceBestOf(coverage []admissionQloopSweepSampleCoverage, minProduced int, minAvgWords float64) *admissionQloopSweepConfigSummary {
 	if len(coverage) == 0 {
 		return nil
@@ -856,6 +949,37 @@ func buildQloopTypedSourceBestOf(coverage []admissionQloopSweepSampleCoverage, m
 	}
 	finalizeQloopSyntheticBestOf(&out, wordTotal, semanticTotal)
 	out.QualityReasons = qloopSweepQualityReasons(out, minProduced, minAvgWords)
+	out.QualityPassed = len(out.QualityReasons) == 0
+	return &out
+}
+
+func buildQloopSemanticAdmissionBestOf(coverage []admissionQloopSweepSampleCoverage, minProduced int, minAvgWords float64) *admissionQloopSweepConfigSummary {
+	if len(coverage) == 0 {
+		return nil
+	}
+	out := admissionQloopSweepConfigSummary{
+		Name:      "synthetic_semantic_admission",
+		Synthetic: true,
+		Env: map[string]string{
+			"synthetic_from": "semantic_admission_review",
+		},
+	}
+	var wordTotal int
+	var semanticTotal int
+	for _, cov := range coverage {
+		review := cov.SemanticAdmissionReview
+		var selected *admissionQloopSweepSampleOutcome
+		reason := "no_clean_semantic_candidate"
+		if review != nil {
+			reason = review.Reason
+			if review.Decision == "admit" && review.CandidateConfig != "" {
+				selected = qloopSweepOutcomeByConfig(cov.Configs, review.CandidateConfig)
+			}
+		}
+		appendQloopSyntheticBestOfSample(&out, cov, selected, reason, &wordTotal, &semanticTotal)
+	}
+	finalizeQloopSyntheticBestOf(&out, wordTotal, semanticTotal)
+	out.QualityReasons = qloopSweepSemanticBestOfQualityReasons(out, minProduced, minAvgWords)
 	out.QualityPassed = len(out.QualityReasons) == 0
 	return &out
 }

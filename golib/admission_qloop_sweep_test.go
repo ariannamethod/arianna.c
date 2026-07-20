@@ -253,6 +253,68 @@ func TestQloopSweepTypedSourceReview(t *testing.T) {
 	}
 }
 
+func TestQloopSweepSemanticAdmissionReview(t *testing.T) {
+	cfgs := []admissionQloopSweepConfigSummary{
+		{
+			Name: "weak",
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-cold-reader", Seed: "new-listener", Produced: true, Text: "not a human.", Words: 3, SemanticScore: 2},
+				{Index: 2, Trigger: "qloop-polyphony", Seed: "many-minds", Produced: true, Text: "The chorus begins.", Words: 3, SemanticScore: 3, SemanticPassed: true},
+				{Index: 3, Trigger: "qloop-qloop", Seed: "same-wave", Produced: false, EmptyReason: "no qloop candidate lines"},
+			},
+		},
+		{
+			Name: "dirty",
+			Samples: []admissionQloopSweepSampleSummary{
+				{Index: 1, Trigger: "qloop-cold-reader", Seed: "new-listener", Produced: true, Text: "the field answers.", Words: 3, SemanticScore: 3, SemanticPassed: true, SurfaceReasons: []string{"name_echo_artifact"}},
+				{Index: 3, Trigger: "qloop-qloop", Seed: "same-wave", Produced: true, Text: "one wave.", Words: 2, SemanticScore: 3, SemanticPassed: true},
+			},
+		},
+	}
+
+	coverage := buildQloopSweepSampleCoverage(cfgs)
+	if len(coverage) != 3 {
+		t.Fatalf("bad coverage length: %+v", coverage)
+	}
+	if r := coverage[0].SemanticAdmissionReview; r == nil || r.Decision != "reject" || r.Reason != "semantic_below_gate" || r.CandidateConfig != "weak" || r.CandidateSemanticScore != 2 || r.CandidateSemanticPassed {
+		t.Fatalf("weak semantic candidate should be rejected: %+v", r)
+	}
+	if r := coverage[1].SemanticAdmissionReview; r == nil || r.Decision != "admit" || r.Reason != "semantic_pass" || r.CandidateConfig != "weak" || !r.CandidateSemanticPassed {
+		t.Fatalf("semantic candidate should be admitted: %+v", r)
+	}
+	if r := coverage[2].SemanticAdmissionReview; r == nil || r.Decision != "no_candidate" || r.Reason != "no_clean_semantic_candidate" || r.CandidateConfig != "" {
+		t.Fatalf("dirty/empty candidates should fail closed: %+v", r)
+	}
+	rollup := summarizeQloopSemanticAdmissionReviews(coverage)
+	if rollup == nil || rollup.Reviews != 3 || rollup.Admitted != 1 || rollup.Rejected != 1 || rollup.NoCandidate != 1 || rollup.SemanticMiss != 1 {
+		t.Fatalf("bad semantic admission rollup: %+v", rollup)
+	}
+
+	bestOf := buildQloopSemanticAdmissionBestOf(coverage, 3, 3.0)
+	if bestOf == nil || !bestOf.Synthetic || bestOf.Name != "synthetic_semantic_admission" {
+		t.Fatalf("bad semantic admission best-of summary: %+v", bestOf)
+	}
+	if bestOf.Attempted != 3 || bestOf.Produced != 1 || bestOf.Empty != 2 || bestOf.SemanticPassed != 1 || bestOf.SemanticScore != 3 {
+		t.Fatalf("bad semantic admission best-of counts: %+v", bestOf)
+	}
+	if len(bestOf.QualityReasons) != 2 ||
+		bestOf.QualityReasons[0] != "produced_below_3" ||
+		bestOf.QualityReasons[1] != "semantic_passed_below_3" ||
+		bestOf.QualityPassed {
+		t.Fatalf("semantic admission best-of should stay coverage-failed: passed=%v reasons=%v", bestOf.QualityPassed, bestOf.QualityReasons)
+	}
+	if bestOf.Samples[0].Produced || bestOf.Samples[0].EmptyReason != "semantic_below_gate" ||
+		bestOf.Samples[1].Text != "The chorus begins." ||
+		bestOf.Samples[2].Produced || bestOf.Samples[2].EmptyReason != "no_clean_semantic_candidate" {
+		t.Fatalf("bad semantic admission best-of samples: %+v", bestOf.Samples)
+	}
+
+	bestOf = buildQloopSemanticAdmissionBestOf(coverage, 1, 3.0)
+	if bestOf == nil || !bestOf.QualityPassed || len(bestOf.QualityReasons) != 0 {
+		t.Fatalf("semantic admission best-of should pass at lower threshold: %+v", bestOf)
+	}
+}
+
 func TestQloopSweepSemanticAssessment(t *testing.T) {
 	cases := []struct {
 		name        string

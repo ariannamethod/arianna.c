@@ -3151,3 +3151,23 @@ is blocked only by `semantic_passed_below_6`. Selected ceiling texts:
 admission is still correctly closed because the coverage is distributed across configs and one cold-reader seed
 is semantically thin. Next live work should design guarded semantic route admission/rollback from this receipt,
 or first repair the cold-reader scorer/prompt boundary, rather than adding another blind qloop config.
+
+**Follow-up, same day - guarded semantic admission receipt.** Added per-seed `semantic_admission_review` and
+synthetic `semantic_admission_best_of`. This is the first fail-closed admission frame over the semantic ceiling:
+the best clean semantic candidate is only admitted when `semantic_passed=true`; clean but weak candidates are
+rejected as `semantic_below_gate`, and dirty/short candidates stay `no_clean_semantic_candidate`. The real qloop
+sweep winner still ignores this synthetic path.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.poz4wu/qloop_sweep_summary.json`
+(focused 4-seed integration) and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.c0hTku/qloop_sweep_summary.json`
+(full six-prompt broad). The real sweep remains fail-closed (`gate_passed=false`, no winner). Full broad
+semantic admission review: `reviews=6`, `admitted=5`, `rejected=1`, `semantic_miss=1`, `no_candidate=0`.
+`semantic_admission_best_of` produces 5/6, all 5 admitted texts are semantic passes, semantic score 15,
+avg words 4.8, and quality remains false with `produced_below_6` + `semantic_passed_below_6`. The admitted
+texts are `this person exists.`, `my own internal trace.`, `The chorus begins.`,
+`if they're identical wave or neither.`, and `The body remembers its own function without being.` The sole
+blocked seed is `new-listener`: `not a human.` is clean and useful as a boundary marker, but score 2 is not a
+complete cold-reader answer. Conclusion: the guarded route is now structurally ready, but live admission should
+wait until cold-reader gets a real answer candidate or the cold-reader scoring contract is deliberately changed.
