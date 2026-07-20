@@ -56,6 +56,12 @@ func TestQloopTargetRouteUsesPromptClassAndTargetHint(t *testing.T) {
 	if got := qloopSweepPromptClass("user_bridge-cold-reader", "new-listener"); got != "cold-reader" {
 		t.Fatalf("user bridge route did not preserve prompt class: %q", got)
 	}
+	if got := qloopSweepPromptClass("direct-user", "user-frame"); got != "direct-user" {
+		t.Fatalf("direct-user prompt class was stripped without route wrapper: %q", got)
+	}
+	if got := qloopSweepPromptClass("user_bridge-direct-user", "user-frame"); got != "direct-user" {
+		t.Fatalf("user bridge route stripped nested direct-user class: %q", got)
+	}
 }
 
 func TestQloopHintQARouteUsesQuestionHintAndAnswerFrame(t *testing.T) {
