@@ -3171,3 +3171,21 @@ texts are `this person exists.`, `my own internal trace.`, `The chorus begins.`,
 blocked seed is `new-listener`: `not a human.` is clean and useful as a boundary marker, but score 2 is not a
 complete cold-reader answer. Conclusion: the guarded route is now structurally ready, but live admission should
 wait until cold-reader gets a real answer candidate or the cold-reader scoring contract is deliberately changed.
+
+**Follow-up, same day - route-compare semantic telemetry.** `make admission-route-compare` now records the same
+prompt-class semantic assessment used by qloop sweep for every produced direct/chorus/qloop candidate. The
+summary carries top-level and per-route `semantic_passed`, `semantic_miss`, and `semantic_score`, plus
+`semantic_samples` with route, seed, prompt class, text, score, pass bit, and reasons. This is receipt-only:
+shadow admission, replay guards, and runtime generation are unchanged.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.kvpkn3/dream_admission_route_compare.json`.
+Focused route compare on the first four broad prompts produced 8/8 policy-passed candidates but only 2/8
+semantic passes: direct 1/4, chorus 1/4, qloop 0/4 because strict qloop had no candidate lines. The cold-reader
+seed is not a qloop-only failure: direct scored 0 (`a moment before I say you-you are not a ling`), chorus scored
+1 with role inversion (`I am you... my name is Mira`), and qloop sweep still finds only the thin boundary marker
+`not a human.` at score 2. Two throwaway local probes were rolled back before this entry: a cold-reader source
+class stem made output worse (`I (your name.`), and a wider qloop answer budget drifted to
+`It may be I (the title here).` with score 0. Conclusion: the next repair should shape cold-reader
+generation/conditioning or add a semantic route gate for route compare; lowering the qloop semantic threshold
+would admit an incomplete answer.

@@ -23,9 +23,13 @@ type admissionRouteCompareSummary struct {
 	PolicyPassed    int                            `json:"policy_passed"`
 	PolicyFailed    int                            `json:"policy_failed"`
 	ReplayFailed    int                            `json:"replay_failed"`
+	SemanticPassed  int                            `json:"semantic_passed"`
+	SemanticMiss    int                            `json:"semantic_miss"`
+	SemanticScore   int                            `json:"semantic_score"`
 	ByRoute         map[string]admissionRouteStats `json:"by_route"`
 	Failures        []admissionRouteFailure        `json:"failures,omitempty"`
 	Empties         []admissionRouteEmpty          `json:"empties,omitempty"`
+	SemanticSamples []admissionRouteSemantic       `json:"semantic_samples,omitempty"`
 	LogPath         string                         `json:"log_path,omitempty"`
 	Bin             string                         `json:"bin,omitempty"`
 	Model           string                         `json:"model,omitempty"`
@@ -38,6 +42,9 @@ type admissionRouteStats struct {
 	PolicyPassed     int `json:"policy_passed"`
 	PolicyFailed     int `json:"policy_failed"`
 	ReplayFailed     int `json:"replay_failed"`
+	SemanticPassed   int `json:"semantic_passed"`
+	SemanticMiss     int `json:"semantic_miss"`
+	SemanticScore    int `json:"semantic_score"`
 	ChorusVoices     int `json:"chorus_voices,omitempty"`
 	QloopQuestions   int `json:"qloop_questions,omitempty"`
 	QloopGates       int `json:"qloop_gates,omitempty"`
@@ -77,6 +84,18 @@ type admissionRouteEmpty struct {
 	Trigger string `json:"trigger"`
 	Seed    string `json:"seed"`
 	Reason  string `json:"reason,omitempty"`
+}
+
+type admissionRouteSemantic struct {
+	Index       int      `json:"index"`
+	Route       string   `json:"route"`
+	Trigger     string   `json:"trigger"`
+	Seed        string   `json:"seed"`
+	PromptClass string   `json:"prompt_class"`
+	Text        string   `json:"text"`
+	Score       int      `json:"score"`
+	Passed      bool     `json:"passed"`
+	Reasons     []string `json:"reasons,omitempty"`
 }
 
 type admissionRouteOutput struct {
@@ -519,6 +538,28 @@ func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompar
 	}
 	st.Produced++
 	summary.Candidates++
+	promptClass := qloopSweepPromptClass(trigger, seed)
+	semantic := qloopSweepSemanticAssessment(text, promptClass)
+	st.SemanticScore += semantic.Score
+	summary.SemanticScore += semantic.Score
+	if semantic.Passed {
+		st.SemanticPassed++
+		summary.SemanticPassed++
+	} else {
+		st.SemanticMiss++
+		summary.SemanticMiss++
+	}
+	summary.SemanticSamples = append(summary.SemanticSamples, admissionRouteSemantic{
+		Index:       index,
+		Route:       out.route,
+		Trigger:     trigger,
+		Seed:        seed,
+		PromptClass: promptClass,
+		Text:        text,
+		Score:       semantic.Score,
+		Passed:      semantic.Passed,
+		Reasons:     append([]string(nil), semantic.Reasons...),
+	})
 
 	before := iw.GetSnapshot()
 	r := dreamResult{
