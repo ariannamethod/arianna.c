@@ -3189,3 +3189,22 @@ class stem made output worse (`I (your name.`), and a wider qloop answer budget 
 `It may be I (the title here).` with score 0. Conclusion: the next repair should shape cold-reader
 generation/conditioning or add a semantic route gate for route compare; lowering the qloop semantic threshold
 would admit an incomplete answer.
+
+**Follow-up, same day - route semantic coverage receipt.** Route compare now groups its semantic samples and
+empties into a per-seed `semantic_coverage` matrix. Each row records attempted routes, produced/empty counts,
+semantic pass/miss counts, and the best semantic route/text/score/reasons for that prompt class. The summary also
+gets a receipt-only verdict, `semantic_coverage_passed` plus `semantic_coverage_reasons`; it does not choose a
+live route, mutate shadow admission, or change direct/chorus/qloop generation.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.SRwqmE/dream_admission_route_compare.json`.
+Focused route compare on the first four broad prompts stays at 2/8 semantic passes overall and the verdict is
+`semantic_coverage_passed=false` with `semantic_miss:new-listener` and `semantic_miss:not-oleg`. `new-listener` /
+cold-reader attempted all 3 routes, produced 2, left qloop empty, and still has 0 semantic passes; its best route
+is chorus at score 1, with the role-inversion text `A question with no answer. / I am you... / my name is
+Mira...`. `not-oleg` / recipient-lock also attempted all 3 routes and has 0 semantic passes; its best direct
+candidate scores 0 and is now explicitly visible as such instead of hiding behind an omitted JSON field.
+`field-origin` and `many-minds` each have one semantic pass, with best routes chorus and direct respectively.
+Conclusion: route compare can now say whether a prompt has a usable route at all. The next repair should improve
+cold-reader/recipient-lock conditioning or add a guarded semantic route admission layer before any route is
+promoted.

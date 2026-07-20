@@ -7,32 +7,36 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
 
 type admissionRouteCompareSummary struct {
-	Schema          string                         `json:"schema"`
-	SampleFile      string                         `json:"sample_file,omitempty"`
-	TotalSamples    int                            `json:"total_samples"`
-	SampleLimit     int                            `json:"sample_limit"`
-	SamplesRun      int                            `json:"samples_run"`
-	Routes          []string                       `json:"routes"`
-	Candidates      int                            `json:"candidates"`
-	EmptyCandidates int                            `json:"empty_candidates"`
-	PolicyPassed    int                            `json:"policy_passed"`
-	PolicyFailed    int                            `json:"policy_failed"`
-	ReplayFailed    int                            `json:"replay_failed"`
-	SemanticPassed  int                            `json:"semantic_passed"`
-	SemanticMiss    int                            `json:"semantic_miss"`
-	SemanticScore   int                            `json:"semantic_score"`
-	ByRoute         map[string]admissionRouteStats `json:"by_route"`
-	Failures        []admissionRouteFailure        `json:"failures,omitempty"`
-	Empties         []admissionRouteEmpty          `json:"empties,omitempty"`
-	SemanticSamples []admissionRouteSemantic       `json:"semantic_samples,omitempty"`
-	LogPath         string                         `json:"log_path,omitempty"`
-	Bin             string                         `json:"bin,omitempty"`
-	Model           string                         `json:"model,omitempty"`
+	Schema                  string                           `json:"schema"`
+	SampleFile              string                           `json:"sample_file,omitempty"`
+	TotalSamples            int                              `json:"total_samples"`
+	SampleLimit             int                              `json:"sample_limit"`
+	SamplesRun              int                              `json:"samples_run"`
+	Routes                  []string                         `json:"routes"`
+	Candidates              int                              `json:"candidates"`
+	EmptyCandidates         int                              `json:"empty_candidates"`
+	PolicyPassed            int                              `json:"policy_passed"`
+	PolicyFailed            int                              `json:"policy_failed"`
+	ReplayFailed            int                              `json:"replay_failed"`
+	SemanticPassed          int                              `json:"semantic_passed"`
+	SemanticMiss            int                              `json:"semantic_miss"`
+	SemanticScore           int                              `json:"semantic_score"`
+	SemanticCoveragePassed  bool                             `json:"semantic_coverage_passed"`
+	SemanticCoverageReasons []string                         `json:"semantic_coverage_reasons,omitempty"`
+	ByRoute                 map[string]admissionRouteStats   `json:"by_route"`
+	Failures                []admissionRouteFailure          `json:"failures,omitempty"`
+	Empties                 []admissionRouteEmpty            `json:"empties,omitempty"`
+	SemanticSamples         []admissionRouteSemantic         `json:"semantic_samples,omitempty"`
+	SemanticCoverage        []admissionRouteSemanticCoverage `json:"semantic_coverage,omitempty"`
+	LogPath                 string                           `json:"log_path,omitempty"`
+	Bin                     string                           `json:"bin,omitempty"`
+	Model                   string                           `json:"model,omitempty"`
 }
 
 type admissionRouteStats struct {
@@ -96,6 +100,22 @@ type admissionRouteSemantic struct {
 	Score       int      `json:"score"`
 	Passed      bool     `json:"passed"`
 	Reasons     []string `json:"reasons,omitempty"`
+}
+
+type admissionRouteSemanticCoverage struct {
+	Index          int      `json:"index"`
+	Seed           string   `json:"seed"`
+	PromptClass    string   `json:"prompt_class"`
+	Attempted      int      `json:"attempted"`
+	Produced       int      `json:"produced"`
+	Empty          int      `json:"empty"`
+	SemanticPassed int      `json:"semantic_passed"`
+	SemanticMiss   int      `json:"semantic_miss"`
+	BestRoute      string   `json:"best_route,omitempty"`
+	BestText       string   `json:"best_text,omitempty"`
+	BestScore      *int     `json:"best_score,omitempty"`
+	BestPassed     bool     `json:"best_passed,omitempty"`
+	BestReasons    []string `json:"best_reasons,omitempty"`
 }
 
 type admissionRouteOutput struct {
@@ -203,6 +223,8 @@ func runAdmissionRouteCompare() error {
 			}
 		}
 	}
+	summary.SemanticCoverage = buildAdmissionRouteSemanticCoverage(summary.SemanticSamples, summary.Empties)
+	summary.SemanticCoveragePassed, summary.SemanticCoverageReasons = summarizeAdmissionRouteSemanticCoverage(summary.SemanticCoverage)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_ROUTE_COMPARE_SUMMARY"))
 	if summaryPath != "" {
@@ -618,6 +640,93 @@ func recordAdmissionRouteCandidate(iw *InnerWorld, summary *admissionRouteCompar
 	}
 	summary.ByRoute[out.route] = st
 	return nil
+}
+
+func buildAdmissionRouteSemanticCoverage(samples []admissionRouteSemantic, empties []admissionRouteEmpty) []admissionRouteSemanticCoverage {
+	type key struct {
+		index       int
+		seed        string
+		promptClass string
+	}
+	coverage := make(map[key]*admissionRouteSemanticCoverage)
+	order := make([]key, 0)
+	get := func(index int, seed, promptClass string) *admissionRouteSemanticCoverage {
+		k := key{index: index, seed: seed, promptClass: promptClass}
+		cov := coverage[k]
+		if cov == nil {
+			cov = &admissionRouteSemanticCoverage{Index: index, Seed: seed, PromptClass: promptClass}
+			coverage[k] = cov
+			order = append(order, k)
+		}
+		return cov
+	}
+	for _, s := range samples {
+		promptClass := s.PromptClass
+		if promptClass == "" {
+			promptClass = qloopSweepPromptClass(s.Trigger, s.Seed)
+		}
+		cov := get(s.Index, s.Seed, promptClass)
+		cov.Attempted++
+		cov.Produced++
+		if s.Passed {
+			cov.SemanticPassed++
+		} else {
+			cov.SemanticMiss++
+		}
+		bestScore := -1
+		if cov.BestScore != nil {
+			bestScore = *cov.BestScore
+		}
+		if cov.BestRoute == "" || s.Score > bestScore {
+			score := s.Score
+			cov.BestRoute = s.Route
+			cov.BestText = s.Text
+			cov.BestScore = &score
+			cov.BestPassed = s.Passed
+			cov.BestReasons = append([]string(nil), s.Reasons...)
+		}
+	}
+	for _, e := range empties {
+		promptClass := qloopSweepPromptClass(e.Trigger, e.Seed)
+		cov := get(e.Index, e.Seed, promptClass)
+		cov.Attempted++
+		cov.Empty++
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if order[i].index != order[j].index {
+			return order[i].index < order[j].index
+		}
+		if order[i].seed != order[j].seed {
+			return order[i].seed < order[j].seed
+		}
+		return order[i].promptClass < order[j].promptClass
+	})
+	out := make([]admissionRouteSemanticCoverage, 0, len(order))
+	for _, k := range order {
+		out = append(out, *coverage[k])
+	}
+	return out
+}
+
+func summarizeAdmissionRouteSemanticCoverage(coverage []admissionRouteSemanticCoverage) (bool, []string) {
+	if len(coverage) == 0 {
+		return false, []string{"semantic_coverage_missing"}
+	}
+	var reasons []string
+	for _, cov := range coverage {
+		seed := cov.Seed
+		if seed == "" {
+			seed = fmt.Sprintf("sample-%02d", cov.Index)
+		}
+		if cov.Produced == 0 {
+			reasons = append(reasons, "no_route_candidate:"+seed)
+			continue
+		}
+		if cov.SemanticPassed == 0 {
+			reasons = append(reasons, "semantic_miss:"+seed)
+		}
+	}
+	return len(reasons) == 0, reasons
 }
 
 func writeAdmissionRouteCompareSummary(path string, summary admissionRouteCompareSummary) error {

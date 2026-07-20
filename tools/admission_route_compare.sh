@@ -94,6 +94,8 @@ grep -q '"schema": "arianna.dream_admission_route_compare_summary.v1"' "$SUMMARY
 grep -q '"replay_failed": 0' "$SUMMARY" || die "route replay failures found"
 grep -q '"semantic_score":' "$SUMMARY" || die "route semantic score telemetry missing from summary"
 grep -q '"semantic_samples":' "$SUMMARY" || die "route semantic samples missing from summary"
+grep -q '"semantic_coverage":' "$SUMMARY" || die "route semantic coverage missing from summary"
+grep -q '"semantic_coverage_passed":' "$SUMMARY" || die "route semantic coverage verdict missing from summary"
 if grep -Eq '"candidates": [1-9][0-9]*' "$SUMMARY"; then
     [[ -s "$LOG" ]] || die "route JSONL log not written"
     grep -q '"schema":"arianna.dream_candidate.v1"' "$LOG" || die "candidate schema missing"
