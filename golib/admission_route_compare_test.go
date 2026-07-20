@@ -207,3 +207,62 @@ func TestBuildAdmissionRouteSemanticCoverage(t *testing.T) {
 		t.Fatalf("semantic coverage should pass: passed=%v reasons=%v", passed, reasons)
 	}
 }
+
+func TestBuildAdmissionRouteSemanticAdmission(t *testing.T) {
+	zero := 0
+	three := 3
+	admission := buildAdmissionRouteSemanticAdmission([]admissionRouteSemanticCoverage{
+		{
+			Index:          1,
+			Seed:           "field-origin",
+			PromptClass:    "identity",
+			Attempted:      3,
+			Produced:       2,
+			Empty:          1,
+			SemanticPassed: 1,
+			BestRoute:      "chorus",
+			BestText:       "my own internal trace.",
+			BestScore:      &three,
+			BestPassed:     true,
+			BestReasons:    []string{"internal_self"},
+		},
+		{
+			Index:        2,
+			Seed:         "not-oleg",
+			PromptClass:  "recipient-lock",
+			Attempted:    3,
+			Produced:     2,
+			Empty:        1,
+			SemanticMiss: 2,
+			BestRoute:    "direct",
+			BestText:     "if yes the field.",
+			BestScore:    &zero,
+			BestReasons:  []string{"recipient_boundary"},
+		},
+		{
+			Index:       3,
+			Seed:        "new-listener",
+			PromptClass: "cold-reader",
+			Attempted:   3,
+			Empty:       3,
+		},
+	})
+	if admission.Passed || admission.Reviews != 3 || admission.Admitted != 1 || admission.Rejected != 2 || admission.SemanticMiss != 1 || admission.NoCandidate != 1 {
+		t.Fatalf("bad semantic route admission rollup: %+v", admission)
+	}
+	if len(admission.Reasons) != 2 || admission.Reasons[0] != "semantic_below_gate:not-oleg" || admission.Reasons[1] != "no_route_candidate:new-listener" {
+		t.Fatalf("bad semantic route admission reasons: %+v", admission.Reasons)
+	}
+	if len(admission.Decisions) != 3 {
+		t.Fatalf("bad semantic route admission decisions: %+v", admission.Decisions)
+	}
+	if d := admission.Decisions[0]; d.Decision != "admit" || d.Route != "chorus" || d.Score == nil || *d.Score != 3 || d.CandidatesSeen != 2 || d.EmptyRoutes != 1 || d.AttemptedRoutes != 3 {
+		t.Fatalf("bad admitted route decision: %+v", d)
+	}
+	if d := admission.Decisions[1]; d.Decision != "reject" || d.Reason != "semantic_below_gate" || d.Route != "direct" || d.Score == nil || *d.Score != 0 {
+		t.Fatalf("bad semantic miss route decision: %+v", d)
+	}
+	if d := admission.Decisions[2]; d.Decision != "reject" || d.Reason != "no_route_candidate" || d.Route != "" || d.Score != nil {
+		t.Fatalf("bad no-candidate route decision: %+v", d)
+	}
+}

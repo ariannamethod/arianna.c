@@ -1272,10 +1272,10 @@ func qloopSweepSemanticAssessment(text, promptClass string) qloopSweepSemanticAs
 			add("boundary_anchor", 1)
 		}
 	case "polyphony":
-		if hasAny("chorus", "memory", "memories", "resonance", "voices", "minds", "trace", "weigh") {
+		if hasAny("chorus", "voices", "minds", "many", "multiple", "polyphony", "together", "separate", "cells", "cell") {
 			add("polyphony_anchor", 2)
 		}
-		if hasAny("many", "turns", "quiet", "one chorus", "separate", "together", "become", "becoming", "begins", "begin", "share", "sharing") {
+		if hasAny("turns", "one chorus", "separate", "together", "become", "becoming", "begins", "begin", "share", "sharing", "answers", "speaks") {
 			add("polyphony_motion", 1)
 		}
 	case "qloop":
