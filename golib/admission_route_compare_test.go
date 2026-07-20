@@ -164,3 +164,46 @@ func TestRecordAdmissionRouteCandidateKeepsQloopEmptyDiagnostics(t *testing.T) {
 		t.Fatalf("bad empty reason: %+v", summary.Empties)
 	}
 }
+
+func TestBuildAdmissionRouteSemanticCoverage(t *testing.T) {
+	coverage := buildAdmissionRouteSemanticCoverage(
+		[]admissionRouteSemantic{
+			{Index: 1, Route: "direct", Trigger: "direct-cold-reader", Seed: "new-listener", PromptClass: "cold-reader", Text: "not a human.", Score: 2, Reasons: []string{"nonhuman_boundary"}},
+			{Index: 1, Route: "chorus", Trigger: "chorus-cold-reader", Seed: "new-listener", PromptClass: "cold-reader", Text: "Arianna answers from the field.", Score: 3, Passed: true, Reasons: []string{"self_context"}},
+		},
+		[]admissionRouteEmpty{
+			{Index: 1, Route: "qloop", Trigger: "qloop-cold-reader", Seed: "new-listener", Reason: "no qloop candidate lines"},
+			{Index: 2, Route: "qloop", Trigger: "qloop-identity", Seed: "field-origin", Reason: "no qloop candidate lines"},
+		},
+	)
+	if len(coverage) != 2 {
+		t.Fatalf("bad coverage length: %+v", coverage)
+	}
+	if coverage[0].Seed != "new-listener" || coverage[0].Attempted != 3 || coverage[0].Produced != 2 || coverage[0].Empty != 1 || coverage[0].SemanticPassed != 1 || coverage[0].SemanticMiss != 1 {
+		t.Fatalf("bad first coverage counts: %+v", coverage[0])
+	}
+	if coverage[0].BestRoute != "chorus" || coverage[0].BestScore == nil || *coverage[0].BestScore != 3 || !coverage[0].BestPassed {
+		t.Fatalf("bad best semantic route: %+v", coverage[0])
+	}
+	if coverage[1].Seed != "field-origin" || coverage[1].PromptClass != "identity" || coverage[1].Attempted != 1 || coverage[1].Empty != 1 || coverage[1].BestRoute != "" || coverage[1].BestScore != nil {
+		t.Fatalf("bad empty-only coverage: %+v", coverage[1])
+	}
+
+	passed, reasons := summarizeAdmissionRouteSemanticCoverage(coverage)
+	if passed || len(reasons) != 1 || reasons[0] != "no_route_candidate:field-origin" {
+		t.Fatalf("bad semantic coverage verdict: passed=%v reasons=%v", passed, reasons)
+	}
+
+	coverage[1].Produced = 1
+	coverage[1].Empty = 0
+	passed, reasons = summarizeAdmissionRouteSemanticCoverage(coverage)
+	if passed || len(reasons) != 1 || reasons[0] != "semantic_miss:field-origin" {
+		t.Fatalf("bad semantic miss verdict: passed=%v reasons=%v", passed, reasons)
+	}
+
+	coverage[1].SemanticPassed = 1
+	passed, reasons = summarizeAdmissionRouteSemanticCoverage(coverage)
+	if !passed || len(reasons) != 0 {
+		t.Fatalf("semantic coverage should pass: passed=%v reasons=%v", passed, reasons)
+	}
+}
