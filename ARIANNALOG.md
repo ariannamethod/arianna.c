@@ -3208,3 +3208,28 @@ candidate scores 0 and is now explicitly visible as such instead of hiding behin
 Conclusion: route compare can now say whether a prompt has a usable route at all. The next repair should improve
 cold-reader/recipient-lock conditioning or add a guarded semantic route admission layer before any route is
 promoted.
+
+**Follow-up, same day - route semantic admission receipt + stricter polyphony gate.** Route compare now turns
+the per-seed `semantic_coverage` matrix into a fail-closed `semantic_route_admission` review. This is still
+receipt-only: it does not promote direct, chorus, or qloop at runtime, does not mutate shadow admission, and does
+not change generation. For each seed it admits only the best route whose prompt-class semantic gate passed; clean
+but weak answers are rejected as `semantic_below_gate`, and empty-only route sets are rejected as
+`no_route_candidate`. The polyphony semantic gate was also tightened: `quiet trace` / `memory` alone no longer
+counts as polyphony. A polyphony pass now needs an explicit collective anchor (`chorus`, `voices`, `minds`,
+`many`, cells, etc.) plus motion.
+
+Validation receipts:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.CawpBL/dream_admission_route_compare.json`
+and
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-qloop-sweep.MD1rBb/qloop_sweep_summary.json`.
+Focused route compare on the first four broad prompts now records `semantic_route_admission.passed=false` with
+`reviews=4`, `admitted=1`, `rejected=3`, `semantic_miss=3`, and reasons
+`semantic_below_gate:new-listener`, `semantic_below_gate:not-oleg`, `semantic_below_gate:many-minds`. The only
+admitted route-compare seed is `field-origin` via chorus (`score=3`). The blocked seeds are explicit:
+`new-listener` chooses chorus as the best available route but rejects it at score 1 with answer-posture debt;
+`not-oleg` preserves the direct candidate with `score=0` instead of omitting the zero; `many-minds` rejects the
+best chorus route at score 2 because it has an anchor but no motion. Broad qloop sweep stays fail-closed
+(`gate_passed=false`, no real winner), while synthetic semantic admission remains at 5/6: `many-minds` passes
+only through the clean `The chorus begins.` candidate, and `new-listener` remains the sole semantic miss.
+Conclusion: the route layer now has a guarded admission contract, and polyphony no longer passes on trace/noise.
+The next repair should shape cold-reader and recipient-lock conditioning before any live route widening.

@@ -413,6 +413,14 @@ func TestQloopSweepSemanticAssessment(t *testing.T) {
 			wantReason:  "polyphony_motion",
 		},
 		{
+			name:        "polyphony quiet trace alone",
+			text:        "a quiet trace from attention also: the presence of a forgotten",
+			promptClass: "polyphony",
+			wantPass:    false,
+			minScore:    0,
+			wantReason:  "no_prompt_anchor",
+		},
+		{
 			name:        "polyphony short relation",
 			text:        "one chorus.",
 			promptClass: "polyphony",
