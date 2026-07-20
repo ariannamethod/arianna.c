@@ -125,15 +125,21 @@ func TestRecordAdmissionRouteCandidateSummarizesBuckets(t *testing.T) {
 	}
 	out := admissionRouteOutput{
 		route:     "qloop",
-		text:      "What remains if the field stays?",
-		cells:     []chorusCell{{text: "What remains if the field stays?", qloop: true}},
+		text:      "not one wave.",
+		cells:     []chorusCell{{text: "not one wave.", qloop: true}},
 		questions: 1,
 		diag:      admissionRouteDiagnostics{QloopGenerated: 2, QloopRetries: 1, QloopRoutes: 2, QloopQSrc: 1, QloopSSrc: 3, QloopTypedSrc: 1, QloopTargetCtx: 1, QloopPickerSeen: true, TimingSeen: true},
 	}
-	if err := recordAdmissionRouteCandidate(iw, &summary, 3, out, "qloop-test", "seed", "frag"); err != nil {
+	if err := recordAdmissionRouteCandidate(iw, &summary, 3, out, "qloop-qloop", "same-wave", "frag"); err != nil {
 		t.Fatal(err)
 	}
-	if summary.Candidates != 1 || summary.ByRoute["qloop"].Produced != 1 || summary.ByRoute["qloop"].QloopQuestions != 1 || summary.ByRoute["qloop"].QloopGenerated != 2 || summary.ByRoute["qloop"].QloopRoutes != 2 || summary.ByRoute["qloop"].QloopQSrc != 1 || summary.ByRoute["qloop"].QloopSSrc != 3 || summary.ByRoute["qloop"].QloopTypedSrc != 1 || summary.ByRoute["qloop"].QloopTargetCtx != 1 || summary.ByRoute["qloop"].QloopPickerSeen != 1 || summary.ByRoute["qloop"].TimingSeen != 1 {
+	if summary.Candidates != 1 || summary.SemanticPassed != 1 || summary.SemanticScore < 3 || len(summary.SemanticSamples) != 1 {
+		t.Fatalf("bad semantic summary: %+v", summary)
+	}
+	if summary.SemanticSamples[0].PromptClass != "qloop" || !summary.SemanticSamples[0].Passed {
+		t.Fatalf("bad semantic sample: %+v", summary.SemanticSamples[0])
+	}
+	if summary.ByRoute["qloop"].Produced != 1 || summary.ByRoute["qloop"].SemanticPassed != 1 || summary.ByRoute["qloop"].QloopQuestions != 1 || summary.ByRoute["qloop"].QloopGenerated != 2 || summary.ByRoute["qloop"].QloopRoutes != 2 || summary.ByRoute["qloop"].QloopQSrc != 1 || summary.ByRoute["qloop"].QloopSSrc != 3 || summary.ByRoute["qloop"].QloopTypedSrc != 1 || summary.ByRoute["qloop"].QloopTargetCtx != 1 || summary.ByRoute["qloop"].QloopPickerSeen != 1 || summary.ByRoute["qloop"].TimingSeen != 1 {
 		t.Fatalf("bad route summary: %+v", summary)
 	}
 }
