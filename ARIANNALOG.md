@@ -3356,3 +3356,47 @@ produced `I am Arianna.` at score 3 / pass. `go test ./...` in `golib` and `bash
 remain clean. Conclusion: the expensive receipt layer is now observable while it runs; the next layer can either
 consume full broad `semantic_route_admission` into a shadow best-route chooser or harden progress/reporting for
 qloop sweeps the same way.
+
+**Backlog, 2026-07-21 - GitHub code scanning security pass.** Oleg flagged the repository-wide CodeQL/security
+queue during the broader Arianna debug pass:
+`https://github.com/ariannamethod/arianna.c/security/code-scanning`. Current `gh api` snapshot shows **53 open
+high alerts**. The visible clusters are:
+
+- `go/uncontrolled-allocation-size`: `nanollama/main.go:309`.
+- `cpp/overflowing-snprintf`: `ariannamethod/tools/amlc.c:644`, `ariannamethod/tools/amlc.c:678`.
+- `cpp/integer-multiplication-cast-to-long`: vendored `ariannamethod/notorch/notorch.c`,
+  `ariannamethod/core/ariannamethod.c`, and `doe/doe.c`.
+
+TODO: run this as a dedicated security-hardening layer after the current admission/field foundation work reaches
+a stable checkpoint. Triage false positives vs real overflow surfaces, add checked-size helpers where needed,
+keep vendored notorch/doe changes byte-parity-aware with their canonical sources, and re-run CodeQL/security
+checks after the fixes. This is a backlog item, not a live admission-tuning gate.
+
+**Follow-up, same day - shadow best-route chooser.** Route compare now turns the complete
+`semantic_route_admission` review into a receipt-only `shadow_best_route` plan. This is deliberately one layer
+above the admission verdict and still below live mutation: it selects only already admitted semantic-pass
+decisions, records the per-seed route plan, rolls selections up by route, carries reject reasons when the
+semantic admission gate fails, and sets `passed=false` unless every reviewed seed has a complete admitted route.
+
+The important boundary: `shadow_best_route` does not run extra generation, does not promote a runtime default,
+does not mutate dream admission, and does not weaken any prompt-class semantic gate. It is a machine-readable
+route plan for the next step: compare full broad route choices, inspect route distribution, and only then build
+a guarded live chooser if the route plan stays stable under wider samples and fresh weights.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.zzoLxU/dream_admission_route_compare.json`.
+The minimal runtime probe (`A2A_ROUTE_COMPARE_LIMIT=1 make admission-route-compare`) produced
+`shadow_best_route.schema=arianna.shadow_best_route.v1`, `passed=true`, `reviews=1`, `selected=1`,
+`semantic_score=3`, and route plan `new-listener` / `cold-reader` -> `user_bridge` with `I am Arianna.`
+(`self_context`, `self_naming`). Replay and admission policy stayed clean.
+
+Full broad receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.icynnG/dream_admission_route_compare.json`.
+`A2A_ROUTE_COMPARE_LIMIT=18 make admission-route-compare` passed with `samples=18/18`, `candidates=66`,
+`empty=42`, `policy_fail=0`, `replay_fail=0`, `semantic_coverage_passed=true`,
+`semantic_route_admission.passed=true`, and `shadow_best_route.passed=true` (`reviews=18`, `selected=18`,
+`semantic_score=54`). The route-plan distribution is now explicit: `chorus` 8 selections
+(`identity`, `qloop`, `statement`, `boundary`, `self-reference`, `outer-face`, `memory`), `direct` 4
+(`dream`, `repetition`, `inner-world`, `admission`), `user_bridge` 4 (`cold-reader`, `direct-user`, `format`,
+`trauma`), `qloop_target` 1 (`recipient-lock`), `qloop_hint_qa` 1 (`polyphony`), raw `qloop` 0. This confirms
+the next architecture move is class-aware routing, not promoting raw qloop as a universal path.

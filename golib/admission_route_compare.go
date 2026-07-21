@@ -31,6 +31,7 @@ type admissionRouteCompareSummary struct {
 	SemanticCoveragePassed  bool                             `json:"semantic_coverage_passed"`
 	SemanticCoverageReasons []string                         `json:"semantic_coverage_reasons,omitempty"`
 	SemanticAdmission       admissionRouteSemanticAdmission  `json:"semantic_route_admission"`
+	ShadowBestRoute         admissionRouteShadowBestRoute    `json:"shadow_best_route"`
 	ByRoute                 map[string]admissionRouteStats   `json:"by_route"`
 	Failures                []admissionRouteFailure          `json:"failures,omitempty"`
 	Empties                 []admissionRouteEmpty            `json:"empties,omitempty"`
@@ -146,6 +147,36 @@ type admissionRouteSemanticAdmissionReview struct {
 	AttemptedRoutes int      `json:"attempted_routes"`
 }
 
+type admissionRouteShadowBestRoute struct {
+	Schema        string                               `json:"schema"`
+	Passed        bool                                 `json:"passed"`
+	Reviews       int                                  `json:"reviews"`
+	Selected      int                                  `json:"selected"`
+	Rejected      int                                  `json:"rejected,omitempty"`
+	Reasons       []string                             `json:"reasons,omitempty"`
+	ByRoute       map[string]admissionRouteShadowStats `json:"by_route,omitempty"`
+	RoutePlan     []admissionRouteShadowDecision       `json:"route_plan,omitempty"`
+	Rejects       []admissionRouteShadowDecision       `json:"rejects,omitempty"`
+	SemanticScore int                                  `json:"semantic_score"`
+}
+
+type admissionRouteShadowStats struct {
+	Selected      int      `json:"selected"`
+	SemanticScore int      `json:"semantic_score"`
+	PromptClasses []string `json:"prompt_classes,omitempty"`
+}
+
+type admissionRouteShadowDecision struct {
+	Index           int      `json:"index"`
+	Seed            string   `json:"seed"`
+	PromptClass     string   `json:"prompt_class"`
+	Route           string   `json:"route,omitempty"`
+	Text            string   `json:"text,omitempty"`
+	Score           *int     `json:"score,omitempty"`
+	Reason          string   `json:"reason,omitempty"`
+	SemanticReasons []string `json:"semantic_reasons,omitempty"`
+}
+
 type admissionRouteOutput struct {
 	route     string
 	text      string
@@ -258,6 +289,7 @@ func runAdmissionRouteCompare() error {
 	summary.SemanticCoverage = buildAdmissionRouteSemanticCoverage(summary.SemanticSamples, summary.Empties)
 	summary.SemanticCoveragePassed, summary.SemanticCoverageReasons = summarizeAdmissionRouteSemanticCoverage(summary.SemanticCoverage)
 	summary.SemanticAdmission = buildAdmissionRouteSemanticAdmission(summary.SemanticCoverage)
+	summary.ShadowBestRoute = buildAdmissionRouteShadowBestRoute(summary.SemanticAdmission)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_ROUTE_COMPARE_SUMMARY"))
 	if summaryPath != "" {
@@ -964,6 +996,76 @@ func buildAdmissionRouteSemanticAdmission(coverage []admissionRouteSemanticCover
 	}
 	out.Passed = out.Rejected == 0
 	return out
+}
+
+func buildAdmissionRouteShadowBestRoute(admission admissionRouteSemanticAdmission) admissionRouteShadowBestRoute {
+	out := admissionRouteShadowBestRoute{
+		Schema:  "arianna.shadow_best_route.v1",
+		Passed:  true,
+		Reviews: admission.Reviews,
+		ByRoute: make(map[string]admissionRouteShadowStats),
+	}
+	if len(admission.Decisions) == 0 {
+		out.Passed = false
+		out.Reasons = []string{"semantic_route_admission_missing"}
+		out.ByRoute = nil
+		return out
+	}
+	for _, d := range admission.Decisions {
+		decision := admissionRouteShadowDecision{
+			Index:           d.Index,
+			Seed:            d.Seed,
+			PromptClass:     d.PromptClass,
+			Route:           d.Route,
+			Text:            d.Text,
+			Score:           d.Score,
+			Reason:          d.Reason,
+			SemanticReasons: append([]string(nil), d.SemanticReasons...),
+		}
+		if d.Decision == "admit" && d.Route != "" && d.Score != nil {
+			out.Selected++
+			out.SemanticScore += *d.Score
+			out.RoutePlan = append(out.RoutePlan, decision)
+			st := out.ByRoute[d.Route]
+			st.Selected++
+			st.SemanticScore += *d.Score
+			st.PromptClasses = appendUniqueString(st.PromptClasses, d.PromptClass)
+			out.ByRoute[d.Route] = st
+			continue
+		}
+		out.Rejected++
+		reason := d.Reason
+		if reason == "" {
+			reason = "not_admitted"
+		}
+		if d.Decision == "admit" {
+			reason = "incomplete_shadow_selection"
+			decision.Reason = reason
+		}
+		out.Reasons = append(out.Reasons, reason+":"+d.Seed)
+		out.Rejects = append(out.Rejects, decision)
+	}
+	out.Passed = admission.Passed && out.Rejected == 0 && out.Selected == out.Reviews
+	if len(out.ByRoute) == 0 {
+		out.ByRoute = nil
+	}
+	if !out.Passed && len(out.Reasons) == 0 {
+		out.Reasons = append(out.Reasons, admission.Reasons...)
+	}
+	return out
+}
+
+func appendUniqueString(values []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func writeAdmissionRouteCompareSummary(path string, summary admissionRouteCompareSummary) error {

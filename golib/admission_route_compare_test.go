@@ -360,3 +360,52 @@ func TestBuildAdmissionRouteSemanticAdmission(t *testing.T) {
 		t.Fatalf("bad no-candidate route decision: %+v", d)
 	}
 }
+
+func TestBuildAdmissionRouteShadowBestRoute(t *testing.T) {
+	three := 3
+	four := 4
+	one := 1
+	shadow := buildAdmissionRouteShadowBestRoute(admissionRouteSemanticAdmission{
+		Passed:   true,
+		Reviews:  3,
+		Admitted: 3,
+		Decisions: []admissionRouteSemanticAdmissionReview{
+			{Index: 1, Seed: "new-listener", PromptClass: "cold-reader", Decision: "admit", Reason: "semantic_pass", Route: "user_bridge", Text: "I am Arianna.", Score: &three, SemanticReasons: []string{"self_context"}},
+			{Index: 2, Seed: "field-origin", PromptClass: "identity", Decision: "admit", Reason: "semantic_pass", Route: "chorus", Text: "my own internal trace.", Score: &four, SemanticReasons: []string{"internal_self"}},
+			{Index: 3, Seed: "not-oleg", PromptClass: "recipient-lock", Decision: "admit", Reason: "semantic_pass", Route: "user_bridge", Text: "this person exists.", Score: &one, SemanticReasons: []string{"recipient_boundary"}},
+		},
+	})
+	if !shadow.Passed || shadow.Schema != "arianna.shadow_best_route.v1" || shadow.Reviews != 3 || shadow.Selected != 3 || shadow.Rejected != 0 || shadow.SemanticScore != 8 {
+		t.Fatalf("bad shadow route rollup: %+v", shadow)
+	}
+	if len(shadow.RoutePlan) != 3 || shadow.RoutePlan[0].Route != "user_bridge" || shadow.RoutePlan[1].Route != "chorus" {
+		t.Fatalf("bad route plan: %+v", shadow.RoutePlan)
+	}
+	if shadow.ByRoute["user_bridge"].Selected != 2 || shadow.ByRoute["user_bridge"].SemanticScore != 4 {
+		t.Fatalf("bad user bridge stats: %+v", shadow.ByRoute["user_bridge"])
+	}
+	if !reflect.DeepEqual(shadow.ByRoute["user_bridge"].PromptClasses, []string{"cold-reader", "recipient-lock"}) {
+		t.Fatalf("bad prompt classes: %+v", shadow.ByRoute["user_bridge"].PromptClasses)
+	}
+	if len(shadow.Rejects) != 0 || len(shadow.Reasons) != 0 {
+		t.Fatalf("passing shadow chooser should not carry rejects: %+v", shadow)
+	}
+}
+
+func TestBuildAdmissionRouteShadowBestRouteFailsClosed(t *testing.T) {
+	zero := 0
+	shadow := buildAdmissionRouteShadowBestRoute(admissionRouteSemanticAdmission{
+		Passed:  false,
+		Reviews: 2,
+		Decisions: []admissionRouteSemanticAdmissionReview{
+			{Index: 1, Seed: "not-oleg", PromptClass: "recipient-lock", Decision: "reject", Reason: "semantic_below_gate", Route: "direct", Text: "if yes the field.", Score: &zero},
+			{Index: 2, Seed: "new-listener", PromptClass: "cold-reader", Decision: "reject", Reason: "no_route_candidate"},
+		},
+	})
+	if shadow.Passed || shadow.Selected != 0 || shadow.Rejected != 2 || len(shadow.RoutePlan) != 0 || len(shadow.Rejects) != 2 {
+		t.Fatalf("shadow route chooser did not fail closed: %+v", shadow)
+	}
+	if len(shadow.Reasons) != 2 || shadow.Reasons[0] != "semantic_below_gate:not-oleg" || shadow.Reasons[1] != "no_route_candidate:new-listener" {
+		t.Fatalf("bad shadow reject reasons: %+v", shadow.Reasons)
+	}
+}
