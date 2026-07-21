@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -36,6 +38,38 @@ func TestAdmissionCompareRoutesIncludesConditionedQloop(t *testing.T) {
 	t.Setenv("AM_ROUTE_COMPARE_ROUTES", "direct,qloop_hint_qa,qloop_target,user_bridge,bogus")
 	if got := admissionCompareRoutes(); !reflect.DeepEqual(got, []string{"direct", "qloop_hint_qa", "qloop_target", "user_bridge"}) {
 		t.Fatalf("bad custom routes: %v", got)
+	}
+}
+
+func TestAdmissionRouteCompareProgressFlag(t *testing.T) {
+	t.Setenv("AM_ROUTE_COMPARE_PROGRESS", "")
+	if !admissionRouteCompareProgressEnabled() {
+		t.Fatalf("progress should default on")
+	}
+	t.Setenv("AM_ROUTE_COMPARE_PROGRESS", "0")
+	if admissionRouteCompareProgressEnabled() {
+		t.Fatalf("progress should disable on 0")
+	}
+	t.Setenv("AM_ROUTE_COMPARE_PROGRESS", "off")
+	if admissionRouteCompareProgressEnabled() {
+		t.Fatalf("progress should disable on off")
+	}
+	t.Setenv("AM_ROUTE_COMPARE_PROGRESS", "stderr")
+	if !admissionRouteCompareProgressEnabled() {
+		t.Fatalf("progress should enable on stderr")
+	}
+}
+
+func TestAdmissionRouteProgressOutputReportsSemanticResult(t *testing.T) {
+	var buf bytes.Buffer
+	out := admissionRouteOutput{route: "user_bridge", text: "I am Arianna."}
+	admissionRouteProgressOutput(&buf, 1, 4, 2, 6, "user_bridge", "user_bridge-cold-reader", "new-listener", "cold-reader", out)
+	got := buf.String()
+	if !strings.Contains(got, "route=user_bridge done produced") ||
+		!strings.Contains(got, "score=3") ||
+		!strings.Contains(got, "passed=true") ||
+		!strings.Contains(got, "class=cold-reader") {
+		t.Fatalf("bad progress line: %q", got)
 	}
 }
 
