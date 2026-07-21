@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -211,6 +212,7 @@ func runAdmissionRouteCompare() error {
 	}
 	routes := admissionCompareRoutes()
 	limit := admissionRouteCompareLimit(len(samples))
+	progress := admissionRouteCompareProgressWriter()
 
 	iw := NewInnerWorld()
 	iw.Start(false)
@@ -239,12 +241,15 @@ func runAdmissionRouteCompare() error {
 		}
 		promptClass := qloopSweepPromptClass(s.Trigger, seed)
 		summary.SamplesRun++
-		for _, route := range routes {
+		admissionRouteProgressf(progress, "sample=%d/%d seed=%s class=%s routes=%d", i+1, limit, seed, promptClass, len(routes))
+		for ri, route := range routes {
+			admissionRouteProgressf(progress, "sample=%d/%d route=%d/%d route=%s start", i+1, limit, ri+1, len(routes), route)
 			out, err := generateAdmissionRouteWithPromptClass(context.Background(), route, bin, model, prompt, promptClass)
 			if err != nil {
 				return fmt.Errorf("sample %d route %s: %w", i+1, route, err)
 			}
 			trigger := admissionRouteTrigger(route, s.Trigger)
+			admissionRouteProgressOutput(progress, i+1, limit, ri+1, len(routes), route, trigger, seed, promptClass, out)
 			if err := recordAdmissionRouteCandidate(iw, &summary, i+1, out, trigger, seed, s.Fragment); err != nil {
 				return err
 			}
@@ -263,6 +268,49 @@ func runAdmissionRouteCompare() error {
 	fmt.Printf("[admission-route-compare] pass: samples=%d/%d candidates=%d empty=%d policy_fail=%d replay_fail=%d log=%s summary=%s\n",
 		summary.SamplesRun, summary.TotalSamples, summary.Candidates, summary.EmptyCandidates, summary.PolicyFailed, summary.ReplayFailed, logPath, summaryPath)
 	return nil
+}
+
+func admissionRouteCompareProgressWriter() io.Writer {
+	if !admissionRouteCompareProgressEnabled() {
+		return nil
+	}
+	return os.Stderr
+}
+
+func admissionRouteCompareProgressEnabled() bool {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv("AM_ROUTE_COMPARE_PROGRESS")))
+	switch raw {
+	case "", "1", "true", "yes", "on", "stderr":
+		return true
+	case "0", "false", "no", "off", "none":
+		return false
+	default:
+		return true
+	}
+}
+
+func admissionRouteProgressf(w io.Writer, format string, args ...any) {
+	if w == nil {
+		return
+	}
+	fmt.Fprintf(w, "[admission-route-compare] progress "+format+"\n", args...)
+}
+
+func admissionRouteProgressOutput(w io.Writer, sample, total, routeIndex, routeTotal int, route, trigger, seed, promptClass string, out admissionRouteOutput) {
+	if w == nil {
+		return
+	}
+	text := strings.TrimSpace(out.text)
+	if text == "" {
+		reason := out.emptyHint
+		if reason == "" {
+			reason = "empty generation"
+		}
+		admissionRouteProgressf(w, "sample=%d/%d route=%d/%d route=%s done empty reason=%q", sample, total, routeIndex, routeTotal, route, reason)
+		return
+	}
+	semantic := qloopSweepSemanticAssessment(text, qloopSweepPromptClass(trigger, seed))
+	admissionRouteProgressf(w, "sample=%d/%d route=%d/%d route=%s done produced score=%d passed=%t class=%s words=%d", sample, total, routeIndex, routeTotal, route, semantic.Score, semantic.Passed, promptClass, len(strings.Fields(text)))
 }
 
 func admissionCompareRoutes() []string {

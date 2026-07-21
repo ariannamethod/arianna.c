@@ -66,6 +66,7 @@ echo "[admission-route-compare] scratch=$WORKDIR"
 echo "[admission-route-compare] sample=$sample_file"
 echo "[admission-route-compare] model=$model_file"
 
+progress_mode="${A2A_ROUTE_COMPARE_PROGRESS:-1}"
 env_args=(
     AM_DREAM_ADMISSION=shadow
     AM_DREAM_ADMISSION_LOG="$LOG"
@@ -75,6 +76,7 @@ env_args=(
     AM_ROUTE_COMPARE_MODEL="$model_file"
     AM_ROUTE_COMPARE_LIMIT="${A2A_ROUTE_COMPARE_LIMIT:-2}"
     AM_ROUTE_COMPARE_ROUTES="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop,qloop_hint_qa,qloop_target,user_bridge}"
+    AM_ROUTE_COMPARE_PROGRESS="$progress_mode"
 )
 routes_csv="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop,qloop_hint_qa,qloop_target,user_bridge}"
 
@@ -85,9 +87,27 @@ routes_csv="${A2A_ROUTE_COMPARE_ROUTES:-direct,chorus,qloop,qloop_hint_qa,qloop_
 [[ -n "${A2A_ROUTE_COMPARE_CELLS:-}" ]] && env_args+=(AM_ROUTE_COMPARE_CELLS="$A2A_ROUTE_COMPARE_CELLS")
 [[ -n "${A2A_ROUTE_COMPARE_FRAG:-}" ]] && env_args+=(AM_ROUTE_COMPARE_FRAG="$A2A_ROUTE_COMPARE_FRAG")
 
-if ! (cd "$WORKDIR" && env "${env_args[@]}" "$ROOT/metabolism" --admission-route-compare) >"$RUN_LOG" 2>&1; then
-    die "metabolism --admission-route-compare failed"
-fi
+case "$(printf '%s' "$progress_mode" | tr '[:upper:]' '[:lower:]')" in
+    0|false|no|off|none)
+        if ! (cd "$WORKDIR" && env "${env_args[@]}" "$ROOT/metabolism" --admission-route-compare) >"$RUN_LOG" 2>&1; then
+            die "metabolism --admission-route-compare failed"
+        fi
+        ;;
+    *)
+        : >"$RUN_LOG"
+        tail -n +1 -f "$RUN_LOG" >&2 &
+        tail_pid=$!
+        cleanup_tail() {
+            kill "$tail_pid" 2>/dev/null || true
+            wait "$tail_pid" 2>/dev/null || true
+        }
+        if ! (cd "$WORKDIR" && env "${env_args[@]}" "$ROOT/metabolism" --admission-route-compare) >>"$RUN_LOG" 2>&1; then
+            cleanup_tail
+            die "metabolism --admission-route-compare failed"
+        fi
+        cleanup_tail
+        ;;
+esac
 
 [[ -s "$SUMMARY" ]] || die "route summary not written"
 grep -q '"schema": "arianna.dream_admission_route_compare_summary.v1"' "$SUMMARY" || die "summary schema missing"

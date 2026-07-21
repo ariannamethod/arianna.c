@@ -3334,3 +3334,25 @@ route still has many empty cells; this pass proves route review coverage, not li
 the full broad admission evaluator now has class-aware, fail-closed coverage over every tracked broad seed. The
 next engineering layer should either add progress diagnostics for expensive full sweeps or build a shadow
 best-route chooser that consumes this receipt without mutating live organism state.
+
+**Follow-up, 2026-07-21 - route compare progress diagnostics.** Full broad route sweeps are now part of the
+normal tuning loop, so `make admission-route-compare` no longer runs as a long silent black box. The Go harness
+emits route-progress lines to stderr when `AM_ROUTE_COMPARE_PROGRESS` is enabled: sample index/limit, seed,
+prompt class, route index/total, route start, route done, produced-vs-empty, empty reason, semantic score, and
+semantic pass/fail. The shell wrapper enables this by default through `A2A_ROUTE_COMPARE_PROGRESS=1`, streams
+the run log with a background `tail -f`, and keeps the old quiet behavior under `A2A_ROUTE_COMPARE_PROGRESS=0`.
+
+Important implementation detail: the first attempt used shell process substitution with `tee`, but the local
+sandbox rejected `/dev/fd/*` with `Operation not permitted`. The final wrapper avoids `/dev/fd` entirely and
+uses a plain truncated run log plus background `tail`, then kills/waits the tail after the harness exits. This
+keeps failure diagnostics unchanged (`die` still tails the run log) and does not touch admission scoring,
+candidate selection, or live organism state.
+
+Validation receipt:
+`A2A_ROUTE_COMPARE_LIMIT=1 make admission-route-compare` printed progress immediately for all six routes of
+`new-listener`: direct and chorus produced low-score cold-reader candidates, raw qloop and QA-hint qloop showed
+explicit empty reasons, `qloop_target` produced the thin `not a human.` boundary at score 2, and `user_bridge`
+produced `I am Arianna.` at score 3 / pass. `go test ./...` in `golib` and `bash -n tools/admission_route_compare.sh`
+remain clean. Conclusion: the expensive receipt layer is now observable while it runs; the next layer can either
+consume full broad `semantic_route_admission` into a shadow best-route chooser or harden progress/reporting for
+qloop sweeps the same way.
