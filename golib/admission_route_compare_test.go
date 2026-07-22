@@ -409,3 +409,38 @@ func TestBuildAdmissionRouteShadowBestRouteFailsClosed(t *testing.T) {
 		t.Fatalf("bad shadow reject reasons: %+v", shadow.Reasons)
 	}
 }
+
+func TestFormatAdmissionRouteShadowBestRouteLine(t *testing.T) {
+	line := formatAdmissionRouteShadowBestRouteLine(admissionRouteShadowBestRoute{
+		Passed:        true,
+		Reviews:       4,
+		Selected:      4,
+		SemanticScore: 12,
+		ByRoute: map[string]admissionRouteShadowStats{
+			"user_bridge": {Selected: 2},
+			"chorus":      {Selected: 1},
+			"direct":      {Selected: 1},
+		},
+	})
+	want := "[admission-route-compare] shadow_best_route: passed=true selected=4/4 rejected=0 score=12 routes=chorus:1,direct:1,user_bridge:2"
+	if line != want {
+		t.Fatalf("bad shadow route line:\n got: %s\nwant: %s", line, want)
+	}
+}
+
+func TestFormatAdmissionRouteShadowBestRouteLineReportsRejects(t *testing.T) {
+	line := formatAdmissionRouteShadowBestRouteLine(admissionRouteShadowBestRoute{
+		Passed:   false,
+		Reviews:  2,
+		Selected: 1,
+		Rejected: 1,
+		ByRoute: map[string]admissionRouteShadowStats{
+			"chorus": {Selected: 1},
+		},
+		Reasons: []string{"semantic_below_gate:not-oleg"},
+	})
+	want := "[admission-route-compare] shadow_best_route: passed=false selected=1/2 rejected=1 score=0 routes=chorus:1 reasons=semantic_below_gate:not-oleg"
+	if line != want {
+		t.Fatalf("bad shadow route reject line:\n got: %s\nwant: %s", line, want)
+	}
+}

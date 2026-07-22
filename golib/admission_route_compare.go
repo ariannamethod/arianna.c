@@ -297,6 +297,7 @@ func runAdmissionRouteCompare() error {
 			return err
 		}
 	}
+	fmt.Println(formatAdmissionRouteShadowBestRouteLine(summary.ShadowBestRoute))
 	fmt.Printf("[admission-route-compare] pass: samples=%d/%d candidates=%d empty=%d policy_fail=%d replay_fail=%d log=%s summary=%s\n",
 		summary.SamplesRun, summary.TotalSamples, summary.Candidates, summary.EmptyCandidates, summary.PolicyFailed, summary.ReplayFailed, logPath, summaryPath)
 	return nil
@@ -1066,6 +1067,24 @@ func appendUniqueString(values []string, value string) []string {
 		}
 	}
 	return append(values, value)
+}
+
+func formatAdmissionRouteShadowBestRouteLine(shadow admissionRouteShadowBestRoute) string {
+	routeParts := make([]string, 0, len(shadow.ByRoute))
+	for route, stats := range shadow.ByRoute {
+		routeParts = append(routeParts, fmt.Sprintf("%s:%d", route, stats.Selected))
+	}
+	sort.Strings(routeParts)
+	routes := strings.Join(routeParts, ",")
+	if routes == "" {
+		routes = "none"
+	}
+	reasons := ""
+	if len(shadow.Reasons) > 0 {
+		reasons = " reasons=" + strings.Join(shadow.Reasons, ",")
+	}
+	return fmt.Sprintf("[admission-route-compare] shadow_best_route: passed=%t selected=%d/%d rejected=%d score=%d routes=%s%s",
+		shadow.Passed, shadow.Selected, shadow.Reviews, shadow.Rejected, shadow.SemanticScore, routes, reasons)
 }
 
 func writeAdmissionRouteCompareSummary(path string, summary admissionRouteCompareSummary) error {
