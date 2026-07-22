@@ -68,6 +68,7 @@ type dreamAdmissionPolicy struct {
 	Schema              string   `json:"schema"`
 	Checked             bool     `json:"checked"`
 	Passed              bool     `json:"passed"`
+	AllowedSources      []string `json:"allowed_sources,omitempty"`
 	MaxAbsArousal       float32  `json:"max_abs_arousal"`
 	MaxAbsValence       float32  `json:"max_abs_valence"`
 	MaxAbsEntropy       float32  `json:"max_abs_entropy"`
@@ -258,6 +259,7 @@ func replayDreamCounterfactual(before Snapshot, text string, first dreamCounterf
 func guardDreamCandidate(c dreamCandidate) dreamCandidate {
 	if c.Counterfactual != nil {
 		policy := evaluateDreamAdmissionPolicy(c.Counterfactual)
+		applyDreamAdmissionSourcePolicy(&policy, c.Source)
 		c.Admission = &policy
 	}
 	if !c.Accepted {
@@ -328,6 +330,54 @@ func evaluateDreamAdmissionPolicy(cf *dreamCounterfactual) dreamAdmissionPolicy 
 	add(d.SelfRefCount <= p.MaxSelfRefCount, fmt.Sprintf("self-ref count delta %d exceeds %d", d.SelfRefCount, p.MaxSelfRefCount))
 	p.Passed = len(p.Reasons) == 0
 	return p
+}
+
+func applyDreamAdmissionSourcePolicy(p *dreamAdmissionPolicy, source string) {
+	if p == nil {
+		return
+	}
+	allowed := dreamAdmissionAllowedSources()
+	if len(allowed) == 0 {
+		return
+	}
+	p.AllowedSources = allowed
+	source = normalizeDreamAdmissionSource(source)
+	if source == "" {
+		p.Reasons = append(p.Reasons, "missing source")
+		p.Passed = false
+		return
+	}
+	for _, candidate := range allowed {
+		if source == candidate {
+			p.Passed = len(p.Reasons) == 0
+			return
+		}
+	}
+	p.Reasons = append(p.Reasons, "source "+source+" not allowed")
+	p.Passed = false
+}
+
+func dreamAdmissionAllowedSources() []string {
+	raw := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES"))
+	if raw == "" {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		source := normalizeDreamAdmissionSource(part)
+		if source == "" || seen[source] {
+			continue
+		}
+		seen[source] = true
+		out = append(out, source)
+	}
+	return out
+}
+
+func normalizeDreamAdmissionSource(source string) string {
+	source = strings.ToLower(strings.TrimSpace(source))
+	return strings.ReplaceAll(source, "-", "_")
 }
 
 func dreamAdmissionPolicyOK(p *dreamAdmissionPolicy) bool {
@@ -476,16 +526,20 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 		c = newDreamCandidate("nano", trigger, "", r.frag, r.dream, nil)
 	}
 	c.Trigger = trigger
-	c = decideDreamCandidate(c)
-	c = attachDreamCounterfactual(iw, c)
-	c = guardDreamCandidate(c)
-	c = rejectOnAdmissionLogError(c, recordDreamCandidate(c))
+	c = prepareDreamCandidateForAdmission(iw, c)
 	r.candidate = c
 	if !c.Accepted {
 		return false
 	}
 	iw.ProcessText(r.dream)
 	return true
+}
+
+func prepareDreamCandidateForAdmission(iw *InnerWorld, c dreamCandidate) dreamCandidate {
+	c = decideDreamCandidate(c)
+	c = attachDreamCounterfactual(iw, c)
+	c = guardDreamCandidate(c)
+	return rejectOnAdmissionLogError(c, recordDreamCandidate(c))
 }
 
 func (r dreamResult) admitted() bool {
