@@ -118,6 +118,7 @@ grep -q '"semantic_coverage":' "$SUMMARY" || die "route semantic coverage missin
 grep -q '"semantic_coverage_passed":' "$SUMMARY" || die "route semantic coverage verdict missing from summary"
 grep -q '"semantic_route_admission":' "$SUMMARY" || die "route semantic admission review missing from summary"
 grep -q '"shadow_best_route":' "$SUMMARY" || die "shadow best-route chooser missing from summary"
+grep -q '"schema": "arianna.shadow_best_route.v1"' "$SUMMARY" || die "shadow best-route schema missing"
 if grep -Eq '"candidates": [1-9][0-9]*' "$SUMMARY"; then
     [[ -s "$LOG" ]] || die "route JSONL log not written"
     grep -q '"schema":"arianna.dream_candidate.v1"' "$LOG" || die "candidate schema missing"
@@ -148,6 +149,7 @@ fi
 if [[ "$want_qloop" == "1" ]]; then
     grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
 fi
+grep -q '\[admission-route-compare\] shadow_best_route:' "$RUN_LOG" || die "shadow best-route runlog sentinel missing"
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
 STATE_HITS="$WORKDIR/state_hits.txt"
