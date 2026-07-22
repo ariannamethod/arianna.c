@@ -65,21 +65,22 @@ type dreamReplayGuard struct {
 }
 
 type dreamAdmissionPolicy struct {
-	Schema              string   `json:"schema"`
-	Checked             bool     `json:"checked"`
-	Passed              bool     `json:"passed"`
-	AllowedSources      []string `json:"allowed_sources,omitempty"`
-	MaxAbsArousal       float32  `json:"max_abs_arousal"`
-	MaxAbsValence       float32  `json:"max_abs_valence"`
-	MaxAbsEntropy       float32  `json:"max_abs_entropy"`
-	MaxAbsCoherence     float32  `json:"max_abs_coherence"`
-	MaxTrauma           float32  `json:"max_trauma"`
-	MaxMemoryPressure   float32  `json:"max_memory_pressure"`
-	MaxProphecyDebt     float32  `json:"max_prophecy_debt"`
-	MaxLoopCount        int      `json:"max_loop_count"`
-	MaxAbstractionDepth int      `json:"max_abstraction_depth"`
-	MaxSelfRefCount     int      `json:"max_self_ref_count"`
-	Reasons             []string `json:"reasons,omitempty"`
+	Schema              string                  `json:"schema"`
+	Checked             bool                    `json:"checked"`
+	Passed              bool                    `json:"passed"`
+	AllowedSources      []string                `json:"allowed_sources,omitempty"`
+	LiveRoutePlan       *admissionLiveRoutePlan `json:"live_route_plan,omitempty"`
+	MaxAbsArousal       float32                 `json:"max_abs_arousal"`
+	MaxAbsValence       float32                 `json:"max_abs_valence"`
+	MaxAbsEntropy       float32                 `json:"max_abs_entropy"`
+	MaxAbsCoherence     float32                 `json:"max_abs_coherence"`
+	MaxTrauma           float32                 `json:"max_trauma"`
+	MaxMemoryPressure   float32                 `json:"max_memory_pressure"`
+	MaxProphecyDebt     float32                 `json:"max_prophecy_debt"`
+	MaxLoopCount        int                     `json:"max_loop_count"`
+	MaxAbstractionDepth int                     `json:"max_abstraction_depth"`
+	MaxSelfRefCount     int                     `json:"max_self_ref_count"`
+	Reasons             []string                `json:"reasons,omitempty"`
 }
 
 type dreamSnapshotDelta struct {
@@ -260,6 +261,7 @@ func guardDreamCandidate(c dreamCandidate) dreamCandidate {
 	if c.Counterfactual != nil {
 		policy := evaluateDreamAdmissionPolicy(c.Counterfactual)
 		applyDreamAdmissionSourcePolicy(&policy, c.Source)
+		applyDreamAdmissionLiveRoutePlanPolicy(&policy, c)
 		c.Admission = &policy
 	}
 	if !c.Accepted {
@@ -357,6 +359,33 @@ func applyDreamAdmissionSourcePolicy(p *dreamAdmissionPolicy, source string) {
 	p.Passed = false
 }
 
+func applyDreamAdmissionLiveRoutePlanPolicy(p *dreamAdmissionPolicy, c dreamCandidate) {
+	if p == nil || !dreamAdmissionRequireLiveRoutePlan() {
+		return
+	}
+	promptClass := qloopSweepPromptClass(c.Trigger, c.Seed)
+	plan := admissionLiveRoutePlanForPromptClass(promptClass)
+	p.LiveRoutePlan = &plan
+	if !plan.Passed {
+		p.Reasons = append(p.Reasons, "live route plan failed: "+plan.Reason)
+		p.Passed = false
+		return
+	}
+	want := admissionLiveRouteSource(plan.Route)
+	got := normalizeDreamAdmissionSource(c.Source)
+	if got == "" {
+		p.Reasons = append(p.Reasons, "missing source for live route plan "+plan.Route+" prompt class "+plan.PromptClass)
+		p.Passed = false
+		return
+	}
+	if got != want {
+		p.Reasons = append(p.Reasons, "source "+got+" does not match live route "+want+" for prompt class "+plan.PromptClass)
+		p.Passed = false
+		return
+	}
+	p.Passed = len(p.Reasons) == 0
+}
+
 func dreamAdmissionAllowedSources() []string {
 	raw := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES"))
 	if raw == "" {
@@ -373,6 +402,15 @@ func dreamAdmissionAllowedSources() []string {
 		out = append(out, source)
 	}
 	return out
+}
+
+func dreamAdmissionRequireLiveRoutePlan() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN"))) {
+	case "1", "true", "yes", "on", "require", "required":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeDreamAdmissionSource(source string) string {
