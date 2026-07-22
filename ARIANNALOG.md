@@ -3451,3 +3451,13 @@ inner world. This is the receiving gate for a staged route chooser: future route
 source at a time instead of widening the organism by accident.
 
 Validation: focused admission tests and full `go test ./...` in `golib` passed; `git diff --check` is clean.
+
+**Follow-up, same day - typed live route-plan policy table.** The full broad `shadow_best_route` receipt is now
+captured as code, but still read-only: `admissionLiveRoutePlanForPromptClass` maps each proven prompt class to
+the route selected by the receipt and exposes the matching admission source gate. Unknown prompt classes fail
+closed, and raw `qloop` is deliberately absent from the live plan.
+
+This is the boundary between measured shadow routing and runtime wiring. Future live chooser code should consume
+this typed table instead of scattering class/route strings through the metabolism. Validation: route-plan tests
+cover every tracked broad sample, assert the exact class->route map, and forbid raw `qloop`; focused
+`go test ./... -run TestAdmissionLiveRoutePlan` passed.
