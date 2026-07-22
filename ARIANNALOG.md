@@ -3461,3 +3461,13 @@ This is the boundary between measured shadow routing and runtime wiring. Future 
 this typed table instead of scattering class/route strings through the metabolism. Validation: route-plan tests
 cover every tracked broad sample, assert the exact class->route map, and forbid raw `qloop`; focused
 `go test ./... -run TestAdmissionLiveRoutePlan` passed.
+
+**Follow-up, same day - live route-plan admission gate.** The typed route-plan table now has a guarded receiving
+surface in dream admission, still default-off. When `AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN=1` is set, the
+admission policy attaches `live_route_plan` to the receipt, derives the prompt class from the candidate trigger
+and seed, and requires the candidate source to match the proven route-plan source. Unknown prompt classes fail
+closed, and a wrong source fails before the candidate can mutate the inner world.
+
+This does not promote route generation or change ordinary live behavior. It adds the missing typed gate between
+shadow route evidence and future runtime route selection, so staged field/qloop experiments can prove that the
+candidate reaching admission is the one the measured prompt class is allowed to send.
