@@ -3435,3 +3435,19 @@ Validation receipt:
 `A2A_ROUTE_COMPARE_LIMIT=1 A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN=1 make admission-route-compare` passed and
 printed `[admission-route-compare] shadow_best_route: passed=true selected=1/1 rejected=0 score=3
 routes=user_bridge:1`, proving the new requirement trips through the wrapper on a real run.
+
+**Follow-up, 2026-07-23 - breathing admission uses the same guard.** Autonomous breathing no longer has a
+shorter live-admission path than the human-turn subconscious. The shared helper now performs the whole sequence
+for both paths: decide live/shadow mode, attach the inner-world counterfactual, run the replay/policy guard,
+write the optional receipt ledger, and fail closed on ledger write errors.
+
+This closes a foundation bug before live route widening: a policy spike admitted through breathing can no longer
+bypass `guardDreamCandidate` while human-turn dreams are checked.
+
+The same admission policy now has a default-off source allowlist:
+`AM_DREAM_ADMISSION_ALLOWED_SOURCES=nano,chorus,direct,qloop,qloop_hint_qa,qloop_target,user_bridge`. Empty means
+current behavior; when set, the candidate's source must be listed or live admission rejects before mutating the
+inner world. This is the receiving gate for a staged route chooser: future route promotion can be tested one
+source at a time instead of widening the organism by accident.
+
+Validation: focused admission tests and full `go test ./...` in `golib` passed; `git diff --check` is clean.

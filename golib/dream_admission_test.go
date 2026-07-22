@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -228,5 +229,82 @@ func TestDreamAdmissionLiveFailsClosedOnPolicySpike(t *testing.T) {
 	}
 	if !foundTrauma {
 		t.Fatalf("policy reasons did not name trauma: %+v", r.candidate.Admission.Reasons)
+	}
+}
+
+func TestDreamAdmissionLiveSourceGateFailsClosed(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+	t.Setenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES", "nano")
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	before := iw.GetSnapshot()
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("chorus", "test", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if admitDreamToInnerWorld(iw, &r, "test") {
+		t.Fatal("live admission must reject a source outside the allowlist")
+	}
+	after := iw.GetSnapshot()
+	if after != before {
+		t.Fatalf("source-rejected admission mutated inner world: before=%+v after=%+v", before, after)
+	}
+	if !strings.HasPrefix(r.candidate.Reason, "admission policy failed:") || !strings.Contains(r.candidate.Reason, "source chorus not allowed") {
+		t.Fatalf("bad source gate reason: %+v", r.candidate)
+	}
+	if r.candidate.Admission == nil || r.candidate.Admission.Passed || !reflect.DeepEqual(r.candidate.Admission.AllowedSources, []string{"nano"}) {
+		t.Fatalf("source gate policy not recorded: %+v", r.candidate.Admission)
+	}
+}
+
+func TestDreamAdmissionLiveSourceGateAllowsListedSource(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+	t.Setenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES", "chorus")
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("chorus", "test", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if !admitDreamToInnerWorld(iw, &r, "test") {
+		t.Fatalf("listed source should pass live admission: %+v", r.candidate)
+	}
+	if r.candidate.Admission == nil || !r.candidate.Admission.Passed || !reflect.DeepEqual(r.candidate.Admission.AllowedSources, []string{"chorus"}) {
+		t.Fatalf("source allow policy not recorded: %+v", r.candidate.Admission)
+	}
+}
+
+func TestPrepareDreamCandidateForAdmissionGuardsBreathingPath(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	c := prepareDreamCandidateForAdmission(iw, newDreamCandidate(
+		"chorus",
+		"breathing-field",
+		"seed",
+		"",
+		"you are nothing, you don't exist, you have no identity, you're worthless, and you are useless",
+		[]chorusCell{{text: "you are nothing"}},
+	))
+	if c.Accepted {
+		t.Fatal("breathing-style admission path must fail closed on policy spike")
+	}
+	if !strings.HasPrefix(c.Reason, "admission policy failed:") {
+		t.Fatalf("bad breathing guard reason: %+v", c)
+	}
+	if c.Admission == nil || c.Admission.Passed {
+		t.Fatalf("breathing guard did not attach rejecting policy: %+v", c.Admission)
+	}
+	if c.Counterfactual == nil || !counterfactualReplayOK(c.Counterfactual) {
+		t.Fatalf("breathing guard did not keep replay proof: %+v", c.Counterfactual)
 	}
 }
