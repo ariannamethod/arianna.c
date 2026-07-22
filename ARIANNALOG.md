@@ -3418,3 +3418,20 @@ Validation receipt:
 `A2A_ROUTE_COMPARE_LIMIT=1 make admission-route-compare` now prints
 `[admission-route-compare] shadow_best_route: passed=true selected=1/1 rejected=0 score=3 routes=user_bridge:1`
 before the final pass sentinel; replay and policy remain clean.
+
+**Follow-up, same day - explicit route-plan gate.** Route compare now has a hard opt-in gate for the next
+architecture boundary: `A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN=1` requires the runlog's `shadow_best_route`
+line to report `passed=true`. The normal `make admission-route-compare` target remains diagnostic and
+receipt-only; the new `make admission-route-plan-gate` target runs the full broad set (`A2A_ROUTE_COMPARE_LIMIT=18`)
+with the shadow-plan requirement enabled, so live route widening has a named fail-closed proof instead of an
+implicit convention.
+
+No live route is promoted by this target. It only makes the receipt contract executable: semantic admission must
+pass, the shadow route plan must exist, and the route plan must be complete before the next layer can touch
+runtime selection.
+
+Validation receipt:
+`/var/folders/mt/q269wl056373sc5x90jrw77h0000gn/T/arianna-route-compare.awsJC2/dream_admission_route_compare.json`.
+`A2A_ROUTE_COMPARE_LIMIT=1 A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN=1 make admission-route-compare` passed and
+printed `[admission-route-compare] shadow_best_route: passed=true selected=1/1 rejected=0 score=3
+routes=user_bridge:1`, proving the new requirement trips through the wrapper on a real run.

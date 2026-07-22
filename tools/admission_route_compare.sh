@@ -67,6 +67,7 @@ echo "[admission-route-compare] sample=$sample_file"
 echo "[admission-route-compare] model=$model_file"
 
 progress_mode="${A2A_ROUTE_COMPARE_PROGRESS:-1}"
+require_shadow_plan="${A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN:-0}"
 env_args=(
     AM_DREAM_ADMISSION=shadow
     AM_DREAM_ADMISSION_LOG="$LOG"
@@ -150,6 +151,11 @@ if [[ "$want_qloop" == "1" ]]; then
     grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
 fi
 grep -q '\[admission-route-compare\] shadow_best_route:' "$RUN_LOG" || die "shadow best-route runlog sentinel missing"
+case "$(printf '%s' "$require_shadow_plan" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+        grep -q '\[admission-route-compare\] shadow_best_route: passed=true ' "$RUN_LOG" || die "shadow best-route did not pass"
+        ;;
+esac
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
 STATE_HITS="$WORKDIR/state_hits.txt"
