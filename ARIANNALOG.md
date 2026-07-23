@@ -3556,3 +3556,15 @@ This is still not Janus/Resonance route power. Janus remains the mouth, Resonanc
 nanoArianna remains the subconscious. The new layer only makes the prompt-side route pressure observable and
 receiptable (`AM_LIVE_ROUTE_TURN_LOG`, schema `arianna.live_route_turn_observation.v1`) so the next chooser step
 can be tested before it is allowed to redirect a live voice.
+
+**Follow-up, same day - turn observation can review surfaced dream candidates.** The chat dry-run now has a
+second receipt-only join: when a dream candidate surfaces, `metabolism --chat` can print
+`live-route turn/candidate review` and optionally record `AM_LIVE_ROUTE_TURN_REVIEW_LOG` receipts
+(`arianna.live_route_turn_candidate_review.v1`). The review compares the prompt-side expected route/source
+against the candidate's typed route choice without enforcing admission or generation.
+
+The important current result is visible by design: the existing subconscious candidate still arrives as
+`source=nano`, `trigger=human-turn`, so it is reported as an untyped candidate relative to the measured route map.
+That is not a live rejection and not a claim that nano is wrong. It is the explicit bridge debt before a future
+route chooser deliberately supplies typed `chorus-*`, `direct-*`, `qloop_target-*`, `qloop_hint_qa-*`, or
+`user_bridge-*` candidates.

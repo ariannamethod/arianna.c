@@ -129,6 +129,9 @@ func runChat() {
 			if line := chatLiveRouteChoiceDryRunLine(dr.candidate); line != "" {
 				fmt.Println(line)
 			}
+			if line := chatLiveRouteTurnCandidateReviewLine(turnRouteObs, dr.candidate); line != "" {
+				fmt.Println(line)
+			}
 		}
 		// A hot voice daemon can fall silent after a turn or two (it stops framing <END>).
 		// Revive it in place instead of ending the session — the trio survives one voice's
@@ -201,6 +204,23 @@ func chatLiveRouteTurnDryRunLine(obs admissionLiveRouteTurnObservation) string {
 	}
 	return fmt.Sprintf("│  · live-route turn dry-run: class=%s route=%s expected=%s passed=%t score=%d%s",
 		obs.PromptClass, obs.Route, obs.ExpectedSource, obs.Passed, obs.ClassScore, reason)
+}
+
+func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
+	if !dreamAdmissionLiveRouteChoiceDryRun() || obs.Schema == "" || c.Schema == "" {
+		return ""
+	}
+	review := admissionLiveRouteTurnCandidateReviewForDream(obs, c)
+	if err := recordAdmissionLiveRouteTurnCandidateReview(review); err != nil {
+		return fmt.Sprintf("│  · live-route turn/candidate review log failed: %v", err)
+	}
+	reason := ""
+	if review.Reason != "" {
+		reason = " reason=" + review.Reason
+	}
+	return fmt.Sprintf("│  · live-route turn/candidate review: turn_class=%s expected=%s candidate_source=%s candidate_class=%s candidate_route=%s matched=%t%s",
+		review.TurnPromptClass, review.TurnExpectedSource, review.CandidateSource,
+		review.CandidatePromptClass, review.CandidateRoute, review.Matched, reason)
 }
 
 // harvestField is Phase 2 (A): the organism learns from the subconscious. The
