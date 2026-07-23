@@ -76,6 +76,10 @@ echo "[body-smoke] admission shadow receipt"
 A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
     bash "$ROOT/tools/admission_shadow_smoke.sh"
 
+echo "[body-smoke] admission live route-plan gate"
+A2A_ADMISSION_LIVE_ROUTE_GATE_WORKDIR="$WORKDIR/admission-live-route-gate" \
+    bash "$ROOT/tools/admission_live_route_gate_smoke.sh"
+
 echo "[body-smoke] admission shadow sample"
 A2A_ADMISSION_SAMPLE_WORKDIR="$WORKDIR/admission-sample" \
     bash "$ROOT/tools/admission_shadow_sample.sh"
