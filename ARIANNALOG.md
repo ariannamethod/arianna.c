@@ -3492,3 +3492,14 @@ shadow and future live probes can audit the actual source that reached the gate.
 This is still default-off and does not promote route generation. It only makes the next widening step less
 ambiguous: route planning, source comparison, and rejection text now come from one typed function instead of being
 spread across admission code and smoke code.
+
+**Follow-up, same day - route compare now reviews live choices.** The shadow route summary now carries
+`live_route_choice_review` (`arianna.live_route_choice_review.v1`). After `semantic_route_admission` chooses the
+receipt-only `shadow_best_route`, the harness runs each selected `{prompt_class, route}` through the same
+`admissionLiveRouteChoiceForCandidate` function used by live admission. The result records matched/rejected/unknown
+counts plus per-decision `source` and `expected_source`.
+
+This keeps the diagnostic compare soft, but tightens the strict pre-widening target: with
+`A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN=1`, `tools/admission_route_compare.sh` now requires both
+`shadow_best_route.passed=true` and `live_route_choice_review.passed=true`. A semantic winner that disagrees with
+the typed live route plan is visible before it can become a runtime route.

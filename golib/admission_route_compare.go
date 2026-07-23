@@ -32,6 +32,7 @@ type admissionRouteCompareSummary struct {
 	SemanticCoverageReasons []string                         `json:"semantic_coverage_reasons,omitempty"`
 	SemanticAdmission       admissionRouteSemanticAdmission  `json:"semantic_route_admission"`
 	ShadowBestRoute         admissionRouteShadowBestRoute    `json:"shadow_best_route"`
+	LiveRouteChoiceReview   admissionRouteLiveChoiceReview   `json:"live_route_choice_review"`
 	ByRoute                 map[string]admissionRouteStats   `json:"by_route"`
 	Failures                []admissionRouteFailure          `json:"failures,omitempty"`
 	Empties                 []admissionRouteEmpty            `json:"empties,omitempty"`
@@ -177,6 +178,29 @@ type admissionRouteShadowDecision struct {
 	SemanticReasons []string `json:"semantic_reasons,omitempty"`
 }
 
+type admissionRouteLiveChoiceReview struct {
+	Schema    string                             `json:"schema"`
+	Passed    bool                               `json:"passed"`
+	Reviews   int                                `json:"reviews"`
+	Matched   int                                `json:"matched"`
+	Rejected  int                                `json:"rejected,omitempty"`
+	Unknown   int                                `json:"unknown,omitempty"`
+	Reasons   []string                           `json:"reasons,omitempty"`
+	Decisions []admissionRouteLiveChoiceDecision `json:"decisions,omitempty"`
+}
+
+type admissionRouteLiveChoiceDecision struct {
+	Index          int    `json:"index"`
+	Seed           string `json:"seed"`
+	PromptClass    string `json:"prompt_class"`
+	Route          string `json:"route,omitempty"`
+	ExpectedRoute  string `json:"expected_route,omitempty"`
+	Source         string `json:"source,omitempty"`
+	ExpectedSource string `json:"expected_source,omitempty"`
+	Passed         bool   `json:"passed"`
+	Reason         string `json:"reason,omitempty"`
+}
+
 type admissionRouteOutput struct {
 	route     string
 	text      string
@@ -290,6 +314,7 @@ func runAdmissionRouteCompare() error {
 	summary.SemanticCoveragePassed, summary.SemanticCoverageReasons = summarizeAdmissionRouteSemanticCoverage(summary.SemanticCoverage)
 	summary.SemanticAdmission = buildAdmissionRouteSemanticAdmission(summary.SemanticCoverage)
 	summary.ShadowBestRoute = buildAdmissionRouteShadowBestRoute(summary.SemanticAdmission)
+	summary.LiveRouteChoiceReview = buildAdmissionRouteLiveChoiceReview(summary.ShadowBestRoute)
 
 	summaryPath := strings.TrimSpace(os.Getenv("AM_ROUTE_COMPARE_SUMMARY"))
 	if summaryPath != "" {
@@ -298,6 +323,7 @@ func runAdmissionRouteCompare() error {
 		}
 	}
 	fmt.Println(formatAdmissionRouteShadowBestRouteLine(summary.ShadowBestRoute))
+	fmt.Println(formatAdmissionRouteLiveChoiceReviewLine(summary.LiveRouteChoiceReview))
 	fmt.Printf("[admission-route-compare] pass: samples=%d/%d candidates=%d empty=%d policy_fail=%d replay_fail=%d log=%s summary=%s\n",
 		summary.SamplesRun, summary.TotalSamples, summary.Candidates, summary.EmptyCandidates, summary.PolicyFailed, summary.ReplayFailed, logPath, summaryPath)
 	return nil
@@ -1056,6 +1082,57 @@ func buildAdmissionRouteShadowBestRoute(admission admissionRouteSemanticAdmissio
 	return out
 }
 
+func buildAdmissionRouteLiveChoiceReview(shadow admissionRouteShadowBestRoute) admissionRouteLiveChoiceReview {
+	out := admissionRouteLiveChoiceReview{
+		Schema: "arianna.live_route_choice_review.v1",
+		Passed: true,
+	}
+	if !shadow.Passed {
+		out.Passed = false
+		out.Reasons = append(out.Reasons, "shadow_best_route_failed")
+	}
+	if len(shadow.RoutePlan) == 0 {
+		out.Passed = false
+		out.Reasons = append(out.Reasons, "shadow_route_plan_missing")
+		return out
+	}
+	for _, d := range shadow.RoutePlan {
+		choice := admissionLiveRouteChoiceForCandidate(newDreamCandidate(d.Route, d.PromptClass, d.Seed, "", d.Text, nil))
+		decision := admissionRouteLiveChoiceDecision{
+			Index:          d.Index,
+			Seed:           d.Seed,
+			PromptClass:    choice.PromptClass,
+			Route:          d.Route,
+			ExpectedRoute:  choice.Route,
+			Source:         choice.Source,
+			ExpectedSource: choice.ExpectedSource,
+			Passed:         choice.Passed,
+			Reason:         choice.Reason,
+		}
+		out.Reviews++
+		if choice.Passed {
+			out.Matched++
+		} else {
+			out.Rejected++
+			if choice.Plan.Reason == "unknown_prompt_class" {
+				out.Unknown++
+			}
+			reason := choice.Reason
+			if reason == "" {
+				reason = "live_route_choice_rejected"
+			}
+			seed := d.Seed
+			if seed == "" {
+				seed = fmt.Sprintf("sample-%02d", d.Index)
+			}
+			out.Reasons = append(out.Reasons, reason+":"+seed)
+		}
+		out.Decisions = append(out.Decisions, decision)
+	}
+	out.Passed = out.Passed && out.Rejected == 0 && out.Matched == out.Reviews
+	return out
+}
+
 func appendUniqueString(values []string, value string) []string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -1085,6 +1162,15 @@ func formatAdmissionRouteShadowBestRouteLine(shadow admissionRouteShadowBestRout
 	}
 	return fmt.Sprintf("[admission-route-compare] shadow_best_route: passed=%t selected=%d/%d rejected=%d score=%d routes=%s%s",
 		shadow.Passed, shadow.Selected, shadow.Reviews, shadow.Rejected, shadow.SemanticScore, routes, reasons)
+}
+
+func formatAdmissionRouteLiveChoiceReviewLine(review admissionRouteLiveChoiceReview) string {
+	reasons := ""
+	if len(review.Reasons) > 0 {
+		reasons = " reasons=" + strings.Join(review.Reasons, ",")
+	}
+	return fmt.Sprintf("[admission-route-compare] live_route_choice: passed=%t matched=%d/%d rejected=%d unknown=%d%s",
+		review.Passed, review.Matched, review.Reviews, review.Rejected, review.Unknown, reasons)
 }
 
 func writeAdmissionRouteCompareSummary(path string, summary admissionRouteCompareSummary) error {
