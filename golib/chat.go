@@ -109,7 +109,7 @@ func runChat() {
 			sendLatest(tc.seedCh, human)
 		}
 
-		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, faceFR.read().surfaces())
+		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, faceFR.read().surfaces(), turnRouteObs)
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson

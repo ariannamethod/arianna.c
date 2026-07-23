@@ -259,3 +259,34 @@ func TestAdmissionLiveRouteTurnBridgeSmokeWritesBridgeReviews(t *testing.T) {
 		t.Fatalf("bridge triggers missing from log: %s", raw)
 	}
 }
+
+func TestAdmissionLiveRouteTurnBridgeAdmissionSmokeWritesAdmissionReceipt(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-turn-bridge-admission.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnBridgeAdmissionSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Trigger != "human-turn" || got.Source != "nano" ||
+		got.Admission == nil || !got.Admission.LiveRouteTurnBridgeApplied ||
+		got.Admission.LiveRouteBridgeTrigger != "human-turn-identity" ||
+		got.Admission.LiveRouteChoice == nil ||
+		got.Admission.LiveRouteChoice.PromptClass != "identity" ||
+		got.Admission.LiveRouteChoice.Source != "nano" ||
+		got.Admission.LiveRouteChoice.ExpectedSource != "chorus" ||
+		got.Admission.LiveRouteChoice.Passed {
+		t.Fatalf("bad turn bridge admission receipt: %+v", got)
+	}
+}

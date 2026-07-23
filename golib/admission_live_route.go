@@ -299,17 +299,9 @@ func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObs
 		review.Reason = "untyped_candidate"
 		return review
 	}
-	choiceCandidate := c
-	bridgeApplied := false
-	if admissionLiveRouteTurnBridgeDryRun() {
-		if bridged, ok := admissionLiveRouteTurnBridgeCandidate(obs, c); ok {
-			choiceCandidate = bridged
-			bridgeApplied = true
-			review.CandidateBridgeApplied = true
-			review.CandidateBridgeTrigger = bridged.Trigger
-		}
-	}
-	choice := admissionLiveRouteChoiceForCandidate(choiceCandidate)
+	choice, bridgeApplied, bridgeTrigger := admissionLiveRouteChoiceForCandidateWithTurnBridge(obs, c)
+	review.CandidateBridgeApplied = bridgeApplied
+	review.CandidateBridgeTrigger = bridgeTrigger
 	if !bridgeApplied && c.Admission != nil && c.Admission.LiveRouteChoice != nil {
 		choice = *c.Admission.LiveRouteChoice
 	}
@@ -336,6 +328,17 @@ func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObs
 	}
 	review.Matched = true
 	return review
+}
+
+func admissionLiveRouteChoiceForCandidateWithTurnBridge(obs admissionLiveRouteTurnObservation, c dreamCandidate) (admissionLiveRouteChoice, bool, string) {
+	choiceCandidate := c
+	if admissionLiveRouteTurnBridgeDryRun() {
+		if bridged, ok := admissionLiveRouteTurnBridgeCandidate(obs, c); ok {
+			choiceCandidate = bridged
+			return admissionLiveRouteChoiceForCandidate(choiceCandidate), true, bridged.Trigger
+		}
+	}
+	return admissionLiveRouteChoiceForCandidate(choiceCandidate), false, ""
 }
 
 func admissionLiveRouteTurnBridgeDryRun() bool {
