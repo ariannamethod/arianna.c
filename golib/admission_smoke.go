@@ -139,6 +139,11 @@ func runAdmissionLiveRouteGateSmoke() error {
 		if plan == nil || !plan.Passed || plan.PromptClass != "identity" || plan.Route != tc.wantRoute {
 			return fmt.Errorf("case %d %s bad live route plan: %+v", i+1, tc.name, plan)
 		}
+		choice := r.candidate.Admission.LiveRouteChoice
+		if choice == nil || choice.Source != normalizeDreamAdmissionSource(tc.source) ||
+			choice.ExpectedSource != tc.wantRoute || choice.Passed != tc.wantPassed {
+			return fmt.Errorf("case %d %s bad live route choice: %+v", i+1, tc.name, choice)
+		}
 		if tc.wantReason != "" && !stringSliceContains(r.candidate.Admission.Reasons, tc.wantReason) {
 			return fmt.Errorf("case %d %s missing route-plan reason %q in %+v", i+1, tc.name, tc.wantReason, r.candidate.Admission.Reasons)
 		}
@@ -162,6 +167,9 @@ func runAdmissionLiveRouteGateSmoke() error {
 		}
 		if got.Admission == nil || got.Admission.LiveRoutePlan == nil {
 			return fmt.Errorf("receipt %d missing live route-plan policy: %+v", i+1, got.Admission)
+		}
+		if got.Admission.LiveRouteChoice == nil {
+			return fmt.Errorf("receipt %d missing live route choice: %+v", i+1, got.Admission)
 		}
 	}
 

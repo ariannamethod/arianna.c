@@ -65,3 +65,78 @@ func TestAdmissionLiveRoutePlanFailsClosedForUnknownClass(t *testing.T) {
 		t.Fatalf("unknown prompt class should fail closed: %+v", plan)
 	}
 }
+
+func TestAdmissionLiveRouteChoiceForCandidate(t *testing.T) {
+	cases := []struct {
+		name           string
+		source         string
+		trigger        string
+		seed           string
+		wantPrompt     string
+		wantRoute      string
+		wantExpected   string
+		wantPassed     bool
+		wantReason     string
+		wantPlanPassed bool
+	}{
+		{
+			name:           "matched chorus identity",
+			source:         "chorus",
+			trigger:        "identity",
+			seed:           "seed",
+			wantPrompt:     "identity",
+			wantRoute:      "chorus",
+			wantExpected:   "chorus",
+			wantPassed:     true,
+			wantPlanPassed: true,
+		},
+		{
+			name:           "wrong source",
+			source:         "direct",
+			trigger:        "identity",
+			seed:           "seed",
+			wantPrompt:     "identity",
+			wantRoute:      "chorus",
+			wantExpected:   "chorus",
+			wantPassed:     false,
+			wantReason:     "source direct does not match live route chorus for prompt class identity",
+			wantPlanPassed: true,
+		},
+		{
+			name:           "missing source",
+			source:         "",
+			trigger:        "identity",
+			seed:           "seed",
+			wantPrompt:     "identity",
+			wantRoute:      "chorus",
+			wantExpected:   "chorus",
+			wantPassed:     false,
+			wantReason:     "missing source for live route plan chorus prompt class identity",
+			wantPlanPassed: true,
+		},
+		{
+			name:           "unknown class",
+			source:         "chorus",
+			trigger:        "unknown-pressure",
+			seed:           "seed",
+			wantPrompt:     "unknown-pressure",
+			wantPassed:     false,
+			wantReason:     "live route plan failed: unknown_prompt_class",
+			wantPlanPassed: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			choice := admissionLiveRouteChoiceForCandidate(newDreamCandidate(tc.source, tc.trigger, tc.seed, "", "I am Arianna.", nil))
+			if choice.Schema != admissionLiveRouteChoiceSchema || choice.PromptClass != tc.wantPrompt ||
+				choice.Route != tc.wantRoute || choice.ExpectedSource != tc.wantExpected ||
+				choice.Passed != tc.wantPassed || choice.Reason != tc.wantReason ||
+				choice.Plan.Passed != tc.wantPlanPassed {
+				t.Fatalf("bad live route choice: %+v", choice)
+			}
+			if choice.Plan.Schema != admissionLiveRoutePlanSchema || choice.Plan.PromptClass != tc.wantPrompt {
+				t.Fatalf("choice did not carry normalized plan: %+v", choice.Plan)
+			}
+		})
+	}
+}

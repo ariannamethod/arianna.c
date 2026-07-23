@@ -3482,3 +3482,13 @@ records a fail-closed route mismatch. The wrapper target is `make admission-live
 The smoke remains non-mutating: shadow mode rejects both candidates, verifies the live route plan on the receipt,
 and checks the scratch directory for durable organism state. This gives the future live chooser a control lamp
 before any runtime route promotion.
+
+**Follow-up, same day - live route choice is now a typed receipt.** The route-plan gate no longer rebuilds its
+source/route decision inline. `admissionLiveRouteChoiceForCandidate` is the pure chooser boundary from a
+`dreamCandidate` to `{prompt_class, route, source, expected_source, passed, reason}`. The admission policy still
+attaches the older `live_route_plan` for compatibility, but also records `live_route_choice` on the receipt so
+shadow and future live probes can audit the actual source that reached the gate.
+
+This is still default-off and does not promote route generation. It only makes the next widening step less
+ambiguous: route planning, source comparison, and rejection text now come from one typed function instead of being
+spread across admission code and smoke code.
