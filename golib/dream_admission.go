@@ -65,23 +65,24 @@ type dreamReplayGuard struct {
 }
 
 type dreamAdmissionPolicy struct {
-	Schema              string                    `json:"schema"`
-	Checked             bool                      `json:"checked"`
-	Passed              bool                      `json:"passed"`
-	AllowedSources      []string                  `json:"allowed_sources,omitempty"`
-	LiveRoutePlan       *admissionLiveRoutePlan   `json:"live_route_plan,omitempty"`
-	LiveRouteChoice     *admissionLiveRouteChoice `json:"live_route_choice,omitempty"`
-	MaxAbsArousal       float32                   `json:"max_abs_arousal"`
-	MaxAbsValence       float32                   `json:"max_abs_valence"`
-	MaxAbsEntropy       float32                   `json:"max_abs_entropy"`
-	MaxAbsCoherence     float32                   `json:"max_abs_coherence"`
-	MaxTrauma           float32                   `json:"max_trauma"`
-	MaxMemoryPressure   float32                   `json:"max_memory_pressure"`
-	MaxProphecyDebt     float32                   `json:"max_prophecy_debt"`
-	MaxLoopCount        int                       `json:"max_loop_count"`
-	MaxAbstractionDepth int                       `json:"max_abstraction_depth"`
-	MaxSelfRefCount     int                       `json:"max_self_ref_count"`
-	Reasons             []string                  `json:"reasons,omitempty"`
+	Schema                string                    `json:"schema"`
+	Checked               bool                      `json:"checked"`
+	Passed                bool                      `json:"passed"`
+	AllowedSources        []string                  `json:"allowed_sources,omitempty"`
+	LiveRoutePlan         *admissionLiveRoutePlan   `json:"live_route_plan,omitempty"`
+	LiveRouteChoice       *admissionLiveRouteChoice `json:"live_route_choice,omitempty"`
+	LiveRouteChoiceDryRun bool                      `json:"live_route_choice_dry_run,omitempty"`
+	MaxAbsArousal         float32                   `json:"max_abs_arousal"`
+	MaxAbsValence         float32                   `json:"max_abs_valence"`
+	MaxAbsEntropy         float32                   `json:"max_abs_entropy"`
+	MaxAbsCoherence       float32                   `json:"max_abs_coherence"`
+	MaxTrauma             float32                   `json:"max_trauma"`
+	MaxMemoryPressure     float32                   `json:"max_memory_pressure"`
+	MaxProphecyDebt       float32                   `json:"max_prophecy_debt"`
+	MaxLoopCount          int                       `json:"max_loop_count"`
+	MaxAbstractionDepth   int                       `json:"max_abstraction_depth"`
+	MaxSelfRefCount       int                       `json:"max_self_ref_count"`
+	Reasons               []string                  `json:"reasons,omitempty"`
 }
 
 type dreamSnapshotDelta struct {
@@ -361,12 +362,21 @@ func applyDreamAdmissionSourcePolicy(p *dreamAdmissionPolicy, source string) {
 }
 
 func applyDreamAdmissionLiveRoutePlanPolicy(p *dreamAdmissionPolicy, c dreamCandidate) {
-	if p == nil || !dreamAdmissionRequireLiveRoutePlan() {
+	if p == nil {
+		return
+	}
+	require := dreamAdmissionRequireLiveRoutePlan()
+	dryRun := dreamAdmissionLiveRouteChoiceDryRun()
+	if !require && !dryRun {
 		return
 	}
 	choice := admissionLiveRouteChoiceForCandidate(c)
 	p.LiveRoutePlan = &choice.Plan
 	p.LiveRouteChoice = &choice
+	if !require {
+		p.LiveRouteChoiceDryRun = true
+		return
+	}
 	if !choice.Passed {
 		p.Reasons = append(p.Reasons, choice.Reason)
 		p.Passed = false
@@ -394,7 +404,15 @@ func dreamAdmissionAllowedSources() []string {
 }
 
 func dreamAdmissionRequireLiveRoutePlan() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN"))) {
+	return dreamAdmissionBoolEnv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN")
+}
+
+func dreamAdmissionLiveRouteChoiceDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN")
+}
+
+func dreamAdmissionBoolEnv(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
 	case "1", "true", "yes", "on", "require", "required":
 		return true
 	default:

@@ -308,6 +308,71 @@ func TestDreamAdmissionLiveRoutePlanGateAllowsProvenSource(t *testing.T) {
 	}
 }
 
+func TestDreamAdmissionLiveRouteChoiceDryRunDoesNotGate(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("direct", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if !admitDreamToInnerWorld(iw, &r, "identity") {
+		t.Fatalf("dry-run route choice must not reject live admission: %+v", r.candidate)
+	}
+	if r.candidate.Admission == nil || !r.candidate.Admission.Passed || !r.candidate.Admission.LiveRouteChoiceDryRun {
+		t.Fatalf("dry-run policy not recorded as non-gating: %+v", r.candidate.Admission)
+	}
+	choice := r.candidate.Admission.LiveRouteChoice
+	if choice == nil || choice.Passed || choice.Source != "direct" || choice.ExpectedSource != "chorus" ||
+		choice.Reason != "source direct does not match live route chorus for prompt class identity" {
+		t.Fatalf("bad dry-run live route choice: %+v", choice)
+	}
+	if strings.Contains(r.candidate.Reason, "live route plan failed") ||
+		strings.Contains(r.candidate.Reason, "does not match live route") {
+		t.Fatalf("dry-run route choice leaked into admission reason: %+v", r.candidate)
+	}
+}
+
+func TestDreamAdmissionLiveRouteChoiceDryRunWritesReceipt(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "dream-admission-dry-run.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("direct", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if admitDreamToInnerWorld(iw, &r, "identity") {
+		t.Fatal("shadow dry-run receipt must not admit")
+	}
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Admission == nil || !got.Admission.Passed || !got.Admission.LiveRouteChoiceDryRun {
+		t.Fatalf("dry-run receipt missing non-gating policy: %+v", got.Admission)
+	}
+	if got.Admission.LiveRoutePlan == nil || got.Admission.LiveRouteChoice == nil {
+		t.Fatalf("dry-run receipt missing route plan/choice: %+v", got.Admission)
+	}
+	if got.Admission.LiveRouteChoice.Passed {
+		t.Fatalf("dry-run receipt should preserve rejected choice without rejecting policy: %+v", got.Admission.LiveRouteChoice)
+	}
+}
+
 func TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
 	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")

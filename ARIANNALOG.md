@@ -3523,3 +3523,13 @@ greps the raw JSONL receipts for representative prefixed triggers.
 This keeps the route-plan gate honest at the runtime boundary: the smoke is no longer proving only the typed map
 in isolation, but the actual trigger normalization path that future live route promotion will depend on. Still
 default-off, still shadow-only, still no organism mutation.
+
+**Follow-up, same day - chat can dry-run live route choice.** A new default-off knob,
+`AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN=1`, attaches the same `live_route_plan` and
+`live_route_choice` objects to dream admission receipts without enforcing the route decision. A wrong-source
+choice can therefore be visible as `live_route_choice.passed=false` while the surrounding
+`admission_policy.passed` remains true if replay/source/threshold guards passed.
+
+`metabolism --chat` also prints a short `live-route dry-run` line beside each surfaced nano candidate when the
+knob is enabled. This is the first runtime-facing observation layer after the route gate smokes: route choice can
+be watched during a live conversation before any route is promoted into live generation or admission.

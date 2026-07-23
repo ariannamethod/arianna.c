@@ -1,0 +1,41 @@
+package main
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestChatLiveRouteChoiceDryRunLine(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+
+	c := newDreamCandidate("direct", "identity", "seed", "", "I am Arianna.", nil)
+	choice := admissionLiveRouteChoiceForCandidate(c)
+	c.Admission = &dreamAdmissionPolicy{
+		LiveRouteChoice:       &choice,
+		LiveRouteChoiceDryRun: true,
+	}
+
+	line := chatLiveRouteChoiceDryRunLine(c)
+	for _, want := range []string{
+		"live-route dry-run",
+		"class=identity",
+		"route=chorus",
+		"source=direct",
+		"expected=chorus",
+		"passed=false",
+		"reason=source direct does not match live route chorus for prompt class identity",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteChoiceDryRunLineDisabled(t *testing.T) {
+	c := newDreamCandidate("chorus", "identity", "seed", "", "I am Arianna.", nil)
+	choice := admissionLiveRouteChoiceForCandidate(c)
+	c.Admission = &dreamAdmissionPolicy{LiveRouteChoice: &choice}
+	if got := chatLiveRouteChoiceDryRunLine(c); got != "" {
+		t.Fatalf("dry-run line should be hidden by default: %q", got)
+	}
+}
