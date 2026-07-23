@@ -87,6 +87,30 @@ func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	}
 }
 
+func TestChatLiveRouteTurnBridgeCandidateReviewLine(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	c := newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil)
+	line := chatLiveRouteTurnCandidateReviewLine(obs, c)
+	for _, want := range []string{
+		"live-route turn/candidate review",
+		"turn_class=identity",
+		"expected=chorus",
+		"candidate_source=nano",
+		"candidate_class=identity",
+		"candidate_route=chorus",
+		"matched=false",
+		"bridge=human-turn-identity",
+		"reason=candidate_route_failed: source nano does not match live route chorus for prompt class identity",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("bridged turn/candidate review line missing %q: %q", want, line)
+		}
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLineDisabled(t *testing.T) {
 	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	c := newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil)

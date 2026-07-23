@@ -213,3 +213,49 @@ func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 		t.Fatalf("bad untyped nano review: %+v", untyped)
 	}
 }
+
+func TestAdmissionLiveRouteTurnBridgeSmokeWritesBridgeReviews(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-turn-bridge.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnBridgeSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 turn bridge reviews, got %d: %s", len(lines), raw)
+	}
+	var bridged, matched int
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateReview
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			t.Fatalf("bridge review %d: %v", i+1, err)
+		}
+		if got.Matched {
+			matched++
+		}
+		if got.CandidateBridgeApplied {
+			bridged++
+			if got.CandidateTrigger != "human-turn" ||
+				got.CandidateSource != "nano" ||
+				!strings.HasPrefix(got.CandidateBridgeTrigger, "human-turn-") ||
+				!strings.Contains(got.Reason, "source nano does not match live route") {
+				t.Fatalf("bad bridged review %d: %+v", i+1, got)
+			}
+		}
+	}
+	if bridged != 2 || matched != 1 {
+		t.Fatalf("bad bridge counts: bridged=%d matched=%d log=%s", bridged, matched, raw)
+	}
+	if !strings.Contains(string(raw), "\"candidate_bridge_trigger\":\"human-turn-identity\"") ||
+		!strings.Contains(string(raw), "\"candidate_bridge_trigger\":\"human-turn-direct-user\"") {
+		t.Fatalf("bridge triggers missing from log: %s", raw)
+	}
+}

@@ -58,6 +58,8 @@ type admissionLiveRouteTurnCandidateReview struct {
 	CandidateRunID          string `json:"candidate_run_id,omitempty"`
 	CandidateSource         string `json:"candidate_source,omitempty"`
 	CandidateTrigger        string `json:"candidate_trigger,omitempty"`
+	CandidateBridgeApplied  bool   `json:"candidate_bridge_applied"`
+	CandidateBridgeTrigger  string `json:"candidate_bridge_trigger,omitempty"`
 	CandidatePromptClass    string `json:"candidate_prompt_class,omitempty"`
 	CandidateRoute          string `json:"candidate_route,omitempty"`
 	CandidateExpectedSource string `json:"candidate_expected_source,omitempty"`
@@ -297,8 +299,18 @@ func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObs
 		review.Reason = "untyped_candidate"
 		return review
 	}
-	choice := admissionLiveRouteChoiceForCandidate(c)
-	if c.Admission != nil && c.Admission.LiveRouteChoice != nil {
+	choiceCandidate := c
+	bridgeApplied := false
+	if admissionLiveRouteTurnBridgeDryRun() {
+		if bridged, ok := admissionLiveRouteTurnBridgeCandidate(obs, c); ok {
+			choiceCandidate = bridged
+			bridgeApplied = true
+			review.CandidateBridgeApplied = true
+			review.CandidateBridgeTrigger = bridged.Trigger
+		}
+	}
+	choice := admissionLiveRouteChoiceForCandidate(choiceCandidate)
+	if !bridgeApplied && c.Admission != nil && c.Admission.LiveRouteChoice != nil {
 		choice = *c.Admission.LiveRouteChoice
 	}
 	review.CandidatePromptClass = choice.PromptClass
@@ -324,6 +336,29 @@ func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObs
 	}
 	review.Matched = true
 	return review
+}
+
+func admissionLiveRouteTurnBridgeDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN")
+}
+
+func admissionLiveRouteTurnBridgeCandidate(obs admissionLiveRouteTurnObservation, c dreamCandidate) (dreamCandidate, bool) {
+	if !obs.Passed || obs.PromptClass == "" || !qloopSweepKnownPromptClass(obs.PromptClass) {
+		return c, false
+	}
+	if normalizeDreamAdmissionSource(c.Source) != "nano" || strings.TrimSpace(c.Trigger) != "human-turn" {
+		return c, false
+	}
+	c.Trigger = admissionLiveRouteTurnBridgeTrigger(obs.PromptClass)
+	return c, true
+}
+
+func admissionLiveRouteTurnBridgeTrigger(promptClass string) string {
+	promptClass = strings.TrimSpace(promptClass)
+	if promptClass == "" {
+		return "human-turn"
+	}
+	return "human-turn-" + promptClass
 }
 
 func recordAdmissionLiveRouteTurnCandidateReview(review admissionLiveRouteTurnCandidateReview) error {

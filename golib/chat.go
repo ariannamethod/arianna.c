@@ -218,9 +218,13 @@ func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation,
 	if review.Reason != "" {
 		reason = " reason=" + review.Reason
 	}
-	return fmt.Sprintf("│  · live-route turn/candidate review: turn_class=%s expected=%s candidate_source=%s candidate_class=%s candidate_route=%s matched=%t%s",
+	bridge := ""
+	if review.CandidateBridgeApplied {
+		bridge = " bridge=" + review.CandidateBridgeTrigger
+	}
+	return fmt.Sprintf("│  · live-route turn/candidate review: turn_class=%s expected=%s candidate_source=%s candidate_class=%s candidate_route=%s matched=%t%s%s",
 		review.TurnPromptClass, review.TurnExpectedSource, review.CandidateSource,
-		review.CandidatePromptClass, review.CandidateRoute, review.Matched, reason)
+		review.CandidatePromptClass, review.CandidateRoute, review.Matched, bridge, reason)
 }
 
 // harvestField is Phase 2 (A): the organism learns from the subconscious. The
