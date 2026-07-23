@@ -302,6 +302,10 @@ func TestDreamAdmissionLiveRoutePlanGateAllowsProvenSource(t *testing.T) {
 	if plan == nil || !plan.Passed || plan.PromptClass != "identity" || plan.Route != "chorus" {
 		t.Fatalf("bad attached live route plan: %+v", plan)
 	}
+	choice := r.candidate.Admission.LiveRouteChoice
+	if choice == nil || !choice.Passed || choice.Source != "chorus" || choice.ExpectedSource != "chorus" || choice.Route != "chorus" {
+		t.Fatalf("bad attached live route choice: %+v", choice)
+	}
 }
 
 func TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource(t *testing.T) {
@@ -332,6 +336,11 @@ func TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource(t *testing.T) {
 	if plan == nil || !plan.Passed || plan.PromptClass != "identity" || plan.Route != "chorus" {
 		t.Fatalf("bad attached rejecting live route plan: %+v", plan)
 	}
+	choice := r.candidate.Admission.LiveRouteChoice
+	if choice == nil || choice.Passed || choice.Source != "direct" || choice.ExpectedSource != "chorus" ||
+		choice.Reason != "source direct does not match live route chorus for prompt class identity" {
+		t.Fatalf("bad attached rejecting live route choice: %+v", choice)
+	}
 }
 
 func TestDreamAdmissionLiveRoutePlanGateFailsClosedForUnknownClass(t *testing.T) {
@@ -355,6 +364,11 @@ func TestDreamAdmissionLiveRoutePlanGateFailsClosedForUnknownClass(t *testing.T)
 	plan := r.candidate.Admission.LiveRoutePlan
 	if plan == nil || plan.Passed || plan.PromptClass != "unknown-pressure" || plan.Reason != "unknown_prompt_class" {
 		t.Fatalf("bad unknown live route plan: %+v", plan)
+	}
+	choice := r.candidate.Admission.LiveRouteChoice
+	if choice == nil || choice.Passed || choice.PromptClass != "unknown-pressure" ||
+		choice.Reason != "live route plan failed: unknown_prompt_class" {
+		t.Fatalf("bad unknown live route choice: %+v", choice)
 	}
 }
 

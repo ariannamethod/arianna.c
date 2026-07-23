@@ -1,6 +1,9 @@
 package main
 
-const admissionLiveRoutePlanSchema = "arianna.live_route_plan.v1"
+const (
+	admissionLiveRoutePlanSchema   = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema = "arianna.live_route_choice.v1"
+)
 
 type admissionLiveRoutePlan struct {
 	Schema         string   `json:"schema"`
@@ -9,6 +12,18 @@ type admissionLiveRoutePlan struct {
 	AllowedSources []string `json:"allowed_sources,omitempty"`
 	Passed         bool     `json:"passed"`
 	Reason         string   `json:"reason,omitempty"`
+}
+
+type admissionLiveRouteChoice struct {
+	Schema         string `json:"schema"`
+	PromptClass    string `json:"prompt_class"`
+	Route          string `json:"route,omitempty"`
+	Source         string `json:"source,omitempty"`
+	ExpectedSource string `json:"expected_source,omitempty"`
+	Passed         bool   `json:"passed"`
+	Reason         string `json:"reason,omitempty"`
+
+	Plan admissionLiveRoutePlan `json:"-"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -27,6 +42,37 @@ func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoute
 	plan.AllowedSources = []string{admissionLiveRouteSource(route)}
 	plan.Passed = true
 	return plan
+}
+
+func admissionLiveRouteChoiceForCandidate(c dreamCandidate) admissionLiveRouteChoice {
+	promptClass := qloopSweepPromptClass(c.Trigger, c.Seed)
+	plan := admissionLiveRoutePlanForPromptClass(promptClass)
+	choice := admissionLiveRouteChoice{
+		Schema:      admissionLiveRouteChoiceSchema,
+		PromptClass: plan.PromptClass,
+		Route:       plan.Route,
+		Source:      normalizeDreamAdmissionSource(c.Source),
+		Plan:        plan,
+	}
+	if len(plan.AllowedSources) == 1 {
+		choice.ExpectedSource = plan.AllowedSources[0]
+	} else if plan.Route != "" {
+		choice.ExpectedSource = admissionLiveRouteSource(plan.Route)
+	}
+	if !plan.Passed {
+		choice.Reason = "live route plan failed: " + plan.Reason
+		return choice
+	}
+	if choice.Source == "" {
+		choice.Reason = "missing source for live route plan " + plan.Route + " prompt class " + plan.PromptClass
+		return choice
+	}
+	if choice.Source != choice.ExpectedSource {
+		choice.Reason = "source " + choice.Source + " does not match live route " + choice.ExpectedSource + " for prompt class " + plan.PromptClass
+		return choice
+	}
+	choice.Passed = true
+	return choice
 }
 
 func admissionLiveRouteForPromptClass(promptClass string) (string, bool) {
