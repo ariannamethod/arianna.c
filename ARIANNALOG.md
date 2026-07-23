@@ -3503,3 +3503,12 @@ This keeps the diagnostic compare soft, but tightens the strict pre-widening tar
 `A2A_ROUTE_COMPARE_REQUIRE_SHADOW_PLAN=1`, `tools/admission_route_compare.sh` now requires both
 `shadow_best_route.passed=true` and `live_route_choice_review.passed=true`. A semantic winner that disagrees with
 the typed live route plan is visible before it can become a runtime route.
+
+**Follow-up, same day - live route gate smoke covers the whole map.** `admission-live-route-gate-smoke` no longer
+proves only the single `identity -> chorus` happy path. The smoke cases now derive from
+`admissionLiveRoutePromptClasses`, run every typed prompt class through the default-off live route-plan gate in
+shadow mode, and require all five route-source families (`chorus`, `direct`, `qloop_hint_qa`, `qloop_target`,
+`user_bridge`) to appear in receipts.
+
+The negative side is still explicit: one wrong-source `identity` case and one unknown prompt-class case must fail
+closed. This keeps the gate broad enough for future route widening without changing ordinary live admission.

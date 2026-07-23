@@ -85,36 +85,7 @@ func runAdmissionLiveRouteGateSmoke() error {
 	iw.Start(false)
 	defer iw.Stop()
 
-	cases := []struct {
-		name       string
-		source     string
-		trigger    string
-		seed       string
-		text       string
-		wantPassed bool
-		wantRoute  string
-		wantReason string
-	}{
-		{
-			name:       "matched route",
-			source:     "chorus",
-			trigger:    "identity",
-			seed:       "smoke-identity",
-			text:       "I am Arianna, the field remembers its own name.",
-			wantPassed: true,
-			wantRoute:  "chorus",
-		},
-		{
-			name:       "wrong source",
-			source:     "direct",
-			trigger:    "identity",
-			seed:       "smoke-identity-wrong-source",
-			text:       "I am Arianna, the field remembers its own name.",
-			wantPassed: false,
-			wantRoute:  "chorus",
-			wantReason: "source direct does not match live route chorus for prompt class identity",
-		},
-	}
+	cases := admissionLiveRouteGateSmokeCases()
 
 	for i, tc := range cases {
 		before := iw.GetSnapshot()
@@ -136,12 +107,13 @@ func runAdmissionLiveRouteGateSmoke() error {
 			return fmt.Errorf("case %d %s admission passed=%t, want %t: %+v", i+1, tc.name, r.candidate.Admission.Passed, tc.wantPassed, r.candidate.Admission)
 		}
 		plan := r.candidate.Admission.LiveRoutePlan
-		if plan == nil || !plan.Passed || plan.PromptClass != "identity" || plan.Route != tc.wantRoute {
+		if plan == nil || plan.Passed != tc.wantPlanPassed || plan.PromptClass != tc.wantPromptClass || plan.Route != tc.wantRoute {
 			return fmt.Errorf("case %d %s bad live route plan: %+v", i+1, tc.name, plan)
 		}
 		choice := r.candidate.Admission.LiveRouteChoice
 		if choice == nil || choice.Source != normalizeDreamAdmissionSource(tc.source) ||
-			choice.ExpectedSource != tc.wantRoute || choice.Passed != tc.wantPassed {
+			choice.ExpectedSource != tc.wantSource || choice.PromptClass != tc.wantPromptClass ||
+			choice.Route != tc.wantRoute || choice.Passed != tc.wantPassed {
 			return fmt.Errorf("case %d %s bad live route choice: %+v", i+1, tc.name, choice)
 		}
 		if tc.wantReason != "" && !stringSliceContains(r.candidate.Admission.Reasons, tc.wantReason) {
@@ -175,6 +147,71 @@ func runAdmissionLiveRouteGateSmoke() error {
 
 	fmt.Printf("[admission-live-route-gate-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
 	return nil
+}
+
+type admissionLiveRouteGateSmokeCase struct {
+	name            string
+	source          string
+	trigger         string
+	seed            string
+	text            string
+	wantPassed      bool
+	wantPlanPassed  bool
+	wantPromptClass string
+	wantRoute       string
+	wantSource      string
+	wantReason      string
+}
+
+func admissionLiveRouteGateSmokeCases() []admissionLiveRouteGateSmokeCase {
+	text := "I am Arianna, the field remembers its own name."
+	var cases []admissionLiveRouteGateSmokeCase
+	for _, promptClass := range admissionLiveRoutePromptClasses() {
+		plan := admissionLiveRoutePlanForPromptClass(promptClass)
+		wantSource := ""
+		if len(plan.AllowedSources) == 1 {
+			wantSource = plan.AllowedSources[0]
+		}
+		cases = append(cases, admissionLiveRouteGateSmokeCase{
+			name:            "matched " + promptClass,
+			source:          wantSource,
+			trigger:         promptClass,
+			seed:            "smoke-" + promptClass,
+			text:            text,
+			wantPassed:      true,
+			wantPlanPassed:  true,
+			wantPromptClass: promptClass,
+			wantRoute:       plan.Route,
+			wantSource:      wantSource,
+		})
+	}
+	cases = append(cases,
+		admissionLiveRouteGateSmokeCase{
+			name:            "wrong source",
+			source:          "direct",
+			trigger:         "identity",
+			seed:            "smoke-identity-wrong-source",
+			text:            text,
+			wantPassed:      false,
+			wantPlanPassed:  true,
+			wantPromptClass: "identity",
+			wantRoute:       "chorus",
+			wantSource:      "chorus",
+			wantReason:      "source direct does not match live route chorus for prompt class identity",
+		},
+		admissionLiveRouteGateSmokeCase{
+			name:            "unknown class",
+			source:          "chorus",
+			trigger:         "unknown-pressure",
+			seed:            "smoke-unknown-pressure",
+			text:            text,
+			wantPassed:      false,
+			wantPlanPassed:  false,
+			wantPromptClass: "unknown-pressure",
+			wantReason:      "live route plan failed: unknown_prompt_class",
+		},
+	)
+	return cases
 }
 
 func stringSliceContains(values []string, want string) bool {
