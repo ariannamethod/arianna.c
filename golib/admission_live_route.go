@@ -75,6 +75,28 @@ func admissionLiveRouteChoiceForCandidate(c dreamCandidate) admissionLiveRouteCh
 	return choice
 }
 
+func admissionLiveRoutePromptClasses() []string {
+	return []string{
+		"cold-reader",
+		"direct-user",
+		"format",
+		"trauma",
+		"recipient-lock",
+		"polyphony",
+		"identity",
+		"qloop",
+		"statement",
+		"boundary",
+		"self-reference",
+		"outer-face",
+		"memory",
+		"dream",
+		"repetition",
+		"inner-world",
+		"admission",
+	}
+}
+
 func admissionLiveRouteForPromptClass(promptClass string) (string, bool) {
 	switch qloopSweepPromptClass(promptClass, promptClass) {
 	case "cold-reader", "direct-user", "format", "trauma":

@@ -25,6 +25,14 @@ func TestAdmissionLiveRoutePlanMatchesBroadShadowReceipt(t *testing.T) {
 		"inner-world":    "direct",
 		"admission":      "direct",
 	}
+	if len(admissionLiveRoutePromptClasses()) != len(expected) {
+		t.Fatalf("live route class list length=%d, want %d", len(admissionLiveRoutePromptClasses()), len(expected))
+	}
+	for _, promptClass := range admissionLiveRoutePromptClasses() {
+		if _, ok := expected[promptClass]; !ok {
+			t.Fatalf("live route class list contains untested class %q", promptClass)
+		}
+	}
 	for promptClass, wantRoute := range expected {
 		plan := admissionLiveRoutePlanForPromptClass(promptClass)
 		if !plan.Passed || plan.Schema != admissionLiveRoutePlanSchema || plan.PromptClass != promptClass || plan.Route != wantRoute {

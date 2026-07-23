@@ -2,8 +2,8 @@
 # admission_live_route_gate_smoke.sh - non-mutating route-plan admission gate check.
 #
 # Runs the metabolism binary in shadow admission mode with the live route-plan
-# gate enabled, then verifies both a matching prompt-class route and a wrong
-# source fail-closed receipt.
+# gate enabled, then verifies the full typed prompt-class route map plus wrong
+# source and unknown-class fail-closed receipts.
 
 set -euo pipefail
 export LC_ALL=C
@@ -44,11 +44,17 @@ grep -q '"mode":"shadow"' "$LOG" || die "shadow mode missing"
 grep -q '"accepted":false' "$LOG" || die "shadow candidates were not rejected"
 grep -q '"live_route_plan":{' "$LOG" || die "live route plan missing"
 grep -q '"schema":"arianna.live_route_plan.v1"' "$LOG" || die "live route plan schema missing"
-grep -q '"prompt_class":"identity"' "$LOG" || die "identity prompt class missing"
-grep -q '"route":"chorus"' "$LOG" || die "chorus route missing"
+grep -q '"live_route_choice":{' "$LOG" || die "live route choice missing"
+for class in cold-reader recipient-lock identity polyphony direct-user dream admission memory; do
+    grep -q "\"prompt_class\":\"$class\"" "$LOG" || die "$class prompt class missing"
+done
+for route in chorus direct qloop_hint_qa qloop_target user_bridge; do
+    grep -q "\"route\":\"$route\"" "$LOG" || die "$route route missing"
+done
 grep -q '"passed":true' "$LOG" || die "matching route policy did not pass"
 grep -q '"passed":false' "$LOG" || die "wrong-source route policy did not fail"
 grep -q '"source direct does not match live route chorus for prompt class identity"' "$LOG" || die "wrong-source route-plan reason missing"
+grep -q '"live route plan failed: unknown_prompt_class"' "$LOG" || die "unknown-class route-plan reason missing"
 grep -q '\[admission-live-route-gate-smoke\] pass:' "$RUN_LOG" || die "pass sentinel missing"
 
 STATE_HITS="$WORKDIR/state_hits.txt"
