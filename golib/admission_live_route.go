@@ -10,6 +10,7 @@ const (
 	admissionLiveRoutePlanSchema            = "arianna.live_route_plan.v1"
 	admissionLiveRouteChoiceSchema          = "arianna.live_route_choice.v1"
 	admissionLiveRouteTurnObservationSchema = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnReviewSchema      = "arianna.live_route_turn_candidate_review.v1"
 )
 
 type admissionLiveRoutePlan struct {
@@ -45,6 +46,24 @@ type admissionLiveRouteTurnObservation struct {
 	TextHash       string   `json:"text_hash,omitempty"`
 
 	Plan admissionLiveRoutePlan `json:"-"`
+}
+
+type admissionLiveRouteTurnCandidateReview struct {
+	Schema                  string `json:"schema"`
+	Timing                  string `json:"timing"`
+	TurnPromptClass         string `json:"turn_prompt_class"`
+	TurnRoute               string `json:"turn_route,omitempty"`
+	TurnExpectedSource      string `json:"turn_expected_source,omitempty"`
+	TurnPassed              bool   `json:"turn_passed"`
+	CandidateRunID          string `json:"candidate_run_id,omitempty"`
+	CandidateSource         string `json:"candidate_source,omitempty"`
+	CandidateTrigger        string `json:"candidate_trigger,omitempty"`
+	CandidatePromptClass    string `json:"candidate_prompt_class,omitempty"`
+	CandidateRoute          string `json:"candidate_route,omitempty"`
+	CandidateExpectedSource string `json:"candidate_expected_source,omitempty"`
+	CandidateChoicePassed   bool   `json:"candidate_choice_passed"`
+	Matched                 bool   `json:"matched"`
+	Reason                  string `json:"reason,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -245,6 +264,79 @@ func recordAdmissionLiveRouteTurnObservation(obs admissionLiveRouteTurnObservati
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(obs)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObservation, c dreamCandidate) admissionLiveRouteTurnCandidateReview {
+	review := admissionLiveRouteTurnCandidateReview{
+		Schema:             admissionLiveRouteTurnReviewSchema,
+		Timing:             "async_subconscious",
+		TurnPromptClass:    obs.PromptClass,
+		TurnRoute:          obs.Route,
+		TurnExpectedSource: obs.ExpectedSource,
+		TurnPassed:         obs.Passed,
+		CandidateRunID:     c.RunID,
+		CandidateSource:    normalizeDreamAdmissionSource(c.Source),
+		CandidateTrigger:   c.Trigger,
+	}
+	if obs.Schema == "" {
+		review.Reason = "missing_turn_observation"
+		return review
+	}
+	if !obs.Passed {
+		review.Reason = "turn_route_failed"
+		if obs.Reason != "" {
+			review.Reason += ": " + obs.Reason
+		}
+		return review
+	}
+	if c.Schema == "" {
+		review.Reason = "untyped_candidate"
+		return review
+	}
+	choice := admissionLiveRouteChoiceForCandidate(c)
+	if c.Admission != nil && c.Admission.LiveRouteChoice != nil {
+		choice = *c.Admission.LiveRouteChoice
+	}
+	review.CandidatePromptClass = choice.PromptClass
+	review.CandidateRoute = choice.Route
+	review.CandidateExpectedSource = choice.ExpectedSource
+	review.CandidateChoicePassed = choice.Passed
+	if !choice.Passed {
+		review.Reason = "candidate_route_failed"
+		if choice.Reason != "" {
+			review.Reason += ": " + choice.Reason
+		}
+		return review
+	}
+	if review.CandidateSource != obs.ExpectedSource {
+		review.Reason = "candidate_source_mismatch: source " + review.CandidateSource +
+			" does not match turn expected " + obs.ExpectedSource + " for prompt class " + obs.PromptClass
+		return review
+	}
+	if review.CandidateRoute != obs.Route {
+		review.Reason = "candidate_route_mismatch: route " + review.CandidateRoute +
+			" does not match turn route " + obs.Route + " for prompt class " + obs.PromptClass
+		return review
+	}
+	review.Matched = true
+	return review
+}
+
+func recordAdmissionLiveRouteTurnCandidateReview(review admissionLiveRouteTurnCandidateReview) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(review)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

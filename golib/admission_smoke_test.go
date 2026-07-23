@@ -179,3 +179,37 @@ func TestAdmissionLiveRouteTurnSmokeWritesObservations(t *testing.T) {
 		t.Fatalf("unknown turn should fail closed: %+v", unknown)
 	}
 }
+
+func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnReviewSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 turn/candidate reviews, got %d: %s", len(lines), raw)
+	}
+	var matched, untyped admissionLiveRouteTurnCandidateReview
+	if err := json.Unmarshal([]byte(lines[0]), &matched); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[2]), &untyped); err != nil {
+		t.Fatal(err)
+	}
+	if matched.Schema != admissionLiveRouteTurnReviewSchema || !matched.Matched ||
+		matched.TurnExpectedSource != "chorus" || matched.CandidateSource != "chorus" {
+		t.Fatalf("bad matched review: %+v", matched)
+	}
+	if untyped.Matched || untyped.CandidatePromptClass != "human-turn" ||
+		!strings.Contains(untyped.Reason, "unknown_prompt_class") {
+		t.Fatalf("bad untyped nano review: %+v", untyped)
+	}
+}

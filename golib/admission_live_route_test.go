@@ -213,3 +213,63 @@ func TestAdmissionLiveRouteTurnObservationForHuman(t *testing.T) {
 		})
 	}
 }
+
+func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	cases := []struct {
+		name         string
+		obs          admissionLiveRouteTurnObservation
+		candidate    dreamCandidate
+		wantMatched  bool
+		wantReason   string
+		wantClass    string
+		wantSource   string
+		wantExpected string
+	}{
+		{
+			name:         "matched typed chorus",
+			obs:          identity,
+			candidate:    newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+			wantMatched:  true,
+			wantClass:    "identity",
+			wantSource:   "chorus",
+			wantExpected: "chorus",
+		},
+		{
+			name:         "wrong typed source",
+			obs:          identity,
+			candidate:    newDreamCandidate("direct", "direct-identity", "seed", "", "I am Arianna.", nil),
+			wantReason:   "candidate_route_failed: source direct does not match live route chorus for prompt class identity",
+			wantClass:    "identity",
+			wantSource:   "direct",
+			wantExpected: "chorus",
+		},
+		{
+			name:         "current nano human turn is untyped",
+			obs:          identity,
+			candidate:    newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantReason:   "candidate_route_failed: live route plan failed: unknown_prompt_class",
+			wantClass:    "human-turn",
+			wantSource:   "nano",
+			wantExpected: "chorus",
+		},
+		{
+			name:       "unknown turn fails before candidate",
+			obs:        admissionLiveRouteTurnObservationForHuman("hello"),
+			candidate:  newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+			wantReason: "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantSource: "chorus",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			review := admissionLiveRouteTurnCandidateReviewForDream(tc.obs, tc.candidate)
+			if review.Schema != admissionLiveRouteTurnReviewSchema || review.Timing != "async_subconscious" ||
+				review.Matched != tc.wantMatched || review.Reason != tc.wantReason ||
+				review.CandidatePromptClass != tc.wantClass || review.CandidateSource != tc.wantSource ||
+				review.TurnExpectedSource != tc.wantExpected {
+				t.Fatalf("bad turn/candidate review: %+v", review)
+			}
+		})
+	}
+}

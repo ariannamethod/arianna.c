@@ -322,6 +322,92 @@ func runAdmissionLiveRouteTurnSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnReviewSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	cases := []struct {
+		name             string
+		obs              admissionLiveRouteTurnObservation
+		candidate        dreamCandidate
+		wantMatched      bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "matched typed chorus identity",
+			obs:            identity,
+			candidate:      newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+			wantMatched:    true,
+			wantLineNeedle: "turn_class=identity expected=chorus candidate_source=chorus candidate_class=identity candidate_route=chorus matched=true",
+		},
+		{
+			name:             "wrong source typed identity",
+			obs:              identity,
+			candidate:        newDreamCandidate("direct", "direct-identity", "seed", "", "I am Arianna.", nil),
+			wantMatched:      false,
+			wantReasonNeedle: "candidate_route_failed: source direct does not match live route chorus for prompt class identity",
+			wantLineNeedle:   "turn_class=identity expected=chorus candidate_source=direct candidate_class=identity candidate_route=chorus matched=false",
+		},
+		{
+			name:             "current untyped nano human turn",
+			obs:              identity,
+			candidate:        newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantMatched:      false,
+			wantReasonNeedle: "candidate_route_failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "turn_class=identity expected=chorus candidate_source=nano candidate_class=human-turn candidate_route= matched=false",
+		},
+		{
+			name:             "unknown turn fails before candidate",
+			obs:              admissionLiveRouteTurnObservationForHuman("hello"),
+			candidate:        newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+			wantMatched:      false,
+			wantReasonNeedle: "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "turn_class=unknown expected= candidate_source=chorus candidate_class= candidate_route= matched=false",
+		},
+	}
+	for i, tc := range cases {
+		line := chatLiveRouteTurnCandidateReviewLine(tc.obs, tc.candidate)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad review line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		review := admissionLiveRouteTurnCandidateReviewForDream(tc.obs, tc.candidate)
+		if review.Matched != tc.wantMatched {
+			return fmt.Errorf("case %d %s matched=%t, want %t: %+v", i+1, tc.name, review.Matched, tc.wantMatched, review)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d turn/candidate reviews, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateReview
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("turn/candidate review %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnReviewSchema || got.Matched != cases[i].wantMatched {
+			return fmt.Errorf("logged turn/candidate review %d mismatch: %+v", i+1, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-review-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 type admissionLiveRouteGateSmokeCase struct {
 	name            string
 	source          string
