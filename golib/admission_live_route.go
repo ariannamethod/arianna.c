@@ -11,6 +11,7 @@ const (
 	admissionLiveRouteChoiceSchema          = "arianna.live_route_choice.v1"
 	admissionLiveRouteTurnObservationSchema = "arianna.live_route_turn_observation.v1"
 	admissionLiveRouteTurnChoiceSchema      = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema     = "arianna.live_route_turn_request.v1"
 	admissionLiveRouteTurnReviewSchema      = "arianna.live_route_turn_candidate_review.v1"
 )
 
@@ -61,6 +62,19 @@ type admissionLiveRouteTurnChoice struct {
 	TurnTextHash     string `json:"turn_text_hash,omitempty"`
 
 	Plan admissionLiveRoutePlan `json:"-"`
+}
+
+type admissionLiveRouteTurnRequest struct {
+	Schema           string `json:"schema"`
+	PromptClass      string `json:"prompt_class"`
+	Route            string `json:"route,omitempty"`
+	Source           string `json:"source,omitempty"`
+	ExpectedSource   string `json:"expected_source,omitempty"`
+	CandidateTrigger string `json:"candidate_trigger,omitempty"`
+	CandidateSeed    string `json:"candidate_seed,omitempty"`
+	Passed           bool   `json:"passed"`
+	Reason           string `json:"reason,omitempty"`
+	TurnTextHash     string `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateReview struct {
@@ -332,6 +346,72 @@ func recordAdmissionLiveRouteTurnChoice(choice admissionLiveRouteTurnChoice) err
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(choice)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnRequestDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_REQUEST_DRY_RUN")
+}
+
+func admissionLiveRouteTurnRequestForChoice(choice admissionLiveRouteTurnChoice) admissionLiveRouteTurnRequest {
+	request := admissionLiveRouteTurnRequest{
+		Schema:           admissionLiveRouteTurnRequestSchema,
+		PromptClass:      choice.PromptClass,
+		Route:            choice.Route,
+		Source:           choice.Source,
+		ExpectedSource:   choice.ExpectedSource,
+		CandidateTrigger: choice.CandidateTrigger,
+		CandidateSeed:    admissionLiveRouteTurnRequestSeed(choice),
+		TurnTextHash:     choice.TurnTextHash,
+	}
+	if choice.Schema == "" {
+		request.Reason = "missing_turn_choice"
+		return request
+	}
+	if !choice.Passed {
+		request.Reason = "turn choice failed"
+		if choice.Reason != "" {
+			request.Reason += ": " + choice.Reason
+		}
+		return request
+	}
+	if request.Source == "" {
+		request.Reason = "missing source for turn route " + request.Route + " prompt class " + request.PromptClass
+		return request
+	}
+	if request.CandidateTrigger == "" {
+		request.Reason = "missing candidate trigger for turn route " + request.Route + " prompt class " + request.PromptClass
+		return request
+	}
+	if request.CandidateSeed == "" {
+		request.Reason = "missing candidate seed for turn route " + request.Route + " prompt class " + request.PromptClass
+		return request
+	}
+	request.Passed = true
+	return request
+}
+
+func admissionLiveRouteTurnRequestSeed(choice admissionLiveRouteTurnChoice) string {
+	if choice.TurnTextHash == "" {
+		return ""
+	}
+	return "turn-" + choice.TurnTextHash
+}
+
+func recordAdmissionLiveRouteTurnRequest(request admissionLiveRouteTurnRequest) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REQUEST_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(request)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

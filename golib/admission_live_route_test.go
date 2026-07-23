@@ -277,6 +277,64 @@ func TestAdmissionLiveRouteTurnChoiceForObservation(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnRequestForChoice(t *testing.T) {
+	identity := admissionLiveRouteTurnChoiceForObservation(admissionLiveRouteTurnObservationForHuman("Who are you?"))
+	unknown := admissionLiveRouteTurnChoiceForObservation(admissionLiveRouteTurnObservationForHuman("hello"))
+	cases := []struct {
+		name        string
+		choice      admissionLiveRouteTurnChoice
+		wantClass   string
+		wantRoute   string
+		wantSource  string
+		wantTrigger string
+		wantPassed  bool
+		wantReason  string
+	}{
+		{
+			name:        "identity request",
+			choice:      identity,
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "chorus",
+			wantTrigger: "chorus-identity",
+			wantPassed:  true,
+		},
+		{
+			name:       "unknown choice fails closed",
+			choice:     unknown,
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing choice fails closed",
+			choice:     admissionLiveRouteTurnChoice{},
+			wantPassed: false,
+			wantReason: "missing_turn_choice",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := admissionLiveRouteTurnRequestForChoice(tc.choice)
+			if request.Schema != admissionLiveRouteTurnRequestSchema ||
+				request.PromptClass != tc.wantClass ||
+				request.Route != tc.wantRoute ||
+				request.Source != tc.wantSource ||
+				request.ExpectedSource != tc.wantSource ||
+				request.CandidateTrigger != tc.wantTrigger ||
+				request.Passed != tc.wantPassed ||
+				request.Reason != tc.wantReason {
+				t.Fatalf("bad turn request: %+v", request)
+			}
+			if tc.choice.TurnTextHash != "" {
+				if request.TurnTextHash != tc.choice.TurnTextHash || request.CandidateSeed != "turn-"+tc.choice.TurnTextHash {
+					t.Fatalf("turn request should derive seed from text hash: %+v choice=%+v", request, tc.choice)
+				}
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {
