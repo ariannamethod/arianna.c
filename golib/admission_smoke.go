@@ -515,6 +515,65 @@ func runAdmissionLiveRouteTurnBridgeSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnBridgeAdmissionSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnBridgeDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN is required")
+	}
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	turnObs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("nano", "human-turn", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if admitDreamToInnerWorldWithTurnObservation(iw, &r, "human-turn", turnObs) {
+		return fmt.Errorf("shadow turn bridge admission must not admit")
+	}
+	if r.candidate.Trigger != "human-turn" || r.candidate.Admission == nil ||
+		!r.candidate.Admission.LiveRouteTurnBridgeApplied ||
+		r.candidate.Admission.LiveRouteBridgeTrigger != "human-turn-identity" ||
+		r.candidate.Admission.LiveRouteChoice == nil ||
+		r.candidate.Admission.LiveRouteChoice.PromptClass != "identity" ||
+		r.candidate.Admission.LiveRouteChoice.Source != "nano" ||
+		r.candidate.Admission.LiveRouteChoice.ExpectedSource != "chorus" ||
+		r.candidate.Admission.LiveRouteChoice.Passed {
+		return fmt.Errorf("bad in-memory turn bridge admission candidate: %+v", r.candidate)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		return err
+	}
+	if got.Trigger != "human-turn" || got.Source != "nano" || got.Admission == nil ||
+		!got.Admission.LiveRouteTurnBridgeApplied ||
+		got.Admission.LiveRouteBridgeTrigger != "human-turn-identity" ||
+		got.Admission.LiveRouteChoice == nil ||
+		got.Admission.LiveRouteChoice.PromptClass != "identity" ||
+		got.Admission.LiveRouteChoice.Source != "nano" ||
+		got.Admission.LiveRouteChoice.ExpectedSource != "chorus" ||
+		got.Admission.LiveRouteChoice.Passed {
+		return fmt.Errorf("bad logged turn bridge admission candidate: %+v", got)
+	}
+
+	fmt.Printf("[admission-live-route-turn-bridge-admission-smoke] pass: log=%s trigger=%s bridge=%s route=%s\n",
+		logPath, got.Trigger, got.Admission.LiveRouteBridgeTrigger, got.Admission.LiveRouteChoice.Route)
+	return nil
+}
+
 type admissionLiveRouteGateSmokeCase struct {
 	name            string
 	source          string

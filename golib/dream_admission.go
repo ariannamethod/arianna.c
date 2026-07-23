@@ -65,24 +65,26 @@ type dreamReplayGuard struct {
 }
 
 type dreamAdmissionPolicy struct {
-	Schema                string                    `json:"schema"`
-	Checked               bool                      `json:"checked"`
-	Passed                bool                      `json:"passed"`
-	AllowedSources        []string                  `json:"allowed_sources,omitempty"`
-	LiveRoutePlan         *admissionLiveRoutePlan   `json:"live_route_plan,omitempty"`
-	LiveRouteChoice       *admissionLiveRouteChoice `json:"live_route_choice,omitempty"`
-	LiveRouteChoiceDryRun bool                      `json:"live_route_choice_dry_run,omitempty"`
-	MaxAbsArousal         float32                   `json:"max_abs_arousal"`
-	MaxAbsValence         float32                   `json:"max_abs_valence"`
-	MaxAbsEntropy         float32                   `json:"max_abs_entropy"`
-	MaxAbsCoherence       float32                   `json:"max_abs_coherence"`
-	MaxTrauma             float32                   `json:"max_trauma"`
-	MaxMemoryPressure     float32                   `json:"max_memory_pressure"`
-	MaxProphecyDebt       float32                   `json:"max_prophecy_debt"`
-	MaxLoopCount          int                       `json:"max_loop_count"`
-	MaxAbstractionDepth   int                       `json:"max_abstraction_depth"`
-	MaxSelfRefCount       int                       `json:"max_self_ref_count"`
-	Reasons               []string                  `json:"reasons,omitempty"`
+	Schema                     string                    `json:"schema"`
+	Checked                    bool                      `json:"checked"`
+	Passed                     bool                      `json:"passed"`
+	AllowedSources             []string                  `json:"allowed_sources,omitempty"`
+	LiveRoutePlan              *admissionLiveRoutePlan   `json:"live_route_plan,omitempty"`
+	LiveRouteChoice            *admissionLiveRouteChoice `json:"live_route_choice,omitempty"`
+	LiveRouteChoiceDryRun      bool                      `json:"live_route_choice_dry_run,omitempty"`
+	LiveRouteTurnBridgeApplied bool                      `json:"live_route_turn_bridge_applied,omitempty"`
+	LiveRouteBridgeTrigger     string                    `json:"live_route_turn_bridge_trigger,omitempty"`
+	MaxAbsArousal              float32                   `json:"max_abs_arousal"`
+	MaxAbsValence              float32                   `json:"max_abs_valence"`
+	MaxAbsEntropy              float32                   `json:"max_abs_entropy"`
+	MaxAbsCoherence            float32                   `json:"max_abs_coherence"`
+	MaxTrauma                  float32                   `json:"max_trauma"`
+	MaxMemoryPressure          float32                   `json:"max_memory_pressure"`
+	MaxProphecyDebt            float32                   `json:"max_prophecy_debt"`
+	MaxLoopCount               int                       `json:"max_loop_count"`
+	MaxAbstractionDepth        int                       `json:"max_abstraction_depth"`
+	MaxSelfRefCount            int                       `json:"max_self_ref_count"`
+	Reasons                    []string                  `json:"reasons,omitempty"`
 }
 
 type dreamSnapshotDelta struct {
@@ -260,10 +262,14 @@ func replayDreamCounterfactual(before Snapshot, text string, first dreamCounterf
 }
 
 func guardDreamCandidate(c dreamCandidate) dreamCandidate {
+	return guardDreamCandidateWithTurnObservation(c, admissionLiveRouteTurnObservation{})
+}
+
+func guardDreamCandidateWithTurnObservation(c dreamCandidate, turnObs admissionLiveRouteTurnObservation) dreamCandidate {
 	if c.Counterfactual != nil {
 		policy := evaluateDreamAdmissionPolicy(c.Counterfactual)
 		applyDreamAdmissionSourcePolicy(&policy, c.Source)
-		applyDreamAdmissionLiveRoutePlanPolicy(&policy, c)
+		applyDreamAdmissionLiveRoutePlanPolicyWithTurnObservation(&policy, c, turnObs)
 		c.Admission = &policy
 	}
 	if !c.Accepted {
@@ -362,6 +368,10 @@ func applyDreamAdmissionSourcePolicy(p *dreamAdmissionPolicy, source string) {
 }
 
 func applyDreamAdmissionLiveRoutePlanPolicy(p *dreamAdmissionPolicy, c dreamCandidate) {
+	applyDreamAdmissionLiveRoutePlanPolicyWithTurnObservation(p, c, admissionLiveRouteTurnObservation{})
+}
+
+func applyDreamAdmissionLiveRoutePlanPolicyWithTurnObservation(p *dreamAdmissionPolicy, c dreamCandidate, turnObs admissionLiveRouteTurnObservation) {
 	if p == nil {
 		return
 	}
@@ -370,9 +380,11 @@ func applyDreamAdmissionLiveRoutePlanPolicy(p *dreamAdmissionPolicy, c dreamCand
 	if !require && !dryRun {
 		return
 	}
-	choice := admissionLiveRouteChoiceForCandidate(c)
+	choice, bridgeApplied, bridgeTrigger := admissionLiveRouteChoiceForCandidateWithTurnBridge(turnObs, c)
 	p.LiveRoutePlan = &choice.Plan
 	p.LiveRouteChoice = &choice
+	p.LiveRouteTurnBridgeApplied = bridgeApplied
+	p.LiveRouteBridgeTrigger = bridgeTrigger
 	if !require {
 		p.LiveRouteChoiceDryRun = true
 		return
@@ -563,6 +575,10 @@ func measureDreamText(text string) dreamTextMetrics {
 }
 
 func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool {
+	return admitDreamToInnerWorldWithTurnObservation(iw, r, trigger, admissionLiveRouteTurnObservation{})
+}
+
+func admitDreamToInnerWorldWithTurnObservation(iw *InnerWorld, r *dreamResult, trigger string, turnObs admissionLiveRouteTurnObservation) bool {
 	if r == nil || strings.TrimSpace(r.dream) == "" {
 		return false
 	}
@@ -573,7 +589,7 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 	if strings.TrimSpace(c.Trigger) == "" {
 		c.Trigger = trigger
 	}
-	c = prepareDreamCandidateForAdmission(iw, c)
+	c = prepareDreamCandidateForAdmissionWithTurnObservation(iw, c, turnObs)
 	r.candidate = c
 	if !c.Accepted {
 		return false
@@ -583,9 +599,13 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 }
 
 func prepareDreamCandidateForAdmission(iw *InnerWorld, c dreamCandidate) dreamCandidate {
+	return prepareDreamCandidateForAdmissionWithTurnObservation(iw, c, admissionLiveRouteTurnObservation{})
+}
+
+func prepareDreamCandidateForAdmissionWithTurnObservation(iw *InnerWorld, c dreamCandidate, turnObs admissionLiveRouteTurnObservation) dreamCandidate {
 	c = decideDreamCandidate(c)
 	c = attachDreamCounterfactual(iw, c)
-	c = guardDreamCandidate(c)
+	c = guardDreamCandidateWithTurnObservation(c, turnObs)
 	return rejectOnAdmissionLogError(c, recordDreamCandidate(c))
 }
 

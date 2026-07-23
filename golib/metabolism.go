@@ -315,7 +315,7 @@ func (tc *trioCtx) stop() {
 // subconscious is seeded (the direct human→nano channel re-opens when the
 // attention wanders inward) and any earlier dream surfaces. Each voice feeds the
 // inner world. Returns the words; the caller prints and controls the loop.
-func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (janus, reson string, dr dreamResult, hasDream bool) {
+func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, turnRouteObs admissionLiveRouteTurnObservation) (janus, reson string, dr dreamResult, hasDream bool) {
 	// Core-self (Damasio) instrumentation: her felt state before this exchange's
 	// object touches it. Read-only telemetry — the being-moved delta computed at
 	// the end feeds nothing back into generation (that wiring is a separate,
@@ -349,7 +349,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 		}
 		sendLatest(tc.seedCh, cue)
 		if r, ok := recvDream(tc.dreamCh); ok {
-			admitDreamToInnerWorld(tc.iw, &r, "human-turn")
+			admitDreamToInnerWorldWithTurnObservation(tc.iw, &r, "human-turn", turnRouteObs)
 			dr, hasDream = r, true
 		}
 	}
@@ -406,6 +406,13 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-bridge-smoke" {
 		if err := runAdmissionLiveRouteTurnBridgeSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-bridge-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-bridge-admission-smoke" {
+		if err := runAdmissionLiveRouteTurnBridgeAdmissionSmoke(); err != nil {
+			fmt.Println("admission-live-route-turn-bridge-admission-smoke:", err)
 			os.Exit(1)
 		}
 		return
@@ -468,7 +475,7 @@ func runDemo(prompt string) {
 
 	prevReson, lastDream := "", ""
 	for i := 1; i <= nExch; i++ {
-		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream, false)
+		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream, false, admissionLiveRouteTurnObservation{})
 		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
 		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
 		prevReson = reson

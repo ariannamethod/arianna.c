@@ -3580,3 +3580,15 @@ bridged identity turn now fails as `source nano does not match live route chorus
 instead of failing as `unknown_prompt_class`. That is a better map of the debt: the bridge can carry class, but
 it still has no live route authority. `make admission-live-route-turn-bridge-smoke` locks that behavior beside
 the earlier unbridged review smoke.
+
+**Follow-up, same day - bridged turn class reaches dream admission receipts.** The chat path now passes the same
+human-turn route observation into dream admission, so `AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN=1` no longer
+logs a stale `human-turn -> unknown` live route choice when `AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN=1` is active. The
+shared helper computes the bridged choice for both the turn/candidate review receipt and the dream admission
+policy receipt.
+
+The original candidate identity is preserved in the log (`source=nano`, `trigger=human-turn`). The admission
+policy only adds `live_route_turn_bridge_applied=true`, `live_route_turn_bridge_trigger=human-turn-identity`,
+and the bridged `live_route_choice` (`prompt_class=identity`, `route=chorus`, `source=nano`,
+`expected_source=chorus`, `passed=false`). This removes stale telemetry without giving nano route authority.
+`make admission-live-route-turn-bridge-admission-smoke` locks the admission JSONL side of the contract.

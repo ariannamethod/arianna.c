@@ -397,6 +397,48 @@ func TestDreamAdmissionLiveRouteChoiceDryRunWritesReceipt(t *testing.T) {
 	}
 }
 
+func TestDreamAdmissionLiveRouteTurnBridgeDryRunWritesAdmissionReceipt(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "dream-admission-turn-bridge.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	turnObs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("nano", "human-turn", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if admitDreamToInnerWorldWithTurnObservation(iw, &r, "human-turn", turnObs) {
+		t.Fatal("shadow turn-bridge receipt must not admit")
+	}
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Trigger != "human-turn" || got.Source != "nano" {
+		t.Fatalf("turn bridge admission receipt must preserve original candidate identity: %+v", got)
+	}
+	if got.Admission == nil || !got.Admission.Passed || !got.Admission.LiveRouteChoiceDryRun ||
+		!got.Admission.LiveRouteTurnBridgeApplied || got.Admission.LiveRouteBridgeTrigger != "human-turn-identity" {
+		t.Fatalf("turn bridge metadata missing from admission receipt: %+v", got.Admission)
+	}
+	choice := got.Admission.LiveRouteChoice
+	if choice == nil || choice.PromptClass != "identity" || choice.Route != "chorus" ||
+		choice.Source != "nano" || choice.ExpectedSource != "chorus" || choice.Passed ||
+		choice.Reason != "source nano does not match live route chorus for prompt class identity" {
+		t.Fatalf("turn bridge did not drive admission route choice: %+v", choice)
+	}
+}
+
 func TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionLive)
 	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
