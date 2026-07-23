@@ -3592,3 +3592,15 @@ policy only adds `live_route_turn_bridge_applied=true`, `live_route_turn_bridge_
 and the bridged `live_route_choice` (`prompt_class=identity`, `route=chorus`, `source=nano`,
 `expected_source=chorus`, `passed=false`). This removes stale telemetry without giving nano route authority.
 `make admission-live-route-turn-bridge-admission-smoke` locks the admission JSONL side of the contract.
+
+**Follow-up, 2026-07-24 - human-turn choice proposal is typed and receipt-only.** The human-turn observation now
+has a separate default-off chooser proposal boundary: `AM_LIVE_ROUTE_TURN_CHOICE_DRY_RUN=1` turns the measured
+prompt class into `arianna.live_route_turn_choice.v1`, recording the route, expected source, and route-prefixed
+candidate trigger (`chorus-identity`, `user_bridge-cold-reader`, `qloop_target-recipient-lock`, `direct-dream`,
+etc.). Unknown turns fail closed before any trigger is proposed.
+
+This still does not run route generation, does not admit a candidate, and does not mutate organism state. It is
+the missing receipt between prompt-side classification and future live route generation: the field can now say
+what candidate shape it would ask for before any voice is allowed to produce it. `make
+admission-live-route-turn-choice-smoke` locks the JSONL and chat-line contract, and `make body-smoke` runs it
+between turn observation and turn/candidate review.

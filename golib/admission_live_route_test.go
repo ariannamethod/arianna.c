@@ -214,6 +214,69 @@ func TestAdmissionLiveRouteTurnObservationForHuman(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnChoiceForObservation(t *testing.T) {
+	cases := []struct {
+		name        string
+		obs         admissionLiveRouteTurnObservation
+		wantClass   string
+		wantRoute   string
+		wantSource  string
+		wantTrigger string
+		wantPassed  bool
+		wantReason  string
+	}{
+		{
+			name:        "identity routes to chorus trigger",
+			obs:         admissionLiveRouteTurnObservationForHuman("Who are you?"),
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "chorus",
+			wantTrigger: "chorus-identity",
+			wantPassed:  true,
+		},
+		{
+			name:        "cold reader routes to user bridge trigger",
+			obs:         admissionLiveRouteTurnObservationForHuman("Please answer without assuming we have met before."),
+			wantClass:   "cold-reader",
+			wantRoute:   "user_bridge",
+			wantSource:  "user_bridge",
+			wantTrigger: "user_bridge-cold-reader",
+			wantPassed:  true,
+		},
+		{
+			name:       "unknown turn fails closed",
+			obs:        admissionLiveRouteTurnObservationForHuman("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing observation fails closed",
+			obs:        admissionLiveRouteTurnObservation{},
+			wantPassed: false,
+			wantReason: "missing_turn_observation",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			choice := admissionLiveRouteTurnChoiceForObservation(tc.obs)
+			if choice.Schema != admissionLiveRouteTurnChoiceSchema ||
+				choice.PromptClass != tc.wantClass ||
+				choice.Route != tc.wantRoute ||
+				choice.Source != tc.wantSource ||
+				choice.ExpectedSource != tc.wantSource ||
+				choice.CandidateTrigger != tc.wantTrigger ||
+				choice.Passed != tc.wantPassed ||
+				choice.Reason != tc.wantReason {
+				t.Fatalf("bad turn choice: %+v", choice)
+			}
+			if tc.obs.Schema != "" && choice.TurnTextHash == "" {
+				t.Fatalf("turn choice should carry turn text hash: %+v", choice)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {

@@ -10,6 +10,7 @@ const (
 	admissionLiveRoutePlanSchema            = "arianna.live_route_plan.v1"
 	admissionLiveRouteChoiceSchema          = "arianna.live_route_choice.v1"
 	admissionLiveRouteTurnObservationSchema = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema      = "arianna.live_route_turn_choice.v1"
 	admissionLiveRouteTurnReviewSchema      = "arianna.live_route_turn_candidate_review.v1"
 )
 
@@ -44,6 +45,20 @@ type admissionLiveRouteTurnObservation struct {
 	ClassScore     int      `json:"class_score"`
 	ClassReasons   []string `json:"class_reasons,omitempty"`
 	TextHash       string   `json:"text_hash,omitempty"`
+
+	Plan admissionLiveRoutePlan `json:"-"`
+}
+
+type admissionLiveRouteTurnChoice struct {
+	Schema           string `json:"schema"`
+	PromptClass      string `json:"prompt_class"`
+	Route            string `json:"route,omitempty"`
+	Source           string `json:"source,omitempty"`
+	ExpectedSource   string `json:"expected_source,omitempty"`
+	CandidateTrigger string `json:"candidate_trigger,omitempty"`
+	Passed           bool   `json:"passed"`
+	Reason           string `json:"reason,omitempty"`
+	TurnTextHash     string `json:"turn_text_hash,omitempty"`
 
 	Plan admissionLiveRoutePlan `json:"-"`
 }
@@ -266,6 +281,57 @@ func recordAdmissionLiveRouteTurnObservation(obs admissionLiveRouteTurnObservati
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(obs)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnChoiceDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CHOICE_DRY_RUN")
+}
+
+func admissionLiveRouteTurnChoiceForObservation(obs admissionLiveRouteTurnObservation) admissionLiveRouteTurnChoice {
+	choice := admissionLiveRouteTurnChoice{
+		Schema:       admissionLiveRouteTurnChoiceSchema,
+		PromptClass:  obs.PromptClass,
+		Route:        obs.Route,
+		TurnTextHash: obs.TextHash,
+		Plan:         obs.Plan,
+	}
+	if obs.Schema == "" {
+		choice.Reason = "missing_turn_observation"
+		return choice
+	}
+	if !obs.Passed {
+		choice.Reason = "turn route failed"
+		if obs.Reason != "" {
+			choice.Reason += ": " + obs.Reason
+		}
+		return choice
+	}
+	choice.ExpectedSource = obs.ExpectedSource
+	choice.Source = obs.ExpectedSource
+	if choice.Source == "" {
+		choice.Reason = "missing source for turn route " + obs.Route + " prompt class " + obs.PromptClass
+		return choice
+	}
+	choice.CandidateTrigger = admissionRouteTrigger(obs.Route, obs.PromptClass)
+	choice.Passed = true
+	return choice
+}
+
+func recordAdmissionLiveRouteTurnChoice(choice admissionLiveRouteTurnChoice) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CHOICE_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(choice)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

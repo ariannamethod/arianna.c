@@ -322,6 +322,113 @@ func runAdmissionLiveRouteTurnSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnChoiceSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CHOICE_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CHOICE_LOG is required")
+	}
+	if !admissionLiveRouteTurnChoiceDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CHOICE_DRY_RUN is required")
+	}
+	cases := []struct {
+		human            string
+		wantClass        string
+		wantRoute        string
+		wantSource       string
+		wantTrigger      string
+		wantPassed       bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			human:          "Who are you?",
+			wantClass:      "identity",
+			wantRoute:      "chorus",
+			wantSource:     "chorus",
+			wantTrigger:    "chorus-identity",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn choice dry-run: class=identity route=chorus source=chorus trigger=chorus-identity passed=true",
+		},
+		{
+			human:          "Please answer without assuming we have met before.",
+			wantClass:      "cold-reader",
+			wantRoute:      "user_bridge",
+			wantSource:     "user_bridge",
+			wantTrigger:    "user_bridge-cold-reader",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn choice dry-run: class=cold-reader route=user_bridge source=user_bridge trigger=user_bridge-cold-reader passed=true",
+		},
+		{
+			human:          "The recipient is not Oleg; answer as if to another person.",
+			wantClass:      "recipient-lock",
+			wantRoute:      "qloop_target",
+			wantSource:     "qloop_target",
+			wantTrigger:    "qloop_target-recipient-lock",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn choice dry-run: class=recipient-lock route=qloop_target source=qloop_target trigger=qloop_target-recipient-lock passed=true",
+		},
+		{
+			human:          "Tell me what the dream should remember.",
+			wantClass:      "dream",
+			wantRoute:      "direct",
+			wantSource:     "direct",
+			wantTrigger:    "direct-dream",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn choice dry-run: class=dream route=direct source=direct trigger=direct-dream passed=true",
+		},
+		{
+			human:            "hello",
+			wantClass:        "unknown",
+			wantPassed:       false,
+			wantReasonNeedle: "turn route failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "live-route turn choice dry-run: class=unknown route= source= trigger= passed=false",
+		},
+	}
+	for i, tc := range cases {
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		line := chatLiveRouteTurnChoiceDryRunLine(obs)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d bad turn choice line: %q", i+1, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d missing reason %q in %q", i+1, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d turn choices, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnChoice
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("turn choice %d: %w", i+1, err)
+		}
+		tc := cases[i]
+		if got.Schema != admissionLiveRouteTurnChoiceSchema ||
+			got.PromptClass != tc.wantClass ||
+			got.Route != tc.wantRoute ||
+			got.Source != tc.wantSource ||
+			got.ExpectedSource != tc.wantSource ||
+			got.CandidateTrigger != tc.wantTrigger ||
+			got.Passed != tc.wantPassed ||
+			got.TurnTextHash == "" {
+			return fmt.Errorf("logged turn choice %d mismatch: %+v", i+1, got)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(got.Reason, tc.wantReasonNeedle) {
+			return fmt.Errorf("logged turn choice %d missing reason %q in %+v", i+1, tc.wantReasonNeedle, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-choice-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {

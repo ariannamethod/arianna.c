@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() {
+		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -114,6 +114,9 @@ func runChat() {
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson
 		if line := chatLiveRouteTurnDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnChoiceDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -204,6 +207,22 @@ func chatLiveRouteTurnDryRunLine(obs admissionLiveRouteTurnObservation) string {
 	}
 	return fmt.Sprintf("│  · live-route turn dry-run: class=%s route=%s expected=%s passed=%t score=%d%s",
 		obs.PromptClass, obs.Route, obs.ExpectedSource, obs.Passed, obs.ClassScore, reason)
+}
+
+func chatLiveRouteTurnChoiceDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	if !admissionLiveRouteTurnChoiceDryRun() || obs.Schema == "" {
+		return ""
+	}
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	if err := recordAdmissionLiveRouteTurnChoice(choice); err != nil {
+		return fmt.Sprintf("│  · live-route turn choice dry-run log failed: %v", err)
+	}
+	reason := ""
+	if choice.Reason != "" {
+		reason = " reason=" + choice.Reason
+	}
+	return fmt.Sprintf("│  · live-route turn choice dry-run: class=%s route=%s source=%s trigger=%s passed=%t%s",
+		choice.PromptClass, choice.Route, choice.Source, choice.CandidateTrigger, choice.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
