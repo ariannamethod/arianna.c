@@ -96,6 +96,12 @@ func TestQloopTargetRouteUsesPromptClassAndTargetHint(t *testing.T) {
 	if got := qloopSweepPromptClass("user_bridge-direct-user", "user-frame"); got != "direct-user" {
 		t.Fatalf("user bridge route stripped nested direct-user class: %q", got)
 	}
+	if got := qloopSweepPromptClass("human-turn-identity", "human-turn"); got != "identity" {
+		t.Fatalf("human-turn bridge route did not preserve prompt class: %q", got)
+	}
+	if got := qloopSweepPromptClass("human-turn", "seed"); got != "human-turn" {
+		t.Fatalf("unbridged human-turn should remain untyped: %q", got)
+	}
 }
 
 func TestQloopHintQARouteUsesQuestionHintAndAnswerFrame(t *testing.T) {

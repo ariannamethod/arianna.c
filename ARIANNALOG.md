@@ -3568,3 +3568,15 @@ The important current result is visible by design: the existing subconscious can
 That is not a live rejection and not a claim that nano is wrong. It is the explicit bridge debt before a future
 route chooser deliberately supplies typed `chorus-*`, `direct-*`, `qloop_target-*`, `qloop_hint_qa-*`, or
 `user_bridge-*` candidates.
+
+**Follow-up, same day - nano human-turn bridge becomes typed but source-bounded.** A separate default-off knob,
+`AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN=1`, now lets the receipt review type only the existing
+`source=nano`, `trigger=human-turn` candidate from the measured human turn. The effective review trigger becomes
+`human-turn-<prompt-class>` (`human-turn-identity`, `human-turn-direct-user`, etc.), so the route classifier can
+see the same class the human-turn observation saw.
+
+This deliberately does not pretend nano is chorus, direct, qloop, or user_bridge. The source stays `nano`, so a
+bridged identity turn now fails as `source nano does not match live route chorus for prompt class identity`
+instead of failing as `unknown_prompt_class`. That is a better map of the debt: the bridge can carry class, but
+it still has no live route authority. `make admission-live-route-turn-bridge-smoke` locks that behavior beside
+the earlier unbridged review smoke.

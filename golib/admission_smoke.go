@@ -408,6 +408,113 @@ func runAdmissionLiveRouteTurnReviewSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnBridgeSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnBridgeDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN is required")
+	}
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	directUser := admissionLiveRouteTurnObservationForHuman("How do we answer this?")
+	cases := []struct {
+		name              string
+		obs               admissionLiveRouteTurnObservation
+		candidate         dreamCandidate
+		wantMatched       bool
+		wantBridgeApplied bool
+		wantReasonNeedle  string
+		wantLineNeedle    string
+	}{
+		{
+			name:              "bridged nano identity remains source-bounded",
+			obs:               identity,
+			candidate:         newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantMatched:       false,
+			wantBridgeApplied: true,
+			wantReasonNeedle:  "candidate_route_failed: source nano does not match live route chorus for prompt class identity",
+			wantLineNeedle:    "turn_class=identity expected=chorus candidate_source=nano candidate_class=identity candidate_route=chorus matched=false bridge=human-turn-identity",
+		},
+		{
+			name:              "bridged nano direct user remains source-bounded",
+			obs:               directUser,
+			candidate:         newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantMatched:       false,
+			wantBridgeApplied: true,
+			wantReasonNeedle:  "candidate_route_failed: source nano does not match live route user_bridge for prompt class direct-user",
+			wantLineNeedle:    "turn_class=direct-user expected=user_bridge candidate_source=nano candidate_class=direct-user candidate_route=user_bridge matched=false bridge=human-turn-direct-user",
+		},
+		{
+			name:              "typed chorus remains typed",
+			obs:               identity,
+			candidate:         newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+			wantMatched:       true,
+			wantBridgeApplied: false,
+			wantLineNeedle:    "turn_class=identity expected=chorus candidate_source=chorus candidate_class=identity candidate_route=chorus matched=true",
+		},
+		{
+			name:              "unknown turn fails before bridge",
+			obs:               admissionLiveRouteTurnObservationForHuman("hello"),
+			candidate:         newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantMatched:       false,
+			wantBridgeApplied: false,
+			wantReasonNeedle:  "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:    "turn_class=unknown expected= candidate_source=nano candidate_class= candidate_route= matched=false",
+		},
+	}
+	for i, tc := range cases {
+		candidate := tc.candidate
+		if normalizeDreamAdmissionSource(candidate.Source) == "nano" && candidate.Trigger == "human-turn" {
+			choice := admissionLiveRouteChoiceForCandidate(candidate)
+			candidate.Admission = &dreamAdmissionPolicy{LiveRouteChoice: &choice}
+		}
+		line := chatLiveRouteTurnCandidateReviewLine(tc.obs, candidate)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad bridge line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		review := admissionLiveRouteTurnCandidateReviewForDream(tc.obs, candidate)
+		if review.Matched != tc.wantMatched || review.CandidateBridgeApplied != tc.wantBridgeApplied {
+			return fmt.Errorf("case %d %s bad bridge review: %+v", i+1, tc.name, review)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d turn bridge reviews, got %d", len(cases), len(lines))
+	}
+	var bridged int
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateReview
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("turn bridge review %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnReviewSchema || got.Matched != cases[i].wantMatched {
+			return fmt.Errorf("logged turn bridge review %d mismatch: %+v", i+1, got)
+		}
+		if got.CandidateBridgeApplied {
+			bridged++
+		}
+	}
+	if bridged != 2 {
+		return fmt.Errorf("expected 2 bridged nano reviews, got %d", bridged)
+	}
+
+	fmt.Printf("[admission-live-route-turn-bridge-smoke] pass: log=%s cases=%d bridged=%d\n", logPath, len(cases), bridged)
+	return nil
+}
+
 type admissionLiveRouteGateSmokeCase struct {
 	name            string
 	source          string

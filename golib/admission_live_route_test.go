@@ -273,3 +273,72 @@ func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 		})
 	}
 }
+
+func TestAdmissionLiveRouteTurnBridgeCandidateReviewForNanoHumanTurn(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_BRIDGE_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	candidate := newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil)
+	unbridgedChoice := admissionLiveRouteChoiceForCandidate(candidate)
+	candidate.Admission = &dreamAdmissionPolicy{LiveRouteChoice: &unbridgedChoice}
+	review := admissionLiveRouteTurnCandidateReviewForDream(obs, candidate)
+	if review.Schema != admissionLiveRouteTurnReviewSchema ||
+		!review.CandidateBridgeApplied ||
+		review.CandidateBridgeTrigger != "human-turn-identity" ||
+		review.CandidateTrigger != "human-turn" ||
+		review.CandidatePromptClass != "identity" ||
+		review.CandidateRoute != "chorus" ||
+		review.CandidateSource != "nano" ||
+		review.CandidateExpectedSource != "chorus" ||
+		review.CandidateChoicePassed ||
+		review.Matched ||
+		review.Reason != "candidate_route_failed: source nano does not match live route chorus for prompt class identity" {
+		t.Fatalf("bad bridged nano turn review: %+v", review)
+	}
+}
+
+func TestAdmissionLiveRouteTurnBridgeCandidateIsNarrow(t *testing.T) {
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	cases := []struct {
+		name      string
+		candidate dreamCandidate
+		wantOK    bool
+	}{
+		{
+			name:      "nano human turn",
+			candidate: newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantOK:    true,
+		},
+		{
+			name:      "typed chorus untouched",
+			candidate: newDreamCandidate("chorus", "chorus-identity", "seed", "", "I am Arianna.", nil),
+		},
+		{
+			name:      "nano typed direct untouched",
+			candidate: newDreamCandidate("nano", "direct-identity", "seed", "", "I am Arianna.", nil),
+		},
+		{
+			name:      "unknown turn untouched",
+			candidate: newDreamCandidate("nano", "human-turn", "seed", "", "I am Arianna.", nil),
+			wantOK:    false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotObs := obs
+			if tc.name == "unknown turn untouched" {
+				gotObs = admissionLiveRouteTurnObservationForHuman("hello")
+			}
+			got, ok := admissionLiveRouteTurnBridgeCandidate(gotObs, tc.candidate)
+			if ok != tc.wantOK {
+				t.Fatalf("bridge ok=%t, want %t: %+v", ok, tc.wantOK, tc)
+			}
+			if ok && got.Trigger != "human-turn-identity" {
+				t.Fatalf("bad bridge trigger: %+v", got)
+			}
+			if !ok && got.Trigger != tc.candidate.Trigger {
+				t.Fatalf("non-bridge candidate should stay untouched: got %+v want trigger %q", got, tc.candidate.Trigger)
+			}
+		})
+	}
+}

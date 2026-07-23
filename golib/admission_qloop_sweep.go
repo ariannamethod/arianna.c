@@ -1202,7 +1202,7 @@ func qloopSweepPromptClass(trigger, seed string) string {
 	if qloopSweepKnownPromptClass(s) {
 		return s
 	}
-	for _, prefix := range []string{"user_bridge-", "qloop_hint_qa-", "qloop_target-", "qloop-", "direct-", "chorus-"} {
+	for _, prefix := range []string{"human-turn-", "user_bridge-", "qloop_hint_qa-", "qloop_target-", "qloop-", "direct-", "chorus-"} {
 		if strings.HasPrefix(s, prefix) {
 			s = strings.TrimPrefix(s, prefix)
 			break
