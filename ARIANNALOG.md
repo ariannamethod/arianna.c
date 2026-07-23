@@ -3512,3 +3512,14 @@ shadow mode, and require all five route-source families (`chorus`, `direct`, `ql
 
 The negative side is still explicit: one wrong-source `identity` case and one unknown prompt-class case must fail
 closed. This keeps the gate broad enough for future route widening without changing ordinary live admission.
+
+**Follow-up, same day - live route gate smoke uses route-prefixed triggers.** The broad gate smoke now feeds
+admission with the same route-prefixed trigger shape used by route compare and the live chooser:
+`user_bridge-cold-reader`, `qloop_target-recipient-lock`, `qloop_hint_qa-polyphony`, `direct-dream`,
+`chorus-identity`, and the unknown-class negative `chorus-unknown-pressure`. The Go coverage test verifies that
+each matched trigger normalizes back to its prompt class through `qloopSweepPromptClass`, and the shell wrapper
+greps the raw JSONL receipts for representative prefixed triggers.
+
+This keeps the route-plan gate honest at the runtime boundary: the smoke is no longer proving only the typed map
+in isolation, but the actual trigger normalization path that future live route promotion will depend on. Still
+default-off, still shadow-only, still no organism mutation.

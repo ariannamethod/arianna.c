@@ -175,7 +175,7 @@ func admissionLiveRouteGateSmokeCases() []admissionLiveRouteGateSmokeCase {
 		cases = append(cases, admissionLiveRouteGateSmokeCase{
 			name:            "matched " + promptClass,
 			source:          wantSource,
-			trigger:         promptClass,
+			trigger:         admissionLiveRouteGateSmokeTrigger(plan.Route, promptClass),
 			seed:            "smoke-" + promptClass,
 			text:            text,
 			wantPassed:      true,
@@ -189,7 +189,7 @@ func admissionLiveRouteGateSmokeCases() []admissionLiveRouteGateSmokeCase {
 		admissionLiveRouteGateSmokeCase{
 			name:            "wrong source",
 			source:          "direct",
-			trigger:         "identity",
+			trigger:         admissionLiveRouteGateSmokeTrigger("chorus", "identity"),
 			seed:            "smoke-identity-wrong-source",
 			text:            text,
 			wantPassed:      false,
@@ -202,7 +202,7 @@ func admissionLiveRouteGateSmokeCases() []admissionLiveRouteGateSmokeCase {
 		admissionLiveRouteGateSmokeCase{
 			name:            "unknown class",
 			source:          "chorus",
-			trigger:         "unknown-pressure",
+			trigger:         admissionLiveRouteGateSmokeTrigger("chorus", "unknown-pressure"),
 			seed:            "smoke-unknown-pressure",
 			text:            text,
 			wantPassed:      false,
@@ -212,6 +212,15 @@ func admissionLiveRouteGateSmokeCases() []admissionLiveRouteGateSmokeCase {
 		},
 	)
 	return cases
+}
+
+func admissionLiveRouteGateSmokeTrigger(route, promptClass string) string {
+	route = normalizeDreamAdmissionSource(route)
+	promptClass = strings.TrimSpace(promptClass)
+	if route == "" {
+		return promptClass
+	}
+	return route + "-" + promptClass
 }
 
 func stringSliceContains(values []string, want string) bool {

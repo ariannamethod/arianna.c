@@ -51,6 +51,9 @@ done
 for route in chorus direct qloop_hint_qa qloop_target user_bridge; do
     grep -q "\"route\":\"$route\"" "$LOG" || die "$route route missing"
 done
+for trigger in user_bridge-cold-reader user_bridge-direct-user qloop_target-recipient-lock qloop_hint_qa-polyphony direct-dream chorus-identity chorus-unknown-pressure; do
+    grep -q "\"trigger\":\"$trigger\"" "$LOG" || die "$trigger route-prefixed trigger missing"
+done
 grep -q '"passed":true' "$LOG" || die "matching route policy did not pass"
 grep -q '"passed":false' "$LOG" || die "wrong-source route policy did not fail"
 grep -q '"source direct does not match live route chorus for prompt class identity"' "$LOG" || die "wrong-source route-plan reason missing"
