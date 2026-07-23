@@ -116,6 +116,9 @@ func runChat() {
 			} else {
 				fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(dr.dream, 90))
 			}
+			if line := chatLiveRouteChoiceDryRunLine(dr.candidate); line != "" {
+				fmt.Println(line)
+			}
 		}
 		// A hot voice daemon can fall silent after a turn or two (it stops framing <END>).
 		// Revive it in place instead of ending the session — the trio survives one voice's
@@ -163,6 +166,19 @@ func runChat() {
 	}
 	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
 	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
+}
+
+func chatLiveRouteChoiceDryRunLine(c dreamCandidate) string {
+	if !dreamAdmissionLiveRouteChoiceDryRun() || c.Admission == nil || c.Admission.LiveRouteChoice == nil {
+		return ""
+	}
+	choice := c.Admission.LiveRouteChoice
+	reason := ""
+	if choice.Reason != "" {
+		reason = " reason=" + choice.Reason
+	}
+	return fmt.Sprintf("│  · live-route dry-run: class=%s route=%s source=%s expected=%s passed=%t%s",
+		choice.PromptClass, choice.Route, choice.Source, choice.ExpectedSource, choice.Passed, reason)
 }
 
 // harvestField is Phase 2 (A): the organism learns from the subconscious. The
