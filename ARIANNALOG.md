@@ -3533,3 +3533,14 @@ choice can therefore be visible as `live_route_choice.passed=false` while the su
 `metabolism --chat` also prints a short `live-route dry-run` line beside each surfaced nano candidate when the
 knob is enabled. This is the first runtime-facing observation layer after the route gate smokes: route choice can
 be watched during a live conversation before any route is promoted into live generation or admission.
+
+**Follow-up, same day - chat dry-run route smoke closes the human-turn boundary.** The dry-run route surface now
+has a bounded executable smoke: `make admission-live-route-chat-smoke` runs a typed route-prefixed candidate
+through `metabolism --admission-live-route-chat-smoke` in shadow mode, records a receipt, prints the same
+`live-route dry-run` line used by `--chat`, and checks that no durable organism state is written.
+
+This also closed a real boundary bug before promotion work: `admitDreamToInnerWorld` no longer clobbers an
+already typed candidate trigger with the outer admission label (`human-turn`). The smoke proves
+`chorus-identity` survives that boundary and still resolves to `identity -> chorus`. Current live nano
+human-turn dreams remain unpromoted and untyped unless a future route chooser deliberately supplies a typed
+candidate.

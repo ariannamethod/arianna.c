@@ -80,6 +80,10 @@ echo "[body-smoke] admission live route-plan gate"
 A2A_ADMISSION_LIVE_ROUTE_GATE_WORKDIR="$WORKDIR/admission-live-route-gate" \
     bash "$ROOT/tools/admission_live_route_gate_smoke.sh"
 
+echo "[body-smoke] admission live route chat dry-run"
+A2A_ADMISSION_LIVE_ROUTE_CHAT_WORKDIR="$WORKDIR/admission-live-route-chat" \
+    bash "$ROOT/tools/admission_live_route_chat_smoke.sh"
+
 echo "[body-smoke] admission shadow sample"
 A2A_ADMISSION_SAMPLE_WORKDIR="$WORKDIR/admission-sample" \
     bash "$ROOT/tools/admission_shadow_sample.sh"

@@ -337,6 +337,30 @@ func TestDreamAdmissionLiveRouteChoiceDryRunDoesNotGate(t *testing.T) {
 	}
 }
 
+func TestAdmitDreamToInnerWorldPreservesTypedCandidateTrigger(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	r := dreamResult{
+		dream:     "I love this beautiful joyful field and its living resonance",
+		candidate: newDreamCandidate("chorus", "chorus-identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+	}
+	if admitDreamToInnerWorld(iw, &r, "human-turn") {
+		t.Fatal("shadow admission must not admit")
+	}
+	if r.candidate.Trigger != "chorus-identity" {
+		t.Fatalf("typed candidate trigger was clobbered by outer trigger: %+v", r.candidate)
+	}
+	if r.candidate.Admission == nil || r.candidate.Admission.LiveRouteChoice == nil ||
+		r.candidate.Admission.LiveRouteChoice.PromptClass != "identity" {
+		t.Fatalf("preserved trigger did not drive route choice: %+v", r.candidate.Admission)
+	}
+}
+
 func TestDreamAdmissionLiveRouteChoiceDryRunWritesReceipt(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")

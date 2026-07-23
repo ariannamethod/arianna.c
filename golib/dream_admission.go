@@ -570,7 +570,9 @@ func admitDreamToInnerWorld(iw *InnerWorld, r *dreamResult, trigger string) bool
 	if c.Schema == "" {
 		c = newDreamCandidate("nano", trigger, "", r.frag, r.dream, nil)
 	}
-	c.Trigger = trigger
+	if strings.TrimSpace(c.Trigger) == "" {
+		c.Trigger = trigger
+	}
 	c = prepareDreamCandidateForAdmission(iw, c)
 	r.candidate = c
 	if !c.Accepted {
