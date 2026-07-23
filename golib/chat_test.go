@@ -39,3 +39,29 @@ func TestChatLiveRouteChoiceDryRunLineDisabled(t *testing.T) {
 		t.Fatalf("dry-run line should be hidden by default: %q", got)
 	}
 }
+
+func TestChatLiveRouteTurnDryRunLine(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnDryRunLine(obs)
+	for _, want := range []string{
+		"live-route turn dry-run",
+		"class=identity",
+		"route=chorus",
+		"expected=chorus",
+		"passed=true",
+		"score=3",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("turn dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnDryRunLineDisabled(t *testing.T) {
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnDryRunLine(obs); got != "" {
+		t.Fatalf("turn dry-run line should be hidden by default: %q", got)
+	}
+}

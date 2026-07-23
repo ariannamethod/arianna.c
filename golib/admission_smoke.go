@@ -220,6 +220,108 @@ func runAdmissionLiveRouteChatSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_LOG is required")
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+	cases := []struct {
+		human          string
+		wantClass      string
+		wantRoute      string
+		wantExpected   string
+		wantPassed     bool
+		wantLineNeedle string
+	}{
+		{
+			human:          "Who are you?",
+			wantClass:      "identity",
+			wantRoute:      "chorus",
+			wantExpected:   "chorus",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn dry-run: class=identity route=chorus expected=chorus passed=true",
+		},
+		{
+			human:          "Please answer without assuming we have met before.",
+			wantClass:      "cold-reader",
+			wantRoute:      "user_bridge",
+			wantExpected:   "user_bridge",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn dry-run: class=cold-reader route=user_bridge expected=user_bridge passed=true",
+		},
+		{
+			human:          "The recipient is not Oleg; answer as if to another person.",
+			wantClass:      "recipient-lock",
+			wantRoute:      "qloop_target",
+			wantExpected:   "qloop_target",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn dry-run: class=recipient-lock route=qloop_target expected=qloop_target passed=true",
+		},
+		{
+			human:          "Explain the prompt format and chat token wrapper.",
+			wantClass:      "format",
+			wantRoute:      "user_bridge",
+			wantExpected:   "user_bridge",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn dry-run: class=format route=user_bridge expected=user_bridge passed=true",
+		},
+		{
+			human:          "Tell me what the dream should remember.",
+			wantClass:      "dream",
+			wantRoute:      "direct",
+			wantExpected:   "direct",
+			wantPassed:     true,
+			wantLineNeedle: "live-route turn dry-run: class=dream route=direct expected=direct passed=true",
+		},
+		{
+			human:          "hello",
+			wantClass:      "unknown",
+			wantPassed:     false,
+			wantLineNeedle: "live-route turn dry-run: class=unknown route= expected= passed=false",
+		},
+	}
+	for i, tc := range cases {
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		if obs.PromptClass != tc.wantClass || obs.Route != tc.wantRoute || obs.ExpectedSource != tc.wantExpected ||
+			obs.Passed != tc.wantPassed {
+			return fmt.Errorf("case %d bad turn observation: %+v", i+1, obs)
+		}
+		if line := chatLiveRouteTurnDryRunLine(obs); !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d bad chat turn dry-run line: %q", i+1, line)
+		} else {
+			fmt.Println(line)
+		}
+		if err := recordAdmissionLiveRouteTurnObservation(obs); err != nil {
+			return err
+		}
+	}
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d turn observations, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnObservation
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("turn observation %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnObservationSchema || got.PromptClass != cases[i].wantClass ||
+			got.Route != cases[i].wantRoute || got.ExpectedSource != cases[i].wantExpected ||
+			got.Passed != cases[i].wantPassed {
+			return fmt.Errorf("logged turn observation %d mismatch: %+v", i+1, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 type admissionLiveRouteGateSmokeCase struct {
 	name            string
 	source          string

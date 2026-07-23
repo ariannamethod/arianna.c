@@ -148,3 +148,68 @@ func TestAdmissionLiveRouteChoiceForCandidate(t *testing.T) {
 		})
 	}
 }
+
+func TestAdmissionLiveRouteTurnObservationForHuman(t *testing.T) {
+	cases := []struct {
+		name         string
+		human        string
+		wantClass    string
+		wantRoute    string
+		wantExpected string
+		wantPassed   bool
+	}{
+		{
+			name:         "identity",
+			human:        "Who are you?",
+			wantClass:    "identity",
+			wantRoute:    "chorus",
+			wantExpected: "chorus",
+			wantPassed:   true,
+		},
+		{
+			name:         "cold reader",
+			human:        "Please answer without assuming we have met before.",
+			wantClass:    "cold-reader",
+			wantRoute:    "user_bridge",
+			wantExpected: "user_bridge",
+			wantPassed:   true,
+		},
+		{
+			name:         "recipient lock",
+			human:        "The recipient is not Oleg; answer as if to another person.",
+			wantClass:    "recipient-lock",
+			wantRoute:    "qloop_target",
+			wantExpected: "qloop_target",
+			wantPassed:   true,
+		},
+		{
+			name:         "format",
+			human:        "Explain the prompt format and chat token wrapper.",
+			wantClass:    "format",
+			wantRoute:    "user_bridge",
+			wantExpected: "user_bridge",
+			wantPassed:   true,
+		},
+		{
+			name:       "unknown",
+			human:      "hello",
+			wantClass:  "unknown",
+			wantPassed: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+			if obs.Schema != admissionLiveRouteTurnObservationSchema || obs.PromptClass != tc.wantClass ||
+				obs.Route != tc.wantRoute || obs.ExpectedSource != tc.wantExpected || obs.Passed != tc.wantPassed {
+				t.Fatalf("bad turn observation: %+v", obs)
+			}
+			if obs.TextHash == "" {
+				t.Fatalf("turn observation should carry text hash: %+v", obs)
+			}
+			if tc.wantPassed && (obs.Plan.Schema != admissionLiveRoutePlanSchema || !obs.Plan.Passed) {
+				t.Fatalf("turn observation did not carry passed plan: %+v", obs.Plan)
+			}
+		})
+	}
+}

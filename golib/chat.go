@@ -95,6 +95,13 @@ func runChat() {
 		}
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
+		turnRouteObs := admissionLiveRouteTurnObservation{}
+		if dreamAdmissionLiveRouteChoiceDryRun() {
+			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
+			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
+				fmt.Println("│  · live-route turn dry-run log failed:", err)
+			}
+		}
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
 		// voices answer); turn() then re-seeds with the turn's context for the next.
@@ -106,6 +113,9 @@ func runChat() {
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson
+		if line := chatLiveRouteTurnDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
 		if hasDream {
 			if dr.admitted() {
 				lastDream = dr.dream
@@ -179,6 +189,18 @@ func chatLiveRouteChoiceDryRunLine(c dreamCandidate) string {
 	}
 	return fmt.Sprintf("│  · live-route dry-run: class=%s route=%s source=%s expected=%s passed=%t%s",
 		choice.PromptClass, choice.Route, choice.Source, choice.ExpectedSource, choice.Passed, reason)
+}
+
+func chatLiveRouteTurnDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	if !dreamAdmissionLiveRouteChoiceDryRun() || obs.Schema == "" {
+		return ""
+	}
+	reason := ""
+	if obs.Reason != "" {
+		reason = " reason=" + obs.Reason
+	}
+	return fmt.Sprintf("│  · live-route turn dry-run: class=%s route=%s expected=%s passed=%t score=%d%s",
+		obs.PromptClass, obs.Route, obs.ExpectedSource, obs.Passed, obs.ClassScore, reason)
 }
 
 // harvestField is Phase 2 (A): the organism learns from the subconscious. The
