@@ -3471,3 +3471,14 @@ closed, and a wrong source fails before the candidate can mutate the inner world
 This does not promote route generation or change ordinary live behavior. It adds the missing typed gate between
 shadow route evidence and future runtime route selection, so staged field/qloop experiments can prove that the
 candidate reaching admission is the one the measured prompt class is allowed to send.
+
+**Follow-up, same day - live route-plan gate smoke.** The new route-plan admission gate is now executable as a
+runtime contract, not only unit-tested policy. `metabolism --admission-live-route-gate-smoke` runs in shadow mode
+with `AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN=1`, writes typed receipts, and verifies two cases: the measured
+`identity -> chorus` source passes the admission policy, while the same prompt class arriving from `direct`
+records a fail-closed route mismatch. The wrapper target is `make admission-live-route-gate-smoke`, and
+`make body-smoke` runs it between the base shadow receipt and the sampler.
+
+The smoke remains non-mutating: shadow mode rejects both candidates, verifies the live route plan on the receipt,
+and checks the scratch directory for durable organism state. This gives the future live chooser a control lamp
+before any runtime route promotion.
