@@ -26,6 +26,13 @@ func TestAdmissionLiveRouteGateSmokeCasesCoverPlan(t *testing.T) {
 			if tc.source != tc.wantSource {
 				t.Fatalf("matched smoke case source mismatch: %+v", tc)
 			}
+			if got := qloopSweepPromptClass(tc.trigger, tc.seed); got != tc.wantPromptClass {
+				t.Fatalf("matched smoke trigger %q normalized to %q, want %q", tc.trigger, got, tc.wantPromptClass)
+			}
+			wantTrigger := admissionLiveRouteGateSmokeTrigger(tc.wantRoute, tc.wantPromptClass)
+			if tc.trigger != wantTrigger {
+				t.Fatalf("matched smoke trigger mismatch: got %q want %q", tc.trigger, wantTrigger)
+			}
 			continue
 		}
 		rejected++
@@ -100,5 +107,13 @@ func TestAdmissionLiveRouteGateSmokeWritesBroadMatchedAndRejectedReceipts(t *tes
 	}
 	if !strings.Contains(string(raw), "source direct does not match live route chorus for prompt class identity") {
 		t.Fatalf("wrong-source route reason missing from log: %s", raw)
+	}
+	if !strings.Contains(string(raw), "live route plan failed: unknown_prompt_class") {
+		t.Fatalf("unknown-class route reason missing from log: %s", raw)
+	}
+	for _, trigger := range []string{"user_bridge-cold-reader", "user_bridge-direct-user", "qloop_target-recipient-lock", "qloop_hint_qa-polyphony", "direct-dream", "chorus-identity", "chorus-unknown-pressure"} {
+		if !strings.Contains(string(raw), "\"trigger\":\""+trigger+"\"") {
+			t.Fatalf("route-prefixed trigger %q missing from log: %s", trigger, raw)
+		}
 	}
 }
