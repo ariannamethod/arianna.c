@@ -146,3 +146,36 @@ func TestAdmissionLiveRouteChatSmokeWritesDryRunReceipt(t *testing.T) {
 		t.Fatalf("bad chat dry-run route choice: %+v", choice)
 	}
 }
+
+func TestAdmissionLiveRouteTurnSmokeWritesObservations(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-turn.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 6 {
+		t.Fatalf("expected 6 turn observations, got %d: %s", len(lines), raw)
+	}
+	var identity, unknown admissionLiveRouteTurnObservation
+	if err := json.Unmarshal([]byte(lines[0]), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &unknown); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Schema != admissionLiveRouteTurnObservationSchema || identity.PromptClass != "identity" ||
+		identity.Route != "chorus" || identity.ExpectedSource != "chorus" || !identity.Passed {
+		t.Fatalf("bad identity turn observation: %+v", identity)
+	}
+	if unknown.PromptClass != "unknown" || unknown.Passed || unknown.Reason != "live route plan failed: unknown_prompt_class" {
+		t.Fatalf("unknown turn should fail closed: %+v", unknown)
+	}
+}

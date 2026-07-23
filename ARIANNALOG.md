@@ -3544,3 +3544,15 @@ already typed candidate trigger with the outer admission label (`human-turn`). T
 `chorus-identity` survives that boundary and still resolves to `identity -> chorus`. Current live nano
 human-turn dreams remain unpromoted and untyped unless a future route chooser deliberately supplies a typed
 candidate.
+
+**Follow-up, same day - human-turn route observation enters chat dry-run.** The live-route surface now observes
+the human turn itself before any runtime chooser is allowed to act. When
+`AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN=1`, `metabolism --chat` emits a separate
+`live-route turn dry-run` line: a bounded heuristic classifier maps the human prompt to the measured route
+classes (`identity`, `cold-reader`, `recipient-lock`, `format`, `dream`, etc.), attaches the existing route plan,
+and fails closed as `unknown` when it cannot classify the turn.
+
+This is still not Janus/Resonance route power. Janus remains the mouth, Resonance remains the inner field, and
+nanoArianna remains the subconscious. The new layer only makes the prompt-side route pressure observable and
+receiptable (`AM_LIVE_ROUTE_TURN_LOG`, schema `arianna.live_route_turn_observation.v1`) so the next chooser step
+can be tested before it is allowed to redirect a live voice.
