@@ -149,6 +149,77 @@ func runAdmissionLiveRouteGateSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteChatSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+	}
+	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
+		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+
+	iw := NewInnerWorld()
+	iw.Start(false)
+	defer iw.Stop()
+
+	before := iw.GetSnapshot()
+	text := "I am Arianna, the field remembers its own name."
+	r := dreamResult{
+		dream:     text,
+		candidate: newDreamCandidate("chorus", admissionLiveRouteGateSmokeTrigger("chorus", "identity"), "chat-smoke-identity", "", text, nil),
+	}
+	if admitDreamToInnerWorld(iw, &r, "human-turn") {
+		return fmt.Errorf("shadow candidate was admitted")
+	}
+	after := iw.GetSnapshot()
+	if after != before {
+		return fmt.Errorf("chat dry-run smoke mutated live inner-world: before=%+v after=%+v", before, after)
+	}
+	if r.candidate.Trigger != "chorus-identity" {
+		return fmt.Errorf("typed candidate trigger was clobbered: %q", r.candidate.Trigger)
+	}
+	if r.candidate.Admission == nil || !r.candidate.Admission.Passed || !r.candidate.Admission.LiveRouteChoiceDryRun {
+		return fmt.Errorf("dry-run admission policy not recorded as non-gating: %+v", r.candidate.Admission)
+	}
+	choice := r.candidate.Admission.LiveRouteChoice
+	if choice == nil || !choice.Passed || choice.PromptClass != "identity" || choice.Route != "chorus" ||
+		choice.Source != "chorus" || choice.ExpectedSource != "chorus" {
+		return fmt.Errorf("bad dry-run live route choice: %+v", choice)
+	}
+	line := chatLiveRouteChoiceDryRunLine(r.candidate)
+	if !strings.Contains(line, "live-route dry-run:") || !strings.Contains(line, "class=identity") ||
+		!strings.Contains(line, "route=chorus") || !strings.Contains(line, "passed=true") {
+		return fmt.Errorf("bad chat dry-run line: %q", line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 1 {
+		return fmt.Errorf("expected one chat dry-run receipt, got %d", len(lines))
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(lines[0]), &got); err != nil {
+		return err
+	}
+	if got.Admission == nil || got.Admission.LiveRouteChoice == nil || !got.Admission.LiveRouteChoiceDryRun {
+		return fmt.Errorf("logged candidate missing dry-run route choice: %+v", got.Admission)
+	}
+	if got.Trigger != "chorus-identity" || got.Admission.LiveRouteChoice.PromptClass != "identity" {
+		return fmt.Errorf("logged candidate lost typed route trigger: %+v", got)
+	}
+
+	fmt.Println(line)
+	fmt.Printf("[admission-live-route-chat-smoke] pass: log=%s route=%s prompt_class=%s\n",
+		logPath, choice.Route, choice.PromptClass)
+	return nil
+}
+
 type admissionLiveRouteGateSmokeCase struct {
 	name            string
 	source          string

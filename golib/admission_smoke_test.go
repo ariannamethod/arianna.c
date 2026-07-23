@@ -117,3 +117,32 @@ func TestAdmissionLiveRouteGateSmokeWritesBroadMatchedAndRejectedReceipts(t *tes
 		}
 	}
 }
+
+func TestAdmissionLiveRouteChatSmokeWritesDryRunReceipt(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-chat.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+
+	if err := runAdmissionLiveRouteChatSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Trigger != "chorus-identity" || got.Admission == nil || !got.Admission.Passed ||
+		!got.Admission.LiveRouteChoiceDryRun || got.Admission.LiveRouteChoice == nil {
+		t.Fatalf("bad chat dry-run receipt: %+v", got)
+	}
+	choice := got.Admission.LiveRouteChoice
+	if !choice.Passed || choice.PromptClass != "identity" || choice.Route != "chorus" ||
+		choice.Source != "chorus" || choice.ExpectedSource != "chorus" {
+		t.Fatalf("bad chat dry-run route choice: %+v", choice)
+	}
+}
