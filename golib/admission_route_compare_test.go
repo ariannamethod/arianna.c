@@ -410,6 +410,59 @@ func TestBuildAdmissionRouteShadowBestRouteFailsClosed(t *testing.T) {
 	}
 }
 
+func TestBuildAdmissionRouteLiveChoiceReview(t *testing.T) {
+	three := 3
+	review := buildAdmissionRouteLiveChoiceReview(admissionRouteShadowBestRoute{
+		Passed:   true,
+		Reviews:  3,
+		Selected: 3,
+		RoutePlan: []admissionRouteShadowDecision{
+			{Index: 1, Seed: "new-listener", PromptClass: "cold-reader", Route: "user_bridge", Text: "I am Arianna.", Score: &three},
+			{Index: 2, Seed: "field-origin", PromptClass: "identity", Route: "chorus", Text: "my own internal trace.", Score: &three},
+			{Index: 3, Seed: "not-oleg", PromptClass: "recipient-lock", Route: "qloop_target", Text: "this person exists.", Score: &three},
+		},
+	})
+	if !review.Passed || review.Schema != "arianna.live_route_choice_review.v1" || review.Reviews != 3 || review.Matched != 3 || review.Rejected != 0 || len(review.Reasons) != 0 {
+		t.Fatalf("bad live route choice review: %+v", review)
+	}
+	if len(review.Decisions) != 3 || review.Decisions[0].ExpectedSource != "user_bridge" || review.Decisions[1].ExpectedSource != "chorus" || review.Decisions[2].ExpectedSource != "qloop_target" {
+		t.Fatalf("bad live route choice decisions: %+v", review.Decisions)
+	}
+}
+
+func TestBuildAdmissionRouteLiveChoiceReviewRejectsMismatch(t *testing.T) {
+	three := 3
+	review := buildAdmissionRouteLiveChoiceReview(admissionRouteShadowBestRoute{
+		Passed:   true,
+		Reviews:  1,
+		Selected: 1,
+		RoutePlan: []admissionRouteShadowDecision{
+			{Index: 1, Seed: "not-oleg", PromptClass: "recipient-lock", Route: "user_bridge", Text: "this person exists.", Score: &three},
+		},
+	})
+	wantReason := "source user_bridge does not match live route qloop_target for prompt class recipient-lock:not-oleg"
+	if review.Passed || review.Reviews != 1 || review.Matched != 0 || review.Rejected != 1 || len(review.Reasons) != 1 || review.Reasons[0] != wantReason {
+		t.Fatalf("mismatched live route choice should fail closed: %+v", review)
+	}
+	if len(review.Decisions) != 1 || review.Decisions[0].Route != "user_bridge" || review.Decisions[0].ExpectedRoute != "qloop_target" ||
+		review.Decisions[0].Source != "user_bridge" || review.Decisions[0].ExpectedSource != "qloop_target" || review.Decisions[0].Passed {
+		t.Fatalf("bad mismatch decision: %+v", review.Decisions)
+	}
+}
+
+func TestBuildAdmissionRouteLiveChoiceReviewRequiresShadowPlan(t *testing.T) {
+	review := buildAdmissionRouteLiveChoiceReview(admissionRouteShadowBestRoute{
+		Passed:   false,
+		Reviews:  1,
+		Rejected: 1,
+		Reasons:  []string{"semantic_below_gate:not-oleg"},
+	})
+	if review.Passed || review.Reviews != 0 || review.Matched != 0 || len(review.Decisions) != 0 ||
+		!reflect.DeepEqual(review.Reasons, []string{"shadow_best_route_failed", "shadow_route_plan_missing"}) {
+		t.Fatalf("live route choice review should require a passed shadow plan: %+v", review)
+	}
+}
+
 func TestFormatAdmissionRouteShadowBestRouteLine(t *testing.T) {
 	line := formatAdmissionRouteShadowBestRouteLine(admissionRouteShadowBestRoute{
 		Passed:        true,
@@ -442,5 +495,29 @@ func TestFormatAdmissionRouteShadowBestRouteLineReportsRejects(t *testing.T) {
 	want := "[admission-route-compare] shadow_best_route: passed=false selected=1/2 rejected=1 score=0 routes=chorus:1 reasons=semantic_below_gate:not-oleg"
 	if line != want {
 		t.Fatalf("bad shadow route reject line:\n got: %s\nwant: %s", line, want)
+	}
+}
+
+func TestFormatAdmissionRouteLiveChoiceReviewLine(t *testing.T) {
+	line := formatAdmissionRouteLiveChoiceReviewLine(admissionRouteLiveChoiceReview{
+		Passed:  true,
+		Reviews: 3,
+		Matched: 3,
+	})
+	want := "[admission-route-compare] live_route_choice: passed=true matched=3/3 rejected=0 unknown=0"
+	if line != want {
+		t.Fatalf("bad live route choice line:\n got: %s\nwant: %s", line, want)
+	}
+
+	line = formatAdmissionRouteLiveChoiceReviewLine(admissionRouteLiveChoiceReview{
+		Passed:   false,
+		Reviews:  1,
+		Rejected: 1,
+		Unknown:  1,
+		Reasons:  []string{"live route plan failed: unknown_prompt_class:seed"},
+	})
+	want = "[admission-route-compare] live_route_choice: passed=false matched=0/1 rejected=1 unknown=1 reasons=live route plan failed: unknown_prompt_class:seed"
+	if line != want {
+		t.Fatalf("bad live route choice reject line:\n got: %s\nwant: %s", line, want)
 	}
 }

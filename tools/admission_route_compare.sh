@@ -120,6 +120,8 @@ grep -q '"semantic_coverage_passed":' "$SUMMARY" || die "route semantic coverage
 grep -q '"semantic_route_admission":' "$SUMMARY" || die "route semantic admission review missing from summary"
 grep -q '"shadow_best_route":' "$SUMMARY" || die "shadow best-route chooser missing from summary"
 grep -q '"schema": "arianna.shadow_best_route.v1"' "$SUMMARY" || die "shadow best-route schema missing"
+grep -q '"live_route_choice_review":' "$SUMMARY" || die "live route choice review missing from summary"
+grep -q '"schema": "arianna.live_route_choice_review.v1"' "$SUMMARY" || die "live route choice review schema missing"
 if grep -Eq '"candidates": [1-9][0-9]*' "$SUMMARY"; then
     [[ -s "$LOG" ]] || die "route JSONL log not written"
     grep -q '"schema":"arianna.dream_candidate.v1"' "$LOG" || die "candidate schema missing"
@@ -151,9 +153,11 @@ if [[ "$want_qloop" == "1" ]]; then
     grep -q '"qloop_picker_seen":' "$SUMMARY" || die "qloop route-picker telemetry missing from summary"
 fi
 grep -q '\[admission-route-compare\] shadow_best_route:' "$RUN_LOG" || die "shadow best-route runlog sentinel missing"
+grep -q '\[admission-route-compare\] live_route_choice:' "$RUN_LOG" || die "live route choice runlog sentinel missing"
 case "$(printf '%s' "$require_shadow_plan" | tr '[:upper:]' '[:lower:]')" in
     1|true|yes|on)
         grep -q '\[admission-route-compare\] shadow_best_route: passed=true ' "$RUN_LOG" || die "shadow best-route did not pass"
+        grep -q '\[admission-route-compare\] live_route_choice: passed=true ' "$RUN_LOG" || die "live route choice review did not pass"
         ;;
 esac
 grep -q '\[admission-route-compare\] pass:' "$RUN_LOG" || die "pass sentinel missing"
