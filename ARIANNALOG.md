@@ -3627,3 +3627,13 @@ a runnable job id. The point is to freeze the dispatch contract before generatio
 through a typed request and a typed job before any text can become a candidate. `make
 admission-live-route-turn-generation-job-smoke` locks the JSONL/chat-line contract, and `make body-smoke` runs it
 between turn request and turn/candidate review.
+
+**Follow-up, same day - candidate shell freezes the envelope before text exists.** `AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN=1`
+converts the typed generation job into `arianna.live_route_turn_candidate_shell.v1`, naming the pending
+`arianna.dream_candidate.v1` envelope: source, route, backend, entrypoint, trigger, seed, job id, shell id, and
+`pending_generation` text status.
+
+This still does not run generation, admit text, or mutate state. It is the final pre-text receipt boundary: the
+future generator may fill the candidate text, but it must not change the envelope the field already saw. `make
+admission-live-route-turn-candidate-shell-smoke` locks the JSONL/chat-line contract, and `make body-smoke` runs it
+between generation job and turn/candidate review.

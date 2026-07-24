@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema              = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema            = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema   = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema        = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema       = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnReviewSchema        = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRoutePlanSchema               = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema             = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema    = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema         = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema        = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema  = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnReviewSchema         = "arianna.live_route_turn_candidate_review.v1"
 )
 
 type admissionLiveRoutePlan struct {
@@ -93,6 +94,27 @@ type admissionLiveRouteTurnGenerationJob struct {
 	Passed           bool   `json:"passed"`
 	Reason           string `json:"reason,omitempty"`
 	TurnTextHash     string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateShell struct {
+	Schema              string `json:"schema"`
+	PromptClass         string `json:"prompt_class"`
+	Route               string `json:"route,omitempty"`
+	Source              string `json:"source,omitempty"`
+	ExpectedSource      string `json:"expected_source,omitempty"`
+	Backend             string `json:"backend,omitempty"`
+	Entrypoint          string `json:"entrypoint,omitempty"`
+	PromptFrame         string `json:"prompt_frame,omitempty"`
+	CandidateSchema     string `json:"candidate_schema,omitempty"`
+	CandidateKind       string `json:"candidate_kind,omitempty"`
+	CandidateTrigger    string `json:"candidate_trigger,omitempty"`
+	CandidateSeed       string `json:"candidate_seed,omitempty"`
+	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
+	JobID               string `json:"job_id,omitempty"`
+	ShellID             string `json:"shell_id,omitempty"`
+	Passed              bool   `json:"passed"`
+	Reason              string `json:"reason,omitempty"`
+	TurnTextHash        string `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateReview struct {
@@ -565,6 +587,119 @@ func recordAdmissionLiveRouteTurnGenerationJob(job admissionLiveRouteTurnGenerat
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(job)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateShellDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateShellForJob(job admissionLiveRouteTurnGenerationJob) admissionLiveRouteTurnCandidateShell {
+	shell := admissionLiveRouteTurnCandidateShell{
+		Schema:           admissionLiveRouteTurnCandidateShellSchema,
+		PromptClass:      job.PromptClass,
+		Route:            job.Route,
+		Source:           job.Source,
+		ExpectedSource:   job.ExpectedSource,
+		Backend:          job.Backend,
+		Entrypoint:       job.Entrypoint,
+		PromptFrame:      job.PromptFrame,
+		CandidateTrigger: job.CandidateTrigger,
+		CandidateSeed:    job.CandidateSeed,
+		JobID:            job.JobID,
+		TurnTextHash:     job.TurnTextHash,
+	}
+	if job.Schema == "" {
+		shell.Reason = "missing_generation_job"
+		return shell
+	}
+	if !job.Passed {
+		shell.Reason = "generation job failed"
+		if job.Reason != "" {
+			shell.Reason += ": " + job.Reason
+		}
+		return shell
+	}
+	if shell.JobID == "" {
+		shell.Reason = "missing generation job id for route " + shell.Route + " prompt class " + shell.PromptClass
+		return shell
+	}
+	if shell.Source == "" {
+		shell.Reason = "missing candidate source for route " + shell.Route + " prompt class " + shell.PromptClass
+		return shell
+	}
+	expectedSource := admissionLiveRouteSource(shell.Route)
+	if shell.ExpectedSource == "" {
+		shell.ExpectedSource = expectedSource
+	}
+	if shell.Source != expectedSource {
+		shell.Reason = "source " + shell.Source + " does not match candidate route " + expectedSource + " for prompt class " + shell.PromptClass
+		return shell
+	}
+	if shell.CandidateTrigger == "" {
+		shell.Reason = "missing candidate trigger for route " + shell.Route + " prompt class " + shell.PromptClass
+		return shell
+	}
+	if shell.CandidateSeed == "" {
+		shell.Reason = "missing candidate seed for route " + shell.Route + " prompt class " + shell.PromptClass
+		return shell
+	}
+	shell.CandidateSchema = "arianna.dream_candidate.v1"
+	shell.CandidateKind = shell.Source
+	shell.CandidateTextStatus = "pending_generation"
+	shell.ShellID = admissionLiveRouteTurnCandidateShellID(shell)
+	if shell.ShellID == "" {
+		shell.Reason = "missing candidate shell id for route " + shell.Route + " prompt class " + shell.PromptClass
+		return shell
+	}
+	shell.Passed = true
+	return shell
+}
+
+func admissionLiveRouteTurnCandidateShellID(shell admissionLiveRouteTurnCandidateShell) string {
+	h := hashJSON(struct {
+		PromptClass      string `json:"prompt_class"`
+		Route            string `json:"route"`
+		Source           string `json:"source"`
+		Backend          string `json:"backend"`
+		Entrypoint       string `json:"entrypoint"`
+		PromptFrame      string `json:"prompt_frame"`
+		CandidateTrigger string `json:"candidate_trigger"`
+		CandidateSeed    string `json:"candidate_seed"`
+		JobID            string `json:"job_id"`
+		TurnTextHash     string `json:"turn_text_hash"`
+	}{
+		PromptClass:      shell.PromptClass,
+		Route:            shell.Route,
+		Source:           shell.Source,
+		Backend:          shell.Backend,
+		Entrypoint:       shell.Entrypoint,
+		PromptFrame:      shell.PromptFrame,
+		CandidateTrigger: shell.CandidateTrigger,
+		CandidateSeed:    shell.CandidateSeed,
+		JobID:            shell.JobID,
+		TurnTextHash:     shell.TurnTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "shell-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateShell(shell admissionLiveRouteTurnCandidateShell) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(shell)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
