@@ -3604,3 +3604,14 @@ the missing receipt between prompt-side classification and future live route gen
 what candidate shape it would ask for before any voice is allowed to produce it. `make
 admission-live-route-turn-choice-smoke` locks the JSONL and chat-line contract, and `make body-smoke` runs it
 between turn observation and turn/candidate review.
+
+**Follow-up, same day - live-route turn request is a typed invocation receipt.** The human-turn chooser proposal
+now has a second default-off boundary: `AM_LIVE_ROUTE_TURN_REQUEST_DRY_RUN=1` converts the receipt-only turn
+choice into `arianna.live_route_turn_request.v1`, carrying prompt class, route, expected source, route-prefixed
+candidate trigger, and a deterministic `turn-<hash>` candidate seed. Unknown turns still fail closed before a
+generator can be named.
+
+This still does not run route generation, does not admit a candidate, and does not mutate organism state. It is
+the invocation contract for the next live-route layer: future generation must consume this request instead of
+reclassifying the human turn or inventing source/trigger strings. `make admission-live-route-turn-request-smoke`
+locks the JSONL/chat-line contract, and `make body-smoke` runs it between turn choice and turn/candidate review.

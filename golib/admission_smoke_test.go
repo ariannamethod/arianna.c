@@ -220,6 +220,48 @@ func TestAdmissionLiveRouteTurnChoiceSmokeWritesChoices(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnRequestSmokeWritesRequests(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_REQUEST_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-turn-request.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_REQUEST_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnRequestSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 turn requests, got %d: %s", len(lines), raw)
+	}
+	var identity, unknown admissionLiveRouteTurnRequest
+	if err := json.Unmarshal([]byte(lines[0]), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &unknown); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Schema != admissionLiveRouteTurnRequestSchema ||
+		identity.PromptClass != "identity" ||
+		identity.Route != "chorus" ||
+		identity.Source != "chorus" ||
+		identity.ExpectedSource != "chorus" ||
+		identity.CandidateTrigger != "chorus-identity" ||
+		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
+		!identity.Passed {
+		t.Fatalf("bad identity turn request: %+v", identity)
+	}
+	if unknown.PromptClass != "unknown" ||
+		unknown.Passed ||
+		!strings.Contains(unknown.Reason, "unknown_prompt_class") ||
+		!strings.HasPrefix(unknown.CandidateSeed, "turn-") {
+		t.Fatalf("unknown turn request should fail closed with a stable seed: %+v", unknown)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")

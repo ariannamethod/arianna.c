@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() {
+		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -117,6 +117,9 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnChoiceDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnRequestDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -223,6 +226,23 @@ func chatLiveRouteTurnChoiceDryRunLine(obs admissionLiveRouteTurnObservation) st
 	}
 	return fmt.Sprintf("│  · live-route turn choice dry-run: class=%s route=%s source=%s trigger=%s passed=%t%s",
 		choice.PromptClass, choice.Route, choice.Source, choice.CandidateTrigger, choice.Passed, reason)
+}
+
+func chatLiveRouteTurnRequestDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	if !admissionLiveRouteTurnRequestDryRun() || obs.Schema == "" {
+		return ""
+	}
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	if err := recordAdmissionLiveRouteTurnRequest(request); err != nil {
+		return fmt.Sprintf("│  · live-route turn request dry-run log failed: %v", err)
+	}
+	reason := ""
+	if request.Reason != "" {
+		reason = " reason=" + request.Reason
+	}
+	return fmt.Sprintf("│  · live-route turn request dry-run: class=%s route=%s source=%s trigger=%s seed=%s passed=%t%s",
+		request.PromptClass, request.Route, request.Source, request.CandidateTrigger, request.CandidateSeed, request.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
