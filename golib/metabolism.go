@@ -410,6 +410,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-generation-job-smoke" {
+		if err := runAdmissionLiveRouteTurnGenerationJobSmoke(); err != nil {
+			fmt.Println("admission-live-route-turn-generation-job-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-review-smoke" {
 		if err := runAdmissionLiveRouteTurnReviewSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-review-smoke:", err)

@@ -3615,3 +3615,15 @@ This still does not run route generation, does not admit a candidate, and does n
 the invocation contract for the next live-route layer: future generation must consume this request instead of
 reclassifying the human turn or inventing source/trigger strings. `make admission-live-route-turn-request-smoke`
 locks the JSONL/chat-line contract, and `make body-smoke` runs it between turn choice and turn/candidate review.
+
+**Follow-up, same day - live-route generation job names the dispatch, not the voice.** The request layer now feeds
+a third default-off receipt boundary: `AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN=1` converts
+`arianna.live_route_turn_request.v1` into `arianna.live_route_turn_generation_job.v1`. The receipt names the
+backend, entrypoint, prompt frame, route-prefixed trigger, deterministic `turn-<hash>` seed, and stable
+`job-<hash>` id that a future generator must use.
+
+This still does not run Janus, Resonance, nano, chorus, qloop, or the REPL bridge. Failed requests do not receive
+a runnable job id. The point is to freeze the dispatch contract before generation exists: route power must pass
+through a typed request and a typed job before any text can become a candidate. `make
+admission-live-route-turn-generation-job-smoke` locks the JSONL/chat-line contract, and `make body-smoke` runs it
+between turn request and turn/candidate review.

@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() {
+		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -120,6 +120,9 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnRequestDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnGenerationJobDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -243,6 +246,24 @@ func chatLiveRouteTurnRequestDryRunLine(obs admissionLiveRouteTurnObservation) s
 	}
 	return fmt.Sprintf("│  · live-route turn request dry-run: class=%s route=%s source=%s trigger=%s seed=%s passed=%t%s",
 		request.PromptClass, request.Route, request.Source, request.CandidateTrigger, request.CandidateSeed, request.Passed, reason)
+}
+
+func chatLiveRouteTurnGenerationJobDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	if !admissionLiveRouteTurnGenerationJobDryRun() || obs.Schema == "" {
+		return ""
+	}
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	if err := recordAdmissionLiveRouteTurnGenerationJob(job); err != nil {
+		return fmt.Sprintf("│  · live-route generation job dry-run log failed: %v", err)
+	}
+	reason := ""
+	if job.Reason != "" {
+		reason = " reason=" + job.Reason
+	}
+	return fmt.Sprintf("│  · live-route generation job dry-run: class=%s route=%s backend=%s entry=%s trigger=%s seed=%s job=%s passed=%t%s",
+		job.PromptClass, job.Route, job.Backend, job.Entrypoint, job.CandidateTrigger, job.CandidateSeed, job.JobID, job.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
