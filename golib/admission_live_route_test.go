@@ -456,6 +456,109 @@ func TestAdmissionLiveRouteTurnGenerationJobForRequest(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
+	jobFor := func(human string) admissionLiveRouteTurnGenerationJob {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		return admissionLiveRouteTurnGenerationJobForRequest(request)
+	}
+	identity := jobFor("Who are you?")
+	wrongSource := identity
+	wrongSource.Source = "direct"
+	wrongSource.ExpectedSource = "direct"
+	cases := []struct {
+		name          string
+		job           admissionLiveRouteTurnGenerationJob
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantBackend   string
+		wantEntry     string
+		wantFrame     string
+		wantPassed    bool
+		wantReason    string
+		wantShellPref string
+	}{
+		{
+			name:          "identity shell preserves chorus dispatch",
+			job:           identity,
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "field",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantShellPref: "shell-",
+		},
+		{
+			name:          "dream shell preserves direct dispatch",
+			job:           jobFor("Tell me what the dream should remember."),
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantBackend:   "nano-arianna",
+			wantEntry:     "direct",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantShellPref: "shell-",
+		},
+		{
+			name:       "unknown job fails before shell id",
+			job:        jobFor("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing job fails closed",
+			job:        admissionLiveRouteTurnGenerationJob{},
+			wantPassed: false,
+			wantReason: "missing_generation_job",
+		},
+		{
+			name:        "wrong source fails route bounded",
+			job:         wrongSource,
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "direct",
+			wantBackend: "chorus-arianna",
+			wantEntry:   "field",
+			wantFrame:   "q_a",
+			wantPassed:  false,
+			wantReason:  "source direct does not match candidate route chorus for prompt class identity",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			shell := admissionLiveRouteTurnCandidateShellForJob(tc.job)
+			if shell.Schema != admissionLiveRouteTurnCandidateShellSchema ||
+				shell.PromptClass != tc.wantClass ||
+				shell.Route != tc.wantRoute ||
+				shell.Source != tc.wantSource ||
+				shell.Backend != tc.wantBackend ||
+				shell.Entrypoint != tc.wantEntry ||
+				shell.PromptFrame != tc.wantFrame ||
+				shell.Passed != tc.wantPassed ||
+				shell.Reason != tc.wantReason {
+				t.Fatalf("bad candidate shell: %+v", shell)
+			}
+			if tc.wantPassed {
+				if shell.CandidateSchema != "arianna.dream_candidate.v1" ||
+					shell.CandidateKind != tc.wantSource ||
+					shell.CandidateTextStatus != "pending_generation" ||
+					!strings.HasPrefix(shell.ShellID, tc.wantShellPref) {
+					t.Fatalf("passed shell should name a pending dream candidate envelope: %+v", shell)
+				}
+			}
+			if !tc.wantPassed && shell.ShellID != "" {
+				t.Fatalf("failed candidate shell should not name a shell id: %+v", shell)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {
