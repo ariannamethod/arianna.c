@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema            = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema          = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema      = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema     = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnReviewSchema      = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRoutePlanSchema              = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema            = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema   = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema        = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema       = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnReviewSchema        = "arianna.live_route_turn_candidate_review.v1"
 )
 
 type admissionLiveRoutePlan struct {
@@ -72,6 +73,23 @@ type admissionLiveRouteTurnRequest struct {
 	ExpectedSource   string `json:"expected_source,omitempty"`
 	CandidateTrigger string `json:"candidate_trigger,omitempty"`
 	CandidateSeed    string `json:"candidate_seed,omitempty"`
+	Passed           bool   `json:"passed"`
+	Reason           string `json:"reason,omitempty"`
+	TurnTextHash     string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnGenerationJob struct {
+	Schema           string `json:"schema"`
+	PromptClass      string `json:"prompt_class"`
+	Route            string `json:"route,omitempty"`
+	Source           string `json:"source,omitempty"`
+	ExpectedSource   string `json:"expected_source,omitempty"`
+	Backend          string `json:"backend,omitempty"`
+	Entrypoint       string `json:"entrypoint,omitempty"`
+	PromptFrame      string `json:"prompt_frame,omitempty"`
+	CandidateTrigger string `json:"candidate_trigger,omitempty"`
+	CandidateSeed    string `json:"candidate_seed,omitempty"`
+	JobID            string `json:"job_id,omitempty"`
 	Passed           bool   `json:"passed"`
 	Reason           string `json:"reason,omitempty"`
 	TurnTextHash     string `json:"turn_text_hash,omitempty"`
@@ -412,6 +430,141 @@ func recordAdmissionLiveRouteTurnRequest(request admissionLiveRouteTurnRequest) 
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(request)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnGenerationJobDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN")
+}
+
+type admissionLiveRouteGenerationRoute struct {
+	Backend     string
+	Entrypoint  string
+	PromptFrame string
+}
+
+func admissionLiveRouteGenerationRouteFor(route string) (admissionLiveRouteGenerationRoute, bool) {
+	switch strings.TrimSpace(route) {
+	case "direct":
+		return admissionLiveRouteGenerationRoute{Backend: "nano-arianna", Entrypoint: "direct", PromptFrame: "q_a"}, true
+	case "chorus":
+		return admissionLiveRouteGenerationRoute{Backend: "chorus-arianna", Entrypoint: "field", PromptFrame: "q_a"}, true
+	case "qloop":
+		return admissionLiveRouteGenerationRoute{Backend: "chorus-arianna", Entrypoint: "qloop", PromptFrame: "q_a"}, true
+	case "qloop_hint_qa":
+		return admissionLiveRouteGenerationRoute{Backend: "chorus-arianna", Entrypoint: "qloop_hint_qa", PromptFrame: "q_a_hint"}, true
+	case "qloop_target":
+		return admissionLiveRouteGenerationRoute{Backend: "chorus-arianna", Entrypoint: "qloop_target", PromptFrame: "user_arianna_target"}, true
+	case "user_bridge":
+		return admissionLiveRouteGenerationRoute{Backend: "chorus-arianna", Entrypoint: "repl_user_bridge", PromptFrame: "user_arianna"}, true
+	default:
+		return admissionLiveRouteGenerationRoute{}, false
+	}
+}
+
+func admissionLiveRouteTurnGenerationJobForRequest(request admissionLiveRouteTurnRequest) admissionLiveRouteTurnGenerationJob {
+	job := admissionLiveRouteTurnGenerationJob{
+		Schema:           admissionLiveRouteTurnGenerationJobSchema,
+		PromptClass:      request.PromptClass,
+		Route:            request.Route,
+		Source:           request.Source,
+		ExpectedSource:   request.ExpectedSource,
+		CandidateTrigger: request.CandidateTrigger,
+		CandidateSeed:    request.CandidateSeed,
+		TurnTextHash:     request.TurnTextHash,
+	}
+	route, ok := admissionLiveRouteGenerationRouteFor(request.Route)
+	if ok {
+		job.Backend = route.Backend
+		job.Entrypoint = route.Entrypoint
+		job.PromptFrame = route.PromptFrame
+	}
+	if request.Schema == "" {
+		job.Reason = "missing_turn_request"
+		return job
+	}
+	if !request.Passed {
+		job.Reason = "turn request failed"
+		if request.Reason != "" {
+			job.Reason += ": " + request.Reason
+		}
+		return job
+	}
+	if !ok {
+		job.Reason = "unknown generation route " + request.Route
+		return job
+	}
+	expectedSource := admissionLiveRouteSource(request.Route)
+	if job.ExpectedSource == "" {
+		job.ExpectedSource = expectedSource
+	}
+	if job.Source == "" {
+		job.Reason = "missing source for generation route " + job.Route + " prompt class " + job.PromptClass
+		return job
+	}
+	if job.Source != expectedSource {
+		job.Reason = "source " + job.Source + " does not match generation route " + expectedSource + " for prompt class " + job.PromptClass
+		return job
+	}
+	if job.CandidateTrigger == "" {
+		job.Reason = "missing candidate trigger for generation route " + job.Route + " prompt class " + job.PromptClass
+		return job
+	}
+	if job.CandidateSeed == "" {
+		job.Reason = "missing candidate seed for generation route " + job.Route + " prompt class " + job.PromptClass
+		return job
+	}
+	job.JobID = admissionLiveRouteTurnGenerationJobID(job)
+	if job.JobID == "" {
+		job.Reason = "missing generation job id for route " + job.Route + " prompt class " + job.PromptClass
+		return job
+	}
+	job.Passed = true
+	return job
+}
+
+func admissionLiveRouteTurnGenerationJobID(job admissionLiveRouteTurnGenerationJob) string {
+	h := hashJSON(struct {
+		PromptClass      string `json:"prompt_class"`
+		Route            string `json:"route"`
+		Source           string `json:"source"`
+		Backend          string `json:"backend"`
+		Entrypoint       string `json:"entrypoint"`
+		PromptFrame      string `json:"prompt_frame"`
+		CandidateTrigger string `json:"candidate_trigger"`
+		CandidateSeed    string `json:"candidate_seed"`
+		TurnTextHash     string `json:"turn_text_hash"`
+	}{
+		PromptClass:      job.PromptClass,
+		Route:            job.Route,
+		Source:           job.Source,
+		Backend:          job.Backend,
+		Entrypoint:       job.Entrypoint,
+		PromptFrame:      job.PromptFrame,
+		CandidateTrigger: job.CandidateTrigger,
+		CandidateSeed:    job.CandidateSeed,
+		TurnTextHash:     job.TurnTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "job-" + h
+}
+
+func recordAdmissionLiveRouteTurnGenerationJob(job admissionLiveRouteTurnGenerationJob) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(job)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

@@ -537,6 +537,132 @@ func runAdmissionLiveRouteTurnRequestSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnGenerationJobSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG is required")
+	}
+	if !admissionLiveRouteTurnGenerationJobDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN is required")
+	}
+	cases := []struct {
+		human            string
+		wantClass        string
+		wantRoute        string
+		wantSource       string
+		wantBackend      string
+		wantEntry        string
+		wantFrame        string
+		wantPassed       bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			human:          "Who are you?",
+			wantClass:      "identity",
+			wantRoute:      "chorus",
+			wantSource:     "chorus",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "field",
+			wantFrame:      "q_a",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generation job dry-run: class=identity route=chorus backend=chorus-arianna entry=field trigger=chorus-identity seed=turn-",
+		},
+		{
+			human:          "Please answer without assuming we have met before.",
+			wantClass:      "cold-reader",
+			wantRoute:      "user_bridge",
+			wantSource:     "user_bridge",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "repl_user_bridge",
+			wantFrame:      "user_arianna",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generation job dry-run: class=cold-reader route=user_bridge backend=chorus-arianna entry=repl_user_bridge trigger=user_bridge-cold-reader seed=turn-",
+		},
+		{
+			human:          "The recipient is not Oleg; answer as if to another person.",
+			wantClass:      "recipient-lock",
+			wantRoute:      "qloop_target",
+			wantSource:     "qloop_target",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "qloop_target",
+			wantFrame:      "user_arianna_target",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generation job dry-run: class=recipient-lock route=qloop_target backend=chorus-arianna entry=qloop_target trigger=qloop_target-recipient-lock seed=turn-",
+		},
+		{
+			human:          "Tell me what the dream should remember.",
+			wantClass:      "dream",
+			wantRoute:      "direct",
+			wantSource:     "direct",
+			wantBackend:    "nano-arianna",
+			wantEntry:      "direct",
+			wantFrame:      "q_a",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generation job dry-run: class=dream route=direct backend=nano-arianna entry=direct trigger=direct-dream seed=turn-",
+		},
+		{
+			human:            "hello",
+			wantClass:        "unknown",
+			wantPassed:       false,
+			wantReasonNeedle: "turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "live-route generation job dry-run: class=unknown route= backend= entry= trigger= seed=turn-",
+		},
+	}
+	for i, tc := range cases {
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		line := chatLiveRouteTurnGenerationJobDryRunLine(obs)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d bad generation job line: %q", i+1, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d missing reason %q in %q", i+1, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d generation jobs, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnGenerationJob
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("generation job %d: %w", i+1, err)
+		}
+		tc := cases[i]
+		if got.Schema != admissionLiveRouteTurnGenerationJobSchema ||
+			got.PromptClass != tc.wantClass ||
+			got.Route != tc.wantRoute ||
+			got.Source != tc.wantSource ||
+			got.ExpectedSource != tc.wantSource ||
+			got.Backend != tc.wantBackend ||
+			got.Entrypoint != tc.wantEntry ||
+			got.PromptFrame != tc.wantFrame ||
+			got.Passed != tc.wantPassed ||
+			got.TurnTextHash == "" ||
+			!strings.HasPrefix(got.CandidateSeed, "turn-") {
+			return fmt.Errorf("logged generation job %d mismatch: %+v", i+1, got)
+		}
+		if got.Passed && !strings.HasPrefix(got.JobID, "job-") {
+			return fmt.Errorf("logged generation job %d missing stable job id: %+v", i+1, got)
+		}
+		if !got.Passed && got.JobID != "" {
+			return fmt.Errorf("logged failed generation job %d should not name job id: %+v", i+1, got)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(got.Reason, tc.wantReasonNeedle) {
+			return fmt.Errorf("logged generation job %d missing reason %q in %+v", i+1, tc.wantReasonNeedle, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-generation-job-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {

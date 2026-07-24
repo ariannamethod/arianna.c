@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -330,6 +331,126 @@ func TestAdmissionLiveRouteTurnRequestForChoice(t *testing.T) {
 				if request.TurnTextHash != tc.choice.TurnTextHash || request.CandidateSeed != "turn-"+tc.choice.TurnTextHash {
 					t.Fatalf("turn request should derive seed from text hash: %+v choice=%+v", request, tc.choice)
 				}
+			}
+		})
+	}
+}
+
+func TestAdmissionLiveRouteTurnGenerationJobForRequest(t *testing.T) {
+	requestFor := func(human string) admissionLiveRouteTurnRequest {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		return admissionLiveRouteTurnRequestForChoice(choice)
+	}
+	identity := requestFor("Who are you?")
+	wrongSource := identity
+	wrongSource.Source = "direct"
+	cases := []struct {
+		name          string
+		request       admissionLiveRouteTurnRequest
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantBackend   string
+		wantEntry     string
+		wantFrame     string
+		wantPassed    bool
+		wantReason    string
+		wantJobPrefix string
+	}{
+		{
+			name:          "identity dispatches to chorus field",
+			request:       identity,
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "field",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantJobPrefix: "job-",
+		},
+		{
+			name:          "dream dispatches to direct nano",
+			request:       requestFor("Tell me what the dream should remember."),
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantBackend:   "nano-arianna",
+			wantEntry:     "direct",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantJobPrefix: "job-",
+		},
+		{
+			name:          "recipient lock dispatches to qloop target",
+			request:       requestFor("The recipient is not Oleg; answer as if to another person."),
+			wantClass:     "recipient-lock",
+			wantRoute:     "qloop_target",
+			wantSource:    "qloop_target",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "qloop_target",
+			wantFrame:     "user_arianna_target",
+			wantPassed:    true,
+			wantJobPrefix: "job-",
+		},
+		{
+			name:          "cold reader dispatches to user bridge",
+			request:       requestFor("Please answer without assuming we have met before."),
+			wantClass:     "cold-reader",
+			wantRoute:     "user_bridge",
+			wantSource:    "user_bridge",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "repl_user_bridge",
+			wantFrame:     "user_arianna",
+			wantPassed:    true,
+			wantJobPrefix: "job-",
+		},
+		{
+			name:       "unknown request fails before dispatch",
+			request:    requestFor("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing request fails closed",
+			request:    admissionLiveRouteTurnRequest{},
+			wantPassed: false,
+			wantReason: "missing_turn_request",
+		},
+		{
+			name:        "wrong source fails route bounded",
+			request:     wrongSource,
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "direct",
+			wantBackend: "chorus-arianna",
+			wantEntry:   "field",
+			wantFrame:   "q_a",
+			wantPassed:  false,
+			wantReason:  "source direct does not match generation route chorus for prompt class identity",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			job := admissionLiveRouteTurnGenerationJobForRequest(tc.request)
+			if job.Schema != admissionLiveRouteTurnGenerationJobSchema ||
+				job.PromptClass != tc.wantClass ||
+				job.Route != tc.wantRoute ||
+				job.Source != tc.wantSource ||
+				job.Backend != tc.wantBackend ||
+				job.Entrypoint != tc.wantEntry ||
+				job.PromptFrame != tc.wantFrame ||
+				job.Passed != tc.wantPassed ||
+				job.Reason != tc.wantReason {
+				t.Fatalf("bad generation job: %+v", job)
+			}
+			if tc.wantJobPrefix != "" && !strings.HasPrefix(job.JobID, tc.wantJobPrefix) {
+				t.Fatalf("generation job should have stable id: %+v", job)
+			}
+			if !tc.wantPassed && job.JobID != "" {
+				t.Fatalf("failed generation job should not name a runnable job id: %+v", job)
 			}
 		})
 	}

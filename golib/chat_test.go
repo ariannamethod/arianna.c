@@ -93,6 +93,35 @@ func TestChatLiveRouteTurnRequestDryRunLineDisabled(t *testing.T) {
 	}
 }
 
+func TestChatLiveRouteTurnGenerationJobDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnGenerationJobDryRunLine(obs)
+	for _, want := range []string{
+		"live-route generation job dry-run",
+		"class=identity",
+		"route=chorus",
+		"backend=chorus-arianna",
+		"entry=field",
+		"trigger=chorus-identity",
+		"seed=turn-",
+		"job=job-",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("generation job dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnGenerationJobDryRunLineDisabled(t *testing.T) {
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnGenerationJobDryRunLine(obs); got != "" {
+		t.Fatalf("generation job dry-run line should be hidden by default: %q", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 

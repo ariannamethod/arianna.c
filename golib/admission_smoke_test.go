@@ -262,6 +262,51 @@ func TestAdmissionLiveRouteTurnRequestSmokeWritesRequests(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnGenerationJobSmokeWritesJobs(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-generation-job.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnGenerationJobSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 generation jobs, got %d: %s", len(lines), raw)
+	}
+	var identity, unknown admissionLiveRouteTurnGenerationJob
+	if err := json.Unmarshal([]byte(lines[0]), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &unknown); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Schema != admissionLiveRouteTurnGenerationJobSchema ||
+		identity.PromptClass != "identity" ||
+		identity.Route != "chorus" ||
+		identity.Source != "chorus" ||
+		identity.Backend != "chorus-arianna" ||
+		identity.Entrypoint != "field" ||
+		identity.PromptFrame != "q_a" ||
+		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
+		!strings.HasPrefix(identity.JobID, "job-") ||
+		!identity.Passed {
+		t.Fatalf("bad identity generation job: %+v", identity)
+	}
+	if unknown.PromptClass != "unknown" ||
+		unknown.Passed ||
+		unknown.JobID != "" ||
+		!strings.Contains(unknown.Reason, "unknown_prompt_class") ||
+		!strings.HasPrefix(unknown.CandidateSeed, "turn-") {
+		t.Fatalf("unknown generation job should fail closed without runnable job id: %+v", unknown)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")
