@@ -104,6 +104,10 @@ echo "[body-smoke] admission live route candidate shell"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_SHELL_WORKDIR="$WORKDIR/admission-live-route-candidate-shell" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_shell_smoke.sh"
 
+echo "[body-smoke] admission live route generator adapter"
+A2A_ADMISSION_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_WORKDIR="$WORKDIR/admission-live-route-generator-adapter" \
+    bash "$ROOT/tools/admission_live_route_turn_generator_adapter_smoke.sh"
+
 echo "[body-smoke] admission live route candidate draft"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_WORKDIR="$WORKDIR/admission-live-route-candidate-draft" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_draft_smoke.sh"

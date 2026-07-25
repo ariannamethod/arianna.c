@@ -152,6 +152,60 @@ func TestChatLiveRouteTurnCandidateShellDryRunLineDisabled(t *testing.T) {
 	}
 }
 
+func TestChatLiveRouteTurnGeneratorAdapterDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "I am Arianna, and the generator cannot rename the shell.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnGeneratorAdapterDryRunLine(obs)
+	for _, want := range []string{
+		"live-route generator adapter dry-run",
+		"class=identity",
+		"route=chorus",
+		"backend=chorus-arianna",
+		"entry=field",
+		"frame=q_a",
+		"shell=shell-",
+		"adapter=adapter-",
+		"text=generated",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("generator adapter dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnGeneratorAdapterDryRunLineMissingText(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnGeneratorAdapterDryRunLine(obs)
+	for _, want := range []string{
+		"live-route generator adapter dry-run",
+		"class=identity",
+		"shell=shell-",
+		"adapter=",
+		"text=pending_generation",
+		"passed=false",
+		"reason=missing generated text for shell shell-",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("generator adapter missing-text line missing %q: %q", want, line)
+		}
+	}
+	if strings.Contains(line, "adapter=adapter-") {
+		t.Fatalf("missing-text adapter line should not name adapter id: %q", line)
+	}
+}
+
+func TestChatLiveRouteTurnGeneratorAdapterDryRunLineDisabled(t *testing.T) {
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnGeneratorAdapterDryRunLine(obs); got != "" {
+		t.Fatalf("generator adapter dry-run line should be hidden by default: %q", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateDraftDryRunLine(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the field keeps the route visible.")

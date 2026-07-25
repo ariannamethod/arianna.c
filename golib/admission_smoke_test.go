@@ -356,6 +356,59 @@ func TestAdmissionLiveRouteTurnCandidateShellSmokeWritesShells(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnGeneratorAdapterSmokeWritesAdapters(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-generator-adapter.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnGeneratorAdapterSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 generator adapters, got %d: %s", len(lines), raw)
+	}
+	var identity, unknown admissionLiveRouteTurnGeneratorAdapter
+	if err := json.Unmarshal([]byte(lines[0]), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &unknown); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Schema != admissionLiveRouteTurnGeneratorAdapterSchema ||
+		identity.PromptClass != "identity" ||
+		identity.Route != "chorus" ||
+		identity.Source != "chorus" ||
+		identity.Backend != "chorus-arianna" ||
+		identity.Entrypoint != "field" ||
+		identity.PromptFrame != "q_a" ||
+		identity.CandidateSchema != "arianna.dream_candidate.v1" ||
+		identity.CandidateKind != "chorus" ||
+		identity.CandidateTextStatus != "pending_generation" ||
+		identity.GeneratedTextStatus != "generated" ||
+		identity.GeneratedText == "" ||
+		identity.GeneratedTextHash == "" ||
+		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
+		!strings.HasPrefix(identity.JobID, "job-") ||
+		!strings.HasPrefix(identity.ShellID, "shell-") ||
+		!strings.HasPrefix(identity.AdapterID, "adapter-") ||
+		!identity.Passed {
+		t.Fatalf("bad identity generator adapter: %+v", identity)
+	}
+	if unknown.PromptClass != "unknown" ||
+		unknown.Passed ||
+		unknown.AdapterID != "" ||
+		!strings.Contains(unknown.Reason, "unknown_prompt_class") ||
+		!strings.HasPrefix(unknown.CandidateSeed, "turn-") {
+		t.Fatalf("unknown generator adapter should fail closed without adapter id: %+v", unknown)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateDraftSmokeWritesDrafts(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-candidate-draft.jsonl")
