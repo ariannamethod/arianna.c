@@ -3637,3 +3637,15 @@ This still does not run generation, admit text, or mutate state. It is the final
 future generator may fill the candidate text, but it must not change the envelope the field already saw. `make
 admission-live-route-turn-candidate-shell-smoke` locks the JSONL/chat-line contract, and `make body-smoke` runs it
 between generation job and turn/candidate review.
+
+**Follow-up, same day - candidate draft lets text arrive without renaming the route.** `AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN=1`
+converts a passed candidate shell plus provided text into `arianna.live_route_turn_candidate_draft.v1`. The draft
+keeps the shell's source, route, backend, entrypoint, prompt frame, trigger, seed, job id, and shell id, then adds
+candidate text, text hash, deterministic dream candidate run id, `generated` text status, and stable `draft-<hash>`
+id.
+
+This still does not call a generator, admit a candidate, or mutate memory. It proves the handoff shape for the
+future generator: text can fill the pending envelope, but the shell id is rechecked and the resulting
+`arianna.dream_candidate.v1` must still pass the live-route choice contract. Tampered shells, empty text, and
+unknown-turn shells fail closed without a draft id. `make admission-live-route-turn-candidate-draft-smoke` locks
+the JSONL/chat-line contract, and `make body-smoke` runs it between candidate shell and turn/candidate review.

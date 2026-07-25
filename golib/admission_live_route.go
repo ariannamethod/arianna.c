@@ -14,6 +14,7 @@ const (
 	admissionLiveRouteTurnRequestSchema        = "arianna.live_route_turn_request.v1"
 	admissionLiveRouteTurnGenerationJobSchema  = "arianna.live_route_turn_generation_job.v1"
 	admissionLiveRouteTurnCandidateShellSchema = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnCandidateDraftSchema = "arianna.live_route_turn_candidate_draft.v1"
 	admissionLiveRouteTurnReviewSchema         = "arianna.live_route_turn_candidate_review.v1"
 )
 
@@ -112,6 +113,31 @@ type admissionLiveRouteTurnCandidateShell struct {
 	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
 	JobID               string `json:"job_id,omitempty"`
 	ShellID             string `json:"shell_id,omitempty"`
+	Passed              bool   `json:"passed"`
+	Reason              string `json:"reason,omitempty"`
+	TurnTextHash        string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateDraft struct {
+	Schema              string `json:"schema"`
+	PromptClass         string `json:"prompt_class"`
+	Route               string `json:"route,omitempty"`
+	Source              string `json:"source,omitempty"`
+	ExpectedSource      string `json:"expected_source,omitempty"`
+	Backend             string `json:"backend,omitempty"`
+	Entrypoint          string `json:"entrypoint,omitempty"`
+	PromptFrame         string `json:"prompt_frame,omitempty"`
+	CandidateSchema     string `json:"candidate_schema,omitempty"`
+	CandidateKind       string `json:"candidate_kind,omitempty"`
+	CandidateTrigger    string `json:"candidate_trigger,omitempty"`
+	CandidateSeed       string `json:"candidate_seed,omitempty"`
+	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
+	CandidateText       string `json:"candidate_text,omitempty"`
+	CandidateTextHash   string `json:"candidate_text_hash,omitempty"`
+	CandidateRunID      string `json:"candidate_run_id,omitempty"`
+	JobID               string `json:"job_id,omitempty"`
+	ShellID             string `json:"shell_id,omitempty"`
+	DraftID             string `json:"draft_id,omitempty"`
 	Passed              bool   `json:"passed"`
 	Reason              string `json:"reason,omitempty"`
 	TurnTextHash        string `json:"turn_text_hash,omitempty"`
@@ -700,6 +726,149 @@ func recordAdmissionLiveRouteTurnCandidateShell(shell admissionLiveRouteTurnCand
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(shell)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateDraftDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateDraftForShell(shell admissionLiveRouteTurnCandidateShell, text string) admissionLiveRouteTurnCandidateDraft {
+	draft := admissionLiveRouteTurnCandidateDraft{
+		Schema:              admissionLiveRouteTurnCandidateDraftSchema,
+		PromptClass:         shell.PromptClass,
+		Route:               shell.Route,
+		Source:              shell.Source,
+		ExpectedSource:      shell.ExpectedSource,
+		Backend:             shell.Backend,
+		Entrypoint:          shell.Entrypoint,
+		PromptFrame:         shell.PromptFrame,
+		CandidateSchema:     shell.CandidateSchema,
+		CandidateKind:       shell.CandidateKind,
+		CandidateTrigger:    shell.CandidateTrigger,
+		CandidateSeed:       shell.CandidateSeed,
+		CandidateTextStatus: shell.CandidateTextStatus,
+		JobID:               shell.JobID,
+		ShellID:             shell.ShellID,
+		TurnTextHash:        shell.TurnTextHash,
+	}
+	if shell.Schema == "" {
+		draft.Reason = "missing_candidate_shell"
+		return draft
+	}
+	if !shell.Passed {
+		draft.Reason = "candidate shell failed"
+		if shell.Reason != "" {
+			draft.Reason += ": " + shell.Reason
+		}
+		return draft
+	}
+	if draft.ShellID == "" {
+		draft.Reason = "missing candidate shell id for route " + draft.Route + " prompt class " + draft.PromptClass
+		return draft
+	}
+	if wantShellID := admissionLiveRouteTurnCandidateShellID(shell); wantShellID == "" || draft.ShellID != wantShellID {
+		draft.Reason = "candidate shell id mismatch"
+		return draft
+	}
+	if draft.CandidateSchema != "arianna.dream_candidate.v1" {
+		draft.Reason = "unexpected candidate schema " + draft.CandidateSchema
+		return draft
+	}
+	if draft.Source == "" {
+		draft.Reason = "missing candidate source for shell " + draft.ShellID
+		return draft
+	}
+	expectedSource := admissionLiveRouteSource(draft.Route)
+	if draft.ExpectedSource == "" {
+		draft.ExpectedSource = expectedSource
+	}
+	if draft.Source != expectedSource {
+		draft.Reason = "source " + draft.Source + " does not match draft route " + expectedSource + " for prompt class " + draft.PromptClass
+		return draft
+	}
+	if draft.CandidateKind != draft.Source {
+		draft.Reason = "candidate kind " + draft.CandidateKind + " does not match source " + draft.Source
+		return draft
+	}
+	if draft.CandidateTextStatus != "pending_generation" {
+		draft.Reason = "candidate shell text status is " + draft.CandidateTextStatus
+		return draft
+	}
+	if draft.CandidateTrigger == "" {
+		draft.Reason = "missing candidate trigger for shell " + draft.ShellID
+		return draft
+	}
+	if draft.CandidateSeed == "" {
+		draft.Reason = "missing candidate seed for shell " + draft.ShellID
+		return draft
+	}
+
+	candidate := newDreamCandidate(draft.Source, draft.CandidateTrigger, draft.CandidateSeed, "", strings.TrimSpace(text), nil)
+	if candidate.Text == "" {
+		draft.Reason = "missing candidate text for shell " + draft.ShellID
+		return draft
+	}
+	choice := admissionLiveRouteChoiceForCandidate(candidate)
+	if !choice.Passed {
+		draft.Reason = "candidate route failed: " + choice.Reason
+		return draft
+	}
+	if choice.PromptClass != draft.PromptClass || choice.Route != draft.Route || choice.ExpectedSource != draft.ExpectedSource {
+		draft.Reason = "candidate route drift: class " + choice.PromptClass + " route " + choice.Route + " expected " + choice.ExpectedSource
+		return draft
+	}
+
+	draft.CandidateText = candidate.Text
+	draft.CandidateTextHash = hashJSON(candidate.Text)
+	draft.CandidateRunID = candidate.RunID
+	draft.CandidateTextStatus = "generated"
+	draft.DraftID = admissionLiveRouteTurnCandidateDraftID(draft)
+	if draft.DraftID == "" {
+		draft.Reason = "missing candidate draft id for shell " + draft.ShellID
+		return draft
+	}
+	draft.Passed = true
+	return draft
+}
+
+func admissionLiveRouteTurnCandidateDraftID(draft admissionLiveRouteTurnCandidateDraft) string {
+	h := hashJSON(struct {
+		ShellID           string `json:"shell_id"`
+		CandidateRunID    string `json:"candidate_run_id"`
+		CandidateTextHash string `json:"candidate_text_hash"`
+	}{
+		ShellID:           draft.ShellID,
+		CandidateRunID:    draft.CandidateRunID,
+		CandidateTextHash: draft.CandidateTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "draft-" + h
+}
+
+func admissionLiveRouteTurnCandidateForDraft(draft admissionLiveRouteTurnCandidateDraft) dreamCandidate {
+	if !draft.Passed {
+		return dreamCandidate{}
+	}
+	return newDreamCandidate(draft.Source, draft.CandidateTrigger, draft.CandidateSeed, "", draft.CandidateText, nil)
+}
+
+func recordAdmissionLiveRouteTurnCandidateDraft(draft admissionLiveRouteTurnCandidateDraft) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(draft)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

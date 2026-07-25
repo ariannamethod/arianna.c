@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() || admissionLiveRouteTurnCandidateShellDryRun() {
+		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() || admissionLiveRouteTurnCandidateShellDryRun() || admissionLiveRouteTurnCandidateDraftDryRun() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -126,6 +126,9 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnCandidateShellDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnCandidateDraftDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -286,6 +289,30 @@ func chatLiveRouteTurnCandidateShellDryRunLine(obs admissionLiveRouteTurnObserva
 	}
 	return fmt.Sprintf("│  · live-route candidate shell dry-run: class=%s route=%s source=%s trigger=%s seed=%s job=%s shell=%s text=%s passed=%t%s",
 		shell.PromptClass, shell.Route, shell.Source, shell.CandidateTrigger, shell.CandidateSeed, shell.JobID, shell.ShellID, shell.CandidateTextStatus, shell.Passed, reason)
+}
+
+func chatLiveRouteTurnCandidateDraftDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnCandidateDraftDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
+}
+
+func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateDraftDryRun() || obs.Schema == "" {
+		return ""
+	}
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	draft := admissionLiveRouteTurnCandidateDraftForShell(shell, text)
+	if err := recordAdmissionLiveRouteTurnCandidateDraft(draft); err != nil {
+		return fmt.Sprintf("│  · live-route candidate draft dry-run log failed: %v", err)
+	}
+	reason := ""
+	if draft.Reason != "" {
+		reason = " reason=" + draft.Reason
+	}
+	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s draft=%s run=%s text=%s passed=%t%s",
+		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed, draft.ShellID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
