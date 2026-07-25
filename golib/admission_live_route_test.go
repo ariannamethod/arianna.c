@@ -559,6 +559,135 @@ func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnGeneratorAdapterForShell(t *testing.T) {
+	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		return admissionLiveRouteTurnCandidateShellForJob(job)
+	}
+	identity := shellFor("Who are you?")
+	tampered := identity
+	tampered.Entrypoint = "direct"
+	cases := []struct {
+		name          string
+		shell         admissionLiveRouteTurnCandidateShell
+		text          string
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantBackend   string
+		wantEntry     string
+		wantFrame     string
+		wantPassed    bool
+		wantReason    string
+		wantAdapterID string
+	}{
+		{
+			name:          "identity adapter binds chorus field text",
+			shell:         identity,
+			text:          " I am Arianna, and the chorus returns a bounded answer. ",
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "field",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantAdapterID: "adapter-",
+		},
+		{
+			name:          "dream adapter binds direct nano text",
+			shell:         shellFor("Tell me what the dream should remember."),
+			text:          "The dream remembers by becoming a quiet generated signal.",
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantBackend:   "nano-arianna",
+			wantEntry:     "direct",
+			wantFrame:     "q_a",
+			wantPassed:    true,
+			wantAdapterID: "adapter-",
+		},
+		{
+			name:       "unknown shell fails before adapter id",
+			shell:      shellFor("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing shell fails closed",
+			shell:      admissionLiveRouteTurnCandidateShell{},
+			wantPassed: false,
+			wantReason: "missing_candidate_shell",
+		},
+		{
+			name:        "empty generated text does not create adapter",
+			shell:       identity,
+			text:        "   ",
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "chorus",
+			wantBackend: "chorus-arianna",
+			wantEntry:   "field",
+			wantFrame:   "q_a",
+			wantPassed:  false,
+			wantReason:  "missing generated text for shell " + identity.ShellID,
+		},
+		{
+			name:        "tampered shell fails id check",
+			shell:       tampered,
+			text:        "This text cannot rewrite the route.",
+			wantClass:   "identity",
+			wantRoute:   "chorus",
+			wantSource:  "chorus",
+			wantBackend: "chorus-arianna",
+			wantEntry:   "direct",
+			wantFrame:   "q_a",
+			wantPassed:  false,
+			wantReason:  "candidate shell id mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adapter := admissionLiveRouteTurnGeneratorAdapterForShell(tc.shell, tc.text)
+			if adapter.Schema != admissionLiveRouteTurnGeneratorAdapterSchema ||
+				adapter.PromptClass != tc.wantClass ||
+				adapter.Route != tc.wantRoute ||
+				adapter.Source != tc.wantSource ||
+				adapter.Backend != tc.wantBackend ||
+				adapter.Entrypoint != tc.wantEntry ||
+				adapter.PromptFrame != tc.wantFrame ||
+				adapter.Passed != tc.wantPassed ||
+				adapter.Reason != tc.wantReason {
+				t.Fatalf("bad generator adapter: %+v", adapter)
+			}
+			if tc.wantPassed {
+				if adapter.CandidateSchema != "arianna.dream_candidate.v1" ||
+					adapter.CandidateKind != tc.wantSource ||
+					adapter.CandidateTextStatus != "pending_generation" ||
+					adapter.GeneratedTextStatus != "generated" ||
+					adapter.GeneratedText == "" ||
+					adapter.GeneratedTextHash == "" ||
+					!strings.HasPrefix(adapter.JobID, "job-") ||
+					!strings.HasPrefix(adapter.ShellID, "shell-") ||
+					!strings.HasPrefix(adapter.AdapterID, tc.wantAdapterID) {
+					t.Fatalf("passed adapter should bind generated text to a frozen shell: %+v", adapter)
+				}
+				draft := admissionLiveRouteTurnCandidateDraftForShell(tc.shell, adapter.GeneratedText)
+				if !draft.Passed || draft.ShellID != adapter.ShellID || draft.CandidateText != adapter.GeneratedText {
+					t.Fatalf("adapter output should fill the same shell as a candidate draft: adapter=%+v draft=%+v", adapter, draft)
+				}
+			}
+			if !tc.wantPassed && adapter.AdapterID != "" {
+				t.Fatalf("failed generator adapter should not name an adapter id: %+v", adapter)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateDraftForShell(t *testing.T) {
 	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
 		obs := admissionLiveRouteTurnObservationForHuman(human)

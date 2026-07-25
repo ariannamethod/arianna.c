@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() || admissionLiveRouteTurnCandidateShellDryRun() || admissionLiveRouteTurnCandidateDraftDryRun() {
+		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() || admissionLiveRouteTurnCandidateShellDryRun() || admissionLiveRouteTurnGeneratorAdapterDryRun() || admissionLiveRouteTurnCandidateDraftDryRun() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -126,6 +126,9 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnCandidateShellDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnGeneratorAdapterDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnCandidateDraftDryRunLine(turnRouteObs); line != "" {
@@ -289,6 +292,30 @@ func chatLiveRouteTurnCandidateShellDryRunLine(obs admissionLiveRouteTurnObserva
 	}
 	return fmt.Sprintf("│  · live-route candidate shell dry-run: class=%s route=%s source=%s trigger=%s seed=%s job=%s shell=%s text=%s passed=%t%s",
 		shell.PromptClass, shell.Route, shell.Source, shell.CandidateTrigger, shell.CandidateSeed, shell.JobID, shell.ShellID, shell.CandidateTextStatus, shell.Passed, reason)
+}
+
+func chatLiveRouteTurnGeneratorAdapterDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT"))
+}
+
+func chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnGeneratorAdapterDryRun() || obs.Schema == "" {
+		return ""
+	}
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	if err := recordAdmissionLiveRouteTurnGeneratorAdapter(adapter); err != nil {
+		return fmt.Sprintf("│  · live-route generator adapter dry-run log failed: %v", err)
+	}
+	reason := ""
+	if adapter.Reason != "" {
+		reason = " reason=" + adapter.Reason
+	}
+	return fmt.Sprintf("│  · live-route generator adapter dry-run: class=%s route=%s backend=%s entry=%s frame=%s shell=%s adapter=%s text=%s passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Backend, adapter.Entrypoint, adapter.PromptFrame, adapter.ShellID, adapter.AdapterID, adapter.GeneratedTextStatus, adapter.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateDraftDryRunLine(obs admissionLiveRouteTurnObservation) string {

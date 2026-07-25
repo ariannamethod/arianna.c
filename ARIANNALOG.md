@@ -3638,6 +3638,17 @@ future generator may fill the candidate text, but it must not change the envelop
 admission-live-route-turn-candidate-shell-smoke` locks the JSONL/chat-line contract, and `make body-smoke` runs it
 between generation job and turn/candidate review.
 
+**Follow-up, same day - generator adapter names the text-return boundary.** `AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN=1`
+converts a passed candidate shell plus provided generator text into `arianna.live_route_turn_generator_adapter.v1`.
+The adapter preserves source, route, backend, entrypoint, prompt frame, trigger, seed, job id, and shell id, then
+adds generated text, generated text hash, `generated` text status, and stable `adapter-<hash>` id.
+
+This still does not call real weights, admit a candidate, or mutate memory. It is the future backend adapter
+contract: route generation may return text, but it must return it through the frozen shell rather than rewriting
+the envelope. Failed shells, tampered shells, empty generated text, and unknown turns fail closed without an
+adapter id. `make admission-live-route-turn-generator-adapter-smoke` locks the JSONL/chat-line contract, and
+`make body-smoke` runs it between candidate shell and candidate draft.
+
 **Follow-up, same day - candidate draft lets text arrive without renaming the route.** `AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN=1`
 converts a passed candidate shell plus provided text into `arianna.live_route_turn_candidate_draft.v1`. The draft
 keeps the shell's source, route, backend, entrypoint, prompt frame, trigger, seed, job id, and shell id, then adds

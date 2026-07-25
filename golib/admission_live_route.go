@@ -7,15 +7,16 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema               = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema             = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema    = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema         = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema        = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema  = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnCandidateDraftSchema = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema         = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRoutePlanSchema                 = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema               = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema      = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema           = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema          = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema    = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema   = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema   = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema           = "arianna.live_route_turn_candidate_review.v1"
 )
 
 type admissionLiveRoutePlan struct {
@@ -113,6 +114,31 @@ type admissionLiveRouteTurnCandidateShell struct {
 	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
 	JobID               string `json:"job_id,omitempty"`
 	ShellID             string `json:"shell_id,omitempty"`
+	Passed              bool   `json:"passed"`
+	Reason              string `json:"reason,omitempty"`
+	TurnTextHash        string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnGeneratorAdapter struct {
+	Schema              string `json:"schema"`
+	PromptClass         string `json:"prompt_class"`
+	Route               string `json:"route,omitempty"`
+	Source              string `json:"source,omitempty"`
+	ExpectedSource      string `json:"expected_source,omitempty"`
+	Backend             string `json:"backend,omitempty"`
+	Entrypoint          string `json:"entrypoint,omitempty"`
+	PromptFrame         string `json:"prompt_frame,omitempty"`
+	CandidateSchema     string `json:"candidate_schema,omitempty"`
+	CandidateKind       string `json:"candidate_kind,omitempty"`
+	CandidateTrigger    string `json:"candidate_trigger,omitempty"`
+	CandidateSeed       string `json:"candidate_seed,omitempty"`
+	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
+	GeneratedText       string `json:"generated_text,omitempty"`
+	GeneratedTextHash   string `json:"generated_text_hash,omitempty"`
+	GeneratedTextStatus string `json:"generated_text_status,omitempty"`
+	JobID               string `json:"job_id,omitempty"`
+	ShellID             string `json:"shell_id,omitempty"`
+	AdapterID           string `json:"adapter_id,omitempty"`
 	Passed              bool   `json:"passed"`
 	Reason              string `json:"reason,omitempty"`
 	TurnTextHash        string `json:"turn_text_hash,omitempty"`
@@ -726,6 +752,148 @@ func recordAdmissionLiveRouteTurnCandidateShell(shell admissionLiveRouteTurnCand
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(shell)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnGeneratorAdapterDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN")
+}
+
+func admissionLiveRouteTurnGeneratorAdapterForShell(shell admissionLiveRouteTurnCandidateShell, text string) admissionLiveRouteTurnGeneratorAdapter {
+	adapter := admissionLiveRouteTurnGeneratorAdapter{
+		Schema:              admissionLiveRouteTurnGeneratorAdapterSchema,
+		PromptClass:         shell.PromptClass,
+		Route:               shell.Route,
+		Source:              shell.Source,
+		ExpectedSource:      shell.ExpectedSource,
+		Backend:             shell.Backend,
+		Entrypoint:          shell.Entrypoint,
+		PromptFrame:         shell.PromptFrame,
+		CandidateSchema:     shell.CandidateSchema,
+		CandidateKind:       shell.CandidateKind,
+		CandidateTrigger:    shell.CandidateTrigger,
+		CandidateSeed:       shell.CandidateSeed,
+		CandidateTextStatus: shell.CandidateTextStatus,
+		GeneratedTextStatus: shell.CandidateTextStatus,
+		JobID:               shell.JobID,
+		ShellID:             shell.ShellID,
+		TurnTextHash:        shell.TurnTextHash,
+	}
+	if shell.Schema == "" {
+		adapter.Reason = "missing_candidate_shell"
+		return adapter
+	}
+	if !shell.Passed {
+		adapter.Reason = "candidate shell failed"
+		if shell.Reason != "" {
+			adapter.Reason += ": " + shell.Reason
+		}
+		return adapter
+	}
+	if adapter.ShellID == "" {
+		adapter.Reason = "missing candidate shell id for route " + adapter.Route + " prompt class " + adapter.PromptClass
+		return adapter
+	}
+	if wantShellID := admissionLiveRouteTurnCandidateShellID(shell); wantShellID == "" || adapter.ShellID != wantShellID {
+		adapter.Reason = "candidate shell id mismatch"
+		return adapter
+	}
+	if adapter.CandidateSchema != "arianna.dream_candidate.v1" {
+		adapter.Reason = "unexpected candidate schema " + adapter.CandidateSchema
+		return adapter
+	}
+	if adapter.Source == "" {
+		adapter.Reason = "missing candidate source for shell " + adapter.ShellID
+		return adapter
+	}
+	expectedSource := admissionLiveRouteSource(adapter.Route)
+	if adapter.ExpectedSource == "" {
+		adapter.ExpectedSource = expectedSource
+	}
+	if adapter.Source != expectedSource {
+		adapter.Reason = "source " + adapter.Source + " does not match generator route " + expectedSource + " for prompt class " + adapter.PromptClass
+		return adapter
+	}
+	if adapter.CandidateKind != adapter.Source {
+		adapter.Reason = "candidate kind " + adapter.CandidateKind + " does not match source " + adapter.Source
+		return adapter
+	}
+	if adapter.CandidateTextStatus != "pending_generation" {
+		adapter.Reason = "candidate shell text status is " + adapter.CandidateTextStatus
+		return adapter
+	}
+	route, ok := admissionLiveRouteGenerationRouteFor(adapter.Route)
+	if !ok {
+		adapter.Reason = "unknown generation route " + adapter.Route
+		return adapter
+	}
+	if adapter.Backend != route.Backend || adapter.Entrypoint != route.Entrypoint || adapter.PromptFrame != route.PromptFrame {
+		adapter.Reason = "generation route mismatch for shell " + adapter.ShellID
+		return adapter
+	}
+	if adapter.CandidateTrigger == "" {
+		adapter.Reason = "missing candidate trigger for shell " + adapter.ShellID
+		return adapter
+	}
+	if adapter.CandidateSeed == "" {
+		adapter.Reason = "missing candidate seed for shell " + adapter.ShellID
+		return adapter
+	}
+	if adapter.JobID == "" {
+		adapter.Reason = "missing generation job id for shell " + adapter.ShellID
+		return adapter
+	}
+	generated := strings.TrimSpace(text)
+	if generated == "" {
+		adapter.Reason = "missing generated text for shell " + adapter.ShellID
+		return adapter
+	}
+	adapter.GeneratedText = generated
+	adapter.GeneratedTextHash = hashJSON(generated)
+	adapter.GeneratedTextStatus = "generated"
+	adapter.AdapterID = admissionLiveRouteTurnGeneratorAdapterID(adapter)
+	if adapter.AdapterID == "" {
+		adapter.Reason = "missing generator adapter id for shell " + adapter.ShellID
+		return adapter
+	}
+	adapter.Passed = true
+	return adapter
+}
+
+func admissionLiveRouteTurnGeneratorAdapterID(adapter admissionLiveRouteTurnGeneratorAdapter) string {
+	h := hashJSON(struct {
+		ShellID           string `json:"shell_id"`
+		Backend           string `json:"backend"`
+		Entrypoint        string `json:"entrypoint"`
+		PromptFrame       string `json:"prompt_frame"`
+		GeneratedTextHash string `json:"generated_text_hash"`
+	}{
+		ShellID:           adapter.ShellID,
+		Backend:           adapter.Backend,
+		Entrypoint:        adapter.Entrypoint,
+		PromptFrame:       adapter.PromptFrame,
+		GeneratedTextHash: adapter.GeneratedTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "adapter-" + h
+}
+
+func recordAdmissionLiveRouteTurnGeneratorAdapter(adapter admissionLiveRouteTurnGeneratorAdapter) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(adapter)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

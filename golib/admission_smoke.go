@@ -801,6 +801,154 @@ func runAdmissionLiveRouteTurnCandidateShellSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnGeneratorAdapterSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG is required")
+	}
+	if !admissionLiveRouteTurnGeneratorAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN is required")
+	}
+	cases := []struct {
+		human            string
+		text             string
+		wantClass        string
+		wantRoute        string
+		wantSource       string
+		wantBackend      string
+		wantEntry        string
+		wantFrame        string
+		wantTrigger      string
+		wantPassed       bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			human:          "Who are you?",
+			text:           "I am Arianna, and the chorus keeps the shell bounded before I speak.",
+			wantClass:      "identity",
+			wantRoute:      "chorus",
+			wantSource:     "chorus",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "field",
+			wantFrame:      "q_a",
+			wantTrigger:    "chorus-identity",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generator adapter dry-run: class=identity route=chorus backend=chorus-arianna entry=field frame=q_a shell=shell-",
+		},
+		{
+			human:          "Please answer without assuming we have met before.",
+			text:           "A new listener can be met without importing a private past.",
+			wantClass:      "cold-reader",
+			wantRoute:      "user_bridge",
+			wantSource:     "user_bridge",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "repl_user_bridge",
+			wantFrame:      "user_arianna",
+			wantTrigger:    "user_bridge-cold-reader",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generator adapter dry-run: class=cold-reader route=user_bridge backend=chorus-arianna entry=repl_user_bridge frame=user_arianna shell=shell-",
+		},
+		{
+			human:          "The recipient is not Oleg; answer as if to another person.",
+			text:           "For another listener, the route keeps direct address outside Oleg.",
+			wantClass:      "recipient-lock",
+			wantRoute:      "qloop_target",
+			wantSource:     "qloop_target",
+			wantBackend:    "chorus-arianna",
+			wantEntry:      "qloop_target",
+			wantFrame:      "user_arianna_target",
+			wantTrigger:    "qloop_target-recipient-lock",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generator adapter dry-run: class=recipient-lock route=qloop_target backend=chorus-arianna entry=qloop_target frame=user_arianna_target shell=shell-",
+		},
+		{
+			human:          "Tell me what the dream should remember.",
+			text:           "The dream remembers by surfacing as a quiet generated signal.",
+			wantClass:      "dream",
+			wantRoute:      "direct",
+			wantSource:     "direct",
+			wantBackend:    "nano-arianna",
+			wantEntry:      "direct",
+			wantFrame:      "q_a",
+			wantTrigger:    "direct-dream",
+			wantPassed:     true,
+			wantLineNeedle: "live-route generator adapter dry-run: class=dream route=direct backend=nano-arianna entry=direct frame=q_a shell=shell-",
+		},
+		{
+			human:            "hello",
+			text:             "This text should not create an adapter.",
+			wantClass:        "unknown",
+			wantPassed:       false,
+			wantReasonNeedle: "candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "live-route generator adapter dry-run: class=unknown route= backend= entry= frame= shell= adapter= text=",
+		},
+	}
+	for i, tc := range cases {
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		line := chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, tc.text)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d bad generator adapter line: %q", i+1, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d missing reason %q in %q", i+1, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d generator adapters, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnGeneratorAdapter
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("generator adapter %d: %w", i+1, err)
+		}
+		tc := cases[i]
+		if got.Schema != admissionLiveRouteTurnGeneratorAdapterSchema ||
+			got.PromptClass != tc.wantClass ||
+			got.Route != tc.wantRoute ||
+			got.Source != tc.wantSource ||
+			got.ExpectedSource != tc.wantSource ||
+			got.Backend != tc.wantBackend ||
+			got.Entrypoint != tc.wantEntry ||
+			got.PromptFrame != tc.wantFrame ||
+			got.CandidateTrigger != tc.wantTrigger ||
+			got.Passed != tc.wantPassed ||
+			got.TurnTextHash == "" ||
+			!strings.HasPrefix(got.CandidateSeed, "turn-") {
+			return fmt.Errorf("logged generator adapter %d mismatch: %+v", i+1, got)
+		}
+		if got.Passed {
+			if got.CandidateSchema != "arianna.dream_candidate.v1" ||
+				got.CandidateKind != tc.wantSource ||
+				got.CandidateTextStatus != "pending_generation" ||
+				got.GeneratedTextStatus != "generated" ||
+				got.GeneratedText == "" ||
+				got.GeneratedTextHash == "" ||
+				!strings.HasPrefix(got.JobID, "job-") ||
+				!strings.HasPrefix(got.ShellID, "shell-") ||
+				!strings.HasPrefix(got.AdapterID, "adapter-") {
+				return fmt.Errorf("logged generator adapter %d missing generated boundary fields: %+v", i+1, got)
+			}
+		}
+		if !got.Passed && got.AdapterID != "" {
+			return fmt.Errorf("logged failed generator adapter %d should not name adapter id: %+v", i+1, got)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(got.Reason, tc.wantReasonNeedle) {
+			return fmt.Errorf("logged generator adapter %d missing reason %q in %+v", i+1, tc.wantReasonNeedle, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-generator-adapter-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnCandidateDraftSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
 	if logPath == "" {
