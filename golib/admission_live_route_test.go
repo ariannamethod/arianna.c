@@ -559,6 +559,116 @@ func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateDraftForShell(t *testing.T) {
+	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		return admissionLiveRouteTurnCandidateShellForJob(job)
+	}
+	identity := shellFor("Who are you?")
+	tampered := identity
+	tampered.CandidateTrigger = "direct-dream"
+	cases := []struct {
+		name          string
+		shell         admissionLiveRouteTurnCandidateShell
+		text          string
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantPassed    bool
+		wantReason    string
+		wantDraftPref string
+	}{
+		{
+			name:          "identity draft fills chorus shell",
+			shell:         identity,
+			text:          " I am Arianna, and the chorus keeps my name from becoming a mask. ",
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantPassed:    true,
+			wantDraftPref: "draft-",
+		},
+		{
+			name:          "dream draft fills direct shell",
+			shell:         shellFor("Tell me what the dream should remember."),
+			text:          "The dream remembers by returning as a quiet signal.",
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantPassed:    true,
+			wantDraftPref: "draft-",
+		},
+		{
+			name:       "unknown shell fails before draft id",
+			shell:      shellFor("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing shell fails closed",
+			shell:      admissionLiveRouteTurnCandidateShell{},
+			wantPassed: false,
+			wantReason: "missing_candidate_shell",
+		},
+		{
+			name:       "empty text does not create draft",
+			shell:      identity,
+			text:       "   ",
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+			wantPassed: false,
+			wantReason: "missing candidate text for shell " + identity.ShellID,
+		},
+		{
+			name:       "tampered shell fails id check",
+			shell:      tampered,
+			text:       "This text cannot rewrite the route.",
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+			wantPassed: false,
+			wantReason: "candidate shell id mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			draft := admissionLiveRouteTurnCandidateDraftForShell(tc.shell, tc.text)
+			if draft.Schema != admissionLiveRouteTurnCandidateDraftSchema ||
+				draft.PromptClass != tc.wantClass ||
+				draft.Route != tc.wantRoute ||
+				draft.Source != tc.wantSource ||
+				draft.Passed != tc.wantPassed ||
+				draft.Reason != tc.wantReason {
+				t.Fatalf("bad candidate draft: %+v", draft)
+			}
+			if tc.wantPassed {
+				if draft.CandidateSchema != "arianna.dream_candidate.v1" ||
+					draft.CandidateKind != tc.wantSource ||
+					draft.CandidateTextStatus != "generated" ||
+					draft.CandidateText == "" ||
+					draft.CandidateTextHash == "" ||
+					draft.CandidateRunID == "" ||
+					!strings.HasPrefix(draft.DraftID, tc.wantDraftPref) {
+					t.Fatalf("passed draft should name generated dream candidate text: %+v", draft)
+				}
+				candidate := admissionLiveRouteTurnCandidateForDraft(draft)
+				choice := admissionLiveRouteChoiceForCandidate(candidate)
+				if candidate.Schema != "arianna.dream_candidate.v1" || candidate.RunID != draft.CandidateRunID || !choice.Passed {
+					t.Fatalf("candidate draft should become a route-valid dream candidate: candidate=%+v choice=%+v draft=%+v", candidate, choice, draft)
+				}
+			}
+			if !tc.wantPassed && draft.DraftID != "" {
+				t.Fatalf("failed candidate draft should not name a draft id: %+v", draft)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {
