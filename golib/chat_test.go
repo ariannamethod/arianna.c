@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -375,6 +378,87 @@ func TestChatLiveRouteTurnCandidateAdmissionAdapterDryRunLineDisabled(t *testing
 	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	if got := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(obs); got != "" {
 		t.Fatalf("candidate admission adapter line should be hidden by default: %q", got)
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionShadowDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the shadow gate sees the same handoff.")
+	logPath := filepath.Join(t.TempDir(), "dream-admission-chat-shadow.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission shadow dry-run",
+		"class=identity",
+		"route=chorus",
+		"source=chorus",
+		"handoff=handoff-",
+		"admission_adapter=admission-adapter-",
+		"run=",
+		"policy=true",
+		"accepted=false",
+		"passed=true",
+		"reason=shadow mode",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission shadow line missing %q: %q", want, line)
+		}
+	}
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.LiveRouteCandidateAdmission == nil ||
+		got.LiveRouteCandidateAdmission.AdmissionAdapterID == "" ||
+		got.Admission == nil ||
+		!got.Admission.Passed ||
+		got.Accepted ||
+		got.Reason != "shadow mode" {
+		t.Fatalf("bad shadow admission receipt: %+v", got)
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionShadowDryRunLineRequiresShadowMode(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, but this gate must stay shadow-only.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission shadow dry-run",
+		"policy=false",
+		"accepted=false",
+		"passed=false",
+		"reason=AM_DREAM_ADMISSION must be shadow",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission shadow mode guard missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionShadowDryRunLineDisabled(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(obs); got != "" {
+		t.Fatalf("candidate admission shadow line should be hidden by default: %q", got)
 	}
 }
 

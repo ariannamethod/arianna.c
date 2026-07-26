@@ -3725,3 +3725,16 @@ uses the same id/hash rechecks as the isolated handoff and adapter smokes, so un
 text fail closed without naming draft, handoff, or admission-adapter ids. `make
 admission-live-route-turn-candidate-admission-chat-smoke` locks the chat-line plus JSONL contract, and
 `make body-smoke` runs it after the admission-adapter smoke.
+
+**Follow-up, same day - chat adapters now reach shadow admission receipts.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN=1` adds the next default-off chat layer after the
+admission adapter. With draft, handoff, adapter, `AM_DREAM_ADMISSION=shadow`, and
+`AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN=1` all enabled, `metabolism --chat` converts the adapter-backed draft
+into the ordinary `arianna.dream_candidate.v1` shadow admission path and embeds the
+`arianna.live_route_turn_candidate_admission_adapter.v1` receipt inside the dream candidate.
+
+This still does not call a generator and does not mutate organism state. It writes only the normal shadow
+admission JSONL when the adapter is passed and route-plan policy passes; unknown turns, missing generated text,
+missing shadow mode, and missing route-plan requirement fail closed. `make
+admission-live-route-turn-candidate-admission-chat-shadow-smoke` locks the chat-line plus JSONL contract, and
+`make body-smoke` runs it after the chat handoff/adapter smoke.

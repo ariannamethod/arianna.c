@@ -140,6 +140,9 @@ func runChat() {
 		if line := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
+		if line := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
 		if hasDream {
 			if dr.admitted() {
 				lastDream = dr.dream
@@ -214,7 +217,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnGeneratorAdapterDryRun() ||
 		admissionLiveRouteTurnCandidateDraftDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun()
+		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun()
 }
 
 func chatLiveRouteChoiceDryRunLine(c dreamCandidate) string {
@@ -416,6 +420,61 @@ func chatLiveRouteTurnCandidateAdmissionAdapterDryRunLineForText(obs admissionLi
 	return fmt.Sprintf("│  · live-route candidate admission adapter dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s passed=%t%s",
 		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
 		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, adapter.Passed, reason)
+}
+
+func chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnCandidateAdmissionShadowDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
+}
+
+func chatLiveRouteTurnCandidateAdmissionShadowDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
+		!admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
+		!admissionLiveRouteTurnCandidateAdmissionDryRun() ||
+		!admissionLiveRouteTurnCandidateDraftDryRun() ||
+		obs.Schema == "" {
+		return ""
+	}
+	draft := chatLiveRouteTurnCandidateDraftForText(obs, text)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission, draft)
+	passed := false
+	accepted := false
+	policyPassed := false
+	reason := ""
+	if dreamAdmissionMode() != dreamAdmissionShadow {
+		reason = "AM_DREAM_ADMISSION must be shadow"
+	} else if !dreamAdmissionRequireLiveRoutePlan() {
+		reason = "AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required"
+	} else {
+		candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(draft, adapter)
+		if candidate.Schema == "" {
+			reason = "candidate_admission_adapter_failed"
+			if adapter.Reason != "" {
+				reason += ": " + adapter.Reason
+			}
+		} else {
+			candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, obs)
+			accepted = candidate.Accepted
+			policyPassed = candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed
+			passed = candidate.Schema == "arianna.dream_candidate.v1" &&
+				candidate.LiveRouteCandidateAdmission != nil &&
+				candidate.LiveRouteCandidateAdmission.AdmissionAdapterID == adapter.AdmissionAdapterID &&
+				!candidate.Accepted &&
+				policyPassed
+			reason = candidate.Reason
+			if !policyPassed && candidate.Admission != nil && len(candidate.Admission.Reasons) > 0 {
+				reason = "admission policy failed: " + strings.Join(candidate.Admission.Reasons, "; ")
+			}
+		}
+	}
+	reasonSuffix := ""
+	if reason != "" {
+		reasonSuffix = " reason=" + reason
+	}
+	return fmt.Sprintf("│  · live-route candidate admission shadow dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s policy=%t accepted=%t passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
+		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, policyPassed, accepted, passed, reasonSuffix)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {

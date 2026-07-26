@@ -466,6 +466,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-admission-chat-shadow-smoke" {
+		if err := runAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmoke(); err != nil {
+			fmt.Println("admission-live-route-turn-candidate-admission-chat-shadow-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-review-smoke" {
 		if err := runAdmissionLiveRouteTurnReviewSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-review-smoke:", err)

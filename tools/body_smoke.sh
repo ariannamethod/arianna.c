@@ -128,6 +128,10 @@ echo "[body-smoke] admission live route candidate admission chat chain"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_CHAT_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-chat" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_admission_chat_smoke.sh"
 
+echo "[body-smoke] admission live route candidate admission chat shadow"
+A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_CHAT_SHADOW_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-chat-shadow" \
+    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_chat_shadow_smoke.sh"
+
 echo "[body-smoke] admission live route turn/candidate review"
 A2A_ADMISSION_LIVE_ROUTE_TURN_REVIEW_WORKDIR="$WORKDIR/admission-live-route-turn-review" \
     bash "$ROOT/tools/admission_live_route_turn_review_smoke.sh"
