@@ -70,6 +70,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 
 # ── Default target ─────────────────────────────────────────────────────────
 .PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke admission_live_route_gate_smoke admission-live-route-gate-smoke admission_live_route_chat_smoke admission-live-route-chat-smoke admission_live_route_turn_smoke admission-live-route-turn-smoke admission_live_route_turn_choice_smoke admission-live-route-turn-choice-smoke admission_live_route_turn_request_smoke admission-live-route-turn-request-smoke admission_live_route_turn_generation_job_smoke admission-live-route-turn-generation-job-smoke admission_live_route_turn_candidate_shell_smoke admission-live-route-turn-candidate-shell-smoke admission_live_route_turn_generator_adapter_smoke admission-live-route-turn-generator-adapter-smoke admission_live_route_turn_candidate_draft_smoke admission-live-route-turn-candidate-draft-smoke admission_live_route_turn_review_smoke admission-live-route-turn-review-smoke admission_live_route_turn_bridge_smoke admission-live-route-turn-bridge-smoke admission_live_route_turn_bridge_admission_smoke admission-live-route-turn-bridge-admission-smoke admission_shadow_sample admission-shadow-sample admission_shadow_sample_broad admission-shadow-sample-broad admission_route_compare admission-route-compare admission_route_plan_gate admission-route-plan-gate admission_qloop_sweep admission-qloop-sweep admission_qloop_sweep_broad admission-qloop-sweep-broad body_smoke body-smoke clean weights distclean
+.PHONY: admission_live_route_turn_candidate_draft_review_smoke admission-live-route-turn-candidate-draft-review-smoke
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -296,6 +297,11 @@ admission-live-route-turn-candidate-draft-smoke: admission_live_route_turn_candi
 
 admission_live_route_turn_candidate_draft_smoke: metabolism
 	bash tools/admission_live_route_turn_candidate_draft_smoke.sh
+
+admission-live-route-turn-candidate-draft-review-smoke: admission_live_route_turn_candidate_draft_review_smoke
+
+admission_live_route_turn_candidate_draft_review_smoke: metabolism
+	bash tools/admission_live_route_turn_candidate_draft_review_smoke.sh
 
 admission-live-route-turn-review-smoke: admission_live_route_turn_review_smoke
 

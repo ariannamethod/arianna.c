@@ -3671,3 +3671,16 @@ The older `shell + text` helper stays available as a low-level validator, but th
 it directly. This closes the bypass between "text returned" and "candidate draft exists": future real generation
 must cross the named adapter boundary first. Tampered adapter text, adapter id, shell id, empty generated text,
 and unknown-turn adapters fail closed without a draft id.
+
+**Follow-up, same day - candidate draft review consumes draft receipts.** Added a draft-backed route review path:
+`arianna.live_route_turn_candidate_review.v1` can now be built from
+`arianna.live_route_turn_candidate_draft.v1` instead of only from a surfaced `arianna.dream_candidate.v1`. The
+review records `candidate_draft_id`, `generator_adapter_id`, candidate text status, and text hash, then rechecks
+draft id, adapter presence, generated text hash, deterministic candidate run id, and live-route choice before
+matching the candidate source/route against the human-turn observation.
+
+This is still receipt-only and mutates no organism state. It closes the next handoff: an adapter-backed draft can
+move toward review without collapsing back into free-form candidate text. Missing drafts, failed drafts, tampered
+draft ids, missing adapter ids, text hash drift, route/source mismatches, and unknown turns fail closed. `make
+admission-live-route-turn-candidate-draft-review-smoke` locks the JSONL contract, and `make body-smoke` runs it
+between candidate draft and the older surfaced turn/candidate review.

@@ -178,6 +178,10 @@ type admissionLiveRouteTurnCandidateReview struct {
 	TurnExpectedSource      string `json:"turn_expected_source,omitempty"`
 	TurnPassed              bool   `json:"turn_passed"`
 	CandidateRunID          string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string `json:"candidate_draft_id,omitempty"`
+	GeneratorAdapterID      string `json:"generator_adapter_id,omitempty"`
+	CandidateTextStatus     string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string `json:"candidate_text_hash,omitempty"`
 	CandidateSource         string `json:"candidate_source,omitempty"`
 	CandidateTrigger        string `json:"candidate_trigger,omitempty"`
 	CandidateBridgeApplied  bool   `json:"candidate_bridge_applied"`
@@ -1137,6 +1141,109 @@ func recordAdmissionLiveRouteTurnCandidateDraft(draft admissionLiveRouteTurnCand
 		err = closeErr
 	}
 	return err
+}
+
+func admissionLiveRouteTurnCandidateReviewForDraft(obs admissionLiveRouteTurnObservation, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateReview {
+	review := admissionLiveRouteTurnCandidateReview{
+		Schema:              admissionLiveRouteTurnReviewSchema,
+		Timing:              "async_subconscious",
+		TurnPromptClass:     obs.PromptClass,
+		TurnRoute:           obs.Route,
+		TurnExpectedSource:  obs.ExpectedSource,
+		TurnPassed:          obs.Passed,
+		CandidateRunID:      draft.CandidateRunID,
+		CandidateDraftID:    draft.DraftID,
+		GeneratorAdapterID:  draft.GeneratorAdapterID,
+		CandidateTextStatus: draft.CandidateTextStatus,
+		CandidateTextHash:   draft.CandidateTextHash,
+		CandidateSource:     normalizeDreamAdmissionSource(draft.Source),
+		CandidateTrigger:    draft.CandidateTrigger,
+	}
+	if obs.Schema == "" {
+		review.Reason = "missing_turn_observation"
+		return review
+	}
+	if !obs.Passed {
+		review.Reason = "turn_route_failed"
+		if obs.Reason != "" {
+			review.Reason += ": " + obs.Reason
+		}
+		return review
+	}
+	if draft.Schema == "" {
+		review.Reason = "missing_candidate_draft"
+		return review
+	}
+	if !draft.Passed {
+		review.Reason = "candidate_draft_failed"
+		if draft.Reason != "" {
+			review.Reason += ": " + draft.Reason
+		}
+		return review
+	}
+	if draft.DraftID == "" {
+		review.Reason = "missing_candidate_draft_id"
+		return review
+	}
+	if wantDraftID := admissionLiveRouteTurnCandidateDraftID(draft); wantDraftID == "" || draft.DraftID != wantDraftID {
+		review.Reason = "candidate_draft_id_mismatch"
+		return review
+	}
+	if draft.GeneratorAdapterID == "" {
+		review.Reason = "missing_generator_adapter_id for draft " + draft.DraftID
+		return review
+	}
+	if draft.CandidateTextStatus != "generated" {
+		review.Reason = "candidate_draft_text_status_is " + draft.CandidateTextStatus
+		return review
+	}
+	text := strings.TrimSpace(draft.CandidateText)
+	if text == "" {
+		review.Reason = "missing_candidate_text for draft " + draft.DraftID
+		return review
+	}
+	if draft.CandidateTextHash == "" || draft.CandidateTextHash != hashJSON(text) {
+		review.Reason = "candidate_draft_text_hash_mismatch"
+		return review
+	}
+	candidate := admissionLiveRouteTurnCandidateForDraft(draft)
+	if candidate.Schema == "" {
+		review.Reason = "candidate_draft_failed"
+		return review
+	}
+	if candidate.RunID != draft.CandidateRunID {
+		review.Reason = "candidate_run_id_mismatch"
+		return review
+	}
+	choice := admissionLiveRouteChoiceForCandidate(candidate)
+	review.CandidatePromptClass = choice.PromptClass
+	review.CandidateRoute = choice.Route
+	review.CandidateExpectedSource = choice.ExpectedSource
+	review.CandidateChoicePassed = choice.Passed
+	if !choice.Passed {
+		review.Reason = "candidate_route_failed"
+		if choice.Reason != "" {
+			review.Reason += ": " + choice.Reason
+		}
+		return review
+	}
+	if choice.PromptClass != draft.PromptClass || choice.Route != draft.Route || choice.ExpectedSource != draft.ExpectedSource {
+		review.Reason = "candidate_draft_route_mismatch: class " + choice.PromptClass +
+			" route " + choice.Route + " expected " + choice.ExpectedSource
+		return review
+	}
+	if review.CandidateSource != obs.ExpectedSource {
+		review.Reason = "candidate_source_mismatch: source " + review.CandidateSource +
+			" does not match turn expected " + obs.ExpectedSource + " for prompt class " + obs.PromptClass
+		return review
+	}
+	if review.CandidateRoute != obs.Route {
+		review.Reason = "candidate_route_mismatch: route " + review.CandidateRoute +
+			" does not match turn route " + obs.Route + " for prompt class " + obs.PromptClass
+		return review
+	}
+	review.Matched = true
+	return review
 }
 
 func admissionLiveRouteTurnCandidateReviewForDream(obs admissionLiveRouteTurnObservation, c dreamCandidate) admissionLiveRouteTurnCandidateReview {

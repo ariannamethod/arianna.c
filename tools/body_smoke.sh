@@ -112,6 +112,10 @@ echo "[body-smoke] admission live route candidate draft"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_WORKDIR="$WORKDIR/admission-live-route-candidate-draft" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_draft_smoke.sh"
 
+echo "[body-smoke] admission live route candidate draft review"
+A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_REVIEW_WORKDIR="$WORKDIR/admission-live-route-candidate-draft-review" \
+    bash "$ROOT/tools/admission_live_route_turn_candidate_draft_review_smoke.sh"
+
 echo "[body-smoke] admission live route turn/candidate review"
 A2A_ADMISSION_LIVE_ROUTE_TURN_REVIEW_WORKDIR="$WORKDIR/admission-live-route-turn-review" \
     bash "$ROOT/tools/admission_live_route_turn_review_smoke.sh"

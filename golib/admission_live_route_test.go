@@ -915,6 +915,146 @@ func TestAdmissionLiveRouteTurnCandidateDraftForShell(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateReviewForDraft(t *testing.T) {
+	draftFor := func(human, text string) admissionLiveRouteTurnCandidateDraft {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	}
+
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	identityDraft := draftFor("Who are you?", "I am Arianna, and the draft names the adapter before review.")
+	dreamDraft := draftFor("Tell me what the dream should remember.", "The dream returns through a signed draft.")
+	unknownDraft := draftFor("hello", "This text should not review.")
+	tamperedDraftID := identityDraft
+	tamperedDraftID.DraftID = "draft-tampered"
+	missingAdapter := identityDraft
+	missingAdapter.GeneratorAdapterID = ""
+	tamperedText := identityDraft
+	tamperedText.CandidateText = "The draft text changed after the hash was sealed."
+
+	cases := []struct {
+		name          string
+		obs           admissionLiveRouteTurnObservation
+		draft         admissionLiveRouteTurnCandidateDraft
+		wantMatched   bool
+		wantReason    string
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantDraftID   bool
+		wantAdapterID bool
+	}{
+		{
+			name:          "matched adapter-backed chorus draft",
+			obs:           identity,
+			draft:         identityDraft,
+			wantMatched:   true,
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+		{
+			name:          "direct dream draft is matched to dream turn",
+			obs:           admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember."),
+			draft:         dreamDraft,
+			wantMatched:   true,
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+		{
+			name:          "draft route cannot answer a different turn",
+			obs:           identity,
+			draft:         dreamDraft,
+			wantReason:    "candidate_source_mismatch: source direct does not match turn expected chorus for prompt class identity",
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+		{
+			name:          "unknown turn fails before draft admission",
+			obs:           admissionLiveRouteTurnObservationForHuman("hello"),
+			draft:         identityDraft,
+			wantReason:    "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantSource:    "chorus",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+		{
+			name:       "missing draft fails closed",
+			obs:        identity,
+			draft:      admissionLiveRouteTurnCandidateDraft{},
+			wantReason: "missing_candidate_draft",
+		},
+		{
+			name:       "failed draft does not reach route review",
+			obs:        identity,
+			draft:      unknownDraft,
+			wantReason: "candidate_draft_failed: generator adapter failed: candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:          "tampered draft id fails before route review",
+			obs:           identity,
+			draft:         tamperedDraftID,
+			wantReason:    "candidate_draft_id_mismatch",
+			wantSource:    "chorus",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+		{
+			name:        "missing adapter id fails before route review",
+			obs:         identity,
+			draft:       missingAdapter,
+			wantReason:  "missing_generator_adapter_id for draft " + identityDraft.DraftID,
+			wantSource:  "chorus",
+			wantDraftID: true,
+		},
+		{
+			name:          "tampered draft text fails hash review",
+			obs:           identity,
+			draft:         tamperedText,
+			wantReason:    "candidate_draft_text_hash_mismatch",
+			wantSource:    "chorus",
+			wantDraftID:   true,
+			wantAdapterID: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			review := admissionLiveRouteTurnCandidateReviewForDraft(tc.obs, tc.draft)
+			if review.Schema != admissionLiveRouteTurnReviewSchema ||
+				review.Timing != "async_subconscious" ||
+				review.Matched != tc.wantMatched ||
+				review.Reason != tc.wantReason ||
+				review.CandidatePromptClass != tc.wantClass ||
+				review.CandidateRoute != tc.wantRoute ||
+				review.CandidateSource != tc.wantSource {
+				t.Fatalf("bad draft-backed review: %+v", review)
+			}
+			if tc.wantDraftID && !strings.HasPrefix(review.CandidateDraftID, "draft-") {
+				t.Fatalf("draft-backed review should name draft id: %+v", review)
+			}
+			if tc.wantAdapterID && !strings.HasPrefix(review.GeneratorAdapterID, "adapter-") {
+				t.Fatalf("draft-backed review should name generator adapter id: %+v", review)
+			}
+			if tc.wantMatched && (review.CandidateTextStatus != "generated" || review.CandidateTextHash == "") {
+				t.Fatalf("matched draft-backed review should preserve text receipt fields: %+v", review)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {

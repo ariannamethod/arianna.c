@@ -1080,6 +1080,137 @@ func runAdmissionLiveRouteTurnCandidateDraftSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateDraftReviewSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+	if !dreamAdmissionLiveRouteChoiceDryRun() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN is required")
+	}
+
+	draftFor := func(human, text string) admissionLiveRouteTurnCandidateDraft {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	}
+	reviewLine := func(review admissionLiveRouteTurnCandidateReview) string {
+		reason := ""
+		if review.Reason != "" {
+			reason = " reason=" + review.Reason
+		}
+		return fmt.Sprintf("│  · live-route candidate draft review: turn_class=%s expected=%s draft=%s adapter=%s candidate_source=%s candidate_class=%s candidate_route=%s matched=%t%s",
+			review.TurnPromptClass, review.TurnExpectedSource, review.CandidateDraftID, review.GeneratorAdapterID,
+			review.CandidateSource, review.CandidatePromptClass, review.CandidateRoute, review.Matched, reason)
+	}
+
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	dreamObs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	identityDraft := draftFor("Who are you?", "I am Arianna, and the draft keeps the adapter visible.")
+	dreamDraft := draftFor("Tell me what the dream should remember.", "The dream returns through a signed draft.")
+	unknownDraft := draftFor("hello", "This text should not review.")
+	cases := []struct {
+		name             string
+		obs              admissionLiveRouteTurnObservation
+		draft            admissionLiveRouteTurnCandidateDraft
+		wantMatched      bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "matched adapter-backed chorus identity draft",
+			obs:            identity,
+			draft:          identityDraft,
+			wantMatched:    true,
+			wantLineNeedle: "live-route candidate draft review: turn_class=identity expected=chorus draft=draft-",
+		},
+		{
+			name:           "matched adapter-backed direct dream draft",
+			obs:            dreamObs,
+			draft:          dreamDraft,
+			wantMatched:    true,
+			wantLineNeedle: "candidate_source=direct candidate_class=dream candidate_route=direct matched=true",
+		},
+		{
+			name:             "draft cannot answer a different turn",
+			obs:              identity,
+			draft:            dreamDraft,
+			wantMatched:      false,
+			wantReasonNeedle: "candidate_source_mismatch: source direct does not match turn expected chorus for prompt class identity",
+			wantLineNeedle:   "turn_class=identity expected=chorus draft=draft-",
+		},
+		{
+			name:             "unknown turn fails before draft",
+			obs:              admissionLiveRouteTurnObservationForHuman("hello"),
+			draft:            identityDraft,
+			wantMatched:      false,
+			wantReasonNeedle: "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "turn_class=unknown expected= draft=draft-",
+		},
+		{
+			name:             "failed draft does not reach route review",
+			obs:              identity,
+			draft:            unknownDraft,
+			wantMatched:      false,
+			wantReasonNeedle: "candidate_draft_failed: generator adapter failed",
+			wantLineNeedle:   "turn_class=identity expected=chorus draft= adapter= candidate_source= candidate_class= candidate_route= matched=false",
+		},
+	}
+	for i, tc := range cases {
+		review := admissionLiveRouteTurnCandidateReviewForDraft(tc.obs, tc.draft)
+		if review.Matched != tc.wantMatched {
+			return fmt.Errorf("case %d %s matched=%t, want %t: %+v", i+1, tc.name, review.Matched, tc.wantMatched, review)
+		}
+		if err := recordAdmissionLiveRouteTurnCandidateReview(review); err != nil {
+			return err
+		}
+		line := reviewLine(review)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad draft review line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d candidate draft reviews, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateReview
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("candidate draft review %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnReviewSchema || got.Matched != cases[i].wantMatched {
+			return fmt.Errorf("logged candidate draft review %d mismatch: %+v", i+1, got)
+		}
+		if got.Matched {
+			if !strings.HasPrefix(got.CandidateDraftID, "draft-") ||
+				!strings.HasPrefix(got.GeneratorAdapterID, "adapter-") ||
+				got.CandidateTextStatus != "generated" ||
+				got.CandidateTextHash == "" {
+				return fmt.Errorf("logged matched draft review %d missing draft provenance: %+v", i+1, got)
+			}
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-draft-review-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {
