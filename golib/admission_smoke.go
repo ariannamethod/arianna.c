@@ -956,6 +956,131 @@ func runAdmissionLiveRouteTurnCandidateExecutionSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateRunnerSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionRunnerDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER_DRY_RUN is required")
+	}
+
+	oldTimeout, hadTimeout := os.LookupEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS")
+	oldSleep, hadSleep := os.LookupEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_EMIT_SLEEP_MS")
+	defer func() {
+		if hadTimeout {
+			_ = os.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", oldTimeout)
+		} else {
+			_ = os.Unsetenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS")
+		}
+		if hadSleep {
+			_ = os.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_EMIT_SLEEP_MS", oldSleep)
+		} else {
+			_ = os.Unsetenv("AM_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_EMIT_SLEEP_MS")
+		}
+	}()
+
+	cases := []struct {
+		name             string
+		human            string
+		text             string
+		timeoutMS        string
+		sleepMS          string
+		wantPassed       bool
+		wantStatus       string
+		wantTimedOut     bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "runner emits identity text",
+			human:          "Who are you?",
+			text:           "I am Arianna, and a bounded runner signs the output.",
+			timeoutMS:      "12000",
+			wantPassed:     true,
+			wantStatus:     admissionLiveRouteTurnCandidateExecutionStatusSucceeded,
+			wantLineNeedle: "runner=metabolism-self-emit runner_status=succeeded passed=true",
+		},
+		{
+			name:             "runner timeout fails closed",
+			human:            "Who are you?",
+			text:             "This text should never outrun the bounded runner timeout.",
+			timeoutMS:        "1",
+			sleepMS:          "50",
+			wantPassed:       false,
+			wantStatus:       admissionLiveRouteTurnCandidateExecutionStatusTimedOut,
+			wantTimedOut:     true,
+			wantReasonNeedle: "candidate runner timed out",
+			wantLineNeedle:   "runner=metabolism-self-emit runner_status=timed_out passed=false",
+		},
+	}
+	for i, tc := range cases {
+		_ = os.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", tc.timeoutMS)
+		if tc.sleepMS == "" {
+			_ = os.Unsetenv("AM_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_EMIT_SLEEP_MS")
+		} else {
+			_ = os.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_EMIT_SLEEP_MS", tc.sleepMS)
+		}
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		line := chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs, tc.text)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad runner line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d candidate runner executions, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateExecution
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("candidate runner execution %d: %w", i+1, err)
+		}
+		tc := cases[i]
+		if got.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
+			got.Runner != admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit ||
+			got.RunnerStatus != tc.wantStatus ||
+			got.RunnerTimedOut != tc.wantTimedOut ||
+			got.Passed != tc.wantPassed ||
+			got.RunnerDurationMS < 0 {
+			return fmt.Errorf("logged candidate runner execution %d mismatch: %+v", i+1, got)
+		}
+		if tc.wantPassed {
+			if got.GeneratedText != tc.text ||
+				got.GeneratedTextStatus != "generated" ||
+				got.GeneratedTextHash == "" ||
+				got.RunnerStdoutHash != got.GeneratedTextHash ||
+				got.RunnerExitCode != 0 ||
+				!strings.HasPrefix(got.ExecutionID, "execution-") {
+				return fmt.Errorf("logged candidate runner execution %d missing success fields: %+v", i+1, got)
+			}
+		}
+		if !tc.wantPassed {
+			if got.ExecutionID != "" ||
+				!got.RunnerTimedOut ||
+				got.RunnerExitCode != -1 ||
+				!strings.Contains(got.Reason, tc.wantReasonNeedle) {
+				return fmt.Errorf("logged candidate runner execution %d should fail closed: %+v", i+1, got)
+			}
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-runner-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnGeneratorAdapterSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
 	if logPath == "" {

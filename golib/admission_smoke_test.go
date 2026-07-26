@@ -442,12 +442,15 @@ func TestAdmissionLiveRouteTurnCandidateExecutionSmokeWritesExecutions(t *testin
 		identity.PromptFrame != "q_a" ||
 		identity.Executor != "chorus-arianna:field:q_a" ||
 		identity.TimeoutMS != admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS ||
+		identity.Runner != admissionLiveRouteTurnCandidateExecutionRunnerProvided ||
+		identity.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusProvided ||
 		identity.CandidateSchema != "arianna.dream_candidate.v1" ||
 		identity.CandidateKind != "chorus" ||
 		identity.CandidateTextStatus != "pending_generation" ||
 		identity.GeneratedTextStatus != "generated" ||
 		identity.GeneratedText == "" ||
 		identity.GeneratedTextHash == "" ||
+		identity.RunnerStdoutHash != identity.GeneratedTextHash ||
 		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
 		!strings.HasPrefix(identity.JobID, "job-") ||
 		!strings.HasPrefix(identity.ShellID, "shell-") ||

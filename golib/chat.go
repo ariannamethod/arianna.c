@@ -329,6 +329,9 @@ func chatLiveRouteTurnCandidateExecutionForText(obs admissionLiveRouteTurnObserv
 	request := admissionLiveRouteTurnRequestForChoice(choice)
 	job := admissionLiveRouteTurnGenerationJobForRequest(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	if admissionLiveRouteTurnCandidateExecutionRunnerDryRun() {
+		return admissionLiveRouteTurnCandidateExecutionForShellViaRunner(shell, text)
+	}
 	return admissionLiveRouteTurnCandidateExecutionForShell(shell, text)
 }
 
@@ -344,9 +347,10 @@ func chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs admissionLiveRoute
 	if execution.Reason != "" {
 		reason = " reason=" + execution.Reason
 	}
-	return fmt.Sprintf("│  · live-route candidate execution dry-run: class=%s route=%s backend=%s entry=%s frame=%s executor=%s timeout_ms=%d shell=%s execution=%s text=%s passed=%t%s",
+	return fmt.Sprintf("│  · live-route candidate execution dry-run: class=%s route=%s backend=%s entry=%s frame=%s executor=%s timeout_ms=%d shell=%s execution=%s text=%s runner=%s runner_status=%s passed=%t%s",
 		execution.PromptClass, execution.Route, execution.Backend, execution.Entrypoint, execution.PromptFrame,
-		execution.Executor, execution.TimeoutMS, execution.ShellID, execution.ExecutionID, execution.GeneratedTextStatus, execution.Passed, reason)
+		execution.Executor, execution.TimeoutMS, execution.ShellID, execution.ExecutionID, execution.GeneratedTextStatus,
+		execution.Runner, execution.RunnerStatus, execution.Passed, reason)
 }
 
 func chatLiveRouteTurnGeneratorAdapterDryRunLine(obs admissionLiveRouteTurnObservation) string {
@@ -363,7 +367,7 @@ func chatLiveRouteTurnGeneratorAdapterForText(obs admissionLiveRouteTurnObservat
 	job := admissionLiveRouteTurnGenerationJobForRequest(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	if admissionLiveRouteTurnCandidateExecutionDryRun() {
-		execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, text)
+		execution := chatLiveRouteTurnCandidateExecutionForText(obs, text)
 		return admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
 	}
 	return admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)

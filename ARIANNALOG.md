@@ -3753,3 +3753,15 @@ unknown turns fail closed without execution or adapter ids. When enabled, the ad
 execution-backed receipt and carries `candidate_execution_id` forward through draft review, pre-admission handoff,
 and admission adapter. `make admission-live-route-turn-candidate-execution-smoke` locks the JSONL/chat-line
 contract, and `make body-smoke` runs it between candidate shell and generator adapter.
+
+**Follow-up, same day - candidate execution can now come from a bounded runner.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER_DRY_RUN=1` routes the same execution receipt through a named runner
+instead of trusting provided text. The initial runner is deliberately narrow: `metabolism-self-emit` spawns the
+current `metabolism` binary with a private emit command, captures stdout/stderr hashes, records runner status,
+exit code, timeout state, and duration, then lets the existing execution receipt decide whether an `execution-<hash>`
+may exist. Shell preflight still happens before process launch, so an invalid route does not execute anything.
+
+This is not yet a real Janus/Resonance/nano generator call. It is the process boundary the real call must satisfy:
+named runner only, bounded timeout, output hash equality, adapter revalidation, fail-closed timeout/error receipts,
+and no organism-state write. `make admission-live-route-turn-candidate-runner-smoke` locks both success and timeout
+paths, and `make body-smoke` runs it between candidate execution and generator adapter.

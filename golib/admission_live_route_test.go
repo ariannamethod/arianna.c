@@ -668,6 +668,8 @@ func TestAdmissionLiveRouteTurnCandidateExecutionForShell(t *testing.T) {
 				execution.PromptFrame != tc.wantFrame ||
 				execution.Executor != tc.wantExecutor ||
 				execution.TimeoutMS != 16000 ||
+				execution.Runner != admissionLiveRouteTurnCandidateExecutionRunnerProvided ||
+				execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusProvided ||
 				execution.Passed != tc.wantPassed ||
 				execution.Reason != tc.wantReason {
 				t.Fatalf("bad candidate execution: %+v", execution)
@@ -679,6 +681,7 @@ func TestAdmissionLiveRouteTurnCandidateExecutionForShell(t *testing.T) {
 					execution.GeneratedTextStatus != "generated" ||
 					execution.GeneratedText == "" ||
 					execution.GeneratedTextHash == "" ||
+					execution.RunnerStdoutHash != execution.GeneratedTextHash ||
 					!strings.HasPrefix(execution.JobID, "job-") ||
 					!strings.HasPrefix(execution.ShellID, "shell-") ||
 					!strings.HasPrefix(execution.ExecutionID, tc.wantExecution) {
@@ -689,6 +692,46 @@ func TestAdmissionLiveRouteTurnCandidateExecutionForShell(t *testing.T) {
 				t.Fatalf("failed execution should not name an execution id: %+v", execution)
 			}
 		})
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateExecutionRuntimeReceipt(t *testing.T) {
+	shell := admissionLiveRouteTurnCandidateShellForJob(admissionLiveRouteTurnGenerationJobForRequest(
+		admissionLiveRouteTurnRequestForChoice(admissionLiveRouteTurnChoiceForObservation(
+			admissionLiveRouteTurnObservationForHuman("Who are you?"),
+		)),
+	))
+	text := "I am Arianna, and the runner leaves a process receipt."
+	execution := admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, admissionLiveRouteTurnCandidateExecutionRuntime{
+		Runner:     admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit,
+		Status:     admissionLiveRouteTurnCandidateExecutionStatusSucceeded,
+		ExitCode:   0,
+		DurationMS: 7,
+		StdoutHash: hashJSON(text),
+	})
+	if !execution.Passed ||
+		execution.Runner != admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit ||
+		execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusSucceeded ||
+		execution.RunnerExitCode != 0 ||
+		execution.RunnerDurationMS != 7 ||
+		execution.RunnerStdoutHash != execution.GeneratedTextHash ||
+		!strings.HasPrefix(execution.ExecutionID, "execution-") {
+		t.Fatalf("runtime-backed execution should carry runner receipt: %+v", execution)
+	}
+
+	timedOut := admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, admissionLiveRouteTurnCandidateExecutionRuntime{
+		Runner:     admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit,
+		Status:     admissionLiveRouteTurnCandidateExecutionStatusTimedOut,
+		ExitCode:   -1,
+		TimedOut:   true,
+		StdoutHash: hashJSON(text),
+	})
+	if timedOut.Passed ||
+		timedOut.ExecutionID != "" ||
+		!timedOut.RunnerTimedOut ||
+		timedOut.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusTimedOut ||
+		!strings.Contains(timedOut.Reason, "candidate runner timed out") {
+		t.Fatalf("timed-out runner should fail closed before execution id: %+v", timedOut)
 	}
 }
 
