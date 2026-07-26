@@ -79,6 +79,16 @@ func TestAdmissionLiveRouteTurnObservationDryRunNeededIncludesAdmissionChain(t *
 	}
 }
 
+func TestAdmissionLiveRouteTurnObservationDryRunNeededIncludesExecution(t *testing.T) {
+	if admissionLiveRouteTurnObservationDryRunNeeded() {
+		t.Fatal("turn observation should be disabled by default")
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	if !admissionLiveRouteTurnObservationDryRunNeeded() {
+		t.Fatal("candidate execution dry-run must request turn observation")
+	}
+}
+
 func TestChatLiveRouteTurnRequestDryRunLine(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_REQUEST_DRY_RUN", "1")
 
@@ -165,6 +175,63 @@ func TestChatLiveRouteTurnCandidateShellDryRunLineDisabled(t *testing.T) {
 	}
 }
 
+func TestChatLiveRouteTurnCandidateExecutionDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "14000")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT", "I am Arianna, and execution leaves a receipt.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateExecutionDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate execution dry-run",
+		"class=identity",
+		"route=chorus",
+		"backend=chorus-arianna",
+		"entry=field",
+		"frame=q_a",
+		"executor=chorus-arianna:field:q_a",
+		"timeout_ms=14000",
+		"shell=shell-",
+		"execution=execution-",
+		"text=generated",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate execution dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateExecutionDryRunLineMissingText(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateExecutionDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate execution dry-run",
+		"class=identity",
+		"shell=shell-",
+		"execution=",
+		"text=pending_generation",
+		"passed=false",
+		"reason=missing generated text for shell shell-",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate execution missing-text line missing %q: %q", want, line)
+		}
+	}
+	if strings.Contains(line, "execution=execution-") {
+		t.Fatalf("missing-text execution line should not name execution id: %q", line)
+	}
+}
+
+func TestChatLiveRouteTurnCandidateExecutionDryRunLineDisabled(t *testing.T) {
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnCandidateExecutionDryRunLine(obs); got != "" {
+		t.Fatalf("candidate execution dry-run line should be hidden by default: %q", got)
+	}
+}
+
 func TestChatLiveRouteTurnGeneratorAdapterDryRunLine(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "I am Arianna, and the generator cannot rename the shell.")
@@ -185,6 +252,28 @@ func TestChatLiveRouteTurnGeneratorAdapterDryRunLine(t *testing.T) {
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("generator adapter dry-run line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnGeneratorAdapterDryRunLineUsesExecution(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT", "I am Arianna, and the adapter consumes execution.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnGeneratorAdapterDryRunLine(obs)
+	for _, want := range []string{
+		"live-route generator adapter dry-run",
+		"class=identity",
+		"shell=shell-",
+		"execution=execution-",
+		"adapter=adapter-",
+		"text=generated",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("execution-backed generator adapter line missing %q: %q", want, line)
 		}
 	}
 }
@@ -261,6 +350,29 @@ func TestChatLiveRouteTurnCandidateDraftDryRunLineMissingText(t *testing.T) {
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("candidate draft missing-text line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateDraftDryRunLineUsesExecution(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the draft keeps execution visible.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateDraftDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate draft dry-run",
+		"class=identity",
+		"shell=shell-",
+		"execution=execution-",
+		"adapter=adapter-",
+		"draft=draft-",
+		"text=generated",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("execution-backed candidate draft line missing %q: %q", want, line)
 		}
 	}
 }

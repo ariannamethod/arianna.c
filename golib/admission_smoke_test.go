@@ -409,6 +409,61 @@ func TestAdmissionLiveRouteTurnGeneratorAdapterSmokeWritesAdapters(t *testing.T)
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateExecutionSmokeWritesExecutions(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-candidate-execution.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnCandidateExecutionSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 candidate executions, got %d: %s", len(lines), raw)
+	}
+	var identity, unknown admissionLiveRouteTurnCandidateExecution
+	if err := json.Unmarshal([]byte(lines[0]), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &unknown); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
+		identity.PromptClass != "identity" ||
+		identity.Route != "chorus" ||
+		identity.Source != "chorus" ||
+		identity.Backend != "chorus-arianna" ||
+		identity.Entrypoint != "field" ||
+		identity.PromptFrame != "q_a" ||
+		identity.Executor != "chorus-arianna:field:q_a" ||
+		identity.TimeoutMS != admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS ||
+		identity.CandidateSchema != "arianna.dream_candidate.v1" ||
+		identity.CandidateKind != "chorus" ||
+		identity.CandidateTextStatus != "pending_generation" ||
+		identity.GeneratedTextStatus != "generated" ||
+		identity.GeneratedText == "" ||
+		identity.GeneratedTextHash == "" ||
+		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
+		!strings.HasPrefix(identity.JobID, "job-") ||
+		!strings.HasPrefix(identity.ShellID, "shell-") ||
+		!strings.HasPrefix(identity.ExecutionID, "execution-") ||
+		!identity.Passed {
+		t.Fatalf("bad identity candidate execution: %+v", identity)
+	}
+	if unknown.PromptClass != "unknown" ||
+		unknown.Passed ||
+		unknown.ExecutionID != "" ||
+		!strings.Contains(unknown.Reason, "unknown_prompt_class") ||
+		!strings.HasPrefix(unknown.CandidateSeed, "turn-") {
+		t.Fatalf("unknown candidate execution should fail closed without execution id: %+v", unknown)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateDraftSmokeWritesDrafts(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-candidate-draft.jsonl")
