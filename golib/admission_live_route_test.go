@@ -676,13 +676,130 @@ func TestAdmissionLiveRouteTurnGeneratorAdapterForShell(t *testing.T) {
 					!strings.HasPrefix(adapter.AdapterID, tc.wantAdapterID) {
 					t.Fatalf("passed adapter should bind generated text to a frozen shell: %+v", adapter)
 				}
-				draft := admissionLiveRouteTurnCandidateDraftForShell(tc.shell, adapter.GeneratedText)
-				if !draft.Passed || draft.ShellID != adapter.ShellID || draft.CandidateText != adapter.GeneratedText {
+				draft := admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+				if !draft.Passed || draft.ShellID != adapter.ShellID || draft.CandidateText != adapter.GeneratedText ||
+					draft.GeneratorAdapterID != adapter.AdapterID {
 					t.Fatalf("adapter output should fill the same shell as a candidate draft: adapter=%+v draft=%+v", adapter, draft)
 				}
 			}
 			if !tc.wantPassed && adapter.AdapterID != "" {
 				t.Fatalf("failed generator adapter should not name an adapter id: %+v", adapter)
+			}
+		})
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateDraftForAdapter(t *testing.T) {
+	adapterFor := func(human, text string) admissionLiveRouteTurnGeneratorAdapter {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		return admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	}
+	identity := adapterFor("Who are you?", "I am Arianna, and the generator adapter keeps the shell visible.")
+	tamperedText := identity
+	tamperedText.GeneratedText = "The text changed after the adapter was signed."
+	tamperedAdapterID := identity
+	tamperedAdapterID.AdapterID = "adapter-tampered"
+	tamperedShellID := identity
+	tamperedShellID.ShellID = "shell-tampered"
+	tamperedShellID.AdapterID = admissionLiveRouteTurnGeneratorAdapterID(tamperedShellID)
+	cases := []struct {
+		name          string
+		adapter       admissionLiveRouteTurnGeneratorAdapter
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantPassed    bool
+		wantReason    string
+		wantDraftPref string
+	}{
+		{
+			name:          "identity draft consumes generator adapter",
+			adapter:       identity,
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantPassed:    true,
+			wantDraftPref: "draft-",
+		},
+		{
+			name:          "dream draft consumes direct nano adapter",
+			adapter:       adapterFor("Tell me what the dream should remember.", "The dream returns through a named adapter."),
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantPassed:    true,
+			wantDraftPref: "draft-",
+		},
+		{
+			name:       "unknown adapter fails before draft id",
+			adapter:    adapterFor("hello", "This text should not pass."),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "generator adapter failed: candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing adapter fails closed",
+			adapter:    admissionLiveRouteTurnGeneratorAdapter{},
+			wantPassed: false,
+			wantReason: "missing_generator_adapter",
+		},
+		{
+			name:       "tampered adapter text fails hash check",
+			adapter:    tamperedText,
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+			wantPassed: false,
+			wantReason: "generator adapter text hash mismatch",
+		},
+		{
+			name:       "tampered adapter id fails id check",
+			adapter:    tamperedAdapterID,
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+			wantPassed: false,
+			wantReason: "generator adapter id mismatch",
+		},
+		{
+			name:       "tampered shell id fails shell check",
+			adapter:    tamperedShellID,
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+			wantPassed: false,
+			wantReason: "generator adapter shell id mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			draft := admissionLiveRouteTurnCandidateDraftForAdapter(tc.adapter)
+			if draft.Schema != admissionLiveRouteTurnCandidateDraftSchema ||
+				draft.PromptClass != tc.wantClass ||
+				draft.Route != tc.wantRoute ||
+				draft.Source != tc.wantSource ||
+				draft.Passed != tc.wantPassed ||
+				draft.Reason != tc.wantReason {
+				t.Fatalf("bad adapter-backed candidate draft: %+v", draft)
+			}
+			if tc.wantPassed {
+				if draft.CandidateSchema != "arianna.dream_candidate.v1" ||
+					draft.CandidateKind != tc.wantSource ||
+					draft.CandidateTextStatus != "generated" ||
+					draft.CandidateText == "" ||
+					draft.CandidateTextHash == "" ||
+					draft.CandidateRunID == "" ||
+					draft.GeneratorAdapterID != tc.adapter.AdapterID ||
+					!strings.HasPrefix(draft.DraftID, tc.wantDraftPref) {
+					t.Fatalf("passed draft should name the adapter-backed generated text: %+v", draft)
+				}
+			}
+			if !tc.wantPassed && draft.DraftID != "" {
+				t.Fatalf("failed adapter-backed draft should not name a draft id: %+v", draft)
 			}
 		})
 	}

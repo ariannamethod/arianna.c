@@ -41,6 +41,7 @@ grep -q '"candidate_schema":"arianna.dream_candidate.v1"' "$LOG" || die "dream c
 grep -q '"candidate_text_status":"generated"' "$LOG" || die "generated text status missing"
 grep -q '"candidate_text_hash":"' "$LOG" || die "candidate text hash missing"
 grep -q '"candidate_run_id":"' "$LOG" || die "candidate run id missing"
+grep -q '"generator_adapter_id":"adapter-' "$LOG" || die "generator adapter id missing"
 grep -q '"candidate_kind":"chorus"' "$LOG" || die "chorus candidate kind missing"
 grep -q '"candidate_kind":"user_bridge"' "$LOG" || die "user bridge candidate kind missing"
 grep -q '"candidate_kind":"qloop_target"' "$LOG" || die "qloop target candidate kind missing"

@@ -1013,7 +1013,7 @@ func runAdmissionLiveRouteTurnCandidateDraftSmoke() error {
 			text:             "This text should not create a runnable draft.",
 			wantClass:        "unknown",
 			wantPassed:       false,
-			wantReasonNeedle: "candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+			wantReasonNeedle: "generator adapter failed: candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
 			wantLineNeedle:   "live-route candidate draft dry-run: class=unknown route= source= trigger= seed=turn-",
 		},
 	}
@@ -1063,6 +1063,7 @@ func runAdmissionLiveRouteTurnCandidateDraftSmoke() error {
 				got.CandidateRunID == "" ||
 				!strings.HasPrefix(got.JobID, "job-") ||
 				!strings.HasPrefix(got.ShellID, "shell-") ||
+				!strings.HasPrefix(got.GeneratorAdapterID, "adapter-") ||
 				!strings.HasPrefix(got.DraftID, "draft-") {
 				return fmt.Errorf("logged candidate draft %d missing generated envelope fields: %+v", i+1, got)
 			}

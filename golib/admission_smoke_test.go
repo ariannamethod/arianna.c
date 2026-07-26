@@ -446,6 +446,7 @@ func TestAdmissionLiveRouteTurnCandidateDraftSmokeWritesDrafts(t *testing.T) {
 		!strings.HasPrefix(identity.CandidateSeed, "turn-") ||
 		!strings.HasPrefix(identity.JobID, "job-") ||
 		!strings.HasPrefix(identity.ShellID, "shell-") ||
+		!strings.HasPrefix(identity.GeneratorAdapterID, "adapter-") ||
 		!strings.HasPrefix(identity.DraftID, "draft-") ||
 		!identity.Passed {
 		t.Fatalf("bad identity candidate draft: %+v", identity)
@@ -453,6 +454,7 @@ func TestAdmissionLiveRouteTurnCandidateDraftSmokeWritesDrafts(t *testing.T) {
 	if unknown.PromptClass != "unknown" ||
 		unknown.Passed ||
 		unknown.DraftID != "" ||
+		unknown.GeneratorAdapterID != "" ||
 		!strings.Contains(unknown.Reason, "unknown_prompt_class") ||
 		!strings.HasPrefix(unknown.CandidateSeed, "turn-") {
 		t.Fatalf("unknown candidate draft should fail closed without runnable draft id: %+v", unknown)

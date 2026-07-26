@@ -3660,3 +3660,14 @@ future generator: text can fill the pending envelope, but the shell id is rechec
 `arianna.dream_candidate.v1` must still pass the live-route choice contract. Tampered shells, empty text, and
 unknown-turn shells fail closed without a draft id. `make admission-live-route-turn-candidate-draft-smoke` locks
 the JSONL/chat-line contract, and `make body-smoke` runs it between candidate shell and turn/candidate review.
+
+**Follow-up, same day - candidate draft consumes the generator adapter.** The draft dry-run path now builds and
+validates `arianna.live_route_turn_generator_adapter.v1` internally before creating
+`arianna.live_route_turn_candidate_draft.v1`. Passed drafts record `generator_adapter_id`, and the adapter is
+rechecked for adapter id, generated text hash, route backend/entrypoint/frame, and shell id before candidate text
+is accepted.
+
+The older `shell + text` helper stays available as a low-level validator, but the chat/smoke path no longer uses
+it directly. This closes the bypass between "text returned" and "candidate draft exists": future real generation
+must cross the named adapter boundary first. Tampered adapter text, adapter id, shell id, empty generated text,
+and unknown-turn adapters fail closed without a draft id.

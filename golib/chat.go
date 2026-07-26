@@ -330,7 +330,8 @@ func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurn
 	request := admissionLiveRouteTurnRequestForChoice(choice)
 	job := admissionLiveRouteTurnGenerationJobForRequest(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
-	draft := admissionLiveRouteTurnCandidateDraftForShell(shell, text)
+	adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	draft := admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
 	if err := recordAdmissionLiveRouteTurnCandidateDraft(draft); err != nil {
 		return fmt.Sprintf("│  · live-route candidate draft dry-run log failed: %v", err)
 	}
@@ -338,8 +339,8 @@ func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurn
 	if draft.Reason != "" {
 		reason = " reason=" + draft.Reason
 	}
-	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s draft=%s run=%s text=%s passed=%t%s",
-		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed, draft.ShellID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
+	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s adapter=%s draft=%s run=%s text=%s passed=%t%s",
+		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed, draft.ShellID, draft.GeneratorAdapterID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
