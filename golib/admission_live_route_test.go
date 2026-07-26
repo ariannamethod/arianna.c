@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -745,6 +747,72 @@ func TestAdmissionLiveRouteTurnCandidateExecutionTimeoutBounds(t *testing.T) {
 	execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, "I am Arianna.")
 	if execution.Passed || execution.ExecutionID != "" || execution.Reason != "candidate execution timeout out of bounds" {
 		t.Fatalf("execution timeout should fail closed: %+v", execution)
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateExecutionNanoDirectRunnerFailsClosed(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER", admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "12000")
+	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		return admissionLiveRouteTurnCandidateShellForJob(job)
+	}
+	chorusShell := shellFor("Who are you?")
+	directShell := shellFor("subconscious dream sleep")
+	if directShell.Route != "direct" || directShell.Backend != "nano-arianna" ||
+		directShell.Entrypoint != "direct" || directShell.PromptFrame != "q_a" {
+		t.Fatalf("direct test shell does not hit nano direct route: %+v", directShell)
+	}
+
+	cases := []struct {
+		name       string
+		shell      admissionLiveRouteTurnCandidateShell
+		text       string
+		bin        string
+		model      string
+		wantReason string
+	}{
+		{
+			name:       "rejects non-direct route",
+			shell:      chorusShell,
+			text:       "Who are you?",
+			wantReason: "candidate nano-direct runner only supports direct route, got chorus",
+		},
+		{
+			name:       "requires prompt",
+			shell:      directShell,
+			text:       " ",
+			wantReason: "candidate nano-direct runner missing prompt for shell " + directShell.ShellID,
+		},
+		{
+			name:       "requires model",
+			shell:      directShell,
+			text:       "What should the dream remember?",
+			bin:        os.Args[0],
+			model:      filepath.Join(t.TempDir(), "missing-nano.gguf"),
+			wantReason: "candidate nano-direct runner missing model",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.bin != "" {
+				t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_BIN", tc.bin)
+			}
+			if tc.model != "" {
+				t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_MODEL", tc.model)
+			}
+			execution := admissionLiveRouteTurnCandidateExecutionForShellViaRunner(tc.shell, tc.text)
+			if execution.Passed ||
+				execution.ExecutionID != "" ||
+				execution.Runner != admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect ||
+				execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusFailed ||
+				!strings.Contains(execution.Reason, tc.wantReason) {
+				t.Fatalf("nano-direct runner should fail closed: %+v", execution)
+			}
+		})
 	}
 }
 

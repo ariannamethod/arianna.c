@@ -1081,6 +1081,110 @@ func runAdmissionLiveRouteTurnCandidateRunnerSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateNanoDirectRunnerSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionRunnerDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER_DRY_RUN is required")
+	}
+	if runner := admissionLiveRouteTurnCandidateExecutionRunnerName(); runner != admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER=%q, want %q", runner, admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect)
+	}
+
+	cases := []struct {
+		name             string
+		human            string
+		prompt           string
+		wantRoute        string
+		wantBackend      string
+		wantPassed       bool
+		wantStatus       string
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "direct dream runs nano",
+			human:          "subconscious dream sleep",
+			prompt:         "What should the dream remember?",
+			wantRoute:      "direct",
+			wantBackend:    "nano-arianna",
+			wantPassed:     true,
+			wantStatus:     admissionLiveRouteTurnCandidateExecutionStatusSucceeded,
+			wantLineNeedle: "runner=nano-direct runner_status=succeeded passed=true",
+		},
+		{
+			name:             "chorus route rejected before nano",
+			human:            "Who are you?",
+			prompt:           "Who are you?",
+			wantRoute:        "chorus",
+			wantBackend:      "chorus-arianna",
+			wantPassed:       false,
+			wantStatus:       admissionLiveRouteTurnCandidateExecutionStatusFailed,
+			wantReasonNeedle: "candidate nano-direct runner only supports direct route",
+			wantLineNeedle:   "runner=nano-direct runner_status=failed passed=false",
+		},
+	}
+	for i, tc := range cases {
+		obs := admissionLiveRouteTurnObservationForHuman(tc.human)
+		line := chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs, tc.prompt)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad nano-direct line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d nano-direct candidate executions, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateExecution
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("nano-direct candidate execution %d: %w", i+1, err)
+		}
+		tc := cases[i]
+		if got.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
+			got.Runner != admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect ||
+			got.RunnerStatus != tc.wantStatus ||
+			got.Passed != tc.wantPassed ||
+			got.Route != tc.wantRoute ||
+			got.Backend != tc.wantBackend {
+			return fmt.Errorf("logged nano-direct execution %d mismatch: %+v", i+1, got)
+		}
+		if tc.wantPassed {
+			if got.GeneratedText == "" ||
+				got.GeneratedTextStatus != "generated" ||
+				got.GeneratedTextHash == "" ||
+				got.RunnerStdoutHash != got.GeneratedTextHash ||
+				got.RunnerExitCode != 0 ||
+				!strings.HasPrefix(got.ExecutionID, "execution-") {
+				return fmt.Errorf("logged nano-direct execution %d missing generated fields: %+v", i+1, got)
+			}
+			continue
+		}
+		if got.ExecutionID != "" ||
+			got.RunnerExitCode != -1 ||
+			!strings.Contains(got.Reason, tc.wantReasonNeedle) {
+			return fmt.Errorf("logged nano-direct execution %d should fail closed: %+v", i+1, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-nano-direct-runner-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnGeneratorAdapterSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
 	if logPath == "" {

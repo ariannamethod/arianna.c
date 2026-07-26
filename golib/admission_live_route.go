@@ -25,8 +25,9 @@ const (
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS     = 60000
 
-	admissionLiveRouteTurnCandidateExecutionRunnerProvided = "provided_text"
-	admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit = "metabolism-self-emit"
+	admissionLiveRouteTurnCandidateExecutionRunnerProvided   = "provided_text"
+	admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit   = "metabolism-self-emit"
+	admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect = "nano-direct"
 
 	admissionLiveRouteTurnCandidateExecutionStatusProvided  = "provided"
 	admissionLiveRouteTurnCandidateExecutionStatusSucceeded = "succeeded"
