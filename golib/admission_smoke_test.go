@@ -733,6 +733,71 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionChatSmokeWritesChatReceipts(t *
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmokeWritesAdmissionReceipt(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the chat shadow path keeps the adapter named.")
+	dir := t.TempDir()
+	draftLog := filepath.Join(dir, "live-route-candidate-draft-chat-shadow.jsonl")
+	reviewLog := filepath.Join(dir, "live-route-candidate-draft-review-chat-shadow.jsonl")
+	admissionLog := filepath.Join(dir, "live-route-candidate-admission-chat-shadow.jsonl")
+	adapterLog := filepath.Join(dir, "live-route-candidate-admission-adapter-chat-shadow.jsonl")
+	dreamLog := filepath.Join(dir, "dream-admission-chat-shadow.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG", draftLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", reviewLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG", admissionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG", adapterLog)
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+
+	if err := runAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterRaw, err := os.ReadFile(adapterLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapterLines := strings.Split(strings.TrimSpace(string(adapterRaw)), "\n")
+	if len(adapterLines) != 2 {
+		t.Fatalf("expected 2 chat shadow adapter receipts, got %d: %s", len(adapterLines), adapterRaw)
+	}
+	var adapter admissionLiveRouteTurnCandidateAdmissionAdapter
+	if err := json.Unmarshal([]byte(adapterLines[0]), &adapter); err != nil {
+		t.Fatal(err)
+	}
+	if !adapter.Passed || adapter.AdmissionAdapterID == "" {
+		t.Fatalf("bad chat shadow adapter receipt: %+v", adapter)
+	}
+
+	dreamRaw, err := os.ReadFile(dreamLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dreamLines := strings.Split(strings.TrimSpace(string(dreamRaw)), "\n")
+	if len(dreamLines) != 1 {
+		t.Fatalf("expected 1 chat shadow admission receipt, got %d: %s", len(dreamLines), dreamRaw)
+	}
+	var candidate dreamCandidate
+	if err := json.Unmarshal([]byte(dreamLines[0]), &candidate); err != nil {
+		t.Fatal(err)
+	}
+	if candidate.LiveRouteCandidateAdmission == nil ||
+		candidate.LiveRouteCandidateAdmission.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		candidate.LiveRouteCandidateAdmission.HandoffID != adapter.HandoffID ||
+		candidate.Admission == nil ||
+		!candidate.Admission.Passed ||
+		candidate.Admission.LiveRouteChoice == nil ||
+		!candidate.Admission.LiveRouteChoice.Passed ||
+		candidate.Accepted ||
+		candidate.Reason != "shadow mode" {
+		t.Fatalf("bad chat shadow admission receipt: %+v", candidate)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")

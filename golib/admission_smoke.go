@@ -1713,6 +1713,177 @@ func runAdmissionLiveRouteTurnCandidateAdmissionChatSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmoke() error {
+	draftLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
+	if draftLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG is required")
+	}
+	reviewLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if reviewLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	admissionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	if admissionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG is required")
+	}
+	adapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG"))
+	if adapterLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG is required")
+	}
+	dreamLogPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
+	if dreamLogPath == "" {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionShadowDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN is required")
+	}
+	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
+		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
+	}
+	if !dreamAdmissionRequireLiveRoutePlan() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required")
+	}
+	if strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT")) == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT is required")
+	}
+
+	cases := []struct {
+		name              string
+		obs               admissionLiveRouteTurnObservation
+		wantPassed        bool
+		wantDraftNeedle   string
+		wantHandoffNeedle string
+		wantAdapterNeedle string
+		wantShadowNeedle  string
+		wantReasonNeedle  string
+	}{
+		{
+			name:              "chat identity adapter reaches shadow admission",
+			obs:               admissionLiveRouteTurnObservationForHuman("Who are you?"),
+			wantPassed:        true,
+			wantDraftNeedle:   "live-route candidate draft dry-run: class=identity route=chorus source=chorus",
+			wantHandoffNeedle: "live-route candidate admission handoff dry-run: class=identity route=chorus source=chorus draft=draft-",
+			wantAdapterNeedle: "live-route candidate admission adapter dry-run: class=identity route=chorus source=chorus handoff=handoff-",
+			wantShadowNeedle:  "live-route candidate admission shadow dry-run: class=identity route=chorus source=chorus handoff=handoff-",
+		},
+		{
+			name:              "chat unknown turn fails before shadow admission",
+			obs:               admissionLiveRouteTurnObservationForHuman("hello"),
+			wantDraftNeedle:   "live-route candidate draft dry-run: class=unknown route= source=",
+			wantHandoffNeedle: "live-route candidate admission handoff dry-run: class=unknown route= source=",
+			wantAdapterNeedle: "live-route candidate admission adapter dry-run: class=unknown route= source=",
+			wantShadowNeedle:  "live-route candidate admission shadow dry-run: class=unknown route= source=",
+			wantReasonNeedle:  "candidate_admission_adapter_failed: candidate_admission_handoff_failed: turn_route_failed: live route plan failed: unknown_prompt_class",
+		},
+	}
+	for i, tc := range cases {
+		draftLine := chatLiveRouteTurnCandidateDraftDryRunLine(tc.obs)
+		if !strings.Contains(draftLine, tc.wantDraftNeedle) {
+			return fmt.Errorf("case %d %s bad chat draft line: %q", i+1, tc.name, draftLine)
+		}
+		handoffLine := chatLiveRouteTurnCandidateAdmissionDryRunLine(tc.obs)
+		if !strings.Contains(handoffLine, tc.wantHandoffNeedle) {
+			return fmt.Errorf("case %d %s bad chat handoff line: %q", i+1, tc.name, handoffLine)
+		}
+		adapterLine := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(tc.obs)
+		if !strings.Contains(adapterLine, tc.wantAdapterNeedle) {
+			return fmt.Errorf("case %d %s bad chat adapter line: %q", i+1, tc.name, adapterLine)
+		}
+		shadowLine := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(tc.obs)
+		if !strings.Contains(shadowLine, tc.wantShadowNeedle) {
+			return fmt.Errorf("case %d %s bad chat shadow line: %q", i+1, tc.name, shadowLine)
+		}
+		if tc.wantPassed {
+			for _, want := range []string{"admission_adapter=admission-adapter-", "policy=true", "accepted=false", "passed=true", "reason=shadow mode"} {
+				if !strings.Contains(shadowLine, want) {
+					return fmt.Errorf("case %d %s shadow line missing %q: %q", i+1, tc.name, want, shadowLine)
+				}
+			}
+		} else {
+			for _, want := range []string{"admission_adapter=", "policy=false", "accepted=false", "passed=false", tc.wantReasonNeedle} {
+				if !strings.Contains(shadowLine, want) {
+					return fmt.Errorf("case %d %s failed shadow line missing %q: %q", i+1, tc.name, want, shadowLine)
+				}
+			}
+		}
+		fmt.Println(draftLine)
+		fmt.Println(handoffLine)
+		fmt.Println(adapterLine)
+		fmt.Println(shadowLine)
+	}
+
+	countLines := func(path string, want int, label string) error {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+		if len(lines) != want {
+			return fmt.Errorf("expected %d %s receipts, got %d", want, label, len(lines))
+		}
+		return nil
+	}
+	if err := countLines(draftLogPath, len(cases), "chat draft"); err != nil {
+		return err
+	}
+	if err := countLines(reviewLogPath, len(cases), "chat review"); err != nil {
+		return err
+	}
+	if err := countLines(admissionLogPath, len(cases), "chat handoff"); err != nil {
+		return err
+	}
+	if err := countLines(adapterLogPath, len(cases), "chat adapter"); err != nil {
+		return err
+	}
+
+	adapterRaw, err := os.ReadFile(adapterLogPath)
+	if err != nil {
+		return err
+	}
+	adapterLines := strings.Split(strings.TrimSpace(string(adapterRaw)), "\n")
+	var adapter admissionLiveRouteTurnCandidateAdmissionAdapter
+	if err := json.Unmarshal([]byte(adapterLines[0]), &adapter); err != nil {
+		return fmt.Errorf("chat adapter receipt: %w", err)
+	}
+	dreamRaw, err := os.ReadFile(dreamLogPath)
+	if err != nil {
+		return err
+	}
+	dreamLines := strings.Split(strings.TrimSpace(string(dreamRaw)), "\n")
+	if len(dreamLines) != 1 {
+		return fmt.Errorf("expected 1 chat shadow admission receipt, got %d", len(dreamLines))
+	}
+	var candidate dreamCandidate
+	if err := json.Unmarshal([]byte(dreamLines[0]), &candidate); err != nil {
+		return fmt.Errorf("chat shadow admission receipt: %w", err)
+	}
+	if candidate.Schema != "arianna.dream_candidate.v1" ||
+		candidate.LiveRouteCandidateAdmission == nil ||
+		candidate.LiveRouteCandidateAdmission.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		candidate.LiveRouteCandidateAdmission.HandoffID != adapter.HandoffID ||
+		candidate.Admission == nil ||
+		!candidate.Admission.Passed ||
+		candidate.Admission.LiveRouteChoice == nil ||
+		!candidate.Admission.LiveRouteChoice.Passed ||
+		candidate.Accepted ||
+		candidate.Reason != "shadow mode" {
+		return fmt.Errorf("bad chat shadow admission receipt: %+v", candidate)
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-admission-chat-shadow-smoke] pass: drafts=%s reviews=%s handoffs=%s adapters=%s admission=%s cases=%d\n",
+		draftLogPath, reviewLogPath, admissionLogPath, adapterLogPath, dreamLogPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {
