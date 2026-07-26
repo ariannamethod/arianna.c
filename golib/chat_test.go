@@ -194,6 +194,8 @@ func TestChatLiveRouteTurnCandidateExecutionDryRunLine(t *testing.T) {
 		"shell=shell-",
 		"execution=execution-",
 		"text=generated",
+		"runner=provided_text",
+		"runner_status=provided",
 		"passed=true",
 	} {
 		if !strings.Contains(line, want) {
@@ -213,6 +215,8 @@ func TestChatLiveRouteTurnCandidateExecutionDryRunLineMissingText(t *testing.T) 
 		"shell=shell-",
 		"execution=",
 		"text=pending_generation",
+		"runner=provided_text",
+		"runner_status=provided",
 		"passed=false",
 		"reason=missing generated text for shell shell-",
 	} {

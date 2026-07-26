@@ -24,6 +24,14 @@ const (
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS     = 60000
+
+	admissionLiveRouteTurnCandidateExecutionRunnerProvided = "provided_text"
+	admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit = "metabolism-self-emit"
+
+	admissionLiveRouteTurnCandidateExecutionStatusProvided  = "provided"
+	admissionLiveRouteTurnCandidateExecutionStatusSucceeded = "succeeded"
+	admissionLiveRouteTurnCandidateExecutionStatusFailed    = "failed"
+	admissionLiveRouteTurnCandidateExecutionStatusTimedOut  = "timed_out"
 )
 
 type admissionLiveRoutePlan struct {
@@ -137,6 +145,13 @@ type admissionLiveRouteTurnCandidateExecution struct {
 	PromptFrame         string `json:"prompt_frame,omitempty"`
 	Executor            string `json:"executor,omitempty"`
 	TimeoutMS           int    `json:"timeout_ms,omitempty"`
+	Runner              string `json:"runner,omitempty"`
+	RunnerStatus        string `json:"runner_status,omitempty"`
+	RunnerExitCode      int    `json:"runner_exit_code"`
+	RunnerTimedOut      bool   `json:"runner_timed_out"`
+	RunnerDurationMS    int64  `json:"runner_duration_ms,omitempty"`
+	RunnerStdoutHash    string `json:"runner_stdout_hash,omitempty"`
+	RunnerStderrHash    string `json:"runner_stderr_hash,omitempty"`
 	CandidateSchema     string `json:"candidate_schema,omitempty"`
 	CandidateKind       string `json:"candidate_kind,omitempty"`
 	CandidateTrigger    string `json:"candidate_trigger,omitempty"`
@@ -151,6 +166,17 @@ type admissionLiveRouteTurnCandidateExecution struct {
 	Passed              bool   `json:"passed"`
 	Reason              string `json:"reason,omitempty"`
 	TurnTextHash        string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateExecutionRuntime struct {
+	Runner        string
+	Status        string
+	ExitCode      int
+	TimedOut      bool
+	DurationMS    int64
+	StdoutHash    string
+	StderrHash    string
+	FailureReason string
 }
 
 type admissionLiveRouteTurnGeneratorAdapter struct {
@@ -876,6 +902,20 @@ func admissionLiveRouteTurnCandidateExecutionExecutor(shell admissionLiveRouteTu
 }
 
 func admissionLiveRouteTurnCandidateExecutionForShell(shell admissionLiveRouteTurnCandidateShell, text string) admissionLiveRouteTurnCandidateExecution {
+	generated := strings.TrimSpace(text)
+	runtime := admissionLiveRouteTurnCandidateExecutionRuntime{
+		Runner: admissionLiveRouteTurnCandidateExecutionRunnerProvided,
+		Status: admissionLiveRouteTurnCandidateExecutionStatusProvided,
+	}
+	if generated != "" {
+		runtime.StdoutHash = hashJSON(generated)
+	}
+	return admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, runtime)
+}
+
+func admissionLiveRouteTurnCandidateExecutionPreflight(shell admissionLiveRouteTurnCandidateShell, runtime admissionLiveRouteTurnCandidateExecutionRuntime) (admissionLiveRouteTurnCandidateExecution, bool) {
+	runner := strings.TrimSpace(runtime.Runner)
+	status := strings.TrimSpace(runtime.Status)
 	execution := admissionLiveRouteTurnCandidateExecution{
 		Schema:              admissionLiveRouteTurnCandidateExecutionSchema,
 		PromptClass:         shell.PromptClass,
@@ -887,6 +927,13 @@ func admissionLiveRouteTurnCandidateExecutionForShell(shell admissionLiveRouteTu
 		PromptFrame:         shell.PromptFrame,
 		Executor:            admissionLiveRouteTurnCandidateExecutionExecutor(shell),
 		TimeoutMS:           admissionLiveRouteTurnCandidateExecutionTimeoutMS(),
+		Runner:              runner,
+		RunnerStatus:        status,
+		RunnerExitCode:      runtime.ExitCode,
+		RunnerTimedOut:      runtime.TimedOut,
+		RunnerDurationMS:    runtime.DurationMS,
+		RunnerStdoutHash:    strings.TrimSpace(runtime.StdoutHash),
+		RunnerStderrHash:    strings.TrimSpace(runtime.StderrHash),
 		CandidateSchema:     shell.CandidateSchema,
 		CandidateKind:       shell.CandidateKind,
 		CandidateTrigger:    shell.CandidateTrigger,
@@ -899,38 +946,38 @@ func admissionLiveRouteTurnCandidateExecutionForShell(shell admissionLiveRouteTu
 	}
 	if shell.Schema == "" {
 		execution.Reason = "missing_candidate_shell"
-		return execution
+		return execution, false
 	}
 	if !shell.Passed {
 		execution.Reason = "candidate shell failed"
 		if shell.Reason != "" {
 			execution.Reason += ": " + shell.Reason
 		}
-		return execution
+		return execution, false
 	}
 	if execution.ShellID == "" {
 		execution.Reason = "missing candidate shell id for route " + execution.Route + " prompt class " + execution.PromptClass
-		return execution
+		return execution, false
 	}
 	if wantShellID := admissionLiveRouteTurnCandidateShellID(shell); wantShellID == "" || execution.ShellID != wantShellID {
 		execution.Reason = "candidate shell id mismatch"
-		return execution
+		return execution, false
 	}
 	if execution.Executor == "" {
 		execution.Reason = "missing candidate executor for shell " + execution.ShellID
-		return execution
+		return execution, false
 	}
 	if execution.TimeoutMS <= 0 || execution.TimeoutMS > admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS {
 		execution.Reason = "candidate execution timeout out of bounds"
-		return execution
+		return execution, false
 	}
 	if execution.CandidateSchema != "arianna.dream_candidate.v1" {
 		execution.Reason = "unexpected candidate schema " + execution.CandidateSchema
-		return execution
+		return execution, false
 	}
 	if execution.Source == "" {
 		execution.Reason = "missing candidate source for shell " + execution.ShellID
-		return execution
+		return execution, false
 	}
 	expectedSource := admissionLiveRouteSource(execution.Route)
 	if execution.ExpectedSource == "" {
@@ -938,35 +985,64 @@ func admissionLiveRouteTurnCandidateExecutionForShell(shell admissionLiveRouteTu
 	}
 	if execution.Source != expectedSource {
 		execution.Reason = "source " + execution.Source + " does not match candidate execution route " + expectedSource + " for prompt class " + execution.PromptClass
-		return execution
+		return execution, false
 	}
 	if execution.CandidateKind != execution.Source {
 		execution.Reason = "candidate kind " + execution.CandidateKind + " does not match source " + execution.Source
-		return execution
+		return execution, false
 	}
 	if execution.CandidateTextStatus != "pending_generation" {
 		execution.Reason = "candidate shell text status is " + execution.CandidateTextStatus
-		return execution
+		return execution, false
 	}
 	route, ok := admissionLiveRouteGenerationRouteFor(execution.Route)
 	if !ok {
 		execution.Reason = "unknown generation route " + execution.Route
-		return execution
+		return execution, false
 	}
 	if execution.Backend != route.Backend || execution.Entrypoint != route.Entrypoint || execution.PromptFrame != route.PromptFrame {
 		execution.Reason = "generation route mismatch for shell " + execution.ShellID
-		return execution
+		return execution, false
 	}
 	if execution.CandidateTrigger == "" {
 		execution.Reason = "missing candidate trigger for shell " + execution.ShellID
-		return execution
+		return execution, false
 	}
 	if execution.CandidateSeed == "" {
 		execution.Reason = "missing candidate seed for shell " + execution.ShellID
-		return execution
+		return execution, false
 	}
 	if execution.JobID == "" {
 		execution.Reason = "missing generation job id for shell " + execution.ShellID
+		return execution, false
+	}
+	return execution, true
+}
+
+func admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell admissionLiveRouteTurnCandidateShell, text string, runtime admissionLiveRouteTurnCandidateExecutionRuntime) admissionLiveRouteTurnCandidateExecution {
+	execution, ok := admissionLiveRouteTurnCandidateExecutionPreflight(shell, runtime)
+	if !ok {
+		return execution
+	}
+	if execution.Runner == "" {
+		execution.Reason = "missing candidate runner for shell " + execution.ShellID
+		return execution
+	}
+	if execution.RunnerStatus == "" {
+		execution.Reason = "missing candidate runner status for shell " + execution.ShellID
+		return execution
+	}
+	if runtime.FailureReason != "" {
+		execution.Reason = runtime.FailureReason
+		return execution
+	}
+	if execution.RunnerTimedOut || execution.RunnerStatus == admissionLiveRouteTurnCandidateExecutionStatusTimedOut {
+		execution.Reason = "candidate runner timed out for shell " + execution.ShellID
+		return execution
+	}
+	if execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusProvided &&
+		execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusSucceeded {
+		execution.Reason = "candidate runner status " + execution.RunnerStatus + " for shell " + execution.ShellID
 		return execution
 	}
 	generated := strings.TrimSpace(text)
@@ -976,6 +1052,13 @@ func admissionLiveRouteTurnCandidateExecutionForShell(shell admissionLiveRouteTu
 	}
 	execution.GeneratedText = generated
 	execution.GeneratedTextHash = hashJSON(generated)
+	if execution.RunnerStdoutHash == "" {
+		execution.RunnerStdoutHash = execution.GeneratedTextHash
+	}
+	if execution.RunnerStdoutHash != execution.GeneratedTextHash {
+		execution.Reason = "candidate runner stdout hash mismatch for shell " + execution.ShellID
+		return execution
+	}
 	execution.GeneratedTextStatus = "generated"
 	execution.ExecutionID = admissionLiveRouteTurnCandidateExecutionID(execution)
 	if execution.ExecutionID == "" {
@@ -994,6 +1077,10 @@ func admissionLiveRouteTurnCandidateExecutionID(execution admissionLiveRouteTurn
 		PromptFrame       string `json:"prompt_frame"`
 		Executor          string `json:"executor"`
 		TimeoutMS         int    `json:"timeout_ms"`
+		Runner            string `json:"runner"`
+		RunnerStatus      string `json:"runner_status"`
+		RunnerStdoutHash  string `json:"runner_stdout_hash"`
+		RunnerStderrHash  string `json:"runner_stderr_hash"`
 		GeneratedTextHash string `json:"generated_text_hash"`
 	}{
 		ShellID:           execution.ShellID,
@@ -1002,6 +1089,10 @@ func admissionLiveRouteTurnCandidateExecutionID(execution admissionLiveRouteTurn
 		PromptFrame:       execution.PromptFrame,
 		Executor:          execution.Executor,
 		TimeoutMS:         execution.TimeoutMS,
+		Runner:            execution.Runner,
+		RunnerStatus:      execution.RunnerStatus,
+		RunnerStdoutHash:  execution.RunnerStdoutHash,
+		RunnerStderrHash:  execution.RunnerStderrHash,
 		GeneratedTextHash: execution.GeneratedTextHash,
 	})
 	if h == "" {
@@ -1189,6 +1280,23 @@ func admissionLiveRouteTurnGeneratorAdapterForExecution(execution admissionLiveR
 	}
 	if execution.TimeoutMS <= 0 || execution.TimeoutMS > admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS {
 		adapter.Reason = "candidate execution timeout out of bounds"
+		return adapter
+	}
+	if execution.Runner == "" {
+		adapter.Reason = "candidate execution runner missing"
+		return adapter
+	}
+	if execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusProvided &&
+		execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusSucceeded {
+		adapter.Reason = "candidate execution runner status " + execution.RunnerStatus
+		return adapter
+	}
+	if execution.RunnerTimedOut {
+		adapter.Reason = "candidate execution runner timed out"
+		return adapter
+	}
+	if execution.RunnerStdoutHash == "" || execution.RunnerStdoutHash != execution.GeneratedTextHash {
+		adapter.Reason = "candidate execution stdout hash mismatch"
 		return adapter
 	}
 	if execution.Executor != admissionLiveRouteTurnCandidateExecutionExecutor(admissionLiveRouteTurnCandidateShell{
