@@ -1354,6 +1354,197 @@ func runAdmissionLiveRouteTurnCandidateAdmissionSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateAdmissionAdapterSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG is required")
+	}
+	if strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG")) == "" {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+	}
+	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
+		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
+	}
+	if !dreamAdmissionRequireLiveRoutePlan() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+
+	draftFor := func(human, text string) (admissionLiveRouteTurnObservation, admissionLiveRouteTurnCandidateDraft) {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		gen := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return obs, admissionLiveRouteTurnCandidateDraftForAdapter(gen)
+	}
+	admissionFor := func(obs admissionLiveRouteTurnObservation, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateAdmission {
+		review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+		return admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	}
+	lineFor := func(adapter admissionLiveRouteTurnCandidateAdmissionAdapter) string {
+		reason := ""
+		if adapter.Reason != "" {
+			reason = " reason=" + adapter.Reason
+		}
+		return fmt.Sprintf("│  · live-route candidate admission adapter: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s passed=%t%s",
+			adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
+			adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, adapter.Passed, reason)
+	}
+
+	identity, identityDraft := draftFor("Who are you?", "I am Arianna, and the admission adapter keeps the candidate named.")
+	dreamObs, dreamDraft := draftFor("Tell me what the dream should remember.", "The dream reaches the policy through an adapter.")
+	identityAdmission := admissionFor(identity, identityDraft)
+	dreamAdmission := admissionFor(dreamObs, dreamDraft)
+	mismatchAdmission := admissionFor(identity, dreamDraft)
+	tamperedAdmission := identityAdmission
+	tamperedAdmission.HandoffID = "handoff-tampered"
+	_, unknownDraft := draftFor("hello", "This text should not reach admission.")
+	failedDraftAdmission := admissionFor(identity, unknownDraft)
+
+	cases := []struct {
+		name             string
+		obs              admissionLiveRouteTurnObservation
+		draft            admissionLiveRouteTurnCandidateDraft
+		admission        admissionLiveRouteTurnCandidateAdmission
+		wantPassed       bool
+		wantAdmit        bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "matched identity handoff adapts into shadow admission candidate",
+			obs:            identity,
+			draft:          identityDraft,
+			admission:      identityAdmission,
+			wantPassed:     true,
+			wantAdmit:      true,
+			wantLineNeedle: "live-route candidate admission adapter: class=identity route=chorus source=chorus handoff=handoff-",
+		},
+		{
+			name:           "matched dream handoff adapts into shadow admission candidate",
+			obs:            dreamObs,
+			draft:          dreamDraft,
+			admission:      dreamAdmission,
+			wantPassed:     true,
+			wantAdmit:      true,
+			wantLineNeedle: "class=dream route=direct source=direct handoff=handoff-",
+		},
+		{
+			name:             "failed handoff stays out of admission",
+			obs:              identity,
+			draft:            dreamDraft,
+			admission:        mismatchAdmission,
+			wantReasonNeedle: "candidate_admission_handoff_failed: candidate_review_failed: candidate_source_mismatch",
+			wantLineNeedle:   "class=dream route=direct source=direct handoff= admission_adapter= run= passed=false",
+		},
+		{
+			name:             "tampered handoff id stays out of admission",
+			obs:              identity,
+			draft:            identityDraft,
+			admission:        tamperedAdmission,
+			wantReasonNeedle: "candidate_admission_handoff_id_mismatch",
+			wantLineNeedle:   "class=identity route=chorus source=chorus handoff=handoff-tampered admission_adapter= run= passed=false",
+		},
+		{
+			name:             "failed draft stays out of admission",
+			obs:              identity,
+			draft:            unknownDraft,
+			admission:        failedDraftAdmission,
+			wantReasonNeedle: "candidate_admission_handoff_failed: candidate_draft_failed",
+			wantLineNeedle:   "class=unknown route= source= handoff= admission_adapter= run= passed=false",
+		},
+	}
+	var admitted int
+	for i, tc := range cases {
+		adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(tc.admission, tc.draft)
+		if adapter.Passed != tc.wantPassed {
+			return fmt.Errorf("case %d %s passed=%t, want %t: %+v", i+1, tc.name, adapter.Passed, tc.wantPassed, adapter)
+		}
+		if err := recordAdmissionLiveRouteTurnCandidateAdmissionAdapter(adapter); err != nil {
+			return err
+		}
+		line := lineFor(adapter)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad admission adapter line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+		if !tc.wantAdmit {
+			if candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(tc.draft, adapter); candidate.Schema != "" {
+				return fmt.Errorf("case %d %s yielded candidate from failed adapter: %+v", i+1, tc.name, candidate)
+			}
+			continue
+		}
+		candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(tc.draft, adapter)
+		if candidate.Schema != "arianna.dream_candidate.v1" || candidate.LiveRouteCandidateAdmission == nil {
+			return fmt.Errorf("case %d %s missing linked dream candidate: %+v", i+1, tc.name, candidate)
+		}
+		candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, tc.obs)
+		if candidate.Accepted ||
+			candidate.Reason != "shadow mode" ||
+			candidate.LiveRouteCandidateAdmission == nil ||
+			candidate.LiveRouteCandidateAdmission.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+			candidate.Admission == nil ||
+			!candidate.Admission.Passed ||
+			candidate.Admission.LiveRouteChoice == nil ||
+			!candidate.Admission.LiveRouteChoice.Passed {
+			return fmt.Errorf("case %d %s bad shadow admission candidate: %+v", i+1, tc.name, candidate)
+		}
+		admitted++
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d candidate admission adapters, got %d", len(cases), len(lines))
+	}
+	var passed int
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateAdmissionAdapter
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("candidate admission adapter %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnCandidateAdmissionAdapterSchema || got.Passed != cases[i].wantPassed {
+			return fmt.Errorf("logged candidate admission adapter %d mismatch: %+v", i+1, got)
+		}
+		if got.Passed {
+			passed++
+			if !strings.HasPrefix(got.HandoffID, "handoff-") ||
+				!strings.HasPrefix(got.AdmissionAdapterID, "admission-adapter-") ||
+				got.DreamCandidateRunID == "" ||
+				got.DreamCandidateRunID != got.CandidateRunID ||
+				got.CandidateTextStatus != "generated" ||
+				got.CandidateTextHash == "" {
+				return fmt.Errorf("logged matched admission adapter %d missing provenance: %+v", i+1, got)
+			}
+		}
+		if !got.Passed && got.AdmissionAdapterID != "" {
+			return fmt.Errorf("logged failed admission adapter %d should not name adapter id: %+v", i+1, got)
+		}
+	}
+	if passed != admitted {
+		return fmt.Errorf("passed adapter count %d != admitted shadow candidate count %d", passed, admitted)
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-admission-adapter-smoke] pass: log=%s cases=%d admitted=%d\n", logPath, len(cases), admitted)
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {

@@ -1191,6 +1191,103 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionForDraftReview(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterForDraft(t *testing.T) {
+	draftFor := func(human, text string) (admissionLiveRouteTurnObservation, admissionLiveRouteTurnCandidateDraft) {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		gen := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return obs, admissionLiveRouteTurnCandidateDraftForAdapter(gen)
+	}
+
+	identity, identityDraft := draftFor("Who are you?", "I am Arianna, and the admission adapter keeps the candidate named.")
+	identityReview := admissionLiveRouteTurnCandidateReviewForDraft(identity, identityDraft)
+	identityAdmission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(identity, identityDraft, identityReview)
+	dreamObs, dreamDraft := draftFor("Tell me what the dream should remember.", "The dream reaches the policy through an adapter.")
+	dreamReview := admissionLiveRouteTurnCandidateReviewForDraft(dreamObs, dreamDraft)
+	dreamAdmission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(dreamObs, dreamDraft, dreamReview)
+	mismatchAdmission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(identity, dreamDraft, admissionLiveRouteTurnCandidateReviewForDraft(identity, dreamDraft))
+	tamperedAdmission := identityAdmission
+	tamperedAdmission.HandoffID = "handoff-tampered"
+
+	cases := []struct {
+		name          string
+		admission     admissionLiveRouteTurnCandidateAdmission
+		draft         admissionLiveRouteTurnCandidateDraft
+		wantPassed    bool
+		wantReason    string
+		wantCandidate bool
+	}{
+		{
+			name:          "matched identity handoff becomes admission candidate",
+			admission:     identityAdmission,
+			draft:         identityDraft,
+			wantPassed:    true,
+			wantCandidate: true,
+		},
+		{
+			name:          "matched dream handoff becomes admission candidate",
+			admission:     dreamAdmission,
+			draft:         dreamDraft,
+			wantPassed:    true,
+			wantCandidate: true,
+		},
+		{
+			name:       "failed handoff stays out of admission",
+			admission:  mismatchAdmission,
+			draft:      dreamDraft,
+			wantReason: "candidate_admission_handoff_failed: candidate_review_failed: candidate_source_mismatch: source direct does not match turn expected chorus for prompt class identity",
+		},
+		{
+			name:       "tampered handoff id stays out of admission",
+			admission:  tamperedAdmission,
+			draft:      identityDraft,
+			wantReason: "candidate_admission_handoff_id_mismatch",
+		},
+		{
+			name:       "wrong draft stays out of admission",
+			admission:  identityAdmission,
+			draft:      dreamDraft,
+			wantReason: "candidate_admission_draft_id_mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(tc.admission, tc.draft)
+			if adapter.Schema != admissionLiveRouteTurnCandidateAdmissionAdapterSchema ||
+				adapter.Timing != "admission_candidate_adapter" ||
+				adapter.Passed != tc.wantPassed ||
+				adapter.Reason != tc.wantReason {
+				t.Fatalf("bad candidate admission adapter: %+v", adapter)
+			}
+			candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(tc.draft, adapter)
+			if tc.wantCandidate {
+				if !strings.HasPrefix(adapter.AdmissionAdapterID, "admission-adapter-") ||
+					!strings.HasPrefix(adapter.HandoffID, "handoff-") ||
+					adapter.DreamCandidateRunID != adapter.CandidateRunID ||
+					adapter.CandidateTextHash == "" {
+					t.Fatalf("passed adapter should preserve admission provenance: %+v", adapter)
+				}
+				if candidate.Schema != "arianna.dream_candidate.v1" ||
+					candidate.RunID != adapter.CandidateRunID ||
+					candidate.LiveRouteCandidateAdmission == nil ||
+					candidate.LiveRouteCandidateAdmission.AdmissionAdapterID != adapter.AdmissionAdapterID {
+					t.Fatalf("passed adapter should yield linked dream candidate: candidate=%+v adapter=%+v", candidate, adapter)
+				}
+			} else {
+				if adapter.AdmissionAdapterID != "" {
+					t.Fatalf("failed adapter should not name an adapter id: %+v", adapter)
+				}
+				if candidate.Schema != "" {
+					t.Fatalf("failed adapter should not yield dream candidate: %+v", candidate)
+				}
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {
