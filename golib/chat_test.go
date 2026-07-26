@@ -66,6 +66,16 @@ func TestChatLiveRouteTurnDryRunLineDisabled(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnObservationDryRunNeededIncludesAdmissionChain(t *testing.T) {
+	if admissionLiveRouteTurnObservationDryRunNeeded() {
+		t.Fatal("turn observation should be disabled by default")
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	if !admissionLiveRouteTurnObservationDryRunNeeded() {
+		t.Fatal("candidate admission adapter dry-run must request turn observation")
+	}
+}
+
 func TestChatLiveRouteTurnRequestDryRunLine(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_REQUEST_DRY_RUN", "1")
 
@@ -256,6 +266,115 @@ func TestChatLiveRouteTurnCandidateDraftDryRunLineDisabled(t *testing.T) {
 	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	if got := chatLiveRouteTurnCandidateDraftDryRunLine(obs); got != "" {
 		t.Fatalf("candidate draft dry-run line should be hidden by default: %q", got)
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the handoff keeps the draft named.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission handoff dry-run",
+		"class=identity",
+		"route=chorus",
+		"source=chorus",
+		"draft=draft-",
+		"adapter=adapter-",
+		"handoff=handoff-",
+		"review=true",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission handoff line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionDryRunLineMissingText(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission handoff dry-run",
+		"class=identity",
+		"draft=",
+		"adapter=",
+		"handoff=",
+		"review=false",
+		"passed=false",
+		"reason=candidate_draft_failed: generator adapter failed: missing generated text for shell shell-",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission missing-text line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionDryRunLineDisabled(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnCandidateAdmissionDryRunLine(obs); got != "" {
+		t.Fatalf("candidate admission handoff line should be hidden by default: %q", got)
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the admission adapter keeps provenance intact.")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission adapter dry-run",
+		"class=identity",
+		"route=chorus",
+		"source=chorus",
+		"handoff=handoff-",
+		"admission_adapter=admission-adapter-",
+		"run=",
+		"passed=true",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission adapter line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionAdapterDryRunLineMissingText(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(obs)
+	for _, want := range []string{
+		"live-route candidate admission adapter dry-run",
+		"class=identity",
+		"handoff=",
+		"admission_adapter=",
+		"run=",
+		"passed=false",
+		"reason=candidate_admission_handoff_failed: candidate_draft_failed: generator adapter failed: missing generated text for shell shell-",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("candidate admission adapter missing-text line missing %q: %q", want, line)
+		}
+	}
+}
+
+func TestChatLiveRouteTurnCandidateAdmissionAdapterDryRunLineDisabled(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	if got := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(obs); got != "" {
+		t.Fatalf("candidate admission adapter line should be hidden by default: %q", got)
 	}
 }
 

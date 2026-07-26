@@ -1545,6 +1545,174 @@ func runAdmissionLiveRouteTurnCandidateAdmissionAdapterSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateAdmissionChatSmoke() error {
+	draftLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
+	if draftLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG is required")
+	}
+	reviewLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if reviewLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	admissionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	if admissionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG is required")
+	}
+	adapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG"))
+	if adapterLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN is required")
+	}
+	if strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT")) == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT is required")
+	}
+
+	cases := []struct {
+		name              string
+		obs               admissionLiveRouteTurnObservation
+		wantPassed        bool
+		wantDraftNeedle   string
+		wantHandoffNeedle string
+		wantAdapterNeedle string
+		wantReasonNeedle  string
+	}{
+		{
+			name:              "chat identity chain reaches admission adapter",
+			obs:               admissionLiveRouteTurnObservationForHuman("Who are you?"),
+			wantPassed:        true,
+			wantDraftNeedle:   "live-route candidate draft dry-run: class=identity route=chorus source=chorus",
+			wantHandoffNeedle: "live-route candidate admission handoff dry-run: class=identity route=chorus source=chorus draft=draft-",
+			wantAdapterNeedle: "live-route candidate admission adapter dry-run: class=identity route=chorus source=chorus handoff=handoff-",
+		},
+		{
+			name:              "chat unknown turn fails closed through chain",
+			obs:               admissionLiveRouteTurnObservationForHuman("hello"),
+			wantDraftNeedle:   "live-route candidate draft dry-run: class=unknown route= source=",
+			wantHandoffNeedle: "live-route candidate admission handoff dry-run: class=unknown route= source=",
+			wantAdapterNeedle: "live-route candidate admission adapter dry-run: class=unknown route= source=",
+			wantReasonNeedle:  "live route plan failed: unknown_prompt_class",
+		},
+	}
+	for i, tc := range cases {
+		draftLine := chatLiveRouteTurnCandidateDraftDryRunLine(tc.obs)
+		if !strings.Contains(draftLine, tc.wantDraftNeedle) {
+			return fmt.Errorf("case %d %s bad chat draft line: %q", i+1, tc.name, draftLine)
+		}
+		handoffLine := chatLiveRouteTurnCandidateAdmissionDryRunLine(tc.obs)
+		if !strings.Contains(handoffLine, tc.wantHandoffNeedle) {
+			return fmt.Errorf("case %d %s bad chat handoff line: %q", i+1, tc.name, handoffLine)
+		}
+		adapterLine := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(tc.obs)
+		if !strings.Contains(adapterLine, tc.wantAdapterNeedle) {
+			return fmt.Errorf("case %d %s bad chat adapter line: %q", i+1, tc.name, adapterLine)
+		}
+		if tc.wantReasonNeedle != "" {
+			for _, line := range []string{draftLine, handoffLine, adapterLine} {
+				if !strings.Contains(line, tc.wantReasonNeedle) {
+					return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+				}
+			}
+		}
+		fmt.Println(draftLine)
+		fmt.Println(handoffLine)
+		fmt.Println(adapterLine)
+	}
+
+	draftRaw, err := os.ReadFile(draftLogPath)
+	if err != nil {
+		return err
+	}
+	draftLines := strings.Split(strings.TrimSpace(string(draftRaw)), "\n")
+	if len(draftLines) != len(cases) {
+		return fmt.Errorf("expected %d chat draft receipts, got %d", len(cases), len(draftLines))
+	}
+	reviewRaw, err := os.ReadFile(reviewLogPath)
+	if err != nil {
+		return err
+	}
+	reviewLines := strings.Split(strings.TrimSpace(string(reviewRaw)), "\n")
+	if len(reviewLines) != len(cases) {
+		return fmt.Errorf("expected %d chat review receipts, got %d", len(cases), len(reviewLines))
+	}
+	admissionRaw, err := os.ReadFile(admissionLogPath)
+	if err != nil {
+		return err
+	}
+	admissionLines := strings.Split(strings.TrimSpace(string(admissionRaw)), "\n")
+	if len(admissionLines) != len(cases) {
+		return fmt.Errorf("expected %d chat handoff receipts, got %d", len(cases), len(admissionLines))
+	}
+	adapterRaw, err := os.ReadFile(adapterLogPath)
+	if err != nil {
+		return err
+	}
+	adapterLines := strings.Split(strings.TrimSpace(string(adapterRaw)), "\n")
+	if len(adapterLines) != len(cases) {
+		return fmt.Errorf("expected %d chat adapter receipts, got %d", len(cases), len(adapterLines))
+	}
+
+	for i := range cases {
+		var draft admissionLiveRouteTurnCandidateDraft
+		if err := json.Unmarshal([]byte(draftLines[i]), &draft); err != nil {
+			return fmt.Errorf("chat draft receipt %d: %w", i+1, err)
+		}
+		var review admissionLiveRouteTurnCandidateReview
+		if err := json.Unmarshal([]byte(reviewLines[i]), &review); err != nil {
+			return fmt.Errorf("chat review receipt %d: %w", i+1, err)
+		}
+		var admission admissionLiveRouteTurnCandidateAdmission
+		if err := json.Unmarshal([]byte(admissionLines[i]), &admission); err != nil {
+			return fmt.Errorf("chat handoff receipt %d: %w", i+1, err)
+		}
+		var adapter admissionLiveRouteTurnCandidateAdmissionAdapter
+		if err := json.Unmarshal([]byte(adapterLines[i]), &adapter); err != nil {
+			return fmt.Errorf("chat adapter receipt %d: %w", i+1, err)
+		}
+		if draft.Schema != admissionLiveRouteTurnCandidateDraftSchema ||
+			admission.Schema != admissionLiveRouteTurnCandidateAdmissionSchema ||
+			review.Schema != admissionLiveRouteTurnReviewSchema ||
+			adapter.Schema != admissionLiveRouteTurnCandidateAdmissionAdapterSchema {
+			return fmt.Errorf("chat receipt %d schema mismatch: draft=%+v review=%+v handoff=%+v adapter=%+v", i+1, draft, review, admission, adapter)
+		}
+		if draft.Passed != cases[i].wantPassed ||
+			review.Matched != cases[i].wantPassed ||
+			admission.Passed != cases[i].wantPassed ||
+			adapter.Passed != cases[i].wantPassed {
+			return fmt.Errorf("chat receipt %d passed mismatch: draft=%+v review=%+v handoff=%+v adapter=%+v", i+1, draft, review, admission, adapter)
+		}
+		if cases[i].wantPassed {
+			if !strings.HasPrefix(draft.DraftID, "draft-") ||
+				!strings.HasPrefix(draft.GeneratorAdapterID, "adapter-") ||
+				review.CandidateDraftID != draft.DraftID ||
+				review.GeneratorAdapterID != draft.GeneratorAdapterID ||
+				review.CandidateRunID != draft.CandidateRunID ||
+				!strings.HasPrefix(admission.HandoffID, "handoff-") ||
+				!strings.HasPrefix(adapter.AdmissionAdapterID, "admission-adapter-") ||
+				adapter.DreamCandidateRunID == "" ||
+				adapter.DreamCandidateRunID != draft.CandidateRunID ||
+				admission.CandidateDraftID != draft.DraftID ||
+				adapter.CandidateDraftID != draft.DraftID ||
+				adapter.HandoffID != admission.HandoffID {
+				return fmt.Errorf("chat receipt %d lost admission provenance: draft=%+v review=%+v handoff=%+v adapter=%+v", i+1, draft, review, admission, adapter)
+			}
+		} else if draft.DraftID != "" || admission.HandoffID != "" || adapter.AdmissionAdapterID != "" {
+			return fmt.Errorf("chat failed receipt %d should not name ids: draft=%+v review=%+v handoff=%+v adapter=%+v", i+1, draft, review, admission, adapter)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-admission-chat-smoke] pass: drafts=%s reviews=%s handoffs=%s adapters=%s cases=%d\n",
+		draftLogPath, reviewLogPath, admissionLogPath, adapterLogPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {

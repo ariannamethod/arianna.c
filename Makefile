@@ -73,6 +73,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_turn_candidate_draft_review_smoke admission-live-route-turn-candidate-draft-review-smoke
 .PHONY: admission_live_route_turn_candidate_admission_smoke admission-live-route-turn-candidate-admission-smoke
 .PHONY: admission_live_route_turn_candidate_admission_adapter_smoke admission-live-route-turn-candidate-admission-adapter-smoke
+.PHONY: admission_live_route_turn_candidate_admission_chat_smoke admission-live-route-turn-candidate-admission-chat-smoke
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -314,6 +315,11 @@ admission-live-route-turn-candidate-admission-adapter-smoke: admission_live_rout
 
 admission_live_route_turn_candidate_admission_adapter_smoke: metabolism
 	bash tools/admission_live_route_turn_candidate_admission_adapter_smoke.sh
+
+admission-live-route-turn-candidate-admission-chat-smoke: admission_live_route_turn_candidate_admission_chat_smoke
+
+admission_live_route_turn_candidate_admission_chat_smoke: metabolism
+	bash tools/admission_live_route_turn_candidate_admission_chat_smoke.sh
 
 admission-live-route-turn-review-smoke: admission_live_route_turn_review_smoke
 
