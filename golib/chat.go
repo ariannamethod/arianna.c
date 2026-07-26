@@ -128,6 +128,9 @@ func runChat() {
 		if line := chatLiveRouteTurnCandidateShellDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
+		if line := chatLiveRouteTurnCandidateExecutionDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
 		if line := chatLiveRouteTurnGeneratorAdapterDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
@@ -214,6 +217,7 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnRequestDryRun() ||
 		admissionLiveRouteTurnGenerationJobDryRun() ||
 		admissionLiveRouteTurnCandidateShellDryRun() ||
+		admissionLiveRouteTurnCandidateExecutionDryRun() ||
 		admissionLiveRouteTurnGeneratorAdapterDryRun() ||
 		admissionLiveRouteTurnCandidateDraftDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
@@ -316,19 +320,60 @@ func chatLiveRouteTurnCandidateShellDryRunLine(obs admissionLiveRouteTurnObserva
 		shell.PromptClass, shell.Route, shell.Source, shell.CandidateTrigger, shell.CandidateSeed, shell.JobID, shell.ShellID, shell.CandidateTextStatus, shell.Passed, reason)
 }
 
+func chatLiveRouteTurnCandidateExecutionDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT"))
+}
+
+func chatLiveRouteTurnCandidateExecutionForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnCandidateExecution {
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	return admissionLiveRouteTurnCandidateExecutionForShell(shell, text)
+}
+
+func chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateExecutionDryRun() || obs.Schema == "" {
+		return ""
+	}
+	execution := chatLiveRouteTurnCandidateExecutionForText(obs, text)
+	if err := recordAdmissionLiveRouteTurnCandidateExecution(execution); err != nil {
+		return fmt.Sprintf("│  · live-route candidate execution dry-run log failed: %v", err)
+	}
+	reason := ""
+	if execution.Reason != "" {
+		reason = " reason=" + execution.Reason
+	}
+	return fmt.Sprintf("│  · live-route candidate execution dry-run: class=%s route=%s backend=%s entry=%s frame=%s executor=%s timeout_ms=%d shell=%s execution=%s text=%s passed=%t%s",
+		execution.PromptClass, execution.Route, execution.Backend, execution.Entrypoint, execution.PromptFrame,
+		execution.Executor, execution.TimeoutMS, execution.ShellID, execution.ExecutionID, execution.GeneratedTextStatus, execution.Passed, reason)
+}
+
 func chatLiveRouteTurnGeneratorAdapterDryRunLine(obs admissionLiveRouteTurnObservation) string {
-	return chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT"))
+	text := os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT")
+	if strings.TrimSpace(text) == "" && admissionLiveRouteTurnCandidateExecutionDryRun() {
+		text = os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT")
+	}
+	return chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, text)
+}
+
+func chatLiveRouteTurnGeneratorAdapterForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnGeneratorAdapter {
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	if admissionLiveRouteTurnCandidateExecutionDryRun() {
+		execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, text)
+		return admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
+	}
+	return admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
 }
 
 func chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
 	if !admissionLiveRouteTurnGeneratorAdapterDryRun() || obs.Schema == "" {
 		return ""
 	}
-	choice := admissionLiveRouteTurnChoiceForObservation(obs)
-	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
-	shell := admissionLiveRouteTurnCandidateShellForJob(job)
-	adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	adapter := chatLiveRouteTurnGeneratorAdapterForText(obs, text)
 	if err := recordAdmissionLiveRouteTurnGeneratorAdapter(adapter); err != nil {
 		return fmt.Sprintf("│  · live-route generator adapter dry-run log failed: %v", err)
 	}
@@ -336,20 +381,21 @@ func chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs admissionLiveRouteTu
 	if adapter.Reason != "" {
 		reason = " reason=" + adapter.Reason
 	}
-	return fmt.Sprintf("│  · live-route generator adapter dry-run: class=%s route=%s backend=%s entry=%s frame=%s shell=%s adapter=%s text=%s passed=%t%s",
-		adapter.PromptClass, adapter.Route, adapter.Backend, adapter.Entrypoint, adapter.PromptFrame, adapter.ShellID, adapter.AdapterID, adapter.GeneratedTextStatus, adapter.Passed, reason)
+	return fmt.Sprintf("│  · live-route generator adapter dry-run: class=%s route=%s backend=%s entry=%s frame=%s shell=%s execution=%s adapter=%s text=%s passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Backend, adapter.Entrypoint, adapter.PromptFrame,
+		adapter.ShellID, adapter.CandidateExecutionID, adapter.AdapterID, adapter.GeneratedTextStatus, adapter.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateDraftDryRunLine(obs admissionLiveRouteTurnObservation) string {
-	return chatLiveRouteTurnCandidateDraftDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
+	text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT")
+	if strings.TrimSpace(text) == "" && admissionLiveRouteTurnCandidateExecutionDryRun() {
+		text = os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT")
+	}
+	return chatLiveRouteTurnCandidateDraftDryRunLineForText(obs, text)
 }
 
 func chatLiveRouteTurnCandidateDraftForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnCandidateDraft {
-	choice := admissionLiveRouteTurnChoiceForObservation(obs)
-	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
-	shell := admissionLiveRouteTurnCandidateShellForJob(job)
-	adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	adapter := chatLiveRouteTurnGeneratorAdapterForText(obs, text)
 	return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
 }
 
@@ -365,8 +411,9 @@ func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurn
 	if draft.Reason != "" {
 		reason = " reason=" + draft.Reason
 	}
-	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s adapter=%s draft=%s run=%s text=%s passed=%t%s",
-		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed, draft.ShellID, draft.GeneratorAdapterID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
+	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s execution=%s adapter=%s draft=%s run=%s text=%s passed=%t%s",
+		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed,
+		draft.ShellID, draft.CandidateExecutionID, draft.GeneratorAdapterID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateAdmissionDryRunLine(obs admissionLiveRouteTurnObservation) string {

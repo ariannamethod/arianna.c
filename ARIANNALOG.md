@@ -3738,3 +3738,18 @@ admission JSONL when the adapter is passed and route-plan policy passes; unknown
 missing shadow mode, and missing route-plan requirement fail closed. `make
 admission-live-route-turn-candidate-admission-chat-shadow-smoke` locks the chat-line plus JSONL contract, and
 `make body-smoke` runs it after the chat handoff/adapter smoke.
+
+**Follow-up, same day - candidate execution names the bounded runtime before adapter.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN=1` inserts
+`arianna.live_route_turn_candidate_execution.v1` between the pending candidate shell and the generator adapter.
+The receipt preserves the shell envelope and adds a named executor (`backend:entrypoint:prompt_frame`), timeout
+budget (`AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS`, default 12000 ms, max 60000 ms), generated text hash,
+and stable `execution-<hash>` id.
+
+This still does not call Janus, Resonance, nano, chorus, qloop, or the REPL bridge. It is the bounded execution
+contract for the next step: a future live generator can replace the provided text only by producing the same
+execution receipt shape. Failed shells, empty output, invalid timeout budgets, tampered execution receipts, and
+unknown turns fail closed without execution or adapter ids. When enabled, the adapter/draft path consumes the
+execution-backed receipt and carries `candidate_execution_id` forward through draft review, pre-admission handoff,
+and admission adapter. `make admission-live-route-turn-candidate-execution-smoke` locks the JSONL/chat-line
+contract, and `make body-smoke` runs it between candidate shell and generator adapter.

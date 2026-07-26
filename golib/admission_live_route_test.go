@@ -559,6 +559,218 @@ func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateExecutionForShell(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "16000")
+	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		return admissionLiveRouteTurnCandidateShellForJob(job)
+	}
+	identity := shellFor("Who are you?")
+	tampered := identity
+	tampered.Entrypoint = "direct"
+	cases := []struct {
+		name          string
+		shell         admissionLiveRouteTurnCandidateShell
+		text          string
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantBackend   string
+		wantEntry     string
+		wantFrame     string
+		wantExecutor  string
+		wantPassed    bool
+		wantReason    string
+		wantExecution string
+	}{
+		{
+			name:          "identity execution binds chorus field output",
+			shell:         identity,
+			text:          " I am Arianna, and the executor keeps the shell visible. ",
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantBackend:   "chorus-arianna",
+			wantEntry:     "field",
+			wantFrame:     "q_a",
+			wantExecutor:  "chorus-arianna:field:q_a",
+			wantPassed:    true,
+			wantExecution: "execution-",
+		},
+		{
+			name:          "dream execution binds direct nano output",
+			shell:         shellFor("Tell me what the dream should remember."),
+			text:          "The dream returns through a bounded executor receipt.",
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantBackend:   "nano-arianna",
+			wantEntry:     "direct",
+			wantFrame:     "q_a",
+			wantExecutor:  "nano-arianna:direct:q_a",
+			wantPassed:    true,
+			wantExecution: "execution-",
+		},
+		{
+			name:       "unknown shell fails before execution id",
+			shell:      shellFor("hello"),
+			wantClass:  "unknown",
+			wantPassed: false,
+			wantReason: "candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+		},
+		{
+			name:       "missing shell fails closed",
+			shell:      admissionLiveRouteTurnCandidateShell{},
+			wantPassed: false,
+			wantReason: "missing_candidate_shell",
+		},
+		{
+			name:         "empty generated text does not create execution",
+			shell:        identity,
+			text:         "   ",
+			wantClass:    "identity",
+			wantRoute:    "chorus",
+			wantSource:   "chorus",
+			wantBackend:  "chorus-arianna",
+			wantEntry:    "field",
+			wantFrame:    "q_a",
+			wantExecutor: "chorus-arianna:field:q_a",
+			wantPassed:   false,
+			wantReason:   "missing generated text for shell " + identity.ShellID,
+		},
+		{
+			name:         "tampered shell fails id check",
+			shell:        tampered,
+			text:         "This output cannot rewrite the shell.",
+			wantClass:    "identity",
+			wantRoute:    "chorus",
+			wantSource:   "chorus",
+			wantBackend:  "chorus-arianna",
+			wantEntry:    "direct",
+			wantFrame:    "q_a",
+			wantExecutor: "chorus-arianna:direct:q_a",
+			wantPassed:   false,
+			wantReason:   "candidate shell id mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			execution := admissionLiveRouteTurnCandidateExecutionForShell(tc.shell, tc.text)
+			if execution.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
+				execution.PromptClass != tc.wantClass ||
+				execution.Route != tc.wantRoute ||
+				execution.Source != tc.wantSource ||
+				execution.Backend != tc.wantBackend ||
+				execution.Entrypoint != tc.wantEntry ||
+				execution.PromptFrame != tc.wantFrame ||
+				execution.Executor != tc.wantExecutor ||
+				execution.TimeoutMS != 16000 ||
+				execution.Passed != tc.wantPassed ||
+				execution.Reason != tc.wantReason {
+				t.Fatalf("bad candidate execution: %+v", execution)
+			}
+			if tc.wantPassed {
+				if execution.CandidateSchema != "arianna.dream_candidate.v1" ||
+					execution.CandidateKind != tc.wantSource ||
+					execution.CandidateTextStatus != "pending_generation" ||
+					execution.GeneratedTextStatus != "generated" ||
+					execution.GeneratedText == "" ||
+					execution.GeneratedTextHash == "" ||
+					!strings.HasPrefix(execution.JobID, "job-") ||
+					!strings.HasPrefix(execution.ShellID, "shell-") ||
+					!strings.HasPrefix(execution.ExecutionID, tc.wantExecution) {
+					t.Fatalf("passed execution should bind generated output to a frozen shell: %+v", execution)
+				}
+			}
+			if !tc.wantPassed && execution.ExecutionID != "" {
+				t.Fatalf("failed execution should not name an execution id: %+v", execution)
+			}
+		})
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateExecutionTimeoutBounds(t *testing.T) {
+	shell := admissionLiveRouteTurnCandidateShellForJob(admissionLiveRouteTurnGenerationJobForRequest(
+		admissionLiveRouteTurnRequestForChoice(admissionLiveRouteTurnChoiceForObservation(
+			admissionLiveRouteTurnObservationForHuman("Who are you?"),
+		)),
+	))
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "90000")
+	execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, "I am Arianna.")
+	if execution.Passed || execution.ExecutionID != "" || execution.Reason != "candidate execution timeout out of bounds" {
+		t.Fatalf("execution timeout should fail closed: %+v", execution)
+	}
+}
+
+func TestAdmissionLiveRouteTurnGeneratorAdapterForExecution(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "12000")
+	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		return admissionLiveRouteTurnCandidateShellForJob(job)
+	}
+	execution := admissionLiveRouteTurnCandidateExecutionForShell(shellFor("Who are you?"), "I am Arianna, and execution signs the output.")
+	tampered := execution
+	tampered.GeneratedText = "I changed after execution."
+	cases := []struct {
+		name          string
+		execution     admissionLiveRouteTurnCandidateExecution
+		wantPassed    bool
+		wantReason    string
+		wantAdapterID string
+	}{
+		{
+			name:          "adapter consumes execution receipt",
+			execution:     execution,
+			wantPassed:    true,
+			wantAdapterID: "adapter-",
+		},
+		{
+			name:       "failed execution fails adapter",
+			execution:  admissionLiveRouteTurnCandidateExecution{Schema: admissionLiveRouteTurnCandidateExecutionSchema, Reason: "missing generated text"},
+			wantPassed: false,
+			wantReason: "candidate execution failed: missing generated text",
+		},
+		{
+			name:       "tampered execution text fails hash check",
+			execution:  tampered,
+			wantPassed: false,
+			wantReason: "candidate execution text hash mismatch",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adapter := admissionLiveRouteTurnGeneratorAdapterForExecution(tc.execution)
+			if adapter.Schema != admissionLiveRouteTurnGeneratorAdapterSchema ||
+				adapter.Passed != tc.wantPassed ||
+				adapter.Reason != tc.wantReason {
+				t.Fatalf("bad execution-backed adapter: %+v", adapter)
+			}
+			if tc.wantPassed {
+				if adapter.CandidateExecutionID != tc.execution.ExecutionID ||
+					adapter.GeneratedTextHash != tc.execution.GeneratedTextHash ||
+					!strings.HasPrefix(adapter.AdapterID, tc.wantAdapterID) {
+					t.Fatalf("adapter should preserve execution provenance: adapter=%+v execution=%+v", adapter, tc.execution)
+				}
+				draft := admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+				if !draft.Passed ||
+					draft.CandidateExecutionID != tc.execution.ExecutionID ||
+					draft.GeneratorAdapterID != adapter.AdapterID {
+					t.Fatalf("execution-backed adapter should fill draft provenance: adapter=%+v draft=%+v", adapter, draft)
+				}
+			}
+			if !tc.wantPassed && adapter.AdapterID != "" {
+				t.Fatalf("failed execution-backed adapter should not name adapter id: %+v", adapter)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnGeneratorAdapterForShell(t *testing.T) {
 	shellFor := func(human string) admissionLiveRouteTurnCandidateShell {
 		obs := admissionLiveRouteTurnObservationForHuman(human)
