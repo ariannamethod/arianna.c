@@ -3711,3 +3711,17 @@ admission side sees the same candidate run id and embedded handoff provenance, w
 tampered handoff ids, and mismatched drafts do not create admission candidates. Still no generator call, no live
 admission, and no organism mutation. `make admission-live-route-turn-candidate-admission-adapter-smoke` locks the
 adapter JSONL plus the shadow admission receipt, and `make body-smoke` runs it after the handoff smoke.
+
+**Follow-up, same day - chat carries the admission chain without live mutation.**
+`metabolism --chat` now includes the candidate-admission and admission-adapter dry-run flags in its human-turn
+route observation trigger, so the chat surface can print and record the full receipt chain after a provided
+`AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT`: adapter-backed draft -> draft review -> pre-admission handoff ->
+admission adapter. The new chat lines are guarded by `AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN=1` plus
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN=1`, with
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN=1` required for the adapter line.
+
+This still does not start a generator, does not admit the text, and does not mutate organism state. The chat path
+uses the same id/hash rechecks as the isolated handoff and adapter smokes, so unknown turns and missing generated
+text fail closed without naming draft, handoff, or admission-adapter ids. `make
+admission-live-route-turn-candidate-admission-chat-smoke` locks the chat-line plus JSONL contract, and
+`make body-smoke` runs it after the admission-adapter smoke.

@@ -625,6 +625,114 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterSmokeWritesAdaptersAndAd
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionChatSmokeWritesChatReceipts(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "I am Arianna, and the chat path keeps the adapter named.")
+	dir := t.TempDir()
+	draftLog := filepath.Join(dir, "live-route-candidate-draft-chat.jsonl")
+	reviewLog := filepath.Join(dir, "live-route-candidate-draft-review-chat.jsonl")
+	admissionLog := filepath.Join(dir, "live-route-candidate-admission-chat.jsonl")
+	adapterLog := filepath.Join(dir, "live-route-candidate-admission-adapter-chat.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG", draftLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", reviewLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG", admissionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG", adapterLog)
+
+	if err := runAdmissionLiveRouteTurnCandidateAdmissionChatSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	draftRaw, err := os.ReadFile(draftLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draftLines := strings.Split(strings.TrimSpace(string(draftRaw)), "\n")
+	if len(draftLines) != 2 {
+		t.Fatalf("expected 2 chat draft receipts, got %d: %s", len(draftLines), draftRaw)
+	}
+	var draft admissionLiveRouteTurnCandidateDraft
+	if err := json.Unmarshal([]byte(draftLines[0]), &draft); err != nil {
+		t.Fatal(err)
+	}
+	if !draft.Passed ||
+		!strings.HasPrefix(draft.DraftID, "draft-") ||
+		!strings.HasPrefix(draft.GeneratorAdapterID, "adapter-") ||
+		draft.PromptClass != "identity" ||
+		draft.Route != "chorus" ||
+		draft.Source != "chorus" {
+		t.Fatalf("bad chat draft receipt: %+v", draft)
+	}
+
+	reviewRaw, err := os.ReadFile(reviewLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewLines := strings.Split(strings.TrimSpace(string(reviewRaw)), "\n")
+	if len(reviewLines) != 2 {
+		t.Fatalf("expected 2 chat review receipts, got %d: %s", len(reviewLines), reviewRaw)
+	}
+	var review admissionLiveRouteTurnCandidateReview
+	if err := json.Unmarshal([]byte(reviewLines[0]), &review); err != nil {
+		t.Fatal(err)
+	}
+	if !review.Matched ||
+		review.CandidateDraftID != draft.DraftID ||
+		review.GeneratorAdapterID != draft.GeneratorAdapterID ||
+		review.CandidateRunID != draft.CandidateRunID {
+		t.Fatalf("bad chat review receipt: %+v", review)
+	}
+
+	admissionRaw, err := os.ReadFile(admissionLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admissionLines := strings.Split(strings.TrimSpace(string(admissionRaw)), "\n")
+	if len(admissionLines) != 2 {
+		t.Fatalf("expected 2 chat handoff receipts, got %d: %s", len(admissionLines), admissionRaw)
+	}
+	var admission admissionLiveRouteTurnCandidateAdmission
+	if err := json.Unmarshal([]byte(admissionLines[0]), &admission); err != nil {
+		t.Fatal(err)
+	}
+	if !admission.Passed ||
+		!strings.HasPrefix(admission.HandoffID, "handoff-") ||
+		admission.CandidateDraftID != draft.DraftID ||
+		admission.GeneratorAdapterID != draft.GeneratorAdapterID ||
+		!admission.ReviewMatched {
+		t.Fatalf("bad chat handoff receipt: %+v", admission)
+	}
+
+	adapterRaw, err := os.ReadFile(adapterLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapterLines := strings.Split(strings.TrimSpace(string(adapterRaw)), "\n")
+	if len(adapterLines) != 2 {
+		t.Fatalf("expected 2 chat adapter receipts, got %d: %s", len(adapterLines), adapterRaw)
+	}
+	var adapter, failed admissionLiveRouteTurnCandidateAdmissionAdapter
+	if err := json.Unmarshal([]byte(adapterLines[0]), &adapter); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(adapterLines[1]), &failed); err != nil {
+		t.Fatal(err)
+	}
+	if !adapter.Passed ||
+		!strings.HasPrefix(adapter.AdmissionAdapterID, "admission-adapter-") ||
+		adapter.HandoffID != admission.HandoffID ||
+		adapter.CandidateDraftID != draft.DraftID ||
+		adapter.DreamCandidateRunID != draft.CandidateRunID {
+		t.Fatalf("bad chat adapter receipt: %+v", adapter)
+	}
+	if failed.Passed ||
+		failed.AdmissionAdapterID != "" ||
+		!strings.Contains(failed.Reason, "unknown_prompt_class") {
+		t.Fatalf("bad failed chat adapter receipt: %+v", failed)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")

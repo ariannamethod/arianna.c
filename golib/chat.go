@@ -96,7 +96,7 @@ func runChat() {
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
-		if dreamAdmissionLiveRouteChoiceDryRun() || admissionLiveRouteTurnChoiceDryRun() || admissionLiveRouteTurnRequestDryRun() || admissionLiveRouteTurnGenerationJobDryRun() || admissionLiveRouteTurnCandidateShellDryRun() || admissionLiveRouteTurnGeneratorAdapterDryRun() || admissionLiveRouteTurnCandidateDraftDryRun() {
+		if admissionLiveRouteTurnObservationDryRunNeeded() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
 			if err := recordAdmissionLiveRouteTurnObservation(turnRouteObs); err != nil {
 				fmt.Println("│  · live-route turn dry-run log failed:", err)
@@ -132,6 +132,12 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if line := chatLiveRouteTurnCandidateDraftDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnCandidateAdmissionDryRunLine(turnRouteObs); line != "" {
+			fmt.Println(line)
+		}
+		if line := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -197,6 +203,18 @@ func runChat() {
 	}
 	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
 	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
+}
+
+func admissionLiveRouteTurnObservationDryRunNeeded() bool {
+	return dreamAdmissionLiveRouteChoiceDryRun() ||
+		admissionLiveRouteTurnChoiceDryRun() ||
+		admissionLiveRouteTurnRequestDryRun() ||
+		admissionLiveRouteTurnGenerationJobDryRun() ||
+		admissionLiveRouteTurnCandidateShellDryRun() ||
+		admissionLiveRouteTurnGeneratorAdapterDryRun() ||
+		admissionLiveRouteTurnCandidateDraftDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun()
 }
 
 func chatLiveRouteChoiceDryRunLine(c dreamCandidate) string {
@@ -322,16 +340,20 @@ func chatLiveRouteTurnCandidateDraftDryRunLine(obs admissionLiveRouteTurnObserva
 	return chatLiveRouteTurnCandidateDraftDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
 }
 
-func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
-	if !admissionLiveRouteTurnCandidateDraftDryRun() || obs.Schema == "" {
-		return ""
-	}
+func chatLiveRouteTurnCandidateDraftForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnCandidateDraft {
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
 	job := admissionLiveRouteTurnGenerationJobForRequest(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
-	draft := admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+}
+
+func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateDraftDryRun() || obs.Schema == "" {
+		return ""
+	}
+	draft := chatLiveRouteTurnCandidateDraftForText(obs, text)
 	if err := recordAdmissionLiveRouteTurnCandidateDraft(draft); err != nil {
 		return fmt.Sprintf("│  · live-route candidate draft dry-run log failed: %v", err)
 	}
@@ -341,6 +363,59 @@ func chatLiveRouteTurnCandidateDraftDryRunLineForText(obs admissionLiveRouteTurn
 	}
 	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s adapter=%s draft=%s run=%s text=%s passed=%t%s",
 		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed, draft.ShellID, draft.GeneratorAdapterID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, reason)
+}
+
+func chatLiveRouteTurnCandidateAdmissionDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnCandidateAdmissionDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
+}
+
+func chatLiveRouteTurnCandidateAdmissionDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() || !admissionLiveRouteTurnCandidateDraftDryRun() || obs.Schema == "" {
+		return ""
+	}
+	draft := chatLiveRouteTurnCandidateDraftForText(obs, text)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+	if err := recordAdmissionLiveRouteTurnCandidateReview(review); err != nil {
+		return fmt.Sprintf("│  · live-route candidate admission handoff dry-run review log failed: %v", err)
+	}
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	if err := recordAdmissionLiveRouteTurnCandidateAdmission(admission); err != nil {
+		return fmt.Sprintf("│  · live-route candidate admission handoff dry-run log failed: %v", err)
+	}
+	reason := ""
+	if admission.Reason != "" {
+		reason = " reason=" + admission.Reason
+	}
+	return fmt.Sprintf("│  · live-route candidate admission handoff dry-run: class=%s route=%s source=%s draft=%s adapter=%s handoff=%s review=%t passed=%t%s",
+		admission.PromptClass, admission.Route, admission.Source, admission.CandidateDraftID,
+		admission.GeneratorAdapterID, admission.HandoffID, admission.ReviewMatched, admission.Passed, reason)
+}
+
+func chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(obs admissionLiveRouteTurnObservation) string {
+	return chatLiveRouteTurnCandidateAdmissionAdapterDryRunLineForText(obs, os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"))
+}
+
+func chatLiveRouteTurnCandidateAdmissionAdapterDryRunLineForText(obs admissionLiveRouteTurnObservation, text string) string {
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
+		!admissionLiveRouteTurnCandidateAdmissionDryRun() ||
+		!admissionLiveRouteTurnCandidateDraftDryRun() ||
+		obs.Schema == "" {
+		return ""
+	}
+	draft := chatLiveRouteTurnCandidateDraftForText(obs, text)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission, draft)
+	if err := recordAdmissionLiveRouteTurnCandidateAdmissionAdapter(adapter); err != nil {
+		return fmt.Sprintf("│  · live-route candidate admission adapter dry-run log failed: %v", err)
+	}
+	reason := ""
+	if adapter.Reason != "" {
+		reason = " reason=" + adapter.Reason
+	}
+	return fmt.Sprintf("│  · live-route candidate admission adapter dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
+		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, adapter.Passed, reason)
 }
 
 func chatLiveRouteTurnCandidateReviewLine(obs admissionLiveRouteTurnObservation, c dreamCandidate) string {
