@@ -7,16 +7,17 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema                 = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema               = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema      = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema           = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema          = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema    = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema   = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnGeneratorAdapterSchema = "arianna.live_route_turn_generator_adapter.v1"
-	admissionLiveRouteTurnCandidateDraftSchema   = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema           = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRoutePlanSchema                   = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema                 = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema        = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema             = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema            = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema      = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema     = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema   = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema     = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema             = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRouteTurnCandidateAdmissionSchema = "arianna.live_route_turn_candidate_admission.v1"
 )
 
 type admissionLiveRoutePlan struct {
@@ -192,6 +193,29 @@ type admissionLiveRouteTurnCandidateReview struct {
 	CandidateChoicePassed   bool   `json:"candidate_choice_passed"`
 	Matched                 bool   `json:"matched"`
 	Reason                  string `json:"reason,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmission struct {
+	Schema              string `json:"schema"`
+	Timing              string `json:"timing"`
+	PromptClass         string `json:"prompt_class"`
+	Route               string `json:"route,omitempty"`
+	Source              string `json:"source,omitempty"`
+	ExpectedSource      string `json:"expected_source,omitempty"`
+	CandidateSchema     string `json:"candidate_schema,omitempty"`
+	CandidateKind       string `json:"candidate_kind,omitempty"`
+	CandidateTrigger    string `json:"candidate_trigger,omitempty"`
+	CandidateSeed       string `json:"candidate_seed,omitempty"`
+	CandidateRunID      string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID    string `json:"candidate_draft_id,omitempty"`
+	GeneratorAdapterID  string `json:"generator_adapter_id,omitempty"`
+	CandidateTextStatus string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash   string `json:"candidate_text_hash,omitempty"`
+	ReviewMatched       bool   `json:"review_matched"`
+	HandoffID           string `json:"handoff_id,omitempty"`
+	Passed              bool   `json:"passed"`
+	Reason              string `json:"reason,omitempty"`
+	TurnTextHash        string `json:"turn_text_hash,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -1349,6 +1373,179 @@ func recordAdmissionLiveRouteTurnCandidateReview(review admissionLiveRouteTurnCa
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(review)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs admissionLiveRouteTurnObservation, draft admissionLiveRouteTurnCandidateDraft, review admissionLiveRouteTurnCandidateReview) admissionLiveRouteTurnCandidateAdmission {
+	admission := admissionLiveRouteTurnCandidateAdmission{
+		Schema:              admissionLiveRouteTurnCandidateAdmissionSchema,
+		Timing:              "pre_admission_handoff",
+		PromptClass:         draft.PromptClass,
+		Route:               draft.Route,
+		Source:              normalizeDreamAdmissionSource(draft.Source),
+		ExpectedSource:      draft.ExpectedSource,
+		CandidateSchema:     draft.CandidateSchema,
+		CandidateKind:       draft.CandidateKind,
+		CandidateTrigger:    draft.CandidateTrigger,
+		CandidateSeed:       draft.CandidateSeed,
+		CandidateRunID:      draft.CandidateRunID,
+		CandidateDraftID:    draft.DraftID,
+		GeneratorAdapterID:  draft.GeneratorAdapterID,
+		CandidateTextStatus: draft.CandidateTextStatus,
+		CandidateTextHash:   draft.CandidateTextHash,
+		ReviewMatched:       review.Matched,
+		TurnTextHash:        draft.TurnTextHash,
+	}
+	if obs.Schema == "" {
+		admission.Reason = "missing_turn_observation"
+		return admission
+	}
+	if !obs.Passed {
+		admission.PromptClass = obs.PromptClass
+		admission.Route = obs.Route
+		admission.ExpectedSource = obs.ExpectedSource
+		admission.Reason = "turn_route_failed"
+		if obs.Reason != "" {
+			admission.Reason += ": " + obs.Reason
+		}
+		return admission
+	}
+	if draft.Schema == "" {
+		admission.Reason = "missing_candidate_draft"
+		return admission
+	}
+	if !draft.Passed {
+		admission.Reason = "candidate_draft_failed"
+		if draft.Reason != "" {
+			admission.Reason += ": " + draft.Reason
+		}
+		return admission
+	}
+	if review.Schema == "" {
+		admission.Reason = "missing_candidate_review"
+		return admission
+	}
+	if !review.Matched {
+		admission.Reason = "candidate_review_failed"
+		if review.Reason != "" {
+			admission.Reason += ": " + review.Reason
+		}
+		return admission
+	}
+	if review.CandidateDraftID != draft.DraftID {
+		admission.Reason = "candidate_review_draft_id_mismatch"
+		return admission
+	}
+	if review.GeneratorAdapterID != draft.GeneratorAdapterID {
+		admission.Reason = "candidate_review_adapter_id_mismatch"
+		return admission
+	}
+	if review.CandidateRunID != draft.CandidateRunID {
+		admission.Reason = "candidate_review_run_id_mismatch"
+		return admission
+	}
+	if review.CandidateTextStatus != draft.CandidateTextStatus || review.CandidateTextHash != draft.CandidateTextHash {
+		admission.Reason = "candidate_review_text_mismatch"
+		return admission
+	}
+	if review.TurnPromptClass != obs.PromptClass || review.TurnRoute != obs.Route || review.TurnExpectedSource != obs.ExpectedSource {
+		admission.Reason = "candidate_review_turn_mismatch"
+		return admission
+	}
+	if review.CandidateSource != admission.Source ||
+		review.CandidateTrigger != draft.CandidateTrigger ||
+		review.CandidatePromptClass != draft.PromptClass ||
+		review.CandidateRoute != draft.Route ||
+		review.CandidateExpectedSource != draft.ExpectedSource {
+		admission.Reason = "candidate_review_route_mismatch"
+		return admission
+	}
+	if admission.CandidateDraftID == "" {
+		admission.Reason = "missing_candidate_draft_id"
+		return admission
+	}
+	if wantDraftID := admissionLiveRouteTurnCandidateDraftID(draft); wantDraftID == "" || admission.CandidateDraftID != wantDraftID {
+		admission.Reason = "candidate_draft_id_mismatch"
+		return admission
+	}
+	if admission.GeneratorAdapterID == "" {
+		admission.Reason = "missing_generator_adapter_id for draft " + admission.CandidateDraftID
+		return admission
+	}
+	if admission.CandidateTextStatus != "generated" {
+		admission.Reason = "candidate_text_status_is " + admission.CandidateTextStatus
+		return admission
+	}
+	text := strings.TrimSpace(draft.CandidateText)
+	if text == "" {
+		admission.Reason = "missing_candidate_text for draft " + admission.CandidateDraftID
+		return admission
+	}
+	if admission.CandidateTextHash == "" || admission.CandidateTextHash != hashJSON(text) {
+		admission.Reason = "candidate_text_hash_mismatch"
+		return admission
+	}
+	candidate := admissionLiveRouteTurnCandidateForDraft(draft)
+	if candidate.Schema != "arianna.dream_candidate.v1" {
+		admission.Reason = "candidate_draft_candidate_missing"
+		return admission
+	}
+	if candidate.RunID != admission.CandidateRunID ||
+		normalizeDreamAdmissionSource(candidate.Source) != admission.Source ||
+		candidate.Trigger != admission.CandidateTrigger ||
+		candidate.Seed != admission.CandidateSeed ||
+		candidate.Kind != admission.CandidateKind ||
+		hashJSON(candidate.Text) != admission.CandidateTextHash {
+		admission.Reason = "candidate_draft_candidate_mismatch"
+		return admission
+	}
+	admission.HandoffID = admissionLiveRouteTurnCandidateAdmissionID(admission)
+	if admission.HandoffID == "" {
+		admission.Reason = "missing_candidate_admission_handoff_id"
+		return admission
+	}
+	admission.Passed = true
+	return admission
+}
+
+func admissionLiveRouteTurnCandidateAdmissionID(admission admissionLiveRouteTurnCandidateAdmission) string {
+	h := hashJSON(struct {
+		CandidateDraftID   string `json:"candidate_draft_id"`
+		GeneratorAdapterID string `json:"generator_adapter_id"`
+		CandidateRunID     string `json:"candidate_run_id"`
+		CandidateTextHash  string `json:"candidate_text_hash"`
+		TurnTextHash       string `json:"turn_text_hash"`
+	}{
+		CandidateDraftID:   admission.CandidateDraftID,
+		GeneratorAdapterID: admission.GeneratorAdapterID,
+		CandidateRunID:     admission.CandidateRunID,
+		CandidateTextHash:  admission.CandidateTextHash,
+		TurnTextHash:       admission.TurnTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "handoff-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmission(admission admissionLiveRouteTurnCandidateAdmission) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(admission)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

@@ -3684,3 +3684,16 @@ move toward review without collapsing back into free-form candidate text. Missin
 draft ids, missing adapter ids, text hash drift, route/source mismatches, and unknown turns fail closed. `make
 admission-live-route-turn-candidate-draft-review-smoke` locks the JSONL contract, and `make body-smoke` runs it
 between candidate draft and the older surfaced turn/candidate review.
+
+**Follow-up, same day - candidate admission handoff names the pre-admission latch.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN=1` consumes the human-turn observation, the
+adapter-backed candidate draft, and the draft-backed route review, then records
+`arianna.live_route_turn_candidate_admission.v1` only when the review matched and the full draft provenance
+rechecks. The receipt carries `draft-<hash>`, `adapter-<hash>`, candidate run id, generated text hash, and a
+stable `handoff-<hash>` id.
+
+This still does not admit text, call a generator, or mutate organism state. It is the latch before live admission:
+matched reviews can name the exact draft that is allowed to move forward, while failed reviews, failed drafts,
+text hash drift, missing adapter ids, mismatched candidate run ids, and unknown turns fail closed without a
+handoff id. `make admission-live-route-turn-candidate-admission-smoke` locks the JSONL/chat-line contract, and
+`make body-smoke` runs it between candidate draft review and the older surfaced turn/candidate review.
