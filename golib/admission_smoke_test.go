@@ -461,6 +461,52 @@ func TestAdmissionLiveRouteTurnCandidateDraftSmokeWritesDrafts(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateDraftReviewSmokeWritesReviews(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-candidate-draft-review.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnCandidateDraftReviewSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 candidate draft reviews, got %d: %s", len(lines), raw)
+	}
+	var matched, mismatch, failed admissionLiveRouteTurnCandidateReview
+	if err := json.Unmarshal([]byte(lines[0]), &matched); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[2]), &mismatch); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[4]), &failed); err != nil {
+		t.Fatal(err)
+	}
+	if matched.Schema != admissionLiveRouteTurnReviewSchema ||
+		!matched.Matched ||
+		matched.CandidateDraftID == "" ||
+		matched.GeneratorAdapterID == "" ||
+		matched.CandidateTextStatus != "generated" ||
+		matched.CandidateTextHash == "" {
+		t.Fatalf("bad matched candidate draft review: %+v", matched)
+	}
+	if mismatch.Matched || mismatch.CandidateSource != "direct" ||
+		!strings.Contains(mismatch.Reason, "candidate_source_mismatch") {
+		t.Fatalf("bad mismatched candidate draft review: %+v", mismatch)
+	}
+	if failed.Matched || failed.CandidateDraftID != "" ||
+		!strings.Contains(failed.Reason, "candidate_draft_failed") {
+		t.Fatalf("failed candidate draft review should fail closed before route admission: %+v", failed)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")
