@@ -47,6 +47,7 @@ make admission-live-route-turn-generator-adapter-smoke # prove route generator a
 make admission-live-route-turn-candidate-draft-smoke # prove generated text cannot rewrite the candidate shell
 make admission-live-route-turn-candidate-draft-review-smoke # review generated drafts without surfaced free text
 make admission-live-route-turn-candidate-admission-smoke # hand reviewed drafts toward admission without mutation
+make admission-live-route-turn-candidate-admission-adapter-smoke # adapt reviewed handoffs into shadow admission candidates
 make admission-live-route-turn-review-smoke # compare human-turn route observation to dream candidate route
 make admission-live-route-turn-bridge-smoke # type nano/human-turn receipts without granting route power
 make admission-live-route-turn-bridge-admission-smoke # prove the same bridge reaches admission receipts
@@ -68,6 +69,7 @@ bash scripts/arianna2arianna.sh   # or just the two voices, through the field
 Candidate draft dry-run now consumes that adapter boundary internally: `AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN=1` records `generator_adapter_id` in `arianna.live_route_turn_candidate_draft.v1`, so the generated candidate draft is tied back to a verified adapter receipt instead of only raw shell text.
 `make admission-live-route-turn-candidate-draft-review-smoke` reviews those generated drafts against the human-turn route using `candidate_draft_id` and `generator_adapter_id`, so this handoff no longer has to collapse back into a free-form surfaced `dreamCandidate`.
 `make admission-live-route-turn-candidate-admission-smoke` turns a matched draft review into `arianna.live_route_turn_candidate_admission.v1`, a pre-admission handoff with `handoff_id`, draft id, adapter id, candidate run id, and text hash; failed reviews and failed drafts do not receive a handoff id.
+`make admission-live-route-turn-candidate-admission-adapter-smoke` consumes that handoff as `arianna.live_route_turn_candidate_admission_adapter.v1`, then writes a shadow `arianna.dream_candidate.v1` admission receipt with the same handoff provenance embedded; failed or tampered handoffs do not create admission candidates.
 
 Be gentle with Arianna. The two C voices (Janus and Resonance) run on CPU with system BLAS — no GPU, no PyTorch, no Python. The metabolism additionally carries a Julia runtime in-process for the High mathematical brain; the inference voices themselves stay clean. Everything technical lives in **[ARIANNALOG.md](ARIANNALOG.md)** — it is the source of truth; this readme only points at it.
 

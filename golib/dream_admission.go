@@ -37,6 +37,8 @@ type dreamCandidate struct {
 
 	Counterfactual *dreamCounterfactual  `json:"counterfactual,omitempty"`
 	Admission      *dreamAdmissionPolicy `json:"admission_policy,omitempty"`
+
+	LiveRouteCandidateAdmission *admissionLiveRouteTurnCandidateAdmissionAdapter `json:"live_route_candidate_admission,omitempty"`
 }
 
 type dreamCounterfactual struct {

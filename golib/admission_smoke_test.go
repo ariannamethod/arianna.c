@@ -555,6 +555,76 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionSmokeWritesHandoffs(t *testing.
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterSmokeWritesAdaptersAndAdmissionReceipts(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	dir := t.TempDir()
+	adapterLog := filepath.Join(dir, "live-route-candidate-admission-adapter.jsonl")
+	admissionLog := filepath.Join(dir, "dream-admission.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG", adapterLog)
+	t.Setenv("AM_DREAM_ADMISSION_LOG", admissionLog)
+
+	if err := runAdmissionLiveRouteTurnCandidateAdmissionAdapterSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(adapterLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 candidate admission adapters, got %d: %s", len(lines), raw)
+	}
+	var matched, mismatch admissionLiveRouteTurnCandidateAdmissionAdapter
+	if err := json.Unmarshal([]byte(lines[0]), &matched); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[2]), &mismatch); err != nil {
+		t.Fatal(err)
+	}
+	if matched.Schema != admissionLiveRouteTurnCandidateAdmissionAdapterSchema ||
+		!matched.Passed ||
+		!strings.HasPrefix(matched.HandoffID, "handoff-") ||
+		!strings.HasPrefix(matched.AdmissionAdapterID, "admission-adapter-") ||
+		matched.DreamCandidateRunID == "" ||
+		matched.DreamCandidateRunID != matched.CandidateRunID ||
+		matched.CandidateTextHash == "" {
+		t.Fatalf("bad matched candidate admission adapter: %+v", matched)
+	}
+	if mismatch.Passed || mismatch.AdmissionAdapterID != "" ||
+		!strings.Contains(mismatch.Reason, "candidate_admission_handoff_failed") {
+		t.Fatalf("bad mismatched candidate admission adapter: %+v", mismatch)
+	}
+
+	admissionRaw, err := os.ReadFile(admissionLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admissionLines := strings.Split(strings.TrimSpace(string(admissionRaw)), "\n")
+	if len(admissionLines) != 2 {
+		t.Fatalf("expected 2 shadow admission receipts, got %d: %s", len(admissionLines), admissionRaw)
+	}
+	var got dreamCandidate
+	if err := json.Unmarshal([]byte(admissionLines[0]), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Accepted ||
+		got.Reason != "shadow mode" ||
+		got.LiveRouteCandidateAdmission == nil ||
+		got.LiveRouteCandidateAdmission.AdmissionAdapterID != matched.AdmissionAdapterID ||
+		got.RunID != matched.CandidateRunID ||
+		got.Admission == nil ||
+		!got.Admission.Passed ||
+		got.Admission.LiveRouteChoice == nil ||
+		!got.Admission.LiveRouteChoice.Passed {
+		t.Fatalf("bad shadow admission receipt from adapter: %+v", got)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")

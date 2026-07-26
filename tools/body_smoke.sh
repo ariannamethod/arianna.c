@@ -120,6 +120,10 @@ echo "[body-smoke] admission live route candidate admission handoff"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WORKDIR="$WORKDIR/admission-live-route-candidate-admission" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_admission_smoke.sh"
 
+echo "[body-smoke] admission live route candidate admission adapter"
+A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-adapter" \
+    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_adapter_smoke.sh"
+
 echo "[body-smoke] admission live route turn/candidate review"
 A2A_ADMISSION_LIVE_ROUTE_TURN_REVIEW_WORKDIR="$WORKDIR/admission-live-route-turn-review" \
     bash "$ROOT/tools/admission_live_route_turn_review_smoke.sh"

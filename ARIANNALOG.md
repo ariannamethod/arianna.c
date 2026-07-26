@@ -3697,3 +3697,17 @@ matched reviews can name the exact draft that is allowed to move forward, while 
 text hash drift, missing adapter ids, mismatched candidate run ids, and unknown turns fail closed without a
 handoff id. `make admission-live-route-turn-candidate-admission-smoke` locks the JSONL/chat-line contract, and
 `make body-smoke` runs it between candidate draft review and the older surfaced turn/candidate review.
+
+**Follow-up, same day - candidate admission adapter proves the admission-side bridge.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN=1` consumes a passed
+`arianna.live_route_turn_candidate_admission.v1` handoff plus its draft and records
+`arianna.live_route_turn_candidate_admission_adapter.v1`. The adapter rechecks handoff id, draft id, generator
+adapter id, candidate run id, route/source/trigger/seed, generated text status, text hash, and turn text hash
+before it can name `admission-adapter-<hash>`.
+
+The smoke then converts only passed adapters back into the ordinary `arianna.dream_candidate.v1` boundary and
+runs the normal dream admission policy in `shadow` mode with the live route-plan gate required. This proves the
+admission side sees the same candidate run id and embedded handoff provenance, while failed reviews, failed drafts,
+tampered handoff ids, and mismatched drafts do not create admission candidates. Still no generator call, no live
+admission, and no organism mutation. `make admission-live-route-turn-candidate-admission-adapter-smoke` locks the
+adapter JSONL plus the shadow admission receipt, and `make body-smoke` runs it after the handoff smoke.
