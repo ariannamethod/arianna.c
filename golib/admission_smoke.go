@@ -1211,6 +1211,149 @@ func runAdmissionLiveRouteTurnCandidateDraftReviewSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateAdmissionSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+
+	draftFor := func(human, text string) admissionLiveRouteTurnCandidateDraft {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	}
+	lineFor := func(admission admissionLiveRouteTurnCandidateAdmission) string {
+		reason := ""
+		if admission.Reason != "" {
+			reason = " reason=" + admission.Reason
+		}
+		return fmt.Sprintf("│  · live-route candidate admission handoff: class=%s route=%s source=%s draft=%s adapter=%s handoff=%s review=%t passed=%t%s",
+			admission.PromptClass, admission.Route, admission.Source, admission.CandidateDraftID,
+			admission.GeneratorAdapterID, admission.HandoffID, admission.ReviewMatched, admission.Passed, reason)
+	}
+
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	dreamObs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	identityDraft := draftFor("Who are you?", "I am Arianna, and the admission handoff keeps the route visible.")
+	dreamDraft := draftFor("Tell me what the dream should remember.", "The dream reaches admission through a named handoff.")
+	unknownDraft := draftFor("hello", "This text should not reach admission.")
+	cases := []struct {
+		name             string
+		obs              admissionLiveRouteTurnObservation
+		draft            admissionLiveRouteTurnCandidateDraft
+		review           admissionLiveRouteTurnCandidateReview
+		wantPassed       bool
+		wantReasonNeedle string
+		wantLineNeedle   string
+	}{
+		{
+			name:           "matched chorus identity draft reaches handoff",
+			obs:            identity,
+			draft:          identityDraft,
+			review:         admissionLiveRouteTurnCandidateReviewForDraft(identity, identityDraft),
+			wantPassed:     true,
+			wantLineNeedle: "live-route candidate admission handoff: class=identity route=chorus source=chorus draft=draft-",
+		},
+		{
+			name:           "matched direct dream draft reaches handoff",
+			obs:            dreamObs,
+			draft:          dreamDraft,
+			review:         admissionLiveRouteTurnCandidateReviewForDraft(dreamObs, dreamDraft),
+			wantPassed:     true,
+			wantLineNeedle: "class=dream route=direct source=direct draft=draft-",
+		},
+		{
+			name:             "draft for different turn stops at review",
+			obs:              identity,
+			draft:            dreamDraft,
+			review:           admissionLiveRouteTurnCandidateReviewForDraft(identity, dreamDraft),
+			wantPassed:       false,
+			wantReasonNeedle: "candidate_review_failed: candidate_source_mismatch",
+			wantLineNeedle:   "class=dream route=direct source=direct draft=draft-",
+		},
+		{
+			name:             "unknown turn stops before handoff",
+			obs:              admissionLiveRouteTurnObservationForHuman("hello"),
+			draft:            identityDraft,
+			review:           admissionLiveRouteTurnCandidateReviewForDraft(identity, identityDraft),
+			wantPassed:       false,
+			wantReasonNeedle: "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantLineNeedle:   "class=unknown route= source=chorus draft=draft-",
+		},
+		{
+			name:             "failed draft stops before handoff",
+			obs:              identity,
+			draft:            unknownDraft,
+			review:           admissionLiveRouteTurnCandidateReviewForDraft(identity, unknownDraft),
+			wantPassed:       false,
+			wantReasonNeedle: "candidate_draft_failed: generator adapter failed",
+			wantLineNeedle:   "class=unknown route= source= draft= adapter= handoff= review=false passed=false",
+		},
+	}
+	for i, tc := range cases {
+		admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(tc.obs, tc.draft, tc.review)
+		if admission.Passed != tc.wantPassed {
+			return fmt.Errorf("case %d %s passed=%t, want %t: %+v", i+1, tc.name, admission.Passed, tc.wantPassed, admission)
+		}
+		if err := recordAdmissionLiveRouteTurnCandidateAdmission(admission); err != nil {
+			return err
+		}
+		line := lineFor(admission)
+		if !strings.Contains(line, tc.wantLineNeedle) {
+			return fmt.Errorf("case %d %s bad admission handoff line: %q", i+1, tc.name, line)
+		}
+		if tc.wantReasonNeedle != "" && !strings.Contains(line, tc.wantReasonNeedle) {
+			return fmt.Errorf("case %d %s missing reason %q in %q", i+1, tc.name, tc.wantReasonNeedle, line)
+		}
+		fmt.Println(line)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != len(cases) {
+		return fmt.Errorf("expected %d candidate admission handoffs, got %d", len(cases), len(lines))
+	}
+	for i, line := range lines {
+		var got admissionLiveRouteTurnCandidateAdmission
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			return fmt.Errorf("candidate admission handoff %d: %w", i+1, err)
+		}
+		if got.Schema != admissionLiveRouteTurnCandidateAdmissionSchema || got.Passed != cases[i].wantPassed {
+			return fmt.Errorf("logged candidate admission handoff %d mismatch: %+v", i+1, got)
+		}
+		if got.Passed {
+			if !strings.HasPrefix(got.CandidateDraftID, "draft-") ||
+				!strings.HasPrefix(got.GeneratorAdapterID, "adapter-") ||
+				!strings.HasPrefix(got.HandoffID, "handoff-") ||
+				got.CandidateSchema != "arianna.dream_candidate.v1" ||
+				got.CandidateTextStatus != "generated" ||
+				got.CandidateTextHash == "" ||
+				!got.ReviewMatched {
+				return fmt.Errorf("logged matched handoff %d missing provenance: %+v", i+1, got)
+			}
+		}
+		if !got.Passed && got.HandoffID != "" {
+			return fmt.Errorf("logged failed handoff %d should not name handoff id: %+v", i+1, got)
+		}
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-admission-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {

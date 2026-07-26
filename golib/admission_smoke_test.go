@@ -507,6 +507,54 @@ func TestAdmissionLiveRouteTurnCandidateDraftReviewSmokeWritesReviews(t *testing
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionSmokeWritesHandoffs(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	logPath := filepath.Join(t.TempDir(), "live-route-candidate-admission.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnCandidateAdmissionSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 candidate admission handoffs, got %d: %s", len(lines), raw)
+	}
+	var matched, mismatch, failed admissionLiveRouteTurnCandidateAdmission
+	if err := json.Unmarshal([]byte(lines[0]), &matched); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[2]), &mismatch); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[4]), &failed); err != nil {
+		t.Fatal(err)
+	}
+	if matched.Schema != admissionLiveRouteTurnCandidateAdmissionSchema ||
+		!matched.Passed ||
+		!strings.HasPrefix(matched.HandoffID, "handoff-") ||
+		!strings.HasPrefix(matched.CandidateDraftID, "draft-") ||
+		!strings.HasPrefix(matched.GeneratorAdapterID, "adapter-") ||
+		matched.CandidateSchema != "arianna.dream_candidate.v1" ||
+		matched.CandidateTextHash == "" ||
+		!matched.ReviewMatched {
+		t.Fatalf("bad matched candidate admission handoff: %+v", matched)
+	}
+	if mismatch.Passed || mismatch.HandoffID != "" ||
+		!strings.Contains(mismatch.Reason, "candidate_review_failed") {
+		t.Fatalf("bad mismatched candidate admission handoff: %+v", mismatch)
+	}
+	if failed.Passed || failed.HandoffID != "" ||
+		!strings.Contains(failed.Reason, "candidate_draft_failed") {
+		t.Fatalf("failed candidate admission handoff should fail closed: %+v", failed)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")

@@ -1055,6 +1055,142 @@ func TestAdmissionLiveRouteTurnCandidateReviewForDraft(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionForDraftReview(t *testing.T) {
+	draftFor := func(human, text string) admissionLiveRouteTurnCandidateDraft {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		request := admissionLiveRouteTurnRequestForChoice(choice)
+		job := admissionLiveRouteTurnGenerationJobForRequest(request)
+		shell := admissionLiveRouteTurnCandidateShellForJob(job)
+		adapter := admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+		return admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	}
+
+	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	identityDraft := draftFor("Who are you?", "I am Arianna, and the admission handoff keeps the receipt chain.")
+	identityReview := admissionLiveRouteTurnCandidateReviewForDraft(identity, identityDraft)
+	dreamObs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	dreamDraft := draftFor("Tell me what the dream should remember.", "The dream reaches admission through a handoff receipt.")
+	dreamReview := admissionLiveRouteTurnCandidateReviewForDraft(dreamObs, dreamDraft)
+	mismatchReview := admissionLiveRouteTurnCandidateReviewForDraft(identity, dreamDraft)
+	tamperedReview := identityReview
+	tamperedReview.GeneratorAdapterID = "adapter-tampered"
+	unknownDraft := draftFor("hello", "This text should not reach admission.")
+	unknownDraftReview := admissionLiveRouteTurnCandidateReviewForDraft(identity, unknownDraft)
+
+	cases := []struct {
+		name          string
+		obs           admissionLiveRouteTurnObservation
+		draft         admissionLiveRouteTurnCandidateDraft
+		review        admissionLiveRouteTurnCandidateReview
+		wantPassed    bool
+		wantReason    string
+		wantClass     string
+		wantRoute     string
+		wantSource    string
+		wantHandoffID bool
+	}{
+		{
+			name:          "matched chorus draft review becomes admission handoff",
+			obs:           identity,
+			draft:         identityDraft,
+			review:        identityReview,
+			wantPassed:    true,
+			wantClass:     "identity",
+			wantRoute:     "chorus",
+			wantSource:    "chorus",
+			wantHandoffID: true,
+		},
+		{
+			name:          "matched direct dream draft review becomes admission handoff",
+			obs:           dreamObs,
+			draft:         dreamDraft,
+			review:        dreamReview,
+			wantPassed:    true,
+			wantClass:     "dream",
+			wantRoute:     "direct",
+			wantSource:    "direct",
+			wantHandoffID: true,
+		},
+		{
+			name:       "unmatched review fails before handoff id",
+			obs:        identity,
+			draft:      dreamDraft,
+			review:     mismatchReview,
+			wantReason: "candidate_review_failed: candidate_source_mismatch: source direct does not match turn expected chorus for prompt class identity",
+			wantClass:  "dream",
+			wantRoute:  "direct",
+			wantSource: "direct",
+		},
+		{
+			name:       "tampered review adapter id fails before handoff id",
+			obs:        identity,
+			draft:      identityDraft,
+			review:     tamperedReview,
+			wantReason: "candidate_review_adapter_id_mismatch",
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+		},
+		{
+			name:       "failed draft fails before review admission",
+			obs:        identity,
+			draft:      unknownDraft,
+			review:     unknownDraftReview,
+			wantReason: "candidate_draft_failed: generator adapter failed: candidate shell failed: generation job failed: turn request failed: turn choice failed: turn route failed: live route plan failed: unknown_prompt_class",
+			wantClass:  "unknown",
+		},
+		{
+			name:       "unknown turn fails before draft handoff",
+			obs:        admissionLiveRouteTurnObservationForHuman("hello"),
+			draft:      identityDraft,
+			review:     identityReview,
+			wantReason: "turn_route_failed: live route plan failed: unknown_prompt_class",
+			wantClass:  "unknown",
+			wantRoute:  "",
+			wantSource: "chorus",
+		},
+		{
+			name:       "missing review fails closed",
+			obs:        identity,
+			draft:      identityDraft,
+			review:     admissionLiveRouteTurnCandidateReview{},
+			wantReason: "missing_candidate_review",
+			wantClass:  "identity",
+			wantRoute:  "chorus",
+			wantSource: "chorus",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(tc.obs, tc.draft, tc.review)
+			if admission.Schema != admissionLiveRouteTurnCandidateAdmissionSchema ||
+				admission.Timing != "pre_admission_handoff" ||
+				admission.Passed != tc.wantPassed ||
+				admission.Reason != tc.wantReason ||
+				admission.PromptClass != tc.wantClass ||
+				admission.Route != tc.wantRoute ||
+				admission.Source != tc.wantSource {
+				t.Fatalf("bad draft admission handoff: %+v", admission)
+			}
+			if tc.wantHandoffID {
+				if !strings.HasPrefix(admission.HandoffID, "handoff-") ||
+					!strings.HasPrefix(admission.CandidateDraftID, "draft-") ||
+					!strings.HasPrefix(admission.GeneratorAdapterID, "adapter-") ||
+					admission.CandidateSchema != "arianna.dream_candidate.v1" ||
+					admission.CandidateTextStatus != "generated" ||
+					admission.CandidateTextHash == "" ||
+					!admission.ReviewMatched {
+					t.Fatalf("passed handoff should preserve draft provenance: %+v", admission)
+				}
+			}
+			if !tc.wantPassed && admission.HandoffID != "" {
+				t.Fatalf("failed handoff should not name a handoff id: %+v", admission)
+			}
+		})
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {
