@@ -163,6 +163,7 @@ type admissionLiveRouteTurnCandidateDraft struct {
 	CandidateRunID      string `json:"candidate_run_id,omitempty"`
 	JobID               string `json:"job_id,omitempty"`
 	ShellID             string `json:"shell_id,omitempty"`
+	GeneratorAdapterID  string `json:"generator_adapter_id,omitempty"`
 	DraftID             string `json:"draft_id,omitempty"`
 	Passed              bool   `json:"passed"`
 	Reason              string `json:"reason,omitempty"`
@@ -1000,6 +1001,101 @@ func admissionLiveRouteTurnCandidateDraftForShell(shell admissionLiveRouteTurnCa
 		return draft
 	}
 	draft.Passed = true
+	return draft
+}
+
+func admissionLiveRouteTurnCandidateDraftForAdapter(adapter admissionLiveRouteTurnGeneratorAdapter) admissionLiveRouteTurnCandidateDraft {
+	draft := admissionLiveRouteTurnCandidateDraft{
+		Schema:              admissionLiveRouteTurnCandidateDraftSchema,
+		PromptClass:         adapter.PromptClass,
+		Route:               adapter.Route,
+		Source:              adapter.Source,
+		ExpectedSource:      adapter.ExpectedSource,
+		Backend:             adapter.Backend,
+		Entrypoint:          adapter.Entrypoint,
+		PromptFrame:         adapter.PromptFrame,
+		CandidateSchema:     adapter.CandidateSchema,
+		CandidateKind:       adapter.CandidateKind,
+		CandidateTrigger:    adapter.CandidateTrigger,
+		CandidateSeed:       adapter.CandidateSeed,
+		CandidateTextStatus: adapter.GeneratedTextStatus,
+		CandidateText:       strings.TrimSpace(adapter.GeneratedText),
+		CandidateTextHash:   adapter.GeneratedTextHash,
+		JobID:               adapter.JobID,
+		ShellID:             adapter.ShellID,
+		GeneratorAdapterID:  adapter.AdapterID,
+		TurnTextHash:        adapter.TurnTextHash,
+	}
+	if adapter.Schema == "" {
+		draft.Reason = "missing_generator_adapter"
+		return draft
+	}
+	if !adapter.Passed {
+		draft.Reason = "generator adapter failed"
+		if adapter.Reason != "" {
+			draft.Reason += ": " + adapter.Reason
+		}
+		return draft
+	}
+	if adapter.AdapterID == "" {
+		draft.Reason = "missing generator adapter id for shell " + adapter.ShellID
+		return draft
+	}
+	if adapter.GeneratedTextStatus != "generated" {
+		draft.Reason = "generator adapter text status is " + adapter.GeneratedTextStatus
+		return draft
+	}
+	generated := strings.TrimSpace(adapter.GeneratedText)
+	if generated == "" {
+		draft.Reason = "missing generated text for adapter " + adapter.AdapterID
+		return draft
+	}
+	if adapter.GeneratedTextHash == "" || adapter.GeneratedTextHash != hashJSON(generated) {
+		draft.Reason = "generator adapter text hash mismatch"
+		return draft
+	}
+	if wantAdapterID := admissionLiveRouteTurnGeneratorAdapterID(adapter); wantAdapterID == "" || adapter.AdapterID != wantAdapterID {
+		draft.Reason = "generator adapter id mismatch"
+		return draft
+	}
+	route, ok := admissionLiveRouteGenerationRouteFor(adapter.Route)
+	if !ok {
+		draft.Reason = "unknown generation route " + adapter.Route
+		return draft
+	}
+	if adapter.Backend != route.Backend || adapter.Entrypoint != route.Entrypoint || adapter.PromptFrame != route.PromptFrame {
+		draft.Reason = "generation route mismatch for adapter " + adapter.AdapterID
+		return draft
+	}
+	if adapter.CandidateTextStatus != "pending_generation" {
+		draft.Reason = "generator adapter shell text status is " + adapter.CandidateTextStatus
+		return draft
+	}
+	shell := admissionLiveRouteTurnCandidateShell{
+		Schema:              admissionLiveRouteTurnCandidateShellSchema,
+		PromptClass:         adapter.PromptClass,
+		Route:               adapter.Route,
+		Source:              adapter.Source,
+		ExpectedSource:      adapter.ExpectedSource,
+		Backend:             adapter.Backend,
+		Entrypoint:          adapter.Entrypoint,
+		PromptFrame:         adapter.PromptFrame,
+		CandidateSchema:     adapter.CandidateSchema,
+		CandidateKind:       adapter.CandidateKind,
+		CandidateTrigger:    adapter.CandidateTrigger,
+		CandidateSeed:       adapter.CandidateSeed,
+		CandidateTextStatus: adapter.CandidateTextStatus,
+		JobID:               adapter.JobID,
+		ShellID:             adapter.ShellID,
+		Passed:              true,
+		TurnTextHash:        adapter.TurnTextHash,
+	}
+	if wantShellID := admissionLiveRouteTurnCandidateShellID(shell); wantShellID == "" || adapter.ShellID != wantShellID {
+		draft.Reason = "generator adapter shell id mismatch"
+		return draft
+	}
+	draft = admissionLiveRouteTurnCandidateDraftForShell(shell, generated)
+	draft.GeneratorAdapterID = adapter.AdapterID
 	return draft
 }
 

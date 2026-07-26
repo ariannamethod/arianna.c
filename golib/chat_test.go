@@ -220,6 +220,7 @@ func TestChatLiveRouteTurnCandidateDraftDryRunLine(t *testing.T) {
 		"trigger=chorus-identity",
 		"seed=turn-",
 		"shell=shell-",
+		"adapter=adapter-",
 		"draft=draft-",
 		"run=",
 		"text=generated",
@@ -240,9 +241,10 @@ func TestChatLiveRouteTurnCandidateDraftDryRunLineMissingText(t *testing.T) {
 		"live-route candidate draft dry-run",
 		"class=identity",
 		"shell=shell-",
+		"adapter=",
 		"text=pending_generation",
 		"passed=false",
-		"reason=missing candidate text for shell shell-",
+		"reason=generator adapter failed: missing generated text for shell shell-",
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("candidate draft missing-text line missing %q: %q", want, line)
