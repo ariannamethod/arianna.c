@@ -3765,3 +3765,17 @@ This is not yet a real Janus/Resonance/nano generator call. It is the process bo
 named runner only, bounded timeout, output hash equality, adapter revalidation, fail-closed timeout/error receipts,
 and no organism-state write. `make admission-live-route-turn-candidate-runner-smoke` locks both success and timeout
 paths, and `make body-smoke` runs it between candidate execution and generator adapter.
+
+**Follow-up, same day - nano direct enters through the runner boundary.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER=nano-direct` adds the first real backend runner behind
+`arianna.live_route_turn_candidate_execution.v1`. It only accepts a shell whose generation contract is exactly
+`route=direct`, `backend=nano-arianna`, `entrypoint=direct`, and `prompt_frame=q_a`; every other route fails
+closed before process launch. The runner Q/A-wraps the prompt, invokes `nano-arianna`, parses the clean generated
+copy through the same `cleanDream` path as the subconscious, and stores the accepted generated text hash in the
+execution receipt before the adapter can consume it.
+
+The layer is still not live admission. Missing prompt, missing binary, missing GGUF, bad timeout, process error,
+timeout, empty generation, and non-direct shells do not receive an execution id. The weight-dependent
+`make admission-live-route-turn-candidate-nano-direct-runner-smoke` target proves one real nano generation plus one
+non-direct route rejection without durable organism-state writes; it is kept outside portable `body-smoke` because
+fresh clones may not have GGUFs.
