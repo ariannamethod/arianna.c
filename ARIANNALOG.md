@@ -3805,3 +3805,16 @@ A passed decision reports `decision=shadow_ready`, `live_ready=true`, `mutates_s
 handoff provenance drift, missing shadow candidate, live acceptance, or failed route-policy receipts stay
 `decision=reject` without a decision id. `make admission-live-route-turn-candidate-nano-direct-decision-smoke` proves
 the weight-dependent end-to-end path on top of the existing one-shot nano chain.
+
+**Follow-up, same day - the shadow-ready decision gets a non-mutating consumer.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_promotion.v1` after the decision receipt. This is the first consumer of
+`shadow_ready`, and it is intentionally still not the live switch. It rechecks the decision schema, stable
+`decision-<hash>` id, `decision=shadow_ready`, `live_ready=true`, route policy pass, admission policy pass, complete
+candidate provenance, and `mutates_state=false` before it can emit a stable `promotion-<hash>` id.
+
+A passed promotion reports `promotion=pending_live_admission`, `live_admission_enabled=false`, `mutates_state=false`,
+and `reason=shadow decision consumed; live admission still disabled`. Failed decisions, tampered decision ids, missing
+provenance, or any already-mutating decision remain `promotion=blocked` without a promotion id. `make
+admission-live-route-turn-candidate-nano-direct-promotion-smoke` proves the full weight-dependent chain: one real nano
+execution, one shadow admission, one shadow-ready decision, and one consumed-but-non-live promotion receipt.
