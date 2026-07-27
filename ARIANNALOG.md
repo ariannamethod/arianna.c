@@ -3779,3 +3779,16 @@ timeout, empty generation, and non-direct shells do not receive an execution id.
 `make admission-live-route-turn-candidate-nano-direct-runner-smoke` target proves one real nano generation plus one
 non-direct route rejection without durable organism-state writes; it is kept outside portable `body-smoke` because
 fresh clones may not have GGUFs.
+
+**Follow-up, same day - nano direct chains through shadow without multiplying the dream.**
+`metabolism --chat` now builds one candidate-chain object per human turn when execution-backed candidate dry-runs are
+enabled. That matters for real `nano-direct`: execution, generator adapter, draft, review, admission handoff, admission
+adapter, and shadow admission now share the same generated text plus the same `execution_id`/`adapter_id`/`draft_id`
+lineage instead of each helper re-running a stochastic backend and accidentally creating several Ariannas for one turn.
+
+The weight-dependent `make admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke` target proves the whole
+chain with a real nano GGUF: one direct dream prompt produces exactly one execution receipt, one adapter receipt, one
+draft receipt, one review, one handoff, one admission-adapter receipt, and one shadow `arianna.dream_candidate.v1`
+receipt. It requires `AM_DREAM_ADMISSION=shadow` plus the live route-plan gate, rejects provided draft/adapter text so
+the generated nano output owns the candidate, and checks that no durable organism state is written. It stays outside
+portable `body-smoke` for the same reason as the nano-direct runner smoke: fresh clones may not have weights.
