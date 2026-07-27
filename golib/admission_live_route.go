@@ -8,20 +8,21 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema                           = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema                         = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema                = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema                     = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema                    = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema              = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema             = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnCandidateExecutionSchema         = "arianna.live_route_turn_candidate_execution.v1"
-	admissionLiveRouteTurnGeneratorAdapterSchema           = "arianna.live_route_turn_generator_adapter.v1"
-	admissionLiveRouteTurnCandidateDraftSchema             = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema                     = "arianna.live_route_turn_candidate_review.v1"
-	admissionLiveRouteTurnCandidateAdmissionSchema         = "arianna.live_route_turn_candidate_admission.v1"
-	admissionLiveRouteTurnCandidateAdmissionAdapterSchema  = "arianna.live_route_turn_candidate_admission_adapter.v1"
-	admissionLiveRouteTurnCandidateAdmissionDecisionSchema = "arianna.live_route_turn_candidate_admission_decision.v1"
+	admissionLiveRoutePlanSchema                            = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema                          = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema                 = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema                      = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema                     = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema               = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema              = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnCandidateExecutionSchema          = "arianna.live_route_turn_candidate_execution.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema            = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema              = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema                      = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRouteTurnCandidateAdmissionSchema          = "arianna.live_route_turn_candidate_admission.v1"
+	admissionLiveRouteTurnCandidateAdmissionAdapterSchema   = "arianna.live_route_turn_candidate_admission_adapter.v1"
+	admissionLiveRouteTurnCandidateAdmissionDecisionSchema  = "arianna.live_route_turn_candidate_admission_decision.v1"
+	admissionLiveRouteTurnCandidateAdmissionPromotionSchema = "arianna.live_route_turn_candidate_admission_promotion.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS     = 60000
@@ -334,6 +335,37 @@ type admissionLiveRouteTurnCandidateAdmissionDecision struct {
 	LiveReady             bool   `json:"live_ready"`
 	MutatesState          bool   `json:"mutates_state"`
 	DecisionID            string `json:"decision_id,omitempty"`
+	Passed                bool   `json:"passed"`
+	Reason                string `json:"reason,omitempty"`
+	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionPromotion struct {
+	Schema                string `json:"schema"`
+	Timing                string `json:"timing"`
+	Promotion             string `json:"promotion,omitempty"`
+	PromptClass           string `json:"prompt_class"`
+	Route                 string `json:"route,omitempty"`
+	Source                string `json:"source,omitempty"`
+	ExpectedSource        string `json:"expected_source,omitempty"`
+	CandidateRunID        string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
+	HandoffID             string `json:"handoff_id,omitempty"`
+	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
+	AdmissionDecision     string `json:"admission_decision,omitempty"`
+	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
+	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
+	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
+	SourceDecisionPassed  bool   `json:"source_decision_passed"`
+	LiveReady             bool   `json:"live_ready"`
+	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
+	MutatesState          bool   `json:"mutates_state"`
+	PromotionID           string `json:"promotion_id,omitempty"`
 	Passed                bool   `json:"passed"`
 	Reason                string `json:"reason,omitempty"`
 	TurnTextHash          string `json:"turn_text_hash,omitempty"`
@@ -2061,6 +2093,10 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN")
 }
 
+func admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN")
+}
+
 func admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission admissionLiveRouteTurnCandidateAdmission, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateAdmissionAdapter {
 	adapter := admissionLiveRouteTurnCandidateAdmissionAdapter{
 		Schema:               admissionLiveRouteTurnCandidateAdmissionAdapterSchema,
@@ -2430,6 +2466,137 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionDecision(decision admissionLi
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(decision)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision admissionLiveRouteTurnCandidateAdmissionDecision) admissionLiveRouteTurnCandidateAdmissionPromotion {
+	promotion := admissionLiveRouteTurnCandidateAdmissionPromotion{
+		Schema:                admissionLiveRouteTurnCandidateAdmissionPromotionSchema,
+		Timing:                "admission_decision_consumer",
+		Promotion:             "blocked",
+		PromptClass:           decision.PromptClass,
+		Route:                 decision.Route,
+		Source:                decision.Source,
+		ExpectedSource:        decision.ExpectedSource,
+		CandidateRunID:        decision.CandidateRunID,
+		CandidateDraftID:      decision.CandidateDraftID,
+		CandidateExecutionID:  decision.CandidateExecutionID,
+		GeneratorAdapterID:    decision.GeneratorAdapterID,
+		HandoffID:             decision.HandoffID,
+		AdmissionAdapterID:    decision.AdmissionAdapterID,
+		AdmissionDecisionID:   decision.DecisionID,
+		AdmissionDecision:     decision.Decision,
+		DreamCandidateRunID:   decision.DreamCandidateRunID,
+		CandidateTextStatus:   decision.CandidateTextStatus,
+		CandidateTextHash:     decision.CandidateTextHash,
+		AdmissionPolicyPassed: decision.AdmissionPolicyPassed,
+		LiveRouteChoicePassed: decision.LiveRouteChoicePassed,
+		SourceDecisionPassed:  decision.Passed,
+		LiveReady:             decision.LiveReady,
+		LiveAdmissionEnabled:  false,
+		MutatesState:          false,
+		TurnTextHash:          decision.TurnTextHash,
+	}
+	if decision.Schema == "" {
+		promotion.Reason = "missing_candidate_admission_decision"
+		return promotion
+	}
+	if decision.Schema != admissionLiveRouteTurnCandidateAdmissionDecisionSchema {
+		promotion.Reason = "unexpected_candidate_admission_decision_schema " + decision.Schema
+		return promotion
+	}
+	if !decision.Passed {
+		promotion.Reason = "candidate_admission_decision_failed"
+		if decision.Reason != "" {
+			promotion.Reason += ": " + decision.Reason
+		}
+		return promotion
+	}
+	if decision.Decision != "shadow_ready" {
+		promotion.Reason = "candidate_admission_decision_not_shadow_ready"
+		return promotion
+	}
+	if !decision.LiveReady {
+		promotion.Reason = "candidate_admission_decision_not_live_ready"
+		return promotion
+	}
+	if decision.MutatesState {
+		promotion.Reason = "candidate_admission_decision_already_mutates_state"
+		return promotion
+	}
+	if decision.DecisionID == "" {
+		promotion.Reason = "missing_candidate_admission_decision_id"
+		return promotion
+	}
+	if wantDecisionID := admissionLiveRouteTurnCandidateAdmissionDecisionID(decision); wantDecisionID == "" || decision.DecisionID != wantDecisionID {
+		promotion.Reason = "candidate_admission_decision_id_mismatch"
+		return promotion
+	}
+	if !decision.AdmissionPolicyPassed {
+		promotion.Reason = "candidate_admission_decision_policy_not_passed"
+		return promotion
+	}
+	if !decision.LiveRouteChoicePassed {
+		promotion.Reason = "candidate_admission_decision_live_route_not_passed"
+		return promotion
+	}
+	if decision.CandidateRunID == "" ||
+		decision.CandidateDraftID == "" ||
+		decision.CandidateExecutionID == "" ||
+		decision.GeneratorAdapterID == "" ||
+		decision.HandoffID == "" ||
+		decision.AdmissionAdapterID == "" ||
+		decision.DreamCandidateRunID == "" ||
+		decision.CandidateTextHash == "" ||
+		decision.TurnTextHash == "" {
+		promotion.Reason = "candidate_admission_decision_missing_provenance"
+		return promotion
+	}
+	promotion.Promotion = "pending_live_admission"
+	promotion.PromotionID = admissionLiveRouteTurnCandidateAdmissionPromotionID(promotion)
+	if promotion.PromotionID == "" {
+		promotion.Reason = "missing_candidate_admission_promotion_id"
+		return promotion
+	}
+	promotion.Passed = true
+	promotion.Reason = "shadow decision consumed; live admission still disabled"
+	return promotion
+}
+
+func admissionLiveRouteTurnCandidateAdmissionPromotionID(promotion admissionLiveRouteTurnCandidateAdmissionPromotion) string {
+	h := hashJSON(struct {
+		AdmissionDecisionID string `json:"admission_decision_id"`
+		AdmissionAdapterID  string `json:"admission_adapter_id"`
+		CandidateRunID      string `json:"candidate_run_id"`
+		CandidateTextHash   string `json:"candidate_text_hash"`
+		TurnTextHash        string `json:"turn_text_hash"`
+	}{
+		AdmissionDecisionID: promotion.AdmissionDecisionID,
+		AdmissionAdapterID:  promotion.AdmissionAdapterID,
+		CandidateRunID:      promotion.CandidateRunID,
+		CandidateTextHash:   promotion.CandidateTextHash,
+		TurnTextHash:        promotion.TurnTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "promotion-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionPromotion(promotion admissionLiveRouteTurnCandidateAdmissionPromotion) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(promotion)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

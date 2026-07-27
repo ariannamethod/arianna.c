@@ -2301,6 +2301,13 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() && decisionLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG is required")
 	}
+	promotionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() && promotionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG is required")
+	}
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() && !admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN is required for promotion smoke")
+	}
 	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
 	}
@@ -2345,7 +2352,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
 	wantLines := 6
 	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
-		wantLines = 7
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
+		wantLines++
 	}
 	if len(lines) != wantLines {
 		return fmt.Errorf("expected %d nano-direct chat-shadow lines, got %d: %v", wantLines, len(lines), lines)
@@ -2365,6 +2375,13 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"live-route candidate admission decision dry-run: class=dream route=direct source=direct handoff=handoff-",
 			"decision=shadow_ready decision_id=decision-",
 			"live_ready=true mutates=false passed=true reason=shadow ready; live mutation still disabled",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
+		wants = append(wants,
+			"live-route candidate admission promotion dry-run: class=dream route=direct source=direct decision=shadow_ready decision_id=decision-",
+			"promotion=pending_live_admission promotion_id=promotion-",
+			"live_ready=true live_enabled=false mutates=false passed=true reason=shadow decision consumed; live admission still disabled",
 		)
 	}
 	for _, want := range wants {
@@ -2447,6 +2464,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &decision); err != nil {
 			return fmt.Errorf("candidate admission decision receipt: %w", err)
+		}
+	}
+	var promotion admissionLiveRouteTurnCandidateAdmissionPromotion
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
+		if raw, err := readOne(promotionLogPath, "candidate admission promotion"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &promotion); err != nil {
+			return fmt.Errorf("candidate admission promotion receipt: %w", err)
 		}
 	}
 
@@ -2542,8 +2567,35 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission decision receipt: decision=%+v candidate=%+v admission_adapter=%+v execution=%+v", decision, candidate, admissionAdapter, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
+		if promotion.Schema != admissionLiveRouteTurnCandidateAdmissionPromotionSchema ||
+			!promotion.Passed ||
+			!promotion.LiveReady ||
+			promotion.LiveAdmissionEnabled ||
+			promotion.MutatesState ||
+			promotion.Promotion != "pending_live_admission" ||
+			promotion.PromotionID == "" ||
+			promotion.AdmissionDecisionID == "" ||
+			promotion.AdmissionDecision != "shadow_ready" ||
+			promotion.AdmissionDecisionID != decision.DecisionID ||
+			promotion.CandidateExecutionID != execution.ExecutionID ||
+			promotion.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			promotion.CandidateDraftID != draft.DraftID ||
+			promotion.HandoffID != admission.HandoffID ||
+			promotion.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			promotion.DreamCandidateRunID != candidate.RunID ||
+			promotion.CandidateTextHash != execution.GeneratedTextHash ||
+			!promotion.AdmissionPolicyPassed ||
+			!promotion.LiveRouteChoicePassed ||
+			!promotion.SourceDecisionPassed {
+			return fmt.Errorf("bad nano-direct admission promotion receipt: promotion=%+v decision=%+v execution=%+v", promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath)
 	} else {

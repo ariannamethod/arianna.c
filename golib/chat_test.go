@@ -635,6 +635,67 @@ func TestChatLiveRouteTurnCandidateAdmissionDecisionDryRunLine(t *testing.T) {
 	}
 }
 
+func TestChatLiveRouteTurnCandidateAdmissionPromotionDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "The dream remembers the field through one chain.")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	dir := t.TempDir()
+	dreamLog := filepath.Join(dir, "dream-admission-chat-promotion.jsonl")
+	decisionLog := filepath.Join(dir, "live-route-candidate-admission-decision.jsonl")
+	promotionLog := filepath.Join(dir, "live-route-candidate-admission-promotion.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
+
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
+	if len(lines) != 7 {
+		t.Fatalf("expected 7 candidate chain lines, got %d: %v", len(lines), lines)
+	}
+	promotionLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission promotion dry-run",
+		"class=dream",
+		"route=direct",
+		"source=direct",
+		"decision=reject",
+		"promotion=blocked",
+		"live_ready=false",
+		"live_enabled=false",
+		"mutates=false",
+		"passed=false",
+		"reason=candidate_admission_decision_failed: missing_candidate_execution",
+	} {
+		if !strings.Contains(promotionLine, want) {
+			t.Fatalf("candidate admission promotion line missing %q: %q", want, promotionLine)
+		}
+	}
+	raw, err := os.ReadFile(promotionLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got admissionLiveRouteTurnCandidateAdmissionPromotion
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != admissionLiveRouteTurnCandidateAdmissionPromotionSchema ||
+		got.Passed ||
+		got.LiveReady ||
+		got.LiveAdmissionEnabled ||
+		got.MutatesState ||
+		got.PromotionID != "" ||
+		got.Reason != "candidate_admission_decision_failed: missing_candidate_execution" {
+		t.Fatalf("bad candidate admission promotion receipt: %+v", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 

@@ -1666,6 +1666,28 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		t.Fatalf("decision lost provenance: decision=%+v execution=%+v adapter=%+v draft=%+v admission=%+v candidate=%+v",
 			decision, execution, generatorAdapter, draft, admission, candidate)
 	}
+	promotion := admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision)
+	if promotion.Schema != admissionLiveRouteTurnCandidateAdmissionPromotionSchema ||
+		promotion.Timing != "admission_decision_consumer" ||
+		promotion.Promotion != "pending_live_admission" ||
+		!strings.HasPrefix(promotion.PromotionID, "promotion-") ||
+		!promotion.Passed ||
+		!promotion.LiveReady ||
+		promotion.LiveAdmissionEnabled ||
+		promotion.MutatesState ||
+		!promotion.SourceDecisionPassed ||
+		promotion.Reason != "shadow decision consumed; live admission still disabled" {
+		t.Fatalf("bad candidate admission promotion: %+v", promotion)
+	}
+	if promotion.AdmissionDecisionID != decision.DecisionID ||
+		promotion.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		promotion.CandidateExecutionID != execution.ExecutionID ||
+		promotion.CandidateDraftID != draft.DraftID ||
+		promotion.CandidateRunID != candidate.RunID ||
+		promotion.CandidateTextHash != hashJSON(text) ||
+		promotion.TurnTextHash != obs.TextHash {
+		t.Fatalf("promotion lost provenance: promotion=%+v decision=%+v", promotion, decision)
+	}
 
 	badExecution := execution
 	badExecution.Runner = admissionLiveRouteTurnCandidateExecutionRunnerProvided
@@ -1683,6 +1705,22 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejected.Decision != "reject" ||
 		rejected.Reason != "candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("provided-text execution should not reach live-ready decision: %+v", rejected)
+	}
+	rejectedPromotion := admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(rejected)
+	if rejectedPromotion.Passed ||
+		rejectedPromotion.PromotionID != "" ||
+		rejectedPromotion.Promotion != "blocked" ||
+		rejectedPromotion.Reason != "candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected decision should not produce a promotion: %+v", rejectedPromotion)
+	}
+
+	tampered := decision
+	tampered.DecisionID = "decision-tampered"
+	tamperedPromotion := admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(tampered)
+	if tamperedPromotion.Passed ||
+		tamperedPromotion.PromotionID != "" ||
+		tamperedPromotion.Reason != "candidate_admission_decision_id_mismatch" {
+		t.Fatalf("tampered decision id should fail closed: %+v", tamperedPromotion)
 	}
 }
 
