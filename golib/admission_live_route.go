@@ -23,6 +23,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionAdapterSchema   = "arianna.live_route_turn_candidate_admission_adapter.v1"
 	admissionLiveRouteTurnCandidateAdmissionDecisionSchema  = "arianna.live_route_turn_candidate_admission_decision.v1"
 	admissionLiveRouteTurnCandidateAdmissionPromotionSchema = "arianna.live_route_turn_candidate_admission_promotion.v1"
+	admissionLiveRouteTurnCandidateAdmissionSwitchSchema    = "arianna.live_route_turn_candidate_admission_switch.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS     = 60000
@@ -366,6 +367,42 @@ type admissionLiveRouteTurnCandidateAdmissionPromotion struct {
 	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
 	MutatesState          bool   `json:"mutates_state"`
 	PromotionID           string `json:"promotion_id,omitempty"`
+	Passed                bool   `json:"passed"`
+	Reason                string `json:"reason,omitempty"`
+	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionSwitch struct {
+	Schema                string `json:"schema"`
+	Timing                string `json:"timing"`
+	SwitchState           string `json:"switch_state,omitempty"`
+	SwitchAction          string `json:"switch_action,omitempty"`
+	PromptClass           string `json:"prompt_class"`
+	Route                 string `json:"route,omitempty"`
+	Source                string `json:"source,omitempty"`
+	ExpectedSource        string `json:"expected_source,omitempty"`
+	CandidateRunID        string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
+	HandoffID             string `json:"handoff_id,omitempty"`
+	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
+	AdmissionDecision     string `json:"admission_decision,omitempty"`
+	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
+	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
+	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
+	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
+	SourceDecisionPassed  bool   `json:"source_decision_passed"`
+	SourcePromotionPassed bool   `json:"source_promotion_passed"`
+	LiveReady             bool   `json:"live_ready"`
+	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
+	AdmissionAllowed      bool   `json:"admission_allowed"`
+	MutatesState          bool   `json:"mutates_state"`
+	SwitchID              string `json:"switch_id,omitempty"`
 	Passed                bool   `json:"passed"`
 	Reason                string `json:"reason,omitempty"`
 	TurnTextHash          string `json:"turn_text_hash,omitempty"`
@@ -2097,6 +2134,10 @@ func admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN")
 }
 
+func admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN")
+}
+
 func admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission admissionLiveRouteTurnCandidateAdmission, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateAdmissionAdapter {
 	adapter := admissionLiveRouteTurnCandidateAdmissionAdapter{
 		Schema:               admissionLiveRouteTurnCandidateAdmissionAdapterSchema,
@@ -2597,6 +2638,154 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionPromotion(promotion admission
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(promotion)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion admissionLiveRouteTurnCandidateAdmissionPromotion) admissionLiveRouteTurnCandidateAdmissionSwitch {
+	sw := admissionLiveRouteTurnCandidateAdmissionSwitch{
+		Schema:                admissionLiveRouteTurnCandidateAdmissionSwitchSchema,
+		Timing:                "live_admission_switch_guard",
+		SwitchState:           "blocked",
+		SwitchAction:          "reject",
+		PromptClass:           promotion.PromptClass,
+		Route:                 promotion.Route,
+		Source:                promotion.Source,
+		ExpectedSource:        promotion.ExpectedSource,
+		CandidateRunID:        promotion.CandidateRunID,
+		CandidateDraftID:      promotion.CandidateDraftID,
+		CandidateExecutionID:  promotion.CandidateExecutionID,
+		GeneratorAdapterID:    promotion.GeneratorAdapterID,
+		HandoffID:             promotion.HandoffID,
+		AdmissionAdapterID:    promotion.AdmissionAdapterID,
+		AdmissionDecisionID:   promotion.AdmissionDecisionID,
+		AdmissionPromotionID:  promotion.PromotionID,
+		AdmissionDecision:     promotion.AdmissionDecision,
+		AdmissionPromotion:    promotion.Promotion,
+		DreamCandidateRunID:   promotion.DreamCandidateRunID,
+		CandidateTextStatus:   promotion.CandidateTextStatus,
+		CandidateTextHash:     promotion.CandidateTextHash,
+		AdmissionPolicyPassed: promotion.AdmissionPolicyPassed,
+		LiveRouteChoicePassed: promotion.LiveRouteChoicePassed,
+		SourceDecisionPassed:  promotion.SourceDecisionPassed,
+		SourcePromotionPassed: promotion.Passed,
+		LiveReady:             promotion.LiveReady,
+		LiveAdmissionEnabled:  false,
+		AdmissionAllowed:      false,
+		MutatesState:          false,
+		TurnTextHash:          promotion.TurnTextHash,
+	}
+	if promotion.Schema == "" {
+		sw.Reason = "missing_candidate_admission_promotion"
+		return sw
+	}
+	if promotion.Schema != admissionLiveRouteTurnCandidateAdmissionPromotionSchema {
+		sw.Reason = "unexpected_candidate_admission_promotion_schema " + promotion.Schema
+		return sw
+	}
+	if !promotion.Passed {
+		sw.Reason = "candidate_admission_promotion_failed"
+		if promotion.Reason != "" {
+			sw.Reason += ": " + promotion.Reason
+		}
+		return sw
+	}
+	if promotion.Promotion != "pending_live_admission" {
+		sw.Reason = "candidate_admission_promotion_not_pending_live_admission"
+		return sw
+	}
+	if promotion.PromotionID == "" {
+		sw.Reason = "missing_candidate_admission_promotion_id"
+		return sw
+	}
+	if wantPromotionID := admissionLiveRouteTurnCandidateAdmissionPromotionID(promotion); wantPromotionID == "" || promotion.PromotionID != wantPromotionID {
+		sw.Reason = "candidate_admission_promotion_id_mismatch"
+		return sw
+	}
+	if !promotion.LiveReady {
+		sw.Reason = "candidate_admission_promotion_not_live_ready"
+		return sw
+	}
+	if promotion.LiveAdmissionEnabled {
+		sw.Reason = "candidate_admission_promotion_already_live_enabled"
+		return sw
+	}
+	if promotion.MutatesState {
+		sw.Reason = "candidate_admission_promotion_already_mutates_state"
+		return sw
+	}
+	if !promotion.SourceDecisionPassed {
+		sw.Reason = "candidate_admission_promotion_source_decision_not_passed"
+		return sw
+	}
+	if !promotion.AdmissionPolicyPassed {
+		sw.Reason = "candidate_admission_promotion_policy_not_passed"
+		return sw
+	}
+	if !promotion.LiveRouteChoicePassed {
+		sw.Reason = "candidate_admission_promotion_live_route_not_passed"
+		return sw
+	}
+	if promotion.AdmissionDecisionID == "" ||
+		promotion.AdmissionAdapterID == "" ||
+		promotion.CandidateRunID == "" ||
+		promotion.CandidateDraftID == "" ||
+		promotion.CandidateExecutionID == "" ||
+		promotion.GeneratorAdapterID == "" ||
+		promotion.HandoffID == "" ||
+		promotion.DreamCandidateRunID == "" ||
+		promotion.CandidateTextHash == "" ||
+		promotion.TurnTextHash == "" {
+		sw.Reason = "candidate_admission_promotion_missing_provenance"
+		return sw
+	}
+	sw.SwitchState = "disabled"
+	sw.SwitchAction = "hold_pending_live_admission"
+	sw.SwitchID = admissionLiveRouteTurnCandidateAdmissionSwitchID(sw)
+	if sw.SwitchID == "" {
+		sw.Reason = "missing_candidate_admission_switch_id"
+		return sw
+	}
+	sw.Passed = true
+	sw.Reason = "live admission switch disabled; pending promotion held without mutation"
+	return sw
+}
+
+func admissionLiveRouteTurnCandidateAdmissionSwitchID(sw admissionLiveRouteTurnCandidateAdmissionSwitch) string {
+	h := hashJSON(struct {
+		AdmissionPromotionID string `json:"admission_promotion_id"`
+		AdmissionDecisionID  string `json:"admission_decision_id"`
+		AdmissionAdapterID   string `json:"admission_adapter_id"`
+		CandidateRunID       string `json:"candidate_run_id"`
+		CandidateTextHash    string `json:"candidate_text_hash"`
+		TurnTextHash         string `json:"turn_text_hash"`
+	}{
+		AdmissionPromotionID: sw.AdmissionPromotionID,
+		AdmissionDecisionID:  sw.AdmissionDecisionID,
+		AdmissionAdapterID:   sw.AdmissionAdapterID,
+		CandidateRunID:       sw.CandidateRunID,
+		CandidateTextHash:    sw.CandidateTextHash,
+		TurnTextHash:         sw.TurnTextHash,
+	})
+	if h == "" {
+		return ""
+	}
+	return "switch-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionSwitch(sw admissionLiveRouteTurnCandidateAdmissionSwitch) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(sw)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
