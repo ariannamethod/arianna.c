@@ -2320,15 +2320,31 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() && enableGateLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_LOG is required")
 	}
+	liveStageLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() && liveStageLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN are required for enable gate smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN are required for live stage smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
+		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must be empty for default-off enable gate smoke")
+	}
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
+		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live stage smoke")
 	}
 	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
@@ -2385,6 +2401,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
 		wantLines++
 	}
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+		wantLines++
+	}
 	if len(lines) != wantLines {
 		return fmt.Errorf("expected %d nano-direct chat-shadow lines, got %d: %v", wantLines, len(lines), lines)
 	}
@@ -2420,10 +2439,25 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
+		if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+			wants = append(wants,
+				"live-route candidate admission enable gate dry-run: class=dream route=direct source=direct switch=disabled switch_id=switch-",
+				"enable=armed_dry_run enable_action=would_enable_live_admission_dry_run enable_id=enable-",
+				"admission_allowed=false manual_enable=true key_matched=true live_ready=true live_enabled=false mutates=false passed=true reason=live admission enable key matched; dry-run still refuses mutation",
+			)
+		} else {
+			wants = append(wants,
+				"live-route candidate admission enable gate dry-run: class=dream route=direct source=direct switch=disabled switch_id=switch-",
+				"enable=disabled enable_action=require_operator_key enable_id=enable-",
+				"admission_allowed=false manual_enable=false key_matched=false live_ready=true live_enabled=false mutates=false passed=true reason=live admission enable gate closed; operator key absent",
+			)
+		}
+	}
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
 		wants = append(wants,
-			"live-route candidate admission enable gate dry-run: class=dream route=direct source=direct switch=disabled switch_id=switch-",
-			"enable=disabled enable_action=require_operator_key enable_id=enable-",
-			"admission_allowed=false manual_enable=false key_matched=false live_ready=true live_enabled=false mutates=false passed=true reason=live admission enable gate closed; operator key absent",
+			"live-route candidate admission live stage dry-run: class=dream route=direct source=direct enable=armed_dry_run enable_id=enable-",
+			"stage=staged_dry_run stage_action=stage_live_candidate_dry_run stage_id=stage-",
+			"admission_allowed=false writer_ready=false rollback_ready=false live_ready=true live_enabled=false mutates=false passed=true reason=live admission candidate staged as dry-run; writer and rollback remain absent",
 		)
 	}
 	for _, want := range wants {
@@ -2530,6 +2564,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &gate); err != nil {
 			return fmt.Errorf("candidate admission enable gate receipt: %w", err)
+		}
+	}
+	var liveStage admissionLiveRouteTurnCandidateAdmissionLiveStage
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+		if raw, err := readOne(liveStageLogPath, "candidate admission live stage"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &liveStage); err != nil {
+			return fmt.Errorf("candidate admission live stage receipt: %w", err)
 		}
 	}
 
@@ -2685,11 +2727,7 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!gate.LiveReady ||
 			gate.LiveAdmissionEnabled ||
 			gate.AdmissionAllowed ||
-			gate.ManualEnableRequested ||
-			gate.EnableKeyMatched ||
 			gate.MutatesState ||
-			gate.EnableState != "disabled" ||
-			gate.EnableAction != "require_operator_key" ||
 			gate.EnableGateID == "" ||
 			gate.AdmissionSwitchID == "" ||
 			gate.AdmissionPromotionID == "" ||
@@ -2711,9 +2749,63 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!gate.SourceSwitchPassed {
 			return fmt.Errorf("bad nano-direct admission enable gate receipt: gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", gate, sw, promotion, decision, execution)
 		}
+		if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+			if !gate.ManualEnableRequested ||
+				!gate.EnableKeyMatched ||
+				gate.EnableState != "armed_dry_run" ||
+				gate.EnableAction != "would_enable_live_admission_dry_run" {
+				return fmt.Errorf("bad nano-direct armed enable gate receipt: gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", gate, sw, promotion, decision, execution)
+			}
+		} else if gate.ManualEnableRequested ||
+			gate.EnableKeyMatched ||
+			gate.EnableState != "disabled" ||
+			gate.EnableAction != "require_operator_key" {
+			return fmt.Errorf("bad nano-direct closed enable gate receipt: gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", gate, sw, promotion, decision, execution)
+		}
+	}
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+		if liveStage.Schema != admissionLiveRouteTurnCandidateAdmissionLiveStageSchema ||
+			!liveStage.Passed ||
+			!liveStage.LiveReady ||
+			liveStage.LiveAdmissionEnabled ||
+			liveStage.AdmissionAllowed ||
+			!liveStage.ManualEnableRequested ||
+			!liveStage.EnableKeyMatched ||
+			!liveStage.RequiresWriter ||
+			liveStage.WriterReady ||
+			!liveStage.RequiresRollback ||
+			liveStage.RollbackReady ||
+			liveStage.MutatesState ||
+			liveStage.StageState != "staged_dry_run" ||
+			liveStage.StageAction != "stage_live_candidate_dry_run" ||
+			liveStage.LiveStageID == "" ||
+			liveStage.AdmissionEnableGateID != gate.EnableGateID ||
+			liveStage.AdmissionSwitchID != sw.SwitchID ||
+			liveStage.AdmissionPromotionID != promotion.PromotionID ||
+			liveStage.AdmissionDecisionID != decision.DecisionID ||
+			liveStage.CandidateExecutionID != execution.ExecutionID ||
+			liveStage.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			liveStage.CandidateDraftID != draft.DraftID ||
+			liveStage.HandoffID != admission.HandoffID ||
+			liveStage.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			liveStage.DreamCandidateRunID != candidate.RunID ||
+			liveStage.CandidateRunID != draft.CandidateRunID ||
+			liveStage.CandidateTextHash != execution.GeneratedTextHash ||
+			liveStage.TurnTextHash != execution.TurnTextHash ||
+			!liveStage.AdmissionPolicyPassed ||
+			!liveStage.LiveRouteChoicePassed ||
+			!liveStage.SourceDecisionPassed ||
+			!liveStage.SourcePromotionPassed ||
+			!liveStage.SourceSwitchPassed ||
+			!liveStage.SourceEnablePassed {
+			return fmt.Errorf("bad nano-direct admission live stage receipt: stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", liveStage, gate, sw, promotion, decision, execution)
+		}
 	}
 
-	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {

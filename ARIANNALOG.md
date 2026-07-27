@@ -3846,3 +3846,17 @@ A passed default gate reports `enable_state=disabled`, `enable_action=require_op
 Wrong keys stay blocked; even the recognized dry-run confirmation phrase only arms a receipt and still refuses mutation.
 `make admission-live-route-turn-candidate-nano-direct-enable-gate-smoke` proves the real-nano chain reaches that closed
 manual boundary.
+
+**Follow-up, same day - armed live admission can only stage as dry-run.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_live_stage.v1` after the enable gate. It requires the explicit dry-run
+confirmation phrase, consumes only an `enable_state=armed_dry_run` gate, rechecks the stable `enable-<hash>` id, and
+preserves the decision/promotion/switch/enable provenance before it names a stage.
+
+The passed path reports `stage_state=staged_dry_run`, `stage_action=stage_live_candidate_dry_run`,
+`admission_allowed=false`, `live_admission_enabled=false`, `requires_writer=true`, `writer_ready=false`,
+`requires_rollback=true`, `rollback_ready=false`, `mutates_state=false`, and
+`reason=live admission candidate staged as dry-run; writer and rollback remain absent`. A closed gate, wrong key,
+failed upstream receipt, tampered enable id, missing provenance, writer absence, or rollback absence cannot write into
+the organism. `make admission-live-route-turn-candidate-nano-direct-live-stage-smoke` proves the real-nano chain can
+name an audit stage without admitting text.
