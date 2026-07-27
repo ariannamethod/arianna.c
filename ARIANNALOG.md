@@ -3792,3 +3792,16 @@ draft receipt, one review, one handoff, one admission-adapter receipt, and one s
 receipt. It requires `AM_DREAM_ADMISSION=shadow` plus the live route-plan gate, rejects provided draft/adapter text so
 the generated nano output owns the candidate, and checks that no durable organism state is written. It stays outside
 portable `body-smoke` for the same reason as the nano-direct runner smoke: fresh clones may not have weights.
+
+**Follow-up, same day - nano direct gets a shadow-ready live preflight.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_decision.v1` after shadow admission. This is the typed preflight that a
+future live switch must pass before it can mutate state: the candidate must come from a passed `nano-direct` execution,
+the generator adapter, draft, review, handoff, and admission adapter must preserve the same ids and text hash, and the
+shadow `arianna.dream_candidate.v1` receipt must be policy-passed but still `accepted=false`.
+
+A passed decision reports `decision=shadow_ready`, `live_ready=true`, `mutates_state=false`, and a stable
+`decision-<hash>` id. It deliberately does not admit the text. Missing execution, non-`nano-direct` runners, adapter or
+handoff provenance drift, missing shadow candidate, live acceptance, or failed route-policy receipts stay
+`decision=reject` without a decision id. `make admission-live-route-turn-candidate-nano-direct-decision-smoke` proves
+the weight-dependent end-to-end path on top of the existing one-shot nano chain.

@@ -1611,6 +1611,81 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterForDraft(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T) {
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+
+	text := "The dream remembers the field and keeps one admission chain."
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	execution := admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, admissionLiveRouteTurnCandidateExecutionRuntime{
+		Runner:     admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect,
+		Status:     admissionLiveRouteTurnCandidateExecutionStatusSucceeded,
+		StdoutHash: hashJSON(text),
+	})
+	generatorAdapter := admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
+	draft := admissionLiveRouteTurnCandidateDraftForAdapter(generatorAdapter)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission, draft)
+	candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(draft, adapter)
+	candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, obs)
+
+	decision := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+		execution,
+		generatorAdapter,
+		draft,
+		admission,
+		adapter,
+		candidate,
+	)
+	if decision.Schema != admissionLiveRouteTurnCandidateAdmissionDecisionSchema ||
+		decision.Timing != "shadow_candidate_live_preflight" ||
+		decision.Decision != "shadow_ready" ||
+		!strings.HasPrefix(decision.DecisionID, "decision-") ||
+		!decision.Passed ||
+		!decision.LiveReady ||
+		decision.MutatesState ||
+		!decision.AdmissionPolicyPassed ||
+		!decision.LiveRouteChoicePassed ||
+		decision.DreamAccepted ||
+		decision.Reason != "shadow ready; live mutation still disabled" {
+		t.Fatalf("bad candidate admission decision: %+v", decision)
+	}
+	if decision.CandidateExecutionID != execution.ExecutionID ||
+		decision.GeneratorAdapterID != generatorAdapter.AdapterID ||
+		decision.CandidateDraftID != draft.DraftID ||
+		decision.HandoffID != admission.HandoffID ||
+		decision.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		decision.DreamCandidateRunID != candidate.RunID ||
+		decision.CandidateTextHash != hashJSON(text) ||
+		decision.TurnTextHash != obs.TextHash {
+		t.Fatalf("decision lost provenance: decision=%+v execution=%+v adapter=%+v draft=%+v admission=%+v candidate=%+v",
+			decision, execution, generatorAdapter, draft, admission, candidate)
+	}
+
+	badExecution := execution
+	badExecution.Runner = admissionLiveRouteTurnCandidateExecutionRunnerProvided
+	rejected := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+		badExecution,
+		generatorAdapter,
+		draft,
+		admission,
+		adapter,
+		candidate,
+	)
+	if rejected.Passed ||
+		rejected.LiveReady ||
+		rejected.DecisionID != "" ||
+		rejected.Decision != "reject" ||
+		rejected.Reason != "candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("provided-text execution should not reach live-ready decision: %+v", rejected)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateReviewForDream(t *testing.T) {
 	identity := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	cases := []struct {

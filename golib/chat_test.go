@@ -578,6 +578,63 @@ func TestChatLiveRouteTurnCandidateAdmissionShadowDryRunLineDisabled(t *testing.
 	}
 }
 
+func TestChatLiveRouteTurnCandidateAdmissionDecisionDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "The dream remembers the field through one chain.")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	dir := t.TempDir()
+	dreamLog := filepath.Join(dir, "dream-admission-chat-decision.jsonl")
+	decisionLog := filepath.Join(dir, "live-route-candidate-admission-decision.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
+
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
+	if len(lines) != 6 {
+		t.Fatalf("expected 6 candidate chain lines, got %d: %v", len(lines), lines)
+	}
+	decisionLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission decision dry-run",
+		"class=dream",
+		"route=direct",
+		"source=direct",
+		"handoff=handoff-",
+		"admission_adapter=admission-adapter-",
+		"decision=reject",
+		"live_ready=false",
+		"mutates=false",
+		"passed=false",
+		"reason=missing_candidate_execution",
+	} {
+		if !strings.Contains(decisionLine, want) {
+			t.Fatalf("candidate admission decision line missing %q: %q", want, decisionLine)
+		}
+	}
+	raw, err := os.ReadFile(decisionLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got admissionLiveRouteTurnCandidateAdmissionDecision
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != admissionLiveRouteTurnCandidateAdmissionDecisionSchema ||
+		got.Passed ||
+		got.LiveReady ||
+		got.MutatesState ||
+		got.DecisionID != "" ||
+		got.Reason != "missing_candidate_execution" {
+		t.Fatalf("bad candidate admission decision receipt: %+v", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 
