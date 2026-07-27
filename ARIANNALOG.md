@@ -3832,3 +3832,17 @@ A passed switch guard reports `switch_state=disabled`, `switch_action=hold_pendi
 ids, missing provenance, already-enabled live admission, or any upstream mutation stay `switch_state=blocked` without a
 switch id. `make admission-live-route-turn-candidate-nano-direct-switch-smoke` proves the full real-nano chain up to the
 closed switch guard.
+
+**Follow-up, same day - the live switch reaches a closed enable gate.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_enable_gate.v1` after the switch receipt. It consumes a passed
+`switch_state=disabled` switch, rechecks the stable `switch-<hash>` id, preserves the same decision/promotion/switch
+provenance, and refuses live admission unless an explicit operator confirmation key is present. The default path is still
+closed and non-mutating.
+
+A passed default gate reports `enable_state=disabled`, `enable_action=require_operator_key`,
+`admission_allowed=false`, `live_admission_enabled=false`, `manual_enable_requested=false`,
+`enable_key_matched=false`, `mutates_state=false`, and `reason=live admission enable gate closed; operator key absent`.
+Wrong keys stay blocked; even the recognized dry-run confirmation phrase only arms a receipt and still refuses mutation.
+`make admission-live-route-turn-candidate-nano-direct-enable-gate-smoke` proves the real-nano chain reaches that closed
+manual boundary.

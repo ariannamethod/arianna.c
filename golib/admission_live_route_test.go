@@ -1714,6 +1714,63 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		sw.TurnTextHash != obs.TextHash {
 		t.Fatalf("switch lost provenance: switch=%+v promotion=%+v", sw, promotion)
 	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
+	gate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw)
+	if gate.Schema != admissionLiveRouteTurnCandidateAdmissionEnableGateSchema ||
+		gate.Timing != "live_admission_enable_gate" ||
+		gate.EnableState != "disabled" ||
+		gate.EnableAction != "require_operator_key" ||
+		!strings.HasPrefix(gate.EnableGateID, "enable-") ||
+		!gate.Passed ||
+		!gate.LiveReady ||
+		gate.LiveAdmissionEnabled ||
+		gate.AdmissionAllowed ||
+		gate.ManualEnableRequested ||
+		gate.EnableKeyMatched ||
+		gate.MutatesState ||
+		!gate.SourceDecisionPassed ||
+		!gate.SourcePromotionPassed ||
+		!gate.SourceSwitchPassed ||
+		gate.Reason != "live admission enable gate closed; operator key absent" {
+		t.Fatalf("bad candidate admission enable gate: %+v", gate)
+	}
+	if gate.AdmissionSwitchID != sw.SwitchID ||
+		gate.AdmissionPromotionID != promotion.PromotionID ||
+		gate.AdmissionDecisionID != decision.DecisionID ||
+		gate.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		gate.CandidateExecutionID != execution.ExecutionID ||
+		gate.CandidateDraftID != draft.DraftID ||
+		gate.CandidateRunID != candidate.RunID ||
+		gate.CandidateTextHash != hashJSON(text) ||
+		gate.TurnTextHash != obs.TextHash {
+		t.Fatalf("enable gate lost provenance: gate=%+v switch=%+v", gate, sw)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "wrong")
+	wrongGate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw)
+	if wrongGate.Passed ||
+		wrongGate.EnableGateID != "" ||
+		wrongGate.EnableState != "blocked" ||
+		!wrongGate.ManualEnableRequested ||
+		wrongGate.EnableKeyMatched ||
+		wrongGate.Reason != "live_admission_enable_gate_key_mismatch" {
+		t.Fatalf("wrong enable gate key should fail closed: %+v", wrongGate)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
+	armedGate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw)
+	if armedGate.Schema != admissionLiveRouteTurnCandidateAdmissionEnableGateSchema ||
+		armedGate.EnableState != "armed_dry_run" ||
+		armedGate.EnableAction != "would_enable_live_admission_dry_run" ||
+		!strings.HasPrefix(armedGate.EnableGateID, "enable-") ||
+		!armedGate.Passed ||
+		!armedGate.ManualEnableRequested ||
+		!armedGate.EnableKeyMatched ||
+		armedGate.LiveAdmissionEnabled ||
+		armedGate.AdmissionAllowed ||
+		armedGate.MutatesState ||
+		armedGate.Reason != "live admission enable key matched; dry-run still refuses mutation" {
+		t.Fatalf("armed enable gate should remain dry-run and non-mutating: %+v", armedGate)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 
 	badExecution := execution
 	badExecution.Runner = admissionLiveRouteTurnCandidateExecutionRunnerProvided
@@ -1746,6 +1803,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedSwitch.Reason != "candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected promotion should not pass switch guard: %+v", rejectedSwitch)
 	}
+	rejectedGate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(rejectedSwitch)
+	if rejectedGate.Passed ||
+		rejectedGate.EnableGateID != "" ||
+		rejectedGate.EnableState != "blocked" ||
+		rejectedGate.Reason != "candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected switch should not pass enable gate: %+v", rejectedGate)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -1762,6 +1826,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedSwitch.SwitchID != "" ||
 		tamperedSwitch.Reason != "candidate_admission_promotion_id_mismatch" {
 		t.Fatalf("tampered promotion id should fail closed: %+v", tamperedSwitch)
+	}
+	tamperedSwitchID := sw
+	tamperedSwitchID.SwitchID = "switch-tampered"
+	tamperedGate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(tamperedSwitchID)
+	if tamperedGate.Passed ||
+		tamperedGate.EnableGateID != "" ||
+		tamperedGate.Reason != "candidate_admission_switch_id_mismatch" {
+		t.Fatalf("tampered switch id should fail closed: %+v", tamperedGate)
 	}
 }
 
