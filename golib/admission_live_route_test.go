@@ -1847,6 +1847,54 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerPreflight.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer preflight lost provenance: preflight=%+v stage=%+v", writerPreflight, liveStage)
 	}
+	writerInventory := admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(writerPreflight)
+	if writerInventory.Schema != admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema ||
+		writerInventory.Timing != "live_admission_writer_inventory" ||
+		writerInventory.InventoryState != "contracts_absent" ||
+		writerInventory.InventoryAction != "name_required_contracts" ||
+		writerInventory.WriterContract != "live_admission_writer.v1" ||
+		writerInventory.RollbackContract != "live_admission_rollback.v1" ||
+		writerInventory.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		writerInventory.WriterContractPresent ||
+		writerInventory.RollbackContractPresent ||
+		writerInventory.LedgerContractPresent ||
+		writerInventory.ContractsReady ||
+		!strings.HasPrefix(writerInventory.WriterInventoryID, "writer-inventory-") ||
+		!writerInventory.Passed ||
+		!writerInventory.LiveReady ||
+		writerInventory.LiveAdmissionEnabled ||
+		writerInventory.AdmissionAllowed ||
+		!writerInventory.ManualEnableRequested ||
+		!writerInventory.EnableKeyMatched ||
+		!writerInventory.RequiresWriter ||
+		writerInventory.WriterReady ||
+		!writerInventory.RequiresRollback ||
+		writerInventory.RollbackReady ||
+		writerInventory.WriteAllowed ||
+		writerInventory.MutatesState ||
+		!writerInventory.SourceDecisionPassed ||
+		!writerInventory.SourcePromotionPassed ||
+		!writerInventory.SourceSwitchPassed ||
+		!writerInventory.SourceEnablePassed ||
+		!writerInventory.SourceStagePassed ||
+		!writerInventory.SourceWriterPreflightPassed ||
+		writerInventory.Reason != "writer inventory recorded required contracts; live admission remains blocked" {
+		t.Fatalf("writer inventory should only name absent contracts: %+v", writerInventory)
+	}
+	if writerInventory.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		writerInventory.AdmissionLiveStageID != liveStage.LiveStageID ||
+		writerInventory.AdmissionEnableGateID != armedGate.EnableGateID ||
+		writerInventory.AdmissionSwitchID != sw.SwitchID ||
+		writerInventory.AdmissionPromotionID != promotion.PromotionID ||
+		writerInventory.AdmissionDecisionID != decision.DecisionID ||
+		writerInventory.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		writerInventory.CandidateExecutionID != execution.ExecutionID ||
+		writerInventory.CandidateDraftID != draft.DraftID ||
+		writerInventory.CandidateRunID != candidate.RunID ||
+		writerInventory.CandidateTextHash != hashJSON(text) ||
+		writerInventory.TurnTextHash != obs.TextHash {
+		t.Fatalf("writer inventory lost provenance: inventory=%+v preflight=%+v", writerInventory, writerPreflight)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -1864,6 +1912,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedPreflight.WriteAllowed ||
 		blockedPreflight.Reason != "candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed stage should not produce a writer preflight: %+v", blockedPreflight)
+	}
+	blockedInventory := admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(blockedPreflight)
+	if blockedInventory.Passed ||
+		blockedInventory.WriterInventoryID != "" ||
+		blockedInventory.InventoryState != "blocked" ||
+		blockedInventory.InventoryAction != "reject" ||
+		blockedInventory.ContractsReady ||
+		blockedInventory.WriteAllowed ||
+		blockedInventory.Reason != "candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed preflight should not produce a writer inventory: %+v", blockedInventory)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -1924,6 +1982,12 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedPreflight.Reason != "candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected stage should not produce a writer preflight: %+v", rejectedPreflight)
 	}
+	rejectedInventory := admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(rejectedPreflight)
+	if rejectedInventory.Passed ||
+		rejectedInventory.WriterInventoryID != "" ||
+		rejectedInventory.Reason != "candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected preflight should not produce a writer inventory: %+v", rejectedInventory)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -1964,6 +2028,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedWriterPreflight.WriterPreflightID != "" ||
 		tamperedWriterPreflight.Reason != "candidate_admission_live_stage_id_mismatch" {
 		t.Fatalf("tampered live stage id should fail writer preflight: %+v", tamperedWriterPreflight)
+	}
+	tamperedPreflightID := writerPreflight
+	tamperedPreflightID.WriterPreflightID = "writer-tampered"
+	tamperedInventory := admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(tamperedPreflightID)
+	if tamperedInventory.Passed ||
+		tamperedInventory.WriterInventoryID != "" ||
+		tamperedInventory.Reason != "candidate_admission_writer_preflight_id_mismatch" {
+		t.Fatalf("tampered writer preflight id should fail inventory: %+v", tamperedInventory)
 	}
 }
 

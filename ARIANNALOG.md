@@ -3875,3 +3875,19 @@ The passed preflight reports `writer_state=absent`, `writer_action=require_write
 provenance, already-ready writer flags, or already-mutating state stay blocked without a `writer-<hash>` id. `make
 admission-live-route-turn-candidate-nano-direct-writer-preflight-smoke` proves the real-nano chain reaches the writer
 boundary while the organism remains untouched.
+
+**Follow-up, same day - writer preflight now names the missing contracts.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_writer_inventory.v1` after the writer-preflight receipt. It consumes only a
+passed `writer_state=absent` / `rollback_state=absent` preflight, rechecks the stable `writer-<hash>` id, preserves the
+full decision/promotion/switch/enable/stage/preflight provenance, and records the exact contracts that must exist before
+any live body write can be considered.
+
+The passed inventory reports `inventory_state=contracts_absent`, `inventory_action=name_required_contracts`,
+`writer_contract=live_admission_writer.v1`, `rollback_contract=live_admission_rollback.v1`,
+`admission_ledger_contract=live_admission_ledger.v1`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `mutates_state=false`, and a stable
+`writer-inventory-<hash>` id. Failed preflights, tampered preflight ids, ready-writer lies, missing provenance, or any
+already-enabled admission remain blocked without an inventory id. `make
+admission-live-route-turn-candidate-nano-direct-writer-inventory-smoke` proves the real-nano chain can inventory the
+missing writer/rollback/ledger boundary without admitting text into state.

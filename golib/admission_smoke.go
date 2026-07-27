@@ -2328,6 +2328,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() && writerPreflightLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_LOG is required")
 	}
+	writerInventoryLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() && writerInventoryLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2349,13 +2353,23 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN are required for writer preflight smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN are required for writer inventory smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must be empty for default-off enable gate smoke")
 	}
 	if (admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
@@ -2420,6 +2434,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
 		wantLines++
 	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		wantLines++
+	}
 	if len(lines) != wantLines {
 		return fmt.Errorf("expected %d nano-direct chat-shadow lines, got %d: %v", wantLines, len(lines), lines)
 	}
@@ -2481,6 +2498,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"live-route candidate admission writer preflight dry-run: class=dream route=direct source=direct stage=staged_dry_run stage_id=stage-",
 			"writer=absent writer_action=require_writer_contract rollback=absent rollback_action=require_rollback_contract writer_preflight_id=writer-",
 			"write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false passed=true reason=writer and rollback absent; live admission remains staged only",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		wants = append(wants,
+			"live-route candidate admission writer inventory dry-run: class=dream route=direct source=direct writer_preflight=writer-",
+			"inventory=contracts_absent inventory_action=name_required_contracts writer_contract=live_admission_writer.v1 rollback_contract=live_admission_rollback.v1 ledger_contract=live_admission_ledger.v1",
+			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false writer_inventory_id=writer-inventory-",
+			"passed=true reason=writer inventory recorded required contracts; live admission remains blocked",
 		)
 	}
 	for _, want := range wants {
@@ -2603,6 +2628,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &writerPreflight); err != nil {
 			return fmt.Errorf("candidate admission writer preflight receipt: %w", err)
+		}
+	}
+	var writerInventory admissionLiveRouteTurnCandidateAdmissionWriterInventory
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		if raw, err := readOne(writerInventoryLogPath, "candidate admission writer inventory"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &writerInventory); err != nil {
+			return fmt.Errorf("candidate admission writer inventory receipt: %w", err)
 		}
 	}
 
@@ -2877,8 +2910,67 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission writer preflight receipt: writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		if writerInventory.Schema != admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema ||
+			!writerInventory.Passed ||
+			!writerInventory.LiveReady ||
+			writerInventory.LiveAdmissionEnabled ||
+			writerInventory.AdmissionAllowed ||
+			!writerInventory.ManualEnableRequested ||
+			!writerInventory.EnableKeyMatched ||
+			!writerInventory.RequiresWriter ||
+			writerInventory.WriterReady ||
+			writerInventory.WriterState != "absent" ||
+			writerInventory.WriterAction != "require_writer_contract" ||
+			!writerInventory.RequiresRollback ||
+			writerInventory.RollbackReady ||
+			writerInventory.RollbackState != "absent" ||
+			writerInventory.RollbackAction != "require_rollback_contract" ||
+			writerInventory.InventoryState != "contracts_absent" ||
+			writerInventory.InventoryAction != "name_required_contracts" ||
+			writerInventory.WriterContract != "live_admission_writer.v1" ||
+			writerInventory.RollbackContract != "live_admission_rollback.v1" ||
+			writerInventory.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+			writerInventory.WriterContractPresent ||
+			writerInventory.RollbackContractPresent ||
+			writerInventory.LedgerContractPresent ||
+			writerInventory.ContractsReady ||
+			writerInventory.WriteAllowed ||
+			writerInventory.MutatesState ||
+			writerInventory.StageState != "staged_dry_run" ||
+			writerInventory.StageAction != "stage_live_candidate_dry_run" ||
+			writerInventory.WriterInventoryID == "" ||
+			writerInventory.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			writerInventory.AdmissionLiveStageID != liveStage.LiveStageID ||
+			writerInventory.AdmissionEnableGateID != gate.EnableGateID ||
+			writerInventory.AdmissionSwitchID != sw.SwitchID ||
+			writerInventory.AdmissionPromotionID != promotion.PromotionID ||
+			writerInventory.AdmissionDecisionID != decision.DecisionID ||
+			writerInventory.CandidateExecutionID != execution.ExecutionID ||
+			writerInventory.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			writerInventory.CandidateDraftID != draft.DraftID ||
+			writerInventory.HandoffID != admission.HandoffID ||
+			writerInventory.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			writerInventory.DreamCandidateRunID != candidate.RunID ||
+			writerInventory.CandidateRunID != draft.CandidateRunID ||
+			writerInventory.CandidateTextHash != execution.GeneratedTextHash ||
+			writerInventory.TurnTextHash != execution.TurnTextHash ||
+			!writerInventory.AdmissionPolicyPassed ||
+			!writerInventory.LiveRouteChoicePassed ||
+			!writerInventory.SourceDecisionPassed ||
+			!writerInventory.SourcePromotionPassed ||
+			!writerInventory.SourceSwitchPassed ||
+			!writerInventory.SourceEnablePassed ||
+			!writerInventory.SourceStagePassed ||
+			!writerInventory.SourceWriterPreflightPassed {
+			return fmt.Errorf("bad nano-direct admission writer inventory receipt: writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
