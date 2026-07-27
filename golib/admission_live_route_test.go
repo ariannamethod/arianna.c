@@ -1806,6 +1806,47 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		liveStage.TurnTextHash != obs.TextHash {
 		t.Fatalf("live stage lost provenance: stage=%+v gate=%+v", liveStage, armedGate)
 	}
+	writerPreflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(liveStage)
+	if writerPreflight.Schema != admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema ||
+		writerPreflight.Timing != "live_admission_writer_preflight" ||
+		writerPreflight.WriterState != "absent" ||
+		writerPreflight.WriterAction != "require_writer_contract" ||
+		writerPreflight.RollbackState != "absent" ||
+		writerPreflight.RollbackAction != "require_rollback_contract" ||
+		!strings.HasPrefix(writerPreflight.WriterPreflightID, "writer-") ||
+		!writerPreflight.Passed ||
+		!writerPreflight.LiveReady ||
+		writerPreflight.LiveAdmissionEnabled ||
+		writerPreflight.AdmissionAllowed ||
+		!writerPreflight.ManualEnableRequested ||
+		!writerPreflight.EnableKeyMatched ||
+		!writerPreflight.RequiresWriter ||
+		writerPreflight.WriterReady ||
+		!writerPreflight.RequiresRollback ||
+		writerPreflight.RollbackReady ||
+		writerPreflight.WriteAllowed ||
+		writerPreflight.MutatesState ||
+		!writerPreflight.SourceDecisionPassed ||
+		!writerPreflight.SourcePromotionPassed ||
+		!writerPreflight.SourceSwitchPassed ||
+		!writerPreflight.SourceEnablePassed ||
+		!writerPreflight.SourceStagePassed ||
+		writerPreflight.Reason != "writer and rollback absent; live admission remains staged only" {
+		t.Fatalf("live stage should only preflight absent writer and rollback: %+v", writerPreflight)
+	}
+	if writerPreflight.AdmissionLiveStageID != liveStage.LiveStageID ||
+		writerPreflight.AdmissionEnableGateID != armedGate.EnableGateID ||
+		writerPreflight.AdmissionSwitchID != sw.SwitchID ||
+		writerPreflight.AdmissionPromotionID != promotion.PromotionID ||
+		writerPreflight.AdmissionDecisionID != decision.DecisionID ||
+		writerPreflight.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		writerPreflight.CandidateExecutionID != execution.ExecutionID ||
+		writerPreflight.CandidateDraftID != draft.DraftID ||
+		writerPreflight.CandidateRunID != candidate.RunID ||
+		writerPreflight.CandidateTextHash != hashJSON(text) ||
+		writerPreflight.TurnTextHash != obs.TextHash {
+		t.Fatalf("writer preflight lost provenance: preflight=%+v stage=%+v", writerPreflight, liveStage)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -1814,6 +1855,15 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedStage.StageAction != "reject" ||
 		blockedStage.Reason != "candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed enable gate should not produce a live stage: %+v", blockedStage)
+	}
+	blockedPreflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(blockedStage)
+	if blockedPreflight.Passed ||
+		blockedPreflight.WriterPreflightID != "" ||
+		blockedPreflight.WriterState != "blocked" ||
+		blockedPreflight.RollbackState != "blocked" ||
+		blockedPreflight.WriteAllowed ||
+		blockedPreflight.Reason != "candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed stage should not produce a writer preflight: %+v", blockedPreflight)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -1868,6 +1918,12 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedStage.Reason != "candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected enable gate should not produce a live stage: %+v", rejectedStage)
 	}
+	rejectedPreflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(rejectedStage)
+	if rejectedPreflight.Passed ||
+		rejectedPreflight.WriterPreflightID != "" ||
+		rejectedPreflight.Reason != "candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected stage should not produce a writer preflight: %+v", rejectedPreflight)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -1900,6 +1956,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedStage.LiveStageID != "" ||
 		tamperedStage.Reason != "candidate_admission_enable_gate_id_mismatch" {
 		t.Fatalf("tampered enable gate id should fail closed: %+v", tamperedStage)
+	}
+	tamperedStageID := liveStage
+	tamperedStageID.LiveStageID = "stage-tampered"
+	tamperedWriterPreflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(tamperedStageID)
+	if tamperedWriterPreflight.Passed ||
+		tamperedWriterPreflight.WriterPreflightID != "" ||
+		tamperedWriterPreflight.Reason != "candidate_admission_live_stage_id_mismatch" {
+		t.Fatalf("tampered live stage id should fail writer preflight: %+v", tamperedWriterPreflight)
 	}
 }
 
