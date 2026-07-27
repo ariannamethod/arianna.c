@@ -1688,6 +1688,32 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		promotion.TurnTextHash != obs.TextHash {
 		t.Fatalf("promotion lost provenance: promotion=%+v decision=%+v", promotion, decision)
 	}
+	sw := admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion)
+	if sw.Schema != admissionLiveRouteTurnCandidateAdmissionSwitchSchema ||
+		sw.Timing != "live_admission_switch_guard" ||
+		sw.SwitchState != "disabled" ||
+		sw.SwitchAction != "hold_pending_live_admission" ||
+		!strings.HasPrefix(sw.SwitchID, "switch-") ||
+		!sw.Passed ||
+		!sw.LiveReady ||
+		sw.LiveAdmissionEnabled ||
+		sw.AdmissionAllowed ||
+		sw.MutatesState ||
+		!sw.SourceDecisionPassed ||
+		!sw.SourcePromotionPassed ||
+		sw.Reason != "live admission switch disabled; pending promotion held without mutation" {
+		t.Fatalf("bad candidate admission switch: %+v", sw)
+	}
+	if sw.AdmissionPromotionID != promotion.PromotionID ||
+		sw.AdmissionDecisionID != decision.DecisionID ||
+		sw.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		sw.CandidateExecutionID != execution.ExecutionID ||
+		sw.CandidateDraftID != draft.DraftID ||
+		sw.CandidateRunID != candidate.RunID ||
+		sw.CandidateTextHash != hashJSON(text) ||
+		sw.TurnTextHash != obs.TextHash {
+		t.Fatalf("switch lost provenance: switch=%+v promotion=%+v", sw, promotion)
+	}
 
 	badExecution := execution
 	badExecution.Runner = admissionLiveRouteTurnCandidateExecutionRunnerProvided
@@ -1713,6 +1739,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedPromotion.Reason != "candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected decision should not produce a promotion: %+v", rejectedPromotion)
 	}
+	rejectedSwitch := admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(rejectedPromotion)
+	if rejectedSwitch.Passed ||
+		rejectedSwitch.SwitchID != "" ||
+		rejectedSwitch.SwitchState != "blocked" ||
+		rejectedSwitch.Reason != "candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected promotion should not pass switch guard: %+v", rejectedSwitch)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -1721,6 +1754,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedPromotion.PromotionID != "" ||
 		tamperedPromotion.Reason != "candidate_admission_decision_id_mismatch" {
 		t.Fatalf("tampered decision id should fail closed: %+v", tamperedPromotion)
+	}
+	tamperedPromotionID := promotion
+	tamperedPromotionID.PromotionID = "promotion-tampered"
+	tamperedSwitch := admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(tamperedPromotionID)
+	if tamperedSwitch.Passed ||
+		tamperedSwitch.SwitchID != "" ||
+		tamperedSwitch.Reason != "candidate_admission_promotion_id_mismatch" {
+		t.Fatalf("tampered promotion id should fail closed: %+v", tamperedSwitch)
 	}
 }
 

@@ -3818,3 +3818,17 @@ and `reason=shadow decision consumed; live admission still disabled`. Failed dec
 provenance, or any already-mutating decision remain `promotion=blocked` without a promotion id. `make
 admission-live-route-turn-candidate-nano-direct-promotion-smoke` proves the full weight-dependent chain: one real nano
 execution, one shadow admission, one shadow-ready decision, and one consumed-but-non-live promotion receipt.
+
+**Follow-up, same day - pending live admission reaches a closed switch guard.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_switch.v1` after the promotion receipt. This is the explicit live-switch
+boundary, but still not live admission. It consumes `promotion=pending_live_admission`, rechecks the stable
+`promotion-<hash>` id, verifies policy/route pass, source decision pass, complete candidate provenance, `live_ready=true`,
+`live_admission_enabled=false`, and `mutates_state=false`, then emits its own `switch-<hash>` id.
+
+A passed switch guard reports `switch_state=disabled`, `switch_action=hold_pending_live_admission`,
+`admission_allowed=false`, `live_admission_enabled=false`, `mutates_state=false`, and
+`reason=live admission switch disabled; pending promotion held without mutation`. Failed promotions, tampered promotion
+ids, missing provenance, already-enabled live admission, or any upstream mutation stay `switch_state=blocked` without a
+switch id. `make admission-live-route-turn-candidate-nano-direct-switch-smoke` proves the full real-nano chain up to the
+closed switch guard.
