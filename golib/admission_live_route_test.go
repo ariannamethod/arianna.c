@@ -1895,6 +1895,66 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerInventory.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer inventory lost provenance: inventory=%+v preflight=%+v", writerInventory, writerPreflight)
 	}
+	writerContract := admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(writerInventory)
+	if writerContract.Schema != admissionLiveRouteTurnCandidateAdmissionWriterContractSchema ||
+		writerContract.Timing != "live_admission_writer_contract" ||
+		writerContract.ContractState != "shape_drafted_dry_run" ||
+		writerContract.ContractAction != "define_writer_rollback_ledger_contract" ||
+		writerContract.WriterContract != "live_admission_writer.v1" ||
+		writerContract.RollbackContract != "live_admission_rollback.v1" ||
+		writerContract.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		writerContract.WriterContractShape != "append_shadow_candidate_receipt" ||
+		writerContract.RollbackContractShape != "remove_exact_writer_receipt" ||
+		writerContract.LedgerContractShape != "append_only_receipt_log" ||
+		writerContract.WriteScope != "dream_candidate_admission" ||
+		writerContract.RollbackScope != "single_writer_receipt" ||
+		writerContract.LedgerMode != "append_only_dry_run" ||
+		!writerContract.ContractShapeReady ||
+		writerContract.SourceWriterContractPresent ||
+		writerContract.SourceRollbackContractPresent ||
+		writerContract.SourceLedgerContractPresent ||
+		writerContract.WriterImplementationReady ||
+		writerContract.RollbackImplementationReady ||
+		writerContract.LedgerImplementationReady ||
+		writerContract.ContractsReady ||
+		!strings.HasPrefix(writerContract.WriterContractID, "writer-contract-") ||
+		!writerContract.Passed ||
+		!writerContract.LiveReady ||
+		writerContract.LiveAdmissionEnabled ||
+		writerContract.AdmissionAllowed ||
+		!writerContract.ManualEnableRequested ||
+		!writerContract.EnableKeyMatched ||
+		!writerContract.RequiresWriter ||
+		writerContract.WriterReady ||
+		!writerContract.RequiresRollback ||
+		writerContract.RollbackReady ||
+		writerContract.WriteAllowed ||
+		writerContract.MutatesState ||
+		!writerContract.SourceDecisionPassed ||
+		!writerContract.SourcePromotionPassed ||
+		!writerContract.SourceSwitchPassed ||
+		!writerContract.SourceEnablePassed ||
+		!writerContract.SourceStagePassed ||
+		!writerContract.SourceWriterPreflightPassed ||
+		!writerContract.SourceWriterInventoryPassed ||
+		writerContract.Reason != "writer contract shape drafted; implementation and ledger remain absent" {
+		t.Fatalf("writer contract should only draft a non-mutating shape: %+v", writerContract)
+	}
+	if writerContract.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		writerContract.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		writerContract.AdmissionLiveStageID != liveStage.LiveStageID ||
+		writerContract.AdmissionEnableGateID != armedGate.EnableGateID ||
+		writerContract.AdmissionSwitchID != sw.SwitchID ||
+		writerContract.AdmissionPromotionID != promotion.PromotionID ||
+		writerContract.AdmissionDecisionID != decision.DecisionID ||
+		writerContract.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		writerContract.CandidateExecutionID != execution.ExecutionID ||
+		writerContract.CandidateDraftID != draft.DraftID ||
+		writerContract.CandidateRunID != candidate.RunID ||
+		writerContract.CandidateTextHash != hashJSON(text) ||
+		writerContract.TurnTextHash != obs.TextHash {
+		t.Fatalf("writer contract lost provenance: contract=%+v inventory=%+v", writerContract, writerInventory)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -1922,6 +1982,18 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedInventory.WriteAllowed ||
 		blockedInventory.Reason != "candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed preflight should not produce a writer inventory: %+v", blockedInventory)
+	}
+	blockedContract := admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(blockedInventory)
+	if blockedContract.Passed ||
+		blockedContract.WriterContractID != "" ||
+		blockedContract.ContractState != "blocked" ||
+		blockedContract.ContractAction != "reject" ||
+		blockedContract.ContractShapeReady ||
+		blockedContract.ContractsReady ||
+		blockedContract.WriteAllowed ||
+		blockedContract.MutatesState ||
+		blockedContract.Reason != "candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed inventory should not produce a writer contract: %+v", blockedContract)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -1988,6 +2060,18 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedInventory.Reason != "candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected preflight should not produce a writer inventory: %+v", rejectedInventory)
 	}
+	rejectedContract := admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(rejectedInventory)
+	if rejectedContract.Passed ||
+		rejectedContract.WriterContractID != "" ||
+		rejectedContract.ContractState != "blocked" ||
+		rejectedContract.ContractAction != "reject" ||
+		rejectedContract.ContractShapeReady ||
+		rejectedContract.ContractsReady ||
+		rejectedContract.WriteAllowed ||
+		rejectedContract.MutatesState ||
+		rejectedContract.Reason != "candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected inventory should not produce a writer contract: %+v", rejectedContract)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -2036,6 +2120,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedInventory.WriterInventoryID != "" ||
 		tamperedInventory.Reason != "candidate_admission_writer_preflight_id_mismatch" {
 		t.Fatalf("tampered writer preflight id should fail inventory: %+v", tamperedInventory)
+	}
+	tamperedInventoryID := writerInventory
+	tamperedInventoryID.WriterInventoryID = "writer-inventory-tampered"
+	tamperedContract := admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(tamperedInventoryID)
+	if tamperedContract.Passed ||
+		tamperedContract.WriterContractID != "" ||
+		tamperedContract.Reason != "candidate_admission_writer_inventory_id_mismatch" {
+		t.Fatalf("tampered writer inventory id should fail contract: %+v", tamperedContract)
 	}
 }
 

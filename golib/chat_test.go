@@ -1087,6 +1087,98 @@ func TestChatLiveRouteTurnCandidateAdmissionWriterInventoryDryRunLine(t *testing
 	}
 }
 
+func TestChatLiveRouteTurnCandidateAdmissionWriterContractDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "The dream remembers the field through one chain.")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	dir := t.TempDir()
+	dreamLog := filepath.Join(dir, "dream-admission-chat-writer-contract.jsonl")
+	decisionLog := filepath.Join(dir, "live-route-candidate-admission-decision.jsonl")
+	promotionLog := filepath.Join(dir, "live-route-candidate-admission-promotion.jsonl")
+	switchLog := filepath.Join(dir, "live-route-candidate-admission-switch.jsonl")
+	enableGateLog := filepath.Join(dir, "live-route-candidate-admission-enable-gate.jsonl")
+	liveStageLog := filepath.Join(dir, "live-route-candidate-admission-live-stage.jsonl")
+	writerPreflightLog := filepath.Join(dir, "live-route-candidate-admission-writer-preflight.jsonl")
+	writerInventoryLog := filepath.Join(dir, "live-route-candidate-admission-writer-inventory.jsonl")
+	writerContractLog := filepath.Join(dir, "live-route-candidate-admission-writer-contract.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_LOG", switchLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_LOG", enableGateLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_LOG", liveStageLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_LOG", writerPreflightLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_LOG", writerInventoryLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_LOG", writerContractLog)
+
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
+	if len(lines) != 13 {
+		t.Fatalf("expected 13 candidate chain lines, got %d: %v", len(lines), lines)
+	}
+	writerContractLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission writer contract dry-run",
+		"class=dream",
+		"route=direct",
+		"source=direct",
+		"writer_inventory=",
+		"contract=blocked",
+		"contract_action=reject",
+		"shape_ready=false",
+		"writer_impl=false rollback_impl=false ledger_impl=false",
+		"contracts_ready=false write_allowed=false admission_allowed=false live_ready=false live_enabled=false mutates=false",
+		"writer_contract_id=",
+		"passed=false",
+		"reason=candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution",
+	} {
+		if !strings.Contains(writerContractLine, want) {
+			t.Fatalf("candidate admission writer contract line missing %q: %q", want, writerContractLine)
+		}
+	}
+	raw, err := os.ReadFile(writerContractLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got admissionLiveRouteTurnCandidateAdmissionWriterContract
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != admissionLiveRouteTurnCandidateAdmissionWriterContractSchema ||
+		got.Passed ||
+		got.LiveReady ||
+		got.LiveAdmissionEnabled ||
+		got.AdmissionAllowed ||
+		!got.ManualEnableRequested ||
+		!got.EnableKeyMatched ||
+		got.ContractShapeReady ||
+		got.WriterImplementationReady ||
+		got.RollbackImplementationReady ||
+		got.LedgerImplementationReady ||
+		got.ContractsReady ||
+		got.WriteAllowed ||
+		got.MutatesState ||
+		got.SourceWriterInventoryPassed ||
+		got.WriterContractID != "" ||
+		got.Reason != "candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
+		t.Fatalf("bad candidate admission writer contract receipt: %+v", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 

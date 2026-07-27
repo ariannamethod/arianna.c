@@ -82,6 +82,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_turn_candidate_nano_direct_live_stage_smoke admission-live-route-turn-candidate-nano-direct-live-stage-smoke
 .PHONY: admission_live_route_turn_candidate_nano_direct_writer_preflight_smoke admission-live-route-turn-candidate-nano-direct-writer-preflight-smoke
 .PHONY: admission_live_route_turn_candidate_nano_direct_writer_inventory_smoke admission-live-route-turn-candidate-nano-direct-writer-inventory-smoke
+.PHONY: admission_live_route_turn_candidate_nano_direct_writer_contract_smoke admission-live-route-turn-candidate-nano-direct-writer-contract-smoke
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -353,6 +354,11 @@ admission-live-route-turn-candidate-nano-direct-writer-inventory-smoke: admissio
 
 admission_live_route_turn_candidate_nano_direct_writer_inventory_smoke: metabolism nano
 	bash tools/admission_live_route_turn_candidate_nano_direct_writer_inventory_smoke.sh
+
+admission-live-route-turn-candidate-nano-direct-writer-contract-smoke: admission_live_route_turn_candidate_nano_direct_writer_contract_smoke
+
+admission_live_route_turn_candidate_nano_direct_writer_contract_smoke: metabolism nano
+	bash tools/admission_live_route_turn_candidate_nano_direct_writer_contract_smoke.sh
 
 admission-live-route-turn-generator-adapter-smoke: admission_live_route_turn_generator_adapter_smoke
 
