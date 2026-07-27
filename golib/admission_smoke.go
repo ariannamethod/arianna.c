@@ -2297,6 +2297,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if dreamLogPath == "" {
 		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
 	}
+	decisionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() && decisionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG is required")
+	}
 	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
 	}
@@ -2339,10 +2343,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 
 	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
 	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
-	if len(lines) != 6 {
-		return fmt.Errorf("expected 6 nano-direct chat-shadow lines, got %d: %v", len(lines), lines)
+	wantLines := 6
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		wantLines = 7
 	}
-	for _, want := range []string{
+	if len(lines) != wantLines {
+		return fmt.Errorf("expected %d nano-direct chat-shadow lines, got %d: %v", wantLines, len(lines), lines)
+	}
+	wants := []string{
 		"live-route candidate execution dry-run: class=dream route=direct backend=nano-arianna entry=direct frame=q_a",
 		"runner=nano-direct runner_status=succeeded passed=true",
 		"live-route generator adapter dry-run: class=dream route=direct backend=nano-arianna entry=direct frame=q_a shell=shell-",
@@ -2351,7 +2359,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		"live-route candidate admission adapter dry-run: class=dream route=direct source=direct handoff=handoff-",
 		"live-route candidate admission shadow dry-run: class=dream route=direct source=direct handoff=handoff-",
 		"policy=true accepted=false passed=true reason=shadow mode",
-	} {
+	}
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		wants = append(wants,
+			"live-route candidate admission decision dry-run: class=dream route=direct source=direct handoff=handoff-",
+			"decision=shadow_ready decision_id=decision-",
+			"live_ready=true mutates=false passed=true reason=shadow ready; live mutation still disabled",
+		)
+	}
+	for _, want := range wants {
 		found := false
 		for _, line := range lines {
 			if strings.Contains(line, want) {
@@ -2424,6 +2440,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		return err
 	} else if err := json.Unmarshal(raw, &candidate); err != nil {
 		return fmt.Errorf("dream admission receipt: %w", err)
+	}
+	var decision admissionLiveRouteTurnCandidateAdmissionDecision
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		if raw, err := readOne(decisionLogPath, "candidate admission decision"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &decision); err != nil {
+			return fmt.Errorf("candidate admission decision receipt: %w", err)
+		}
 	}
 
 	if execution.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
@@ -2498,9 +2522,34 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		candidate.Reason != "shadow mode" {
 		return fmt.Errorf("bad nano-direct dream admission receipt: candidate=%+v admission_adapter=%+v draft=%+v", candidate, admissionAdapter, draft)
 	}
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		if decision.Schema != admissionLiveRouteTurnCandidateAdmissionDecisionSchema ||
+			!decision.Passed ||
+			!decision.LiveReady ||
+			decision.MutatesState ||
+			decision.Decision != "shadow_ready" ||
+			decision.DecisionID == "" ||
+			decision.CandidateExecutionID != execution.ExecutionID ||
+			decision.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			decision.CandidateDraftID != draft.DraftID ||
+			decision.HandoffID != admission.HandoffID ||
+			decision.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			decision.DreamCandidateRunID != candidate.RunID ||
+			decision.CandidateTextHash != execution.GeneratedTextHash ||
+			decision.DreamAccepted ||
+			!decision.AdmissionPolicyPassed ||
+			!decision.LiveRouteChoicePassed {
+			return fmt.Errorf("bad nano-direct admission decision receipt: decision=%+v candidate=%+v admission_adapter=%+v execution=%+v", decision, candidate, admissionAdapter, execution)
+		}
+	}
 
-	fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s\n",
-		executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath)
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath)
+	} else {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath)
+	}
 	return nil
 }
 

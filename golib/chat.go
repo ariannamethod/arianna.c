@@ -207,7 +207,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateDraftDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionShadowDryRun()
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -219,13 +220,22 @@ type chatLiveRouteTurnCandidateChain struct {
 	AdmissionAdapter admissionLiveRouteTurnCandidateAdmissionAdapter
 }
 
+type chatLiveRouteTurnCandidateAdmissionShadowResult struct {
+	Candidate    dreamCandidate
+	PolicyPassed bool
+	Accepted     bool
+	Passed       bool
+	Reason       string
+}
+
 func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 	return admissionLiveRouteTurnCandidateExecutionDryRun() ||
 		admissionLiveRouteTurnGeneratorAdapterDryRun() ||
 		admissionLiveRouteTurnCandidateDraftDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionShadowDryRun()
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -242,7 +252,8 @@ func chatLiveRouteTurnCandidateChainText() string {
 	if admissionLiveRouteTurnCandidateDraftDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
 		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"); strings.TrimSpace(text) != "" {
 			return text
 		}
@@ -307,41 +318,55 @@ func chatLiveRouteTurnCandidateAdmissionAdapterLine(adapter admissionLiveRouteTu
 		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, adapter.Passed, chatLiveRouteReasonSuffix(adapter.Reason))
 }
 
-func chatLiveRouteTurnCandidateAdmissionShadowLine(obs admissionLiveRouteTurnObservation, chain chatLiveRouteTurnCandidateChain) string {
+func chatLiveRouteTurnCandidateAdmissionShadowResultForChain(obs admissionLiveRouteTurnObservation, chain chatLiveRouteTurnCandidateChain) chatLiveRouteTurnCandidateAdmissionShadowResult {
 	adapter := chain.AdmissionAdapter
-	passed := false
-	accepted := false
-	policyPassed := false
-	reason := ""
+	result := chatLiveRouteTurnCandidateAdmissionShadowResult{}
 	if dreamAdmissionMode() != dreamAdmissionShadow {
-		reason = "AM_DREAM_ADMISSION must be shadow"
+		result.Reason = "AM_DREAM_ADMISSION must be shadow"
 	} else if !dreamAdmissionRequireLiveRoutePlan() {
-		reason = "AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required"
+		result.Reason = "AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required"
 	} else {
 		candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(chain.Draft, adapter)
 		if candidate.Schema == "" {
-			reason = "candidate_admission_adapter_failed"
+			result.Reason = "candidate_admission_adapter_failed"
 			if adapter.Reason != "" {
-				reason += ": " + adapter.Reason
+				result.Reason += ": " + adapter.Reason
 			}
 		} else {
 			candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, obs)
-			accepted = candidate.Accepted
-			policyPassed = candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed
-			passed = candidate.Schema == "arianna.dream_candidate.v1" &&
+			result.Candidate = candidate
+			result.Accepted = candidate.Accepted
+			result.PolicyPassed = candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed
+			result.Passed = candidate.Schema == "arianna.dream_candidate.v1" &&
 				candidate.LiveRouteCandidateAdmission != nil &&
 				candidate.LiveRouteCandidateAdmission.AdmissionAdapterID == adapter.AdmissionAdapterID &&
 				!candidate.Accepted &&
-				policyPassed
-			reason = candidate.Reason
-			if !policyPassed && candidate.Admission != nil && len(candidate.Admission.Reasons) > 0 {
-				reason = "admission policy failed: " + strings.Join(candidate.Admission.Reasons, "; ")
+				result.PolicyPassed
+			result.Reason = candidate.Reason
+			if !result.PolicyPassed && candidate.Admission != nil && len(candidate.Admission.Reasons) > 0 {
+				result.Reason = "admission policy failed: " + strings.Join(candidate.Admission.Reasons, "; ")
 			}
 		}
 	}
+	return result
+}
+
+func chatLiveRouteTurnCandidateAdmissionShadowLineForResult(chain chatLiveRouteTurnCandidateChain, result chatLiveRouteTurnCandidateAdmissionShadowResult) string {
+	adapter := chain.AdmissionAdapter
 	return fmt.Sprintf("│  · live-route candidate admission shadow dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s policy=%t accepted=%t passed=%t%s",
 		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
-		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, policyPassed, accepted, passed, chatLiveRouteReasonSuffix(reason))
+		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, result.PolicyPassed, result.Accepted, result.Passed, chatLiveRouteReasonSuffix(result.Reason))
+}
+
+func chatLiveRouteTurnCandidateAdmissionShadowLine(obs admissionLiveRouteTurnObservation, chain chatLiveRouteTurnCandidateChain) string {
+	return chatLiveRouteTurnCandidateAdmissionShadowLineForResult(chain, chatLiveRouteTurnCandidateAdmissionShadowResultForChain(obs, chain))
+}
+
+func chatLiveRouteTurnCandidateAdmissionDecisionLine(decision admissionLiveRouteTurnCandidateAdmissionDecision) string {
+	return fmt.Sprintf("│  · live-route candidate admission decision dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s decision=%s decision_id=%s live_ready=%t mutates=%t passed=%t%s",
+		decision.PromptClass, decision.Route, decision.Source, decision.HandoffID,
+		decision.AdmissionAdapterID, decision.Decision, decision.DecisionID,
+		decision.LiveReady, decision.MutatesState, decision.Passed, chatLiveRouteReasonSuffix(decision.Reason))
 }
 
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
@@ -385,11 +410,27 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		}
 		lines = append(lines, chatLiveRouteTurnCandidateAdmissionAdapterLine(chain.AdmissionAdapter))
 	}
+	shadow := chatLiveRouteTurnCandidateAdmissionShadowResult{}
 	if admissionLiveRouteTurnCandidateAdmissionShadowDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionDryRun() &&
 		admissionLiveRouteTurnCandidateDraftDryRun() {
-		lines = append(lines, chatLiveRouteTurnCandidateAdmissionShadowLine(obs, chain))
+		shadow = chatLiveRouteTurnCandidateAdmissionShadowResultForChain(obs, chain)
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionShadowLineForResult(chain, shadow))
+	}
+	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		decision := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+			chain.Execution,
+			chain.Adapter,
+			chain.Draft,
+			chain.Admission,
+			chain.AdmissionAdapter,
+			shadow.Candidate,
+		)
+		if err := recordAdmissionLiveRouteTurnCandidateAdmissionDecision(decision); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate admission decision dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionDecisionLine(decision))
 	}
 	return lines
 }
