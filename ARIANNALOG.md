@@ -3891,3 +3891,21 @@ The passed inventory reports `inventory_state=contracts_absent`, `inventory_acti
 already-enabled admission remain blocked without an inventory id. `make
 admission-live-route-turn-candidate-nano-direct-writer-inventory-smoke` proves the real-nano chain can inventory the
 missing writer/rollback/ledger boundary without admitting text into state.
+
+**Follow-up, same day - writer inventory now drafts the contract shape.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_writer_contract.v1` after the writer-inventory receipt. It consumes only a
+passed `inventory_state=contracts_absent` inventory, rechecks the stable `writer-inventory-<hash>` id, preserves the
+full decision/promotion/switch/enable/stage/preflight/inventory provenance, and names the writer, rollback, and ledger
+shape that must exist before any implementation can claim permission to touch body state.
+
+The passed contract receipt reports `contract_state=shape_drafted_dry_run`,
+`contract_action=define_writer_rollback_ledger_contract`, `writer_contract_shape=append_shadow_candidate_receipt`,
+`rollback_contract_shape=remove_exact_writer_receipt`, `ledger_contract_shape=append_only_receipt_log`,
+`write_scope=dream_candidate_admission`, `rollback_scope=single_writer_receipt`,
+`ledger_mode=append_only_dry_run`, `contract_shape_ready=true`, implementation readiness false for writer/rollback/ledger,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`, and a stable `writer-contract-<hash>` id. Failed inventories, tampered inventory ids, already
+present source contracts, ready-contract lies, missing provenance, or any upstream write permission remain blocked without
+a contract id. `make admission-live-route-turn-candidate-nano-direct-writer-contract-smoke` proves the real-nano chain can
+draft the writer/rollback/ledger contract shape while the organism remains untouched.

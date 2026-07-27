@@ -2332,6 +2332,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() && writerInventoryLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_LOG is required")
 	}
+	writerContractLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() && writerContractLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2362,6 +2366,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN are required for writer inventory smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN are required for writer contract smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
@@ -2369,7 +2383,8 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	}
 	if (admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
@@ -2435,6 +2450,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		wantLines++
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
 		wantLines++
 	}
 	if len(lines) != wantLines {
@@ -2506,6 +2524,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"inventory=contracts_absent inventory_action=name_required_contracts writer_contract=live_admission_writer.v1 rollback_contract=live_admission_rollback.v1 ledger_contract=live_admission_ledger.v1",
 			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false writer_inventory_id=writer-inventory-",
 			"passed=true reason=writer inventory recorded required contracts; live admission remains blocked",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
+		wants = append(wants,
+			"live-route candidate admission writer contract dry-run: class=dream route=direct source=direct writer_inventory=writer-inventory-",
+			"contract=shape_drafted_dry_run contract_action=define_writer_rollback_ledger_contract writer_contract=live_admission_writer.v1 rollback_contract=live_admission_rollback.v1 ledger_contract=live_admission_ledger.v1",
+			"writer_shape=append_shadow_candidate_receipt rollback_shape=remove_exact_writer_receipt ledger_shape=append_only_receipt_log",
+			"shape_ready=true writer_impl=false rollback_impl=false ledger_impl=false contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false writer_contract_id=writer-contract-",
+			"passed=true reason=writer contract shape drafted; implementation and ledger remain absent",
 		)
 	}
 	for _, want := range wants {
@@ -2636,6 +2663,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &writerInventory); err != nil {
 			return fmt.Errorf("candidate admission writer inventory receipt: %w", err)
+		}
+	}
+	var writerContract admissionLiveRouteTurnCandidateAdmissionWriterContract
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
+		if raw, err := readOne(writerContractLogPath, "candidate admission writer contract"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &writerContract); err != nil {
+			return fmt.Errorf("candidate admission writer contract receipt: %w", err)
 		}
 	}
 
@@ -2966,8 +3001,81 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission writer inventory receipt: writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
+		if writerContract.Schema != admissionLiveRouteTurnCandidateAdmissionWriterContractSchema ||
+			!writerContract.Passed ||
+			!writerContract.LiveReady ||
+			writerContract.LiveAdmissionEnabled ||
+			writerContract.AdmissionAllowed ||
+			!writerContract.ManualEnableRequested ||
+			!writerContract.EnableKeyMatched ||
+			!writerContract.RequiresWriter ||
+			writerContract.WriterReady ||
+			writerContract.WriterState != "absent" ||
+			writerContract.WriterAction != "require_writer_contract" ||
+			!writerContract.RequiresRollback ||
+			writerContract.RollbackReady ||
+			writerContract.RollbackState != "absent" ||
+			writerContract.RollbackAction != "require_rollback_contract" ||
+			writerContract.InventoryState != "contracts_absent" ||
+			writerContract.InventoryAction != "name_required_contracts" ||
+			writerContract.ContractState != "shape_drafted_dry_run" ||
+			writerContract.ContractAction != "define_writer_rollback_ledger_contract" ||
+			writerContract.WriterContract != "live_admission_writer.v1" ||
+			writerContract.RollbackContract != "live_admission_rollback.v1" ||
+			writerContract.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+			writerContract.WriterContractShape != "append_shadow_candidate_receipt" ||
+			writerContract.RollbackContractShape != "remove_exact_writer_receipt" ||
+			writerContract.LedgerContractShape != "append_only_receipt_log" ||
+			writerContract.WriteScope != "dream_candidate_admission" ||
+			writerContract.RollbackScope != "single_writer_receipt" ||
+			writerContract.LedgerMode != "append_only_dry_run" ||
+			!writerContract.ContractShapeReady ||
+			writerContract.SourceWriterContractPresent ||
+			writerContract.SourceRollbackContractPresent ||
+			writerContract.SourceLedgerContractPresent ||
+			writerContract.WriterImplementationReady ||
+			writerContract.RollbackImplementationReady ||
+			writerContract.LedgerImplementationReady ||
+			writerContract.ContractsReady ||
+			writerContract.WriteAllowed ||
+			writerContract.MutatesState ||
+			writerContract.StageState != "staged_dry_run" ||
+			writerContract.StageAction != "stage_live_candidate_dry_run" ||
+			writerContract.WriterContractID == "" ||
+			writerContract.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+			writerContract.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			writerContract.AdmissionLiveStageID != liveStage.LiveStageID ||
+			writerContract.AdmissionEnableGateID != gate.EnableGateID ||
+			writerContract.AdmissionSwitchID != sw.SwitchID ||
+			writerContract.AdmissionPromotionID != promotion.PromotionID ||
+			writerContract.AdmissionDecisionID != decision.DecisionID ||
+			writerContract.CandidateExecutionID != execution.ExecutionID ||
+			writerContract.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			writerContract.CandidateDraftID != draft.DraftID ||
+			writerContract.HandoffID != admission.HandoffID ||
+			writerContract.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			writerContract.DreamCandidateRunID != candidate.RunID ||
+			writerContract.CandidateRunID != draft.CandidateRunID ||
+			writerContract.CandidateTextHash != execution.GeneratedTextHash ||
+			writerContract.TurnTextHash != execution.TurnTextHash ||
+			!writerContract.AdmissionPolicyPassed ||
+			!writerContract.LiveRouteChoicePassed ||
+			!writerContract.SourceDecisionPassed ||
+			!writerContract.SourcePromotionPassed ||
+			!writerContract.SourceSwitchPassed ||
+			!writerContract.SourceEnablePassed ||
+			!writerContract.SourceStagePassed ||
+			!writerContract.SourceWriterPreflightPassed ||
+			!writerContract.SourceWriterInventoryPassed {
+			return fmt.Errorf("bad nano-direct admission writer contract receipt: writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
