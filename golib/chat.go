@@ -210,7 +210,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun()
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -239,7 +240,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun()
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -259,7 +261,8 @@ func chatLiveRouteTurnCandidateChainText() string {
 		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
 		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"); strings.TrimSpace(text) != "" {
 			return text
 		}
@@ -393,6 +396,16 @@ func chatLiveRouteTurnCandidateAdmissionSwitchLine(sw admissionLiveRouteTurnCand
 		chatLiveRouteReasonSuffix(sw.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionEnableGateLine(gate admissionLiveRouteTurnCandidateAdmissionEnableGate) string {
+	return fmt.Sprintf("│  · live-route candidate admission enable gate dry-run: class=%s route=%s source=%s switch=%s switch_id=%s enable=%s enable_action=%s enable_id=%s admission_allowed=%t manual_enable=%t key_matched=%t live_ready=%t live_enabled=%t mutates=%t passed=%t%s",
+		gate.PromptClass, gate.Route, gate.Source,
+		gate.SwitchState, gate.AdmissionSwitchID,
+		gate.EnableState, gate.EnableAction, gate.EnableGateID,
+		gate.AdmissionAllowed, gate.ManualEnableRequested, gate.EnableKeyMatched,
+		gate.LiveReady, gate.LiveAdmissionEnabled, gate.MutatesState, gate.Passed,
+		chatLiveRouteReasonSuffix(gate.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -438,7 +451,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	if (admissionLiveRouteTurnCandidateAdmissionShadowDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionDryRun() &&
 		admissionLiveRouteTurnCandidateDraftDryRun() {
@@ -450,7 +464,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	decision := admissionLiveRouteTurnCandidateAdmissionDecision{}
 	if admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
 		decision = admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 			chain.Execution,
 			chain.Adapter,
@@ -468,7 +483,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	}
 	promotion := admissionLiveRouteTurnCandidateAdmissionPromotion{}
 	if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
 		promotion = admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision)
 		if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
 			if err := recordAdmissionLiveRouteTurnCandidateAdmissionPromotion(promotion); err != nil {
@@ -477,12 +493,23 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 			lines = append(lines, chatLiveRouteTurnCandidateAdmissionPromotionLine(promotion))
 		}
 	}
+	sw := admissionLiveRouteTurnCandidateAdmissionSwitch{}
+	if admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
+		sw = admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion)
+	}
 	if admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {
-		sw := admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion)
 		if err := recordAdmissionLiveRouteTurnCandidateAdmissionSwitch(sw); err != nil {
 			return append(lines, fmt.Sprintf("│  · live-route candidate admission switch dry-run log failed: %v", err))
 		}
 		lines = append(lines, chatLiveRouteTurnCandidateAdmissionSwitchLine(sw))
+	}
+	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
+		gate := admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw)
+		if err := recordAdmissionLiveRouteTurnCandidateAdmissionEnableGate(gate); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate admission enable gate dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionEnableGateLine(gate))
 	}
 	return lines
 }
