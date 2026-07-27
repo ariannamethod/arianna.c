@@ -128,22 +128,7 @@ func runChat() {
 		if line := chatLiveRouteTurnCandidateShellDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
-		if line := chatLiveRouteTurnCandidateExecutionDryRunLine(turnRouteObs); line != "" {
-			fmt.Println(line)
-		}
-		if line := chatLiveRouteTurnGeneratorAdapterDryRunLine(turnRouteObs); line != "" {
-			fmt.Println(line)
-		}
-		if line := chatLiveRouteTurnCandidateDraftDryRunLine(turnRouteObs); line != "" {
-			fmt.Println(line)
-		}
-		if line := chatLiveRouteTurnCandidateAdmissionDryRunLine(turnRouteObs); line != "" {
-			fmt.Println(line)
-		}
-		if line := chatLiveRouteTurnCandidateAdmissionAdapterDryRunLine(turnRouteObs); line != "" {
-			fmt.Println(line)
-		}
-		if line := chatLiveRouteTurnCandidateAdmissionShadowDryRunLine(turnRouteObs); line != "" {
+		for _, line := range chatLiveRouteTurnCandidateChainDryRunLines(turnRouteObs) {
 			fmt.Println(line)
 		}
 		if hasDream {
@@ -223,6 +208,190 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionShadowDryRun()
+}
+
+type chatLiveRouteTurnCandidateChain struct {
+	Execution        admissionLiveRouteTurnCandidateExecution
+	Adapter          admissionLiveRouteTurnGeneratorAdapter
+	Draft            admissionLiveRouteTurnCandidateDraft
+	Review           admissionLiveRouteTurnCandidateReview
+	Admission        admissionLiveRouteTurnCandidateAdmission
+	AdmissionAdapter admissionLiveRouteTurnCandidateAdmissionAdapter
+}
+
+func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
+	return admissionLiveRouteTurnCandidateExecutionDryRun() ||
+		admissionLiveRouteTurnGeneratorAdapterDryRun() ||
+		admissionLiveRouteTurnCandidateDraftDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun()
+}
+
+func chatLiveRouteTurnCandidateChainText() string {
+	if admissionLiveRouteTurnCandidateExecutionDryRun() {
+		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT"); strings.TrimSpace(text) != "" {
+			return text
+		}
+	}
+	if admissionLiveRouteTurnGeneratorAdapterDryRun() {
+		if text := os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT"); strings.TrimSpace(text) != "" {
+			return text
+		}
+	}
+	if admissionLiveRouteTurnCandidateDraftDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionShadowDryRun() {
+		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"); strings.TrimSpace(text) != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func chatLiveRouteTurnCandidateChainForText(obs admissionLiveRouteTurnObservation, text string) chatLiveRouteTurnCandidateChain {
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	chain := chatLiveRouteTurnCandidateChain{}
+	if admissionLiveRouteTurnCandidateExecutionDryRun() {
+		chain.Execution = admissionLiveRouteTurnCandidateExecutionForShellViaRunner(shell, text)
+		chain.Adapter = admissionLiveRouteTurnGeneratorAdapterForExecution(chain.Execution)
+	} else {
+		chain.Adapter = admissionLiveRouteTurnGeneratorAdapterForShell(shell, text)
+	}
+	chain.Draft = admissionLiveRouteTurnCandidateDraftForAdapter(chain.Adapter)
+	chain.Review = admissionLiveRouteTurnCandidateReviewForDraft(obs, chain.Draft)
+	chain.Admission = admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, chain.Draft, chain.Review)
+	chain.AdmissionAdapter = admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(chain.Admission, chain.Draft)
+	return chain
+}
+
+func chatLiveRouteReasonSuffix(reason string) string {
+	if reason == "" {
+		return ""
+	}
+	return " reason=" + reason
+}
+
+func chatLiveRouteTurnCandidateExecutionLine(execution admissionLiveRouteTurnCandidateExecution) string {
+	return fmt.Sprintf("│  · live-route candidate execution dry-run: class=%s route=%s backend=%s entry=%s frame=%s executor=%s timeout_ms=%d shell=%s execution=%s text=%s runner=%s runner_status=%s passed=%t%s",
+		execution.PromptClass, execution.Route, execution.Backend, execution.Entrypoint, execution.PromptFrame,
+		execution.Executor, execution.TimeoutMS, execution.ShellID, execution.ExecutionID, execution.GeneratedTextStatus,
+		execution.Runner, execution.RunnerStatus, execution.Passed, chatLiveRouteReasonSuffix(execution.Reason))
+}
+
+func chatLiveRouteTurnGeneratorAdapterLine(adapter admissionLiveRouteTurnGeneratorAdapter) string {
+	return fmt.Sprintf("│  · live-route generator adapter dry-run: class=%s route=%s backend=%s entry=%s frame=%s shell=%s execution=%s adapter=%s text=%s passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Backend, adapter.Entrypoint, adapter.PromptFrame,
+		adapter.ShellID, adapter.CandidateExecutionID, adapter.AdapterID, adapter.GeneratedTextStatus, adapter.Passed, chatLiveRouteReasonSuffix(adapter.Reason))
+}
+
+func chatLiveRouteTurnCandidateDraftLine(draft admissionLiveRouteTurnCandidateDraft) string {
+	return fmt.Sprintf("│  · live-route candidate draft dry-run: class=%s route=%s source=%s trigger=%s seed=%s shell=%s execution=%s adapter=%s draft=%s run=%s text=%s passed=%t%s",
+		draft.PromptClass, draft.Route, draft.Source, draft.CandidateTrigger, draft.CandidateSeed,
+		draft.ShellID, draft.CandidateExecutionID, draft.GeneratorAdapterID, draft.DraftID, draft.CandidateRunID, draft.CandidateTextStatus, draft.Passed, chatLiveRouteReasonSuffix(draft.Reason))
+}
+
+func chatLiveRouteTurnCandidateAdmissionLine(admission admissionLiveRouteTurnCandidateAdmission) string {
+	return fmt.Sprintf("│  · live-route candidate admission handoff dry-run: class=%s route=%s source=%s draft=%s adapter=%s handoff=%s review=%t passed=%t%s",
+		admission.PromptClass, admission.Route, admission.Source, admission.CandidateDraftID,
+		admission.GeneratorAdapterID, admission.HandoffID, admission.ReviewMatched, admission.Passed, chatLiveRouteReasonSuffix(admission.Reason))
+}
+
+func chatLiveRouteTurnCandidateAdmissionAdapterLine(adapter admissionLiveRouteTurnCandidateAdmissionAdapter) string {
+	return fmt.Sprintf("│  · live-route candidate admission adapter dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
+		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, adapter.Passed, chatLiveRouteReasonSuffix(adapter.Reason))
+}
+
+func chatLiveRouteTurnCandidateAdmissionShadowLine(obs admissionLiveRouteTurnObservation, chain chatLiveRouteTurnCandidateChain) string {
+	adapter := chain.AdmissionAdapter
+	passed := false
+	accepted := false
+	policyPassed := false
+	reason := ""
+	if dreamAdmissionMode() != dreamAdmissionShadow {
+		reason = "AM_DREAM_ADMISSION must be shadow"
+	} else if !dreamAdmissionRequireLiveRoutePlan() {
+		reason = "AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required"
+	} else {
+		candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(chain.Draft, adapter)
+		if candidate.Schema == "" {
+			reason = "candidate_admission_adapter_failed"
+			if adapter.Reason != "" {
+				reason += ": " + adapter.Reason
+			}
+		} else {
+			candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, obs)
+			accepted = candidate.Accepted
+			policyPassed = candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed
+			passed = candidate.Schema == "arianna.dream_candidate.v1" &&
+				candidate.LiveRouteCandidateAdmission != nil &&
+				candidate.LiveRouteCandidateAdmission.AdmissionAdapterID == adapter.AdmissionAdapterID &&
+				!candidate.Accepted &&
+				policyPassed
+			reason = candidate.Reason
+			if !policyPassed && candidate.Admission != nil && len(candidate.Admission.Reasons) > 0 {
+				reason = "admission policy failed: " + strings.Join(candidate.Admission.Reasons, "; ")
+			}
+		}
+	}
+	return fmt.Sprintf("│  · live-route candidate admission shadow dry-run: class=%s route=%s source=%s handoff=%s admission_adapter=%s run=%s policy=%t accepted=%t passed=%t%s",
+		adapter.PromptClass, adapter.Route, adapter.Source, adapter.HandoffID,
+		adapter.AdmissionAdapterID, adapter.DreamCandidateRunID, policyPassed, accepted, passed, chatLiveRouteReasonSuffix(reason))
+}
+
+func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
+	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
+		return nil
+	}
+	chain := chatLiveRouteTurnCandidateChainForText(obs, chatLiveRouteTurnCandidateChainText())
+	lines := []string{}
+	if admissionLiveRouteTurnCandidateExecutionDryRun() {
+		if err := recordAdmissionLiveRouteTurnCandidateExecution(chain.Execution); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate execution dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateExecutionLine(chain.Execution))
+	}
+	if admissionLiveRouteTurnGeneratorAdapterDryRun() {
+		if err := recordAdmissionLiveRouteTurnGeneratorAdapter(chain.Adapter); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route generator adapter dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnGeneratorAdapterLine(chain.Adapter))
+	}
+	if admissionLiveRouteTurnCandidateDraftDryRun() {
+		if err := recordAdmissionLiveRouteTurnCandidateDraft(chain.Draft); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate draft dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateDraftLine(chain.Draft))
+	}
+	if admissionLiveRouteTurnCandidateAdmissionDryRun() && admissionLiveRouteTurnCandidateDraftDryRun() {
+		if err := recordAdmissionLiveRouteTurnCandidateReview(chain.Review); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate admission handoff dry-run review log failed: %v", err))
+		}
+		if err := recordAdmissionLiveRouteTurnCandidateAdmission(chain.Admission); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate admission handoff dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionLine(chain.Admission))
+	}
+	if admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() &&
+		admissionLiveRouteTurnCandidateAdmissionDryRun() &&
+		admissionLiveRouteTurnCandidateDraftDryRun() {
+		if err := recordAdmissionLiveRouteTurnCandidateAdmissionAdapter(chain.AdmissionAdapter); err != nil {
+			return append(lines, fmt.Sprintf("│  · live-route candidate admission adapter dry-run log failed: %v", err))
+		}
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionAdapterLine(chain.AdmissionAdapter))
+	}
+	if admissionLiveRouteTurnCandidateAdmissionShadowDryRun() &&
+		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() &&
+		admissionLiveRouteTurnCandidateAdmissionDryRun() &&
+		admissionLiveRouteTurnCandidateDraftDryRun() {
+		lines = append(lines, chatLiveRouteTurnCandidateAdmissionShadowLine(obs, chain))
+	}
+	return lines
 }
 
 func chatLiveRouteChoiceDryRunLine(c dreamCandidate) string {

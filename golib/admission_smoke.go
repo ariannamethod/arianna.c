@@ -2268,6 +2268,242 @@ func runAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
+	executionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG"))
+	if executionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG is required")
+	}
+	adapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
+	if adapterLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG is required")
+	}
+	draftLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
+	if draftLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG is required")
+	}
+	reviewLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	if reviewLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_REVIEW_LOG is required")
+	}
+	admissionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	if admissionLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG is required")
+	}
+	admissionAdapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG"))
+	if admissionAdapterLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG is required")
+	}
+	dreamLogPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
+	if dreamLogPath == "" {
+		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionRunnerDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER_DRY_RUN is required")
+	}
+	if runner := admissionLiveRouteTurnCandidateExecutionRunnerName(); runner != admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER=%q, want %q", runner, admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect)
+	}
+	if !admissionLiveRouteTurnGeneratorAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionShadowDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN is required")
+	}
+	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
+		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
+	}
+	if !dreamAdmissionRequireLiveRoutePlan() {
+		return fmt.Errorf("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN is required")
+	}
+	if strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT")) != "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT must be empty so nano-direct owns the candidate text")
+	}
+	if strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT")) != "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT must be empty so nano-direct owns the candidate text")
+	}
+	if strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT")) == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT is required")
+	}
+
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
+	if len(lines) != 6 {
+		return fmt.Errorf("expected 6 nano-direct chat-shadow lines, got %d: %v", len(lines), lines)
+	}
+	for _, want := range []string{
+		"live-route candidate execution dry-run: class=dream route=direct backend=nano-arianna entry=direct frame=q_a",
+		"runner=nano-direct runner_status=succeeded passed=true",
+		"live-route generator adapter dry-run: class=dream route=direct backend=nano-arianna entry=direct frame=q_a shell=shell-",
+		"live-route candidate draft dry-run: class=dream route=direct source=direct trigger=direct-dream seed=turn-",
+		"live-route candidate admission handoff dry-run: class=dream route=direct source=direct draft=draft-",
+		"live-route candidate admission adapter dry-run: class=dream route=direct source=direct handoff=handoff-",
+		"live-route candidate admission shadow dry-run: class=dream route=direct source=direct handoff=handoff-",
+		"policy=true accepted=false passed=true reason=shadow mode",
+	} {
+		found := false
+		for _, line := range lines {
+			if strings.Contains(line, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("missing nano-direct chat-shadow line %q in %v", want, lines)
+		}
+	}
+	for _, line := range lines {
+		fmt.Println(line)
+	}
+
+	readOne := func(path, label string) ([]byte, error) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		trimmed := strings.TrimSpace(string(raw))
+		if trimmed == "" {
+			return nil, fmt.Errorf("%s receipt log is empty", label)
+		}
+		records := strings.Split(trimmed, "\n")
+		if len(records) != 1 {
+			return nil, fmt.Errorf("expected 1 %s receipt, got %d", label, len(records))
+		}
+		return []byte(records[0]), nil
+	}
+
+	var execution admissionLiveRouteTurnCandidateExecution
+	if raw, err := readOne(executionLogPath, "candidate execution"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &execution); err != nil {
+		return fmt.Errorf("candidate execution receipt: %w", err)
+	}
+	var generatorAdapter admissionLiveRouteTurnGeneratorAdapter
+	if raw, err := readOne(adapterLogPath, "generator adapter"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &generatorAdapter); err != nil {
+		return fmt.Errorf("generator adapter receipt: %w", err)
+	}
+	var draft admissionLiveRouteTurnCandidateDraft
+	if raw, err := readOne(draftLogPath, "candidate draft"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &draft); err != nil {
+		return fmt.Errorf("candidate draft receipt: %w", err)
+	}
+	var review admissionLiveRouteTurnCandidateReview
+	if raw, err := readOne(reviewLogPath, "candidate review"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &review); err != nil {
+		return fmt.Errorf("candidate review receipt: %w", err)
+	}
+	var admission admissionLiveRouteTurnCandidateAdmission
+	if raw, err := readOne(admissionLogPath, "candidate admission"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &admission); err != nil {
+		return fmt.Errorf("candidate admission receipt: %w", err)
+	}
+	var admissionAdapter admissionLiveRouteTurnCandidateAdmissionAdapter
+	if raw, err := readOne(admissionAdapterLogPath, "candidate admission adapter"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &admissionAdapter); err != nil {
+		return fmt.Errorf("candidate admission adapter receipt: %w", err)
+	}
+	var candidate dreamCandidate
+	if raw, err := readOne(dreamLogPath, "dream admission"); err != nil {
+		return err
+	} else if err := json.Unmarshal(raw, &candidate); err != nil {
+		return fmt.Errorf("dream admission receipt: %w", err)
+	}
+
+	if execution.Schema != admissionLiveRouteTurnCandidateExecutionSchema ||
+		!execution.Passed ||
+		execution.Runner != admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect ||
+		execution.RunnerStatus != admissionLiveRouteTurnCandidateExecutionStatusSucceeded ||
+		execution.ExecutionID == "" ||
+		execution.GeneratedText == "" ||
+		execution.GeneratedTextStatus != "generated" ||
+		execution.GeneratedTextHash == "" ||
+		execution.RunnerStdoutHash != execution.GeneratedTextHash {
+		return fmt.Errorf("bad nano-direct execution receipt: %+v", execution)
+	}
+	if generatorAdapter.Schema != admissionLiveRouteTurnGeneratorAdapterSchema ||
+		!generatorAdapter.Passed ||
+		generatorAdapter.CandidateExecutionID != execution.ExecutionID ||
+		generatorAdapter.GeneratedText != execution.GeneratedText ||
+		generatorAdapter.GeneratedTextHash != execution.GeneratedTextHash ||
+		generatorAdapter.AdapterID == "" {
+		return fmt.Errorf("bad nano-direct generator adapter receipt: adapter=%+v execution=%+v", generatorAdapter, execution)
+	}
+	if draft.Schema != admissionLiveRouteTurnCandidateDraftSchema ||
+		!draft.Passed ||
+		draft.CandidateExecutionID != execution.ExecutionID ||
+		draft.GeneratorAdapterID != generatorAdapter.AdapterID ||
+		draft.CandidateText != execution.GeneratedText ||
+		draft.CandidateTextHash != execution.GeneratedTextHash ||
+		draft.DraftID == "" ||
+		draft.CandidateRunID == "" {
+		return fmt.Errorf("bad nano-direct candidate draft receipt: draft=%+v adapter=%+v execution=%+v", draft, generatorAdapter, execution)
+	}
+	if review.Schema != admissionLiveRouteTurnReviewSchema ||
+		!review.Matched ||
+		review.CandidateDraftID != draft.DraftID ||
+		review.CandidateExecutionID != execution.ExecutionID ||
+		review.GeneratorAdapterID != generatorAdapter.AdapterID ||
+		review.CandidateRunID != draft.CandidateRunID ||
+		review.CandidateTextHash != draft.CandidateTextHash {
+		return fmt.Errorf("bad nano-direct candidate review receipt: review=%+v draft=%+v", review, draft)
+	}
+	if admission.Schema != admissionLiveRouteTurnCandidateAdmissionSchema ||
+		!admission.Passed ||
+		admission.CandidateDraftID != draft.DraftID ||
+		admission.CandidateExecutionID != execution.ExecutionID ||
+		admission.GeneratorAdapterID != generatorAdapter.AdapterID ||
+		admission.CandidateRunID != draft.CandidateRunID ||
+		admission.CandidateTextHash != draft.CandidateTextHash ||
+		admission.HandoffID == "" {
+		return fmt.Errorf("bad nano-direct candidate admission receipt: admission=%+v draft=%+v", admission, draft)
+	}
+	if admissionAdapter.Schema != admissionLiveRouteTurnCandidateAdmissionAdapterSchema ||
+		!admissionAdapter.Passed ||
+		admissionAdapter.HandoffID != admission.HandoffID ||
+		admissionAdapter.CandidateDraftID != draft.DraftID ||
+		admissionAdapter.CandidateExecutionID != execution.ExecutionID ||
+		admissionAdapter.GeneratorAdapterID != generatorAdapter.AdapterID ||
+		admissionAdapter.DreamCandidateRunID != draft.CandidateRunID ||
+		admissionAdapter.AdmissionAdapterID == "" {
+		return fmt.Errorf("bad nano-direct candidate admission adapter receipt: admission_adapter=%+v admission=%+v draft=%+v", admissionAdapter, admission, draft)
+	}
+	if candidate.Schema != "arianna.dream_candidate.v1" ||
+		candidate.LiveRouteCandidateAdmission == nil ||
+		candidate.LiveRouteCandidateAdmission.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+		candidate.LiveRouteCandidateAdmission.HandoffID != admissionAdapter.HandoffID ||
+		candidate.RunID != draft.CandidateRunID ||
+		candidate.Text != draft.CandidateText ||
+		candidate.Admission == nil ||
+		!candidate.Admission.Passed ||
+		candidate.Admission.LiveRouteChoice == nil ||
+		!candidate.Admission.LiveRouteChoice.Passed ||
+		candidate.Accepted ||
+		candidate.Reason != "shadow mode" {
+		return fmt.Errorf("bad nano-direct dream admission receipt: candidate=%+v admission_adapter=%+v draft=%+v", candidate, admissionAdapter, draft)
+	}
+
+	fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s\n",
+		executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath)
+	return nil
+}
+
 func runAdmissionLiveRouteTurnReviewSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
 	if logPath == "" {
