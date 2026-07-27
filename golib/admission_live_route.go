@@ -25,6 +25,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionPromotionSchema  = "arianna.live_route_turn_candidate_admission_promotion.v1"
 	admissionLiveRouteTurnCandidateAdmissionSwitchSchema     = "arianna.live_route_turn_candidate_admission_switch.v1"
 	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema  = "arianna.live_route_turn_candidate_admission_live_stage.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -447,6 +448,56 @@ type admissionLiveRouteTurnCandidateAdmissionEnableGate struct {
 	EnableKeyMatched      bool   `json:"enable_key_matched"`
 	MutatesState          bool   `json:"mutates_state"`
 	EnableGateID          string `json:"enable_gate_id,omitempty"`
+	Passed                bool   `json:"passed"`
+	Reason                string `json:"reason,omitempty"`
+	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionLiveStage struct {
+	Schema                string `json:"schema"`
+	Timing                string `json:"timing"`
+	StageState            string `json:"stage_state,omitempty"`
+	StageAction           string `json:"stage_action,omitempty"`
+	PromptClass           string `json:"prompt_class"`
+	Route                 string `json:"route,omitempty"`
+	Source                string `json:"source,omitempty"`
+	ExpectedSource        string `json:"expected_source,omitempty"`
+	CandidateRunID        string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
+	HandoffID             string `json:"handoff_id,omitempty"`
+	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID     string `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID string `json:"admission_enable_gate_id,omitempty"`
+	AdmissionDecision     string `json:"admission_decision,omitempty"`
+	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
+	SwitchState           string `json:"switch_state,omitempty"`
+	SwitchAction          string `json:"switch_action,omitempty"`
+	EnableState           string `json:"enable_state,omitempty"`
+	EnableAction          string `json:"enable_action,omitempty"`
+	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
+	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
+	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
+	SourceDecisionPassed  bool   `json:"source_decision_passed"`
+	SourcePromotionPassed bool   `json:"source_promotion_passed"`
+	SourceSwitchPassed    bool   `json:"source_switch_passed"`
+	SourceEnablePassed    bool   `json:"source_enable_passed"`
+	LiveReady             bool   `json:"live_ready"`
+	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
+	AdmissionAllowed      bool   `json:"admission_allowed"`
+	ManualEnableRequested bool   `json:"manual_enable_requested"`
+	EnableKeyMatched      bool   `json:"enable_key_matched"`
+	RequiresWriter        bool   `json:"requires_writer"`
+	WriterReady           bool   `json:"writer_ready"`
+	RequiresRollback      bool   `json:"requires_rollback"`
+	RollbackReady         bool   `json:"rollback_ready"`
+	MutatesState          bool   `json:"mutates_state"`
+	LiveStageID           string `json:"live_stage_id,omitempty"`
 	Passed                bool   `json:"passed"`
 	Reason                string `json:"reason,omitempty"`
 	TurnTextHash          string `json:"turn_text_hash,omitempty"`
@@ -2186,6 +2237,10 @@ func admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN")
 }
 
+func admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN")
+}
+
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
 	return strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY"))
 }
@@ -3032,6 +3087,202 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionEnableGate(gate admissionLive
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(gate)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate admissionLiveRouteTurnCandidateAdmissionEnableGate) admissionLiveRouteTurnCandidateAdmissionLiveStage {
+	stage := admissionLiveRouteTurnCandidateAdmissionLiveStage{
+		Schema:                admissionLiveRouteTurnCandidateAdmissionLiveStageSchema,
+		Timing:                "live_admission_candidate_stage",
+		StageState:            "blocked",
+		StageAction:           "reject",
+		PromptClass:           gate.PromptClass,
+		Route:                 gate.Route,
+		Source:                gate.Source,
+		ExpectedSource:        gate.ExpectedSource,
+		CandidateRunID:        gate.CandidateRunID,
+		CandidateDraftID:      gate.CandidateDraftID,
+		CandidateExecutionID:  gate.CandidateExecutionID,
+		GeneratorAdapterID:    gate.GeneratorAdapterID,
+		HandoffID:             gate.HandoffID,
+		AdmissionAdapterID:    gate.AdmissionAdapterID,
+		AdmissionDecisionID:   gate.AdmissionDecisionID,
+		AdmissionPromotionID:  gate.AdmissionPromotionID,
+		AdmissionSwitchID:     gate.AdmissionSwitchID,
+		AdmissionEnableGateID: gate.EnableGateID,
+		AdmissionDecision:     gate.AdmissionDecision,
+		AdmissionPromotion:    gate.AdmissionPromotion,
+		SwitchState:           gate.SwitchState,
+		SwitchAction:          gate.SwitchAction,
+		EnableState:           gate.EnableState,
+		EnableAction:          gate.EnableAction,
+		DreamCandidateRunID:   gate.DreamCandidateRunID,
+		CandidateTextStatus:   gate.CandidateTextStatus,
+		CandidateTextHash:     gate.CandidateTextHash,
+		AdmissionPolicyPassed: gate.AdmissionPolicyPassed,
+		LiveRouteChoicePassed: gate.LiveRouteChoicePassed,
+		SourceDecisionPassed:  gate.SourceDecisionPassed,
+		SourcePromotionPassed: gate.SourcePromotionPassed,
+		SourceSwitchPassed:    gate.SourceSwitchPassed,
+		SourceEnablePassed:    gate.Passed,
+		LiveReady:             gate.LiveReady,
+		LiveAdmissionEnabled:  false,
+		AdmissionAllowed:      false,
+		ManualEnableRequested: gate.ManualEnableRequested,
+		EnableKeyMatched:      gate.EnableKeyMatched,
+		RequiresWriter:        true,
+		WriterReady:           false,
+		RequiresRollback:      true,
+		RollbackReady:         false,
+		MutatesState:          false,
+		TurnTextHash:          gate.TurnTextHash,
+	}
+	if gate.Schema == "" {
+		stage.Reason = "missing_candidate_admission_enable_gate"
+		return stage
+	}
+	if gate.Schema != admissionLiveRouteTurnCandidateAdmissionEnableGateSchema {
+		stage.Reason = "unexpected_candidate_admission_enable_gate_schema " + gate.Schema
+		return stage
+	}
+	if !gate.Passed {
+		stage.Reason = "candidate_admission_enable_gate_failed"
+		if gate.Reason != "" {
+			stage.Reason += ": " + gate.Reason
+		}
+		return stage
+	}
+	if gate.EnableState != "armed_dry_run" {
+		stage.Reason = "candidate_admission_enable_gate_not_armed"
+		return stage
+	}
+	if gate.EnableAction != "would_enable_live_admission_dry_run" {
+		stage.Reason = "candidate_admission_enable_gate_unexpected_action"
+		return stage
+	}
+	if gate.EnableGateID == "" {
+		stage.Reason = "missing_candidate_admission_enable_gate_id"
+		return stage
+	}
+	if wantGateID := admissionLiveRouteTurnCandidateAdmissionEnableGateID(gate); wantGateID == "" || gate.EnableGateID != wantGateID {
+		stage.Reason = "candidate_admission_enable_gate_id_mismatch"
+		return stage
+	}
+	if !gate.LiveReady {
+		stage.Reason = "candidate_admission_enable_gate_not_live_ready"
+		return stage
+	}
+	if gate.LiveAdmissionEnabled {
+		stage.Reason = "candidate_admission_enable_gate_already_live_enabled"
+		return stage
+	}
+	if gate.AdmissionAllowed {
+		stage.Reason = "candidate_admission_enable_gate_already_allows_admission"
+		return stage
+	}
+	if !gate.ManualEnableRequested {
+		stage.Reason = "candidate_admission_enable_gate_missing_manual_enable"
+		return stage
+	}
+	if !gate.EnableKeyMatched {
+		stage.Reason = "candidate_admission_enable_gate_key_not_matched"
+		return stage
+	}
+	if gate.MutatesState {
+		stage.Reason = "candidate_admission_enable_gate_already_mutates_state"
+		return stage
+	}
+	if !gate.SourceSwitchPassed {
+		stage.Reason = "candidate_admission_enable_gate_source_switch_not_passed"
+		return stage
+	}
+	if !gate.SourcePromotionPassed {
+		stage.Reason = "candidate_admission_enable_gate_source_promotion_not_passed"
+		return stage
+	}
+	if !gate.SourceDecisionPassed {
+		stage.Reason = "candidate_admission_enable_gate_source_decision_not_passed"
+		return stage
+	}
+	if !gate.AdmissionPolicyPassed {
+		stage.Reason = "candidate_admission_enable_gate_policy_not_passed"
+		return stage
+	}
+	if !gate.LiveRouteChoicePassed {
+		stage.Reason = "candidate_admission_enable_gate_live_route_not_passed"
+		return stage
+	}
+	if gate.AdmissionSwitchID == "" ||
+		gate.AdmissionPromotionID == "" ||
+		gate.AdmissionDecisionID == "" ||
+		gate.AdmissionAdapterID == "" ||
+		gate.CandidateRunID == "" ||
+		gate.CandidateDraftID == "" ||
+		gate.CandidateExecutionID == "" ||
+		gate.GeneratorAdapterID == "" ||
+		gate.HandoffID == "" ||
+		gate.DreamCandidateRunID == "" ||
+		gate.CandidateTextHash == "" ||
+		gate.TurnTextHash == "" {
+		stage.Reason = "candidate_admission_enable_gate_missing_provenance"
+		return stage
+	}
+	stage.StageState = "staged_dry_run"
+	stage.StageAction = "stage_live_candidate_dry_run"
+	stage.LiveStageID = admissionLiveRouteTurnCandidateAdmissionLiveStageID(stage)
+	if stage.LiveStageID == "" {
+		stage.Reason = "missing_candidate_admission_live_stage_id"
+		return stage
+	}
+	stage.Passed = true
+	stage.Reason = "live admission candidate staged as dry-run; writer and rollback remain absent"
+	return stage
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLiveStageID(stage admissionLiveRouteTurnCandidateAdmissionLiveStage) string {
+	h := hashJSON(struct {
+		AdmissionEnableGateID string `json:"admission_enable_gate_id"`
+		AdmissionSwitchID     string `json:"admission_switch_id"`
+		AdmissionPromotionID  string `json:"admission_promotion_id"`
+		AdmissionDecisionID   string `json:"admission_decision_id"`
+		AdmissionAdapterID    string `json:"admission_adapter_id"`
+		CandidateRunID        string `json:"candidate_run_id"`
+		CandidateTextHash     string `json:"candidate_text_hash"`
+		TurnTextHash          string `json:"turn_text_hash"`
+		StageState            string `json:"stage_state"`
+		StageAction           string `json:"stage_action"`
+	}{
+		AdmissionEnableGateID: stage.AdmissionEnableGateID,
+		AdmissionSwitchID:     stage.AdmissionSwitchID,
+		AdmissionPromotionID:  stage.AdmissionPromotionID,
+		AdmissionDecisionID:   stage.AdmissionDecisionID,
+		AdmissionAdapterID:    stage.AdmissionAdapterID,
+		CandidateRunID:        stage.CandidateRunID,
+		CandidateTextHash:     stage.CandidateTextHash,
+		TurnTextHash:          stage.TurnTextHash,
+		StageState:            stage.StageState,
+		StageAction:           stage.StageAction,
+	})
+	if h == "" {
+		return ""
+	}
+	return "stage-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionLiveStage(stage admissionLiveRouteTurnCandidateAdmissionLiveStage) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(stage)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
