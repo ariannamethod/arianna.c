@@ -3860,3 +3860,18 @@ The passed path reports `stage_state=staged_dry_run`, `stage_action=stage_live_c
 failed upstream receipt, tampered enable id, missing provenance, writer absence, or rollback absence cannot write into
 the organism. `make admission-live-route-turn-candidate-nano-direct-live-stage-smoke` proves the real-nano chain can
 name an audit stage without admitting text.
+
+**Follow-up, same day - staged live admission reaches a writer preflight.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_writer_preflight.v1` after the live-stage receipt. It consumes only a
+passed `stage_state=staged_dry_run` stage, rechecks the stable `stage-<hash>` id, preserves all
+decision/promotion/switch/enable/stage provenance, and refuses to write unless a future writer and rollback contract
+exist.
+
+The passed preflight reports `writer_state=absent`, `writer_action=require_writer_contract`,
+`rollback_state=absent`, `rollback_action=require_rollback_contract`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `mutates_state=false`, and
+`reason=writer and rollback absent; live admission remains staged only`. Failed stages, tampered stage ids, missing
+provenance, already-ready writer flags, or already-mutating state stay blocked without a `writer-<hash>` id. `make
+admission-live-route-turn-candidate-nano-direct-writer-preflight-smoke` proves the real-nano chain reaches the writer
+boundary while the organism remains untouched.

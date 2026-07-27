@@ -8,24 +8,25 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema                             = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema                           = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema                  = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema                       = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema                      = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema                = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema               = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnCandidateExecutionSchema           = "arianna.live_route_turn_candidate_execution.v1"
-	admissionLiveRouteTurnGeneratorAdapterSchema             = "arianna.live_route_turn_generator_adapter.v1"
-	admissionLiveRouteTurnCandidateDraftSchema               = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema                       = "arianna.live_route_turn_candidate_review.v1"
-	admissionLiveRouteTurnCandidateAdmissionSchema           = "arianna.live_route_turn_candidate_admission.v1"
-	admissionLiveRouteTurnCandidateAdmissionAdapterSchema    = "arianna.live_route_turn_candidate_admission_adapter.v1"
-	admissionLiveRouteTurnCandidateAdmissionDecisionSchema   = "arianna.live_route_turn_candidate_admission_decision.v1"
-	admissionLiveRouteTurnCandidateAdmissionPromotionSchema  = "arianna.live_route_turn_candidate_admission_promotion.v1"
-	admissionLiveRouteTurnCandidateAdmissionSwitchSchema     = "arianna.live_route_turn_candidate_admission_switch.v1"
-	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
-	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema  = "arianna.live_route_turn_candidate_admission_live_stage.v1"
+	admissionLiveRoutePlanSchema                                  = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema                                = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema                       = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema                            = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema                           = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema                     = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema                    = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnCandidateExecutionSchema                = "arianna.live_route_turn_candidate_execution.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema                  = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema                    = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema                            = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRouteTurnCandidateAdmissionSchema                = "arianna.live_route_turn_candidate_admission.v1"
+	admissionLiveRouteTurnCandidateAdmissionAdapterSchema         = "arianna.live_route_turn_candidate_admission_adapter.v1"
+	admissionLiveRouteTurnCandidateAdmissionDecisionSchema        = "arianna.live_route_turn_candidate_admission_decision.v1"
+	admissionLiveRouteTurnCandidateAdmissionPromotionSchema       = "arianna.live_route_turn_candidate_admission_promotion.v1"
+	admissionLiveRouteTurnCandidateAdmissionSwitchSchema          = "arianna.live_route_turn_candidate_admission_switch.v1"
+	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema      = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema       = "arianna.live_route_turn_candidate_admission_live_stage.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -498,6 +499,63 @@ type admissionLiveRouteTurnCandidateAdmissionLiveStage struct {
 	RollbackReady         bool   `json:"rollback_ready"`
 	MutatesState          bool   `json:"mutates_state"`
 	LiveStageID           string `json:"live_stage_id,omitempty"`
+	Passed                bool   `json:"passed"`
+	Reason                string `json:"reason,omitempty"`
+	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionWriterPreflight struct {
+	Schema                string `json:"schema"`
+	Timing                string `json:"timing"`
+	WriterState           string `json:"writer_state,omitempty"`
+	WriterAction          string `json:"writer_action,omitempty"`
+	RollbackState         string `json:"rollback_state,omitempty"`
+	RollbackAction        string `json:"rollback_action,omitempty"`
+	PromptClass           string `json:"prompt_class"`
+	Route                 string `json:"route,omitempty"`
+	Source                string `json:"source,omitempty"`
+	ExpectedSource        string `json:"expected_source,omitempty"`
+	CandidateRunID        string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
+	HandoffID             string `json:"handoff_id,omitempty"`
+	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID     string `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID string `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID  string `json:"admission_live_stage_id,omitempty"`
+	AdmissionDecision     string `json:"admission_decision,omitempty"`
+	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
+	SwitchState           string `json:"switch_state,omitempty"`
+	SwitchAction          string `json:"switch_action,omitempty"`
+	EnableState           string `json:"enable_state,omitempty"`
+	EnableAction          string `json:"enable_action,omitempty"`
+	StageState            string `json:"stage_state,omitempty"`
+	StageAction           string `json:"stage_action,omitempty"`
+	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
+	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
+	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
+	SourceDecisionPassed  bool   `json:"source_decision_passed"`
+	SourcePromotionPassed bool   `json:"source_promotion_passed"`
+	SourceSwitchPassed    bool   `json:"source_switch_passed"`
+	SourceEnablePassed    bool   `json:"source_enable_passed"`
+	SourceStagePassed     bool   `json:"source_stage_passed"`
+	LiveReady             bool   `json:"live_ready"`
+	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
+	AdmissionAllowed      bool   `json:"admission_allowed"`
+	ManualEnableRequested bool   `json:"manual_enable_requested"`
+	EnableKeyMatched      bool   `json:"enable_key_matched"`
+	RequiresWriter        bool   `json:"requires_writer"`
+	WriterReady           bool   `json:"writer_ready"`
+	RequiresRollback      bool   `json:"requires_rollback"`
+	RollbackReady         bool   `json:"rollback_ready"`
+	WriteAllowed          bool   `json:"write_allowed"`
+	MutatesState          bool   `json:"mutates_state"`
+	WriterPreflightID     string `json:"writer_preflight_id,omitempty"`
 	Passed                bool   `json:"passed"`
 	Reason                string `json:"reason,omitempty"`
 	TurnTextHash          string `json:"turn_text_hash,omitempty"`
@@ -2241,6 +2299,10 @@ func admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN")
 }
 
+func admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN")
+}
+
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
 	return strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY"))
 }
@@ -3283,6 +3345,240 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionLiveStage(stage admissionLive
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(stage)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(stage admissionLiveRouteTurnCandidateAdmissionLiveStage) admissionLiveRouteTurnCandidateAdmissionWriterPreflight {
+	preflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflight{
+		Schema:                admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema,
+		Timing:                "live_admission_writer_preflight",
+		WriterState:           "blocked",
+		WriterAction:          "reject",
+		RollbackState:         "blocked",
+		RollbackAction:        "reject",
+		PromptClass:           stage.PromptClass,
+		Route:                 stage.Route,
+		Source:                stage.Source,
+		ExpectedSource:        stage.ExpectedSource,
+		CandidateRunID:        stage.CandidateRunID,
+		CandidateDraftID:      stage.CandidateDraftID,
+		CandidateExecutionID:  stage.CandidateExecutionID,
+		GeneratorAdapterID:    stage.GeneratorAdapterID,
+		HandoffID:             stage.HandoffID,
+		AdmissionAdapterID:    stage.AdmissionAdapterID,
+		AdmissionDecisionID:   stage.AdmissionDecisionID,
+		AdmissionPromotionID:  stage.AdmissionPromotionID,
+		AdmissionSwitchID:     stage.AdmissionSwitchID,
+		AdmissionEnableGateID: stage.AdmissionEnableGateID,
+		AdmissionLiveStageID:  stage.LiveStageID,
+		AdmissionDecision:     stage.AdmissionDecision,
+		AdmissionPromotion:    stage.AdmissionPromotion,
+		SwitchState:           stage.SwitchState,
+		SwitchAction:          stage.SwitchAction,
+		EnableState:           stage.EnableState,
+		EnableAction:          stage.EnableAction,
+		StageState:            stage.StageState,
+		StageAction:           stage.StageAction,
+		DreamCandidateRunID:   stage.DreamCandidateRunID,
+		CandidateTextStatus:   stage.CandidateTextStatus,
+		CandidateTextHash:     stage.CandidateTextHash,
+		AdmissionPolicyPassed: stage.AdmissionPolicyPassed,
+		LiveRouteChoicePassed: stage.LiveRouteChoicePassed,
+		SourceDecisionPassed:  stage.SourceDecisionPassed,
+		SourcePromotionPassed: stage.SourcePromotionPassed,
+		SourceSwitchPassed:    stage.SourceSwitchPassed,
+		SourceEnablePassed:    stage.SourceEnablePassed,
+		SourceStagePassed:     stage.Passed,
+		LiveReady:             stage.LiveReady,
+		LiveAdmissionEnabled:  stage.LiveAdmissionEnabled,
+		AdmissionAllowed:      stage.AdmissionAllowed,
+		ManualEnableRequested: stage.ManualEnableRequested,
+		EnableKeyMatched:      stage.EnableKeyMatched,
+		RequiresWriter:        stage.RequiresWriter,
+		WriterReady:           stage.WriterReady,
+		RequiresRollback:      stage.RequiresRollback,
+		RollbackReady:         stage.RollbackReady,
+		WriteAllowed:          false,
+		MutatesState:          false,
+		TurnTextHash:          stage.TurnTextHash,
+	}
+	if stage.Schema == "" {
+		preflight.Reason = "missing_candidate_admission_live_stage"
+		return preflight
+	}
+	if stage.Schema != admissionLiveRouteTurnCandidateAdmissionLiveStageSchema {
+		preflight.Reason = "unexpected_candidate_admission_live_stage_schema " + stage.Schema
+		return preflight
+	}
+	if !stage.Passed {
+		preflight.Reason = "candidate_admission_live_stage_failed"
+		if stage.Reason != "" {
+			preflight.Reason += ": " + stage.Reason
+		}
+		return preflight
+	}
+	if stage.StageState != "staged_dry_run" {
+		preflight.Reason = "candidate_admission_live_stage_not_staged"
+		return preflight
+	}
+	if stage.StageAction != "stage_live_candidate_dry_run" {
+		preflight.Reason = "candidate_admission_live_stage_unexpected_action"
+		return preflight
+	}
+	if stage.LiveStageID == "" {
+		preflight.Reason = "missing_candidate_admission_live_stage_id"
+		return preflight
+	}
+	if wantStageID := admissionLiveRouteTurnCandidateAdmissionLiveStageID(stage); wantStageID == "" || stage.LiveStageID != wantStageID {
+		preflight.Reason = "candidate_admission_live_stage_id_mismatch"
+		return preflight
+	}
+	if !stage.LiveReady {
+		preflight.Reason = "candidate_admission_live_stage_not_live_ready"
+		return preflight
+	}
+	if stage.LiveAdmissionEnabled {
+		preflight.Reason = "candidate_admission_live_stage_already_live_enabled"
+		return preflight
+	}
+	if stage.AdmissionAllowed {
+		preflight.Reason = "candidate_admission_live_stage_already_allows_admission"
+		return preflight
+	}
+	if !stage.ManualEnableRequested {
+		preflight.Reason = "candidate_admission_live_stage_missing_manual_enable"
+		return preflight
+	}
+	if !stage.EnableKeyMatched {
+		preflight.Reason = "candidate_admission_live_stage_key_not_matched"
+		return preflight
+	}
+	if !stage.RequiresWriter {
+		preflight.Reason = "candidate_admission_live_stage_does_not_require_writer"
+		return preflight
+	}
+	if stage.WriterReady {
+		preflight.Reason = "candidate_admission_live_stage_writer_already_ready"
+		return preflight
+	}
+	if !stage.RequiresRollback {
+		preflight.Reason = "candidate_admission_live_stage_does_not_require_rollback"
+		return preflight
+	}
+	if stage.RollbackReady {
+		preflight.Reason = "candidate_admission_live_stage_rollback_already_ready"
+		return preflight
+	}
+	if stage.MutatesState {
+		preflight.Reason = "candidate_admission_live_stage_already_mutates_state"
+		return preflight
+	}
+	if !stage.SourceEnablePassed {
+		preflight.Reason = "candidate_admission_live_stage_source_enable_not_passed"
+		return preflight
+	}
+	if !stage.SourceSwitchPassed {
+		preflight.Reason = "candidate_admission_live_stage_source_switch_not_passed"
+		return preflight
+	}
+	if !stage.SourcePromotionPassed {
+		preflight.Reason = "candidate_admission_live_stage_source_promotion_not_passed"
+		return preflight
+	}
+	if !stage.SourceDecisionPassed {
+		preflight.Reason = "candidate_admission_live_stage_source_decision_not_passed"
+		return preflight
+	}
+	if !stage.AdmissionPolicyPassed {
+		preflight.Reason = "candidate_admission_live_stage_policy_not_passed"
+		return preflight
+	}
+	if !stage.LiveRouteChoicePassed {
+		preflight.Reason = "candidate_admission_live_stage_live_route_not_passed"
+		return preflight
+	}
+	if stage.AdmissionEnableGateID == "" ||
+		stage.AdmissionSwitchID == "" ||
+		stage.AdmissionPromotionID == "" ||
+		stage.AdmissionDecisionID == "" ||
+		stage.AdmissionAdapterID == "" ||
+		stage.CandidateRunID == "" ||
+		stage.CandidateDraftID == "" ||
+		stage.CandidateExecutionID == "" ||
+		stage.GeneratorAdapterID == "" ||
+		stage.HandoffID == "" ||
+		stage.DreamCandidateRunID == "" ||
+		stage.CandidateTextHash == "" ||
+		stage.TurnTextHash == "" {
+		preflight.Reason = "candidate_admission_live_stage_missing_provenance"
+		return preflight
+	}
+	preflight.WriterState = "absent"
+	preflight.WriterAction = "require_writer_contract"
+	preflight.RollbackState = "absent"
+	preflight.RollbackAction = "require_rollback_contract"
+	preflight.WriterPreflightID = admissionLiveRouteTurnCandidateAdmissionWriterPreflightID(preflight)
+	if preflight.WriterPreflightID == "" {
+		preflight.Reason = "missing_candidate_admission_writer_preflight_id"
+		return preflight
+	}
+	preflight.Passed = true
+	preflight.Reason = "writer and rollback absent; live admission remains staged only"
+	return preflight
+}
+
+func admissionLiveRouteTurnCandidateAdmissionWriterPreflightID(preflight admissionLiveRouteTurnCandidateAdmissionWriterPreflight) string {
+	h := hashJSON(struct {
+		AdmissionLiveStageID  string `json:"admission_live_stage_id"`
+		AdmissionEnableGateID string `json:"admission_enable_gate_id"`
+		AdmissionSwitchID     string `json:"admission_switch_id"`
+		AdmissionPromotionID  string `json:"admission_promotion_id"`
+		AdmissionDecisionID   string `json:"admission_decision_id"`
+		AdmissionAdapterID    string `json:"admission_adapter_id"`
+		CandidateRunID        string `json:"candidate_run_id"`
+		CandidateTextHash     string `json:"candidate_text_hash"`
+		TurnTextHash          string `json:"turn_text_hash"`
+		WriterState           string `json:"writer_state"`
+		WriterAction          string `json:"writer_action"`
+		RollbackState         string `json:"rollback_state"`
+		RollbackAction        string `json:"rollback_action"`
+		WriteAllowed          bool   `json:"write_allowed"`
+	}{
+		AdmissionLiveStageID:  preflight.AdmissionLiveStageID,
+		AdmissionEnableGateID: preflight.AdmissionEnableGateID,
+		AdmissionSwitchID:     preflight.AdmissionSwitchID,
+		AdmissionPromotionID:  preflight.AdmissionPromotionID,
+		AdmissionDecisionID:   preflight.AdmissionDecisionID,
+		AdmissionAdapterID:    preflight.AdmissionAdapterID,
+		CandidateRunID:        preflight.CandidateRunID,
+		CandidateTextHash:     preflight.CandidateTextHash,
+		TurnTextHash:          preflight.TurnTextHash,
+		WriterState:           preflight.WriterState,
+		WriterAction:          preflight.WriterAction,
+		RollbackState:         preflight.RollbackState,
+		RollbackAction:        preflight.RollbackAction,
+		WriteAllowed:          preflight.WriteAllowed,
+	})
+	if h == "" {
+		return ""
+	}
+	return "writer-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionWriterPreflight(preflight admissionLiveRouteTurnCandidateAdmissionWriterPreflight) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(preflight)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
