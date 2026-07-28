@@ -1955,6 +1955,76 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerContract.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer contract lost provenance: contract=%+v inventory=%+v", writerContract, writerInventory)
 	}
+	ledger := admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(writerContract)
+	if ledger.Schema != admissionLiveRouteTurnCandidateAdmissionLedgerSchema ||
+		ledger.Timing != "live_admission_ledger" ||
+		ledger.LedgerState != "receipt_drafted_dry_run" ||
+		ledger.LedgerAction != "append_candidate_admission_receipt_dry_run" ||
+		ledger.LedgerContract != "live_admission_ledger.v1" ||
+		ledger.LedgerMode != "append_only_dry_run" ||
+		ledger.LedgerEntryKind != "dream_candidate_admission" ||
+		ledger.LedgerEntryStatus != "shadow_candidate_receipt" ||
+		ledger.LedgerReceiptShape != "candidate_contract_provenance" ||
+		!ledger.LedgerAppendReady ||
+		ledger.LedgerReceiptPersisted ||
+		ledger.LedgerImplementationReady ||
+		ledger.ContractState != "shape_drafted_dry_run" ||
+		ledger.ContractAction != "define_writer_rollback_ledger_contract" ||
+		ledger.WriterContract != "live_admission_writer.v1" ||
+		ledger.RollbackContract != "live_admission_rollback.v1" ||
+		ledger.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		ledger.WriterContractShape != "append_shadow_candidate_receipt" ||
+		ledger.RollbackContractShape != "remove_exact_writer_receipt" ||
+		ledger.LedgerContractShape != "append_only_receipt_log" ||
+		ledger.WriteScope != "dream_candidate_admission" ||
+		ledger.RollbackScope != "single_writer_receipt" ||
+		!ledger.ContractShapeReady ||
+		ledger.SourceWriterContractPresent ||
+		ledger.SourceRollbackContractPresent ||
+		ledger.SourceLedgerContractPresent ||
+		ledger.WriterImplementationReady ||
+		ledger.RollbackImplementationReady ||
+		ledger.ContractsReady ||
+		!strings.HasPrefix(ledger.AdmissionLedgerID, "admission-ledger-") ||
+		!ledger.Passed ||
+		!ledger.LiveReady ||
+		ledger.LiveAdmissionEnabled ||
+		ledger.AdmissionAllowed ||
+		!ledger.ManualEnableRequested ||
+		!ledger.EnableKeyMatched ||
+		!ledger.RequiresWriter ||
+		ledger.WriterReady ||
+		!ledger.RequiresRollback ||
+		ledger.RollbackReady ||
+		ledger.WriteAllowed ||
+		ledger.MutatesState ||
+		!ledger.SourceDecisionPassed ||
+		!ledger.SourcePromotionPassed ||
+		!ledger.SourceSwitchPassed ||
+		!ledger.SourceEnablePassed ||
+		!ledger.SourceStagePassed ||
+		!ledger.SourceWriterPreflightPassed ||
+		!ledger.SourceWriterInventoryPassed ||
+		!ledger.SourceWriterContractPassed ||
+		ledger.Reason != "admission ledger dry-run receipt drafted; no live write occurred" {
+		t.Fatalf("ledger should only draft a non-mutating append-only receipt: %+v", ledger)
+	}
+	if ledger.AdmissionWriterContractID != writerContract.WriterContractID ||
+		ledger.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		ledger.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		ledger.AdmissionLiveStageID != liveStage.LiveStageID ||
+		ledger.AdmissionEnableGateID != armedGate.EnableGateID ||
+		ledger.AdmissionSwitchID != sw.SwitchID ||
+		ledger.AdmissionPromotionID != promotion.PromotionID ||
+		ledger.AdmissionDecisionID != decision.DecisionID ||
+		ledger.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		ledger.CandidateExecutionID != execution.ExecutionID ||
+		ledger.CandidateDraftID != draft.DraftID ||
+		ledger.CandidateRunID != candidate.RunID ||
+		ledger.CandidateTextHash != hashJSON(text) ||
+		ledger.TurnTextHash != obs.TextHash {
+		t.Fatalf("ledger lost provenance: ledger=%+v contract=%+v", ledger, writerContract)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -1994,6 +2064,19 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedContract.MutatesState ||
 		blockedContract.Reason != "candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed inventory should not produce a writer contract: %+v", blockedContract)
+	}
+	blockedLedger := admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(blockedContract)
+	if blockedLedger.Passed ||
+		blockedLedger.AdmissionLedgerID != "" ||
+		blockedLedger.LedgerState != "blocked" ||
+		blockedLedger.LedgerAction != "reject" ||
+		blockedLedger.LedgerAppendReady ||
+		blockedLedger.LedgerReceiptPersisted ||
+		blockedLedger.ContractsReady ||
+		blockedLedger.WriteAllowed ||
+		blockedLedger.MutatesState ||
+		blockedLedger.Reason != "candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed contract should not produce a ledger receipt: %+v", blockedLedger)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2072,6 +2155,18 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedContract.Reason != "candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected inventory should not produce a writer contract: %+v", rejectedContract)
 	}
+	rejectedLedger := admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(rejectedContract)
+	if rejectedLedger.Passed ||
+		rejectedLedger.AdmissionLedgerID != "" ||
+		rejectedLedger.LedgerState != "blocked" ||
+		rejectedLedger.LedgerAction != "reject" ||
+		rejectedLedger.LedgerAppendReady ||
+		rejectedLedger.ContractsReady ||
+		rejectedLedger.WriteAllowed ||
+		rejectedLedger.MutatesState ||
+		rejectedLedger.Reason != "candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected contract should not produce a ledger receipt: %+v", rejectedLedger)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -2128,6 +2223,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedContract.WriterContractID != "" ||
 		tamperedContract.Reason != "candidate_admission_writer_inventory_id_mismatch" {
 		t.Fatalf("tampered writer inventory id should fail contract: %+v", tamperedContract)
+	}
+	tamperedContractID := writerContract
+	tamperedContractID.WriterContractID = "writer-contract-tampered"
+	tamperedLedger := admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(tamperedContractID)
+	if tamperedLedger.Passed ||
+		tamperedLedger.AdmissionLedgerID != "" ||
+		tamperedLedger.Reason != "candidate_admission_writer_contract_id_mismatch" {
+		t.Fatalf("tampered writer contract id should fail ledger: %+v", tamperedLedger)
 	}
 }
 

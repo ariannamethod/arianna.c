@@ -3909,3 +3909,21 @@ The passed contract receipt reports `contract_state=shape_drafted_dry_run`,
 present source contracts, ready-contract lies, missing provenance, or any upstream write permission remain blocked without
 a contract id. `make admission-live-route-turn-candidate-nano-direct-writer-contract-smoke` proves the real-nano chain can
 draft the writer/rollback/ledger contract shape while the organism remains untouched.
+
+**Follow-up, same day - writer contract now drafts an append-only admission ledger receipt.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_ledger.v1` after the writer-contract receipt. It consumes only a passed
+`contract_state=shape_drafted_dry_run` contract, rechecks the stable `writer-contract-<hash>` id, preserves the full
+decision/promotion/switch/enable/stage/preflight/inventory/contract provenance, and records the append-only receipt that
+would later let live admission prove exactly what candidate was considered.
+
+The passed ledger receipt reports `ledger_state=receipt_drafted_dry_run`,
+`ledger_action=append_candidate_admission_receipt_dry_run`, `ledger_contract=live_admission_ledger.v1`,
+`ledger_mode=append_only_dry_run`, `ledger_entry_kind=dream_candidate_admission`,
+`ledger_entry_status=shadow_candidate_receipt`, `ledger_receipt_shape=candidate_contract_provenance`,
+`ledger_append_ready=true`, `ledger_receipt_persisted=false`, `ledger_implementation_ready=false`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`, and a stable `admission-ledger-<hash>` id. Failed contracts, tampered contract ids, missing
+provenance, ready-ledger lies, or any upstream mutation permission stay blocked without a ledger id. `make
+admission-live-route-turn-candidate-nano-direct-admission-ledger-smoke` proves the real-nano chain can draft the ledger
+receipt while the body remains untouched.
