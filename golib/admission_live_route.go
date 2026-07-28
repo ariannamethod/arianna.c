@@ -29,6 +29,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
 	admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema = "arianna.live_route_turn_candidate_admission_writer_inventory.v1"
 	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema  = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerSchema          = "arianna.live_route_turn_candidate_admission_ledger.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -708,6 +709,98 @@ type admissionLiveRouteTurnCandidateAdmissionWriterContract struct {
 	WriteAllowed                  bool   `json:"write_allowed"`
 	MutatesState                  bool   `json:"mutates_state"`
 	WriterContractID              string `json:"writer_contract_id,omitempty"`
+	Passed                        bool   `json:"passed"`
+	Reason                        string `json:"reason,omitempty"`
+	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionLedger struct {
+	Schema                        string `json:"schema"`
+	Timing                        string `json:"timing"`
+	LedgerState                   string `json:"ledger_state,omitempty"`
+	LedgerAction                  string `json:"ledger_action,omitempty"`
+	LedgerContract                string `json:"ledger_contract,omitempty"`
+	LedgerMode                    string `json:"ledger_mode,omitempty"`
+	LedgerEntryKind               string `json:"ledger_entry_kind,omitempty"`
+	LedgerEntryStatus             string `json:"ledger_entry_status,omitempty"`
+	LedgerReceiptShape            string `json:"ledger_receipt_shape,omitempty"`
+	LedgerAppendReady             bool   `json:"ledger_append_ready"`
+	LedgerReceiptPersisted        bool   `json:"ledger_receipt_persisted"`
+	LedgerImplementationReady     bool   `json:"ledger_implementation_ready"`
+	ContractState                 string `json:"contract_state,omitempty"`
+	ContractAction                string `json:"contract_action,omitempty"`
+	WriterContract                string `json:"writer_contract,omitempty"`
+	RollbackContract              string `json:"rollback_contract,omitempty"`
+	AdmissionLedgerContract       string `json:"admission_ledger_contract,omitempty"`
+	WriterContractShape           string `json:"writer_contract_shape,omitempty"`
+	RollbackContractShape         string `json:"rollback_contract_shape,omitempty"`
+	LedgerContractShape           string `json:"ledger_contract_shape,omitempty"`
+	WriteScope                    string `json:"write_scope,omitempty"`
+	RollbackScope                 string `json:"rollback_scope,omitempty"`
+	ContractShapeReady            bool   `json:"contract_shape_ready"`
+	SourceWriterContractPresent   bool   `json:"source_writer_contract_present"`
+	SourceRollbackContractPresent bool   `json:"source_rollback_contract_present"`
+	SourceLedgerContractPresent   bool   `json:"source_ledger_contract_present"`
+	WriterImplementationReady     bool   `json:"writer_implementation_ready"`
+	RollbackImplementationReady   bool   `json:"rollback_implementation_ready"`
+	ContractsReady                bool   `json:"contracts_ready"`
+	WriterState                   string `json:"writer_state,omitempty"`
+	WriterAction                  string `json:"writer_action,omitempty"`
+	RollbackState                 string `json:"rollback_state,omitempty"`
+	RollbackAction                string `json:"rollback_action,omitempty"`
+	PromptClass                   string `json:"prompt_class"`
+	Route                         string `json:"route,omitempty"`
+	Source                        string `json:"source,omitempty"`
+	ExpectedSource                string `json:"expected_source,omitempty"`
+	CandidateRunID                string `json:"candidate_run_id,omitempty"`
+	CandidateDraftID              string `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID          string `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID            string `json:"generator_adapter_id,omitempty"`
+	HandoffID                     string `json:"handoff_id,omitempty"`
+	AdmissionAdapterID            string `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID           string `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID          string `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID             string `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID         string `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID          string `json:"admission_live_stage_id,omitempty"`
+	AdmissionWriterPreflightID    string `json:"admission_writer_preflight_id,omitempty"`
+	AdmissionWriterInventoryID    string `json:"admission_writer_inventory_id,omitempty"`
+	AdmissionWriterContractID     string `json:"admission_writer_contract_id,omitempty"`
+	AdmissionDecision             string `json:"admission_decision,omitempty"`
+	AdmissionPromotion            string `json:"admission_promotion,omitempty"`
+	SwitchState                   string `json:"switch_state,omitempty"`
+	SwitchAction                  string `json:"switch_action,omitempty"`
+	EnableState                   string `json:"enable_state,omitempty"`
+	EnableAction                  string `json:"enable_action,omitempty"`
+	StageState                    string `json:"stage_state,omitempty"`
+	StageAction                   string `json:"stage_action,omitempty"`
+	InventoryState                string `json:"inventory_state,omitempty"`
+	InventoryAction               string `json:"inventory_action,omitempty"`
+	DreamCandidateRunID           string `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus           string `json:"candidate_text_status,omitempty"`
+	CandidateTextHash             string `json:"candidate_text_hash,omitempty"`
+	AdmissionPolicyPassed         bool   `json:"admission_policy_passed"`
+	LiveRouteChoicePassed         bool   `json:"live_route_choice_passed"`
+	SourceDecisionPassed          bool   `json:"source_decision_passed"`
+	SourcePromotionPassed         bool   `json:"source_promotion_passed"`
+	SourceSwitchPassed            bool   `json:"source_switch_passed"`
+	SourceEnablePassed            bool   `json:"source_enable_passed"`
+	SourceStagePassed             bool   `json:"source_stage_passed"`
+	SourceWriterPreflightPassed   bool   `json:"source_writer_preflight_passed"`
+	SourceWriterInventoryPassed   bool   `json:"source_writer_inventory_passed"`
+	SourceWriterContractPassed    bool   `json:"source_writer_contract_passed"`
+	LiveReady                     bool   `json:"live_ready"`
+	LiveAdmissionEnabled          bool   `json:"live_admission_enabled"`
+	AdmissionAllowed              bool   `json:"admission_allowed"`
+	ManualEnableRequested         bool   `json:"manual_enable_requested"`
+	EnableKeyMatched              bool   `json:"enable_key_matched"`
+	RequiresWriter                bool   `json:"requires_writer"`
+	WriterReady                   bool   `json:"writer_ready"`
+	RequiresRollback              bool   `json:"requires_rollback"`
+	RollbackReady                 bool   `json:"rollback_ready"`
+	WriteAllowed                  bool   `json:"write_allowed"`
+	MutatesState                  bool   `json:"mutates_state"`
+	AdmissionLedgerID             string `json:"admission_ledger_id,omitempty"`
 	Passed                        bool   `json:"passed"`
 	Reason                        string `json:"reason,omitempty"`
 	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
@@ -2461,6 +2554,10 @@ func admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -4343,6 +4440,392 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionWriterContract(contract admis
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(contract)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(contract admissionLiveRouteTurnCandidateAdmissionWriterContract) admissionLiveRouteTurnCandidateAdmissionLedger {
+	ledger := admissionLiveRouteTurnCandidateAdmissionLedger{
+		Schema:                        admissionLiveRouteTurnCandidateAdmissionLedgerSchema,
+		Timing:                        "live_admission_ledger",
+		LedgerState:                   "blocked",
+		LedgerAction:                  "reject",
+		LedgerContract:                contract.AdmissionLedgerContract,
+		LedgerMode:                    contract.LedgerMode,
+		LedgerImplementationReady:     false,
+		ContractState:                 contract.ContractState,
+		ContractAction:                contract.ContractAction,
+		WriterContract:                contract.WriterContract,
+		RollbackContract:              contract.RollbackContract,
+		AdmissionLedgerContract:       contract.AdmissionLedgerContract,
+		WriterContractShape:           contract.WriterContractShape,
+		RollbackContractShape:         contract.RollbackContractShape,
+		LedgerContractShape:           contract.LedgerContractShape,
+		WriteScope:                    contract.WriteScope,
+		RollbackScope:                 contract.RollbackScope,
+		ContractShapeReady:            contract.ContractShapeReady,
+		SourceWriterContractPresent:   contract.SourceWriterContractPresent,
+		SourceRollbackContractPresent: contract.SourceRollbackContractPresent,
+		SourceLedgerContractPresent:   contract.SourceLedgerContractPresent,
+		WriterImplementationReady:     contract.WriterImplementationReady,
+		RollbackImplementationReady:   contract.RollbackImplementationReady,
+		ContractsReady:                false,
+		WriterState:                   contract.WriterState,
+		WriterAction:                  contract.WriterAction,
+		RollbackState:                 contract.RollbackState,
+		RollbackAction:                contract.RollbackAction,
+		PromptClass:                   contract.PromptClass,
+		Route:                         contract.Route,
+		Source:                        contract.Source,
+		ExpectedSource:                contract.ExpectedSource,
+		CandidateRunID:                contract.CandidateRunID,
+		CandidateDraftID:              contract.CandidateDraftID,
+		CandidateExecutionID:          contract.CandidateExecutionID,
+		GeneratorAdapterID:            contract.GeneratorAdapterID,
+		HandoffID:                     contract.HandoffID,
+		AdmissionAdapterID:            contract.AdmissionAdapterID,
+		AdmissionDecisionID:           contract.AdmissionDecisionID,
+		AdmissionPromotionID:          contract.AdmissionPromotionID,
+		AdmissionSwitchID:             contract.AdmissionSwitchID,
+		AdmissionEnableGateID:         contract.AdmissionEnableGateID,
+		AdmissionLiveStageID:          contract.AdmissionLiveStageID,
+		AdmissionWriterPreflightID:    contract.AdmissionWriterPreflightID,
+		AdmissionWriterInventoryID:    contract.AdmissionWriterInventoryID,
+		AdmissionWriterContractID:     contract.WriterContractID,
+		AdmissionDecision:             contract.AdmissionDecision,
+		AdmissionPromotion:            contract.AdmissionPromotion,
+		SwitchState:                   contract.SwitchState,
+		SwitchAction:                  contract.SwitchAction,
+		EnableState:                   contract.EnableState,
+		EnableAction:                  contract.EnableAction,
+		StageState:                    contract.StageState,
+		StageAction:                   contract.StageAction,
+		InventoryState:                contract.InventoryState,
+		InventoryAction:               contract.InventoryAction,
+		DreamCandidateRunID:           contract.DreamCandidateRunID,
+		CandidateTextStatus:           contract.CandidateTextStatus,
+		CandidateTextHash:             contract.CandidateTextHash,
+		AdmissionPolicyPassed:         contract.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:         contract.LiveRouteChoicePassed,
+		SourceDecisionPassed:          contract.SourceDecisionPassed,
+		SourcePromotionPassed:         contract.SourcePromotionPassed,
+		SourceSwitchPassed:            contract.SourceSwitchPassed,
+		SourceEnablePassed:            contract.SourceEnablePassed,
+		SourceStagePassed:             contract.SourceStagePassed,
+		SourceWriterPreflightPassed:   contract.SourceWriterPreflightPassed,
+		SourceWriterInventoryPassed:   contract.SourceWriterInventoryPassed,
+		SourceWriterContractPassed:    contract.Passed,
+		LiveReady:                     contract.LiveReady,
+		LiveAdmissionEnabled:          contract.LiveAdmissionEnabled,
+		AdmissionAllowed:              contract.AdmissionAllowed,
+		ManualEnableRequested:         contract.ManualEnableRequested,
+		EnableKeyMatched:              contract.EnableKeyMatched,
+		RequiresWriter:                contract.RequiresWriter,
+		WriterReady:                   contract.WriterReady,
+		RequiresRollback:              contract.RequiresRollback,
+		RollbackReady:                 contract.RollbackReady,
+		WriteAllowed:                  false,
+		MutatesState:                  false,
+		TurnTextHash:                  contract.TurnTextHash,
+	}
+	if contract.Schema == "" {
+		ledger.Reason = "missing_candidate_admission_writer_contract"
+		return ledger
+	}
+	if contract.Schema != admissionLiveRouteTurnCandidateAdmissionWriterContractSchema {
+		ledger.Reason = "unexpected_candidate_admission_writer_contract_schema " + contract.Schema
+		return ledger
+	}
+	if !contract.Passed {
+		ledger.Reason = "candidate_admission_writer_contract_failed"
+		if contract.Reason != "" {
+			ledger.Reason += ": " + contract.Reason
+		}
+		return ledger
+	}
+	if contract.WriterContractID == "" {
+		ledger.Reason = "missing_candidate_admission_writer_contract_id"
+		return ledger
+	}
+	if wantContractID := admissionLiveRouteTurnCandidateAdmissionWriterContractID(contract); wantContractID == "" || contract.WriterContractID != wantContractID {
+		ledger.Reason = "candidate_admission_writer_contract_id_mismatch"
+		return ledger
+	}
+	if contract.ContractState != "shape_drafted_dry_run" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_state"
+		return ledger
+	}
+	if contract.ContractAction != "define_writer_rollback_ledger_contract" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_action"
+		return ledger
+	}
+	if contract.WriterContract != "live_admission_writer.v1" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_writer_contract"
+		return ledger
+	}
+	if contract.RollbackContract != "live_admission_rollback.v1" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_rollback_contract"
+		return ledger
+	}
+	if contract.AdmissionLedgerContract != "live_admission_ledger.v1" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_ledger_contract"
+		return ledger
+	}
+	if contract.WriterContractShape != "append_shadow_candidate_receipt" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_writer_shape"
+		return ledger
+	}
+	if contract.RollbackContractShape != "remove_exact_writer_receipt" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_rollback_shape"
+		return ledger
+	}
+	if contract.LedgerContractShape != "append_only_receipt_log" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_ledger_shape"
+		return ledger
+	}
+	if contract.WriteScope != "dream_candidate_admission" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_write_scope"
+		return ledger
+	}
+	if contract.RollbackScope != "single_writer_receipt" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_rollback_scope"
+		return ledger
+	}
+	if contract.LedgerMode != "append_only_dry_run" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_ledger_mode"
+		return ledger
+	}
+	if !contract.ContractShapeReady {
+		ledger.Reason = "candidate_admission_writer_contract_shape_not_ready"
+		return ledger
+	}
+	if contract.SourceWriterContractPresent {
+		ledger.Reason = "candidate_admission_writer_contract_source_writer_present"
+		return ledger
+	}
+	if contract.SourceRollbackContractPresent {
+		ledger.Reason = "candidate_admission_writer_contract_source_rollback_present"
+		return ledger
+	}
+	if contract.SourceLedgerContractPresent {
+		ledger.Reason = "candidate_admission_writer_contract_source_ledger_present"
+		return ledger
+	}
+	if contract.WriterImplementationReady {
+		ledger.Reason = "candidate_admission_writer_contract_writer_impl_already_ready"
+		return ledger
+	}
+	if contract.RollbackImplementationReady {
+		ledger.Reason = "candidate_admission_writer_contract_rollback_impl_already_ready"
+		return ledger
+	}
+	if contract.LedgerImplementationReady {
+		ledger.Reason = "candidate_admission_writer_contract_ledger_impl_already_ready"
+		return ledger
+	}
+	if contract.ContractsReady {
+		ledger.Reason = "candidate_admission_writer_contract_contracts_already_ready"
+		return ledger
+	}
+	if !contract.LiveReady {
+		ledger.Reason = "candidate_admission_writer_contract_not_live_ready"
+		return ledger
+	}
+	if contract.LiveAdmissionEnabled {
+		ledger.Reason = "candidate_admission_writer_contract_already_live_enabled"
+		return ledger
+	}
+	if contract.AdmissionAllowed {
+		ledger.Reason = "candidate_admission_writer_contract_already_allows_admission"
+		return ledger
+	}
+	if !contract.ManualEnableRequested {
+		ledger.Reason = "candidate_admission_writer_contract_missing_manual_enable"
+		return ledger
+	}
+	if !contract.EnableKeyMatched {
+		ledger.Reason = "candidate_admission_writer_contract_key_not_matched"
+		return ledger
+	}
+	if !contract.RequiresWriter {
+		ledger.Reason = "candidate_admission_writer_contract_does_not_require_writer"
+		return ledger
+	}
+	if contract.WriterReady {
+		ledger.Reason = "candidate_admission_writer_contract_writer_already_ready"
+		return ledger
+	}
+	if !contract.RequiresRollback {
+		ledger.Reason = "candidate_admission_writer_contract_does_not_require_rollback"
+		return ledger
+	}
+	if contract.RollbackReady {
+		ledger.Reason = "candidate_admission_writer_contract_rollback_already_ready"
+		return ledger
+	}
+	if contract.WriteAllowed {
+		ledger.Reason = "candidate_admission_writer_contract_already_allows_write"
+		return ledger
+	}
+	if contract.MutatesState {
+		ledger.Reason = "candidate_admission_writer_contract_already_mutates_state"
+		return ledger
+	}
+	if contract.StageState != "staged_dry_run" {
+		ledger.Reason = "candidate_admission_writer_contract_stage_not_staged"
+		return ledger
+	}
+	if contract.StageAction != "stage_live_candidate_dry_run" {
+		ledger.Reason = "candidate_admission_writer_contract_unexpected_stage_action"
+		return ledger
+	}
+	if !contract.SourceWriterInventoryPassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_inventory_not_passed"
+		return ledger
+	}
+	if !contract.SourceWriterPreflightPassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_preflight_not_passed"
+		return ledger
+	}
+	if !contract.SourceStagePassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_stage_not_passed"
+		return ledger
+	}
+	if !contract.SourceEnablePassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_enable_not_passed"
+		return ledger
+	}
+	if !contract.SourceSwitchPassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_switch_not_passed"
+		return ledger
+	}
+	if !contract.SourcePromotionPassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_promotion_not_passed"
+		return ledger
+	}
+	if !contract.SourceDecisionPassed {
+		ledger.Reason = "candidate_admission_writer_contract_source_decision_not_passed"
+		return ledger
+	}
+	if !contract.AdmissionPolicyPassed {
+		ledger.Reason = "candidate_admission_writer_contract_policy_not_passed"
+		return ledger
+	}
+	if !contract.LiveRouteChoicePassed {
+		ledger.Reason = "candidate_admission_writer_contract_live_route_not_passed"
+		return ledger
+	}
+	if contract.AdmissionWriterInventoryID == "" ||
+		contract.AdmissionWriterPreflightID == "" ||
+		contract.AdmissionLiveStageID == "" ||
+		contract.AdmissionEnableGateID == "" ||
+		contract.AdmissionSwitchID == "" ||
+		contract.AdmissionPromotionID == "" ||
+		contract.AdmissionDecisionID == "" ||
+		contract.AdmissionAdapterID == "" ||
+		contract.CandidateRunID == "" ||
+		contract.CandidateDraftID == "" ||
+		contract.CandidateExecutionID == "" ||
+		contract.GeneratorAdapterID == "" ||
+		contract.HandoffID == "" ||
+		contract.DreamCandidateRunID == "" ||
+		contract.CandidateTextHash == "" ||
+		contract.TurnTextHash == "" {
+		ledger.Reason = "candidate_admission_writer_contract_missing_provenance"
+		return ledger
+	}
+	ledger.LedgerState = "receipt_drafted_dry_run"
+	ledger.LedgerAction = "append_candidate_admission_receipt_dry_run"
+	ledger.LedgerContract = contract.AdmissionLedgerContract
+	ledger.LedgerMode = contract.LedgerMode
+	ledger.LedgerEntryKind = "dream_candidate_admission"
+	ledger.LedgerEntryStatus = "shadow_candidate_receipt"
+	ledger.LedgerReceiptShape = "candidate_contract_provenance"
+	ledger.LedgerAppendReady = true
+	ledger.LedgerReceiptPersisted = false
+	ledger.LedgerImplementationReady = false
+	ledger.ContractsReady = false
+	ledger.AdmissionLedgerID = admissionLiveRouteTurnCandidateAdmissionLedgerID(ledger)
+	if ledger.AdmissionLedgerID == "" {
+		ledger.Reason = "missing_candidate_admission_ledger_id"
+		return ledger
+	}
+	ledger.Passed = true
+	ledger.Reason = "admission ledger dry-run receipt drafted; no live write occurred"
+	return ledger
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerID(ledger admissionLiveRouteTurnCandidateAdmissionLedger) string {
+	h := hashJSON(struct {
+		AdmissionWriterContractID  string `json:"admission_writer_contract_id"`
+		AdmissionWriterInventoryID string `json:"admission_writer_inventory_id"`
+		AdmissionWriterPreflightID string `json:"admission_writer_preflight_id"`
+		AdmissionLiveStageID       string `json:"admission_live_stage_id"`
+		AdmissionEnableGateID      string `json:"admission_enable_gate_id"`
+		AdmissionSwitchID          string `json:"admission_switch_id"`
+		AdmissionPromotionID       string `json:"admission_promotion_id"`
+		AdmissionDecisionID        string `json:"admission_decision_id"`
+		AdmissionAdapterID         string `json:"admission_adapter_id"`
+		CandidateRunID             string `json:"candidate_run_id"`
+		CandidateTextHash          string `json:"candidate_text_hash"`
+		TurnTextHash               string `json:"turn_text_hash"`
+		LedgerState                string `json:"ledger_state"`
+		LedgerAction               string `json:"ledger_action"`
+		LedgerContract             string `json:"ledger_contract"`
+		LedgerMode                 string `json:"ledger_mode"`
+		LedgerEntryKind            string `json:"ledger_entry_kind"`
+		LedgerEntryStatus          string `json:"ledger_entry_status"`
+		LedgerReceiptShape         string `json:"ledger_receipt_shape"`
+		LedgerAppendReady          bool   `json:"ledger_append_ready"`
+		LedgerReceiptPersisted     bool   `json:"ledger_receipt_persisted"`
+		ContractsReady             bool   `json:"contracts_ready"`
+		WriteAllowed               bool   `json:"write_allowed"`
+		MutatesState               bool   `json:"mutates_state"`
+	}{
+		AdmissionWriterContractID:  ledger.AdmissionWriterContractID,
+		AdmissionWriterInventoryID: ledger.AdmissionWriterInventoryID,
+		AdmissionWriterPreflightID: ledger.AdmissionWriterPreflightID,
+		AdmissionLiveStageID:       ledger.AdmissionLiveStageID,
+		AdmissionEnableGateID:      ledger.AdmissionEnableGateID,
+		AdmissionSwitchID:          ledger.AdmissionSwitchID,
+		AdmissionPromotionID:       ledger.AdmissionPromotionID,
+		AdmissionDecisionID:        ledger.AdmissionDecisionID,
+		AdmissionAdapterID:         ledger.AdmissionAdapterID,
+		CandidateRunID:             ledger.CandidateRunID,
+		CandidateTextHash:          ledger.CandidateTextHash,
+		TurnTextHash:               ledger.TurnTextHash,
+		LedgerState:                ledger.LedgerState,
+		LedgerAction:               ledger.LedgerAction,
+		LedgerContract:             ledger.LedgerContract,
+		LedgerMode:                 ledger.LedgerMode,
+		LedgerEntryKind:            ledger.LedgerEntryKind,
+		LedgerEntryStatus:          ledger.LedgerEntryStatus,
+		LedgerReceiptShape:         ledger.LedgerReceiptShape,
+		LedgerAppendReady:          ledger.LedgerAppendReady,
+		LedgerReceiptPersisted:     ledger.LedgerReceiptPersisted,
+		ContractsReady:             ledger.ContractsReady,
+		WriteAllowed:               ledger.WriteAllowed,
+		MutatesState:               ledger.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "admission-ledger-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionLedger(ledger admissionLiveRouteTurnCandidateAdmissionLedger) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(ledger)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
