@@ -3927,3 +3927,23 @@ The passed ledger receipt reports `ledger_state=receipt_drafted_dry_run`,
 provenance, ready-ledger lies, or any upstream mutation permission stay blocked without a ledger id. `make
 admission-live-route-turn-candidate-nano-direct-admission-ledger-smoke` proves the real-nano chain can draft the ledger
 receipt while the body remains untouched.
+
+**Follow-up, same day - admission ledger now drafts the append-only writer implementation contract.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_writer_implementation.v1` after the ledger receipt. It consumes only a passed
+`ledger_state=receipt_drafted_dry_run` ledger, rechecks the stable `admission-ledger-<hash>` id, preserves the full
+decision/promotion/switch/enable/stage/preflight/inventory/contract/ledger provenance, and names the concrete writer,
+ledger, and rollback entrypoints that a future implementation must expose.
+
+The passed writer implementation receipt reports `implementation_state=implementation_contract_drafted_dry_run`,
+`implementation_action=define_append_only_writer_ledger_rollback`,
+`writer_entrypoint=append_shadow_candidate_receipt_dry_run`,
+`ledger_entrypoint=append_admission_ledger_receipt_dry_run`,
+`rollback_entrypoint=remove_exact_shadow_candidate_receipt_dry_run`, `write_target=shadow_receipt_log`,
+`body_target=none`, `append_only=true`, `rollback_required=true`, `implementation_contract_ready=true`,
+implementation readiness false for writer/rollback/ledger, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `mutates_state=false`, and a stable
+`writer-implementation-<hash>` id. Failed ledgers, tampered ledger ids, missing provenance, ready-implementation lies, or
+any upstream body-write permission remain blocked without an implementation id. `make
+admission-live-route-turn-candidate-nano-direct-writer-implementation-smoke` proves the real-nano chain can draft the
+append-only writer boundary while the body remains untouched.
