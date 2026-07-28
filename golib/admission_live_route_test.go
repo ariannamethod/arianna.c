@@ -2107,6 +2107,75 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerImpl.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer implementation lost provenance: impl=%+v ledger=%+v", writerImpl, ledger)
 	}
+	writerReceipt := admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(writerImpl)
+	if writerReceipt.Schema != admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema ||
+		writerReceipt.Timing != "live_admission_writer_receipt" ||
+		writerReceipt.WriterReceiptState != "shadow_receipt_appended_dry_run" ||
+		writerReceipt.WriterReceiptAction != "append_shadow_candidate_receipt_dry_run" ||
+		writerReceipt.WriterReceiptKind != "dream_candidate_admission" ||
+		writerReceipt.WriterReceiptTarget != "shadow_receipt_log" ||
+		writerReceipt.WriterReceiptMode != "append_only_dry_run" ||
+		writerReceipt.WriterReceiptShape != "candidate_contract_provenance" ||
+		!writerReceipt.WriterReceiptPersisted ||
+		!writerReceipt.ShadowWriteAllowed ||
+		writerReceipt.BodyTarget != "none" ||
+		!writerReceipt.AppendOnly ||
+		!writerReceipt.RollbackRequired ||
+		!writerReceipt.ImplementationContractReady ||
+		!writerReceipt.WriterReady ||
+		writerReceipt.WriterState != "ready_dry_run" ||
+		writerReceipt.WriterAction != "append_shadow_candidate_receipt_dry_run" ||
+		!writerReceipt.WriterImplementationReady ||
+		writerReceipt.RollbackReady ||
+		writerReceipt.RollbackImplementationReady ||
+		writerReceipt.LedgerImplementationReady ||
+		writerReceipt.ContractsReady ||
+		writerReceipt.WriteAllowed ||
+		writerReceipt.AdmissionAllowed ||
+		writerReceipt.LiveAdmissionEnabled ||
+		writerReceipt.MutatesState ||
+		!strings.HasPrefix(writerReceipt.WriterReceiptID, "writer-receipt-") ||
+		!writerReceipt.Passed ||
+		!writerReceipt.LiveReady ||
+		!writerReceipt.ManualEnableRequested ||
+		!writerReceipt.EnableKeyMatched ||
+		!writerReceipt.RequiresWriter ||
+		!writerReceipt.RequiresRollback ||
+		!writerReceipt.SourceWriterImplementationPassed ||
+		writerReceipt.SourceWriterImplementationID != writerImpl.WriterImplementationID ||
+		writerReceipt.SourceWriterImplementationEntrypoint != "append_shadow_candidate_receipt_dry_run" ||
+		writerReceipt.SourceLedgerImplementationEntrypoint != "append_admission_ledger_receipt_dry_run" ||
+		writerReceipt.SourceRollbackImplementationEntrypoint != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!writerReceipt.SourceDecisionPassed ||
+		!writerReceipt.SourcePromotionPassed ||
+		!writerReceipt.SourceSwitchPassed ||
+		!writerReceipt.SourceEnablePassed ||
+		!writerReceipt.SourceStagePassed ||
+		!writerReceipt.SourceWriterPreflightPassed ||
+		!writerReceipt.SourceWriterInventoryPassed ||
+		!writerReceipt.SourceWriterContractPassed ||
+		!writerReceipt.SourceLedgerPassed ||
+		writerReceipt.Reason != "shadow writer receipt appended as dry-run; body write remains disabled" {
+		t.Fatalf("writer receipt should append only to the shadow log: %+v", writerReceipt)
+	}
+	if writerReceipt.WriterImplementationID != writerImpl.WriterImplementationID ||
+		writerReceipt.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		writerReceipt.AdmissionWriterContractID != writerContract.WriterContractID ||
+		writerReceipt.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		writerReceipt.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		writerReceipt.AdmissionLiveStageID != liveStage.LiveStageID ||
+		writerReceipt.AdmissionEnableGateID != armedGate.EnableGateID ||
+		writerReceipt.AdmissionSwitchID != sw.SwitchID ||
+		writerReceipt.AdmissionPromotionID != promotion.PromotionID ||
+		writerReceipt.AdmissionDecisionID != decision.DecisionID ||
+		writerReceipt.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		writerReceipt.CandidateExecutionID != execution.ExecutionID ||
+		writerReceipt.CandidateDraftID != draft.DraftID ||
+		writerReceipt.CandidateRunID != candidate.RunID ||
+		writerReceipt.CandidateTextHash != hashJSON(text) ||
+		writerReceipt.TurnTextHash != obs.TextHash {
+		t.Fatalf("writer receipt lost provenance: receipt=%+v impl=%+v", writerReceipt, writerImpl)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2172,6 +2241,21 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedWriterImpl.MutatesState ||
 		blockedWriterImpl.Reason != "candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed ledger should not produce a writer implementation receipt: %+v", blockedWriterImpl)
+	}
+	blockedWriterReceipt := admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(blockedWriterImpl)
+	if blockedWriterReceipt.Passed ||
+		blockedWriterReceipt.WriterReceiptID != "" ||
+		blockedWriterReceipt.WriterReceiptState != "blocked" ||
+		blockedWriterReceipt.WriterReceiptAction != "reject" ||
+		blockedWriterReceipt.WriterReceiptPersisted ||
+		blockedWriterReceipt.ShadowWriteAllowed ||
+		blockedWriterReceipt.WriterReady ||
+		blockedWriterReceipt.WriterImplementationReady ||
+		blockedWriterReceipt.ContractsReady ||
+		blockedWriterReceipt.WriteAllowed ||
+		blockedWriterReceipt.MutatesState ||
+		blockedWriterReceipt.Reason != "candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed writer implementation should not produce a writer receipt: %+v", blockedWriterReceipt)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2275,6 +2359,19 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rejectedWriterImpl.Reason != "candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
 		t.Fatalf("rejected ledger should not produce a writer implementation receipt: %+v", rejectedWriterImpl)
 	}
+	rejectedWriterReceipt := admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(rejectedWriterImpl)
+	if rejectedWriterReceipt.Passed ||
+		rejectedWriterReceipt.WriterReceiptID != "" ||
+		rejectedWriterReceipt.WriterReceiptState != "blocked" ||
+		rejectedWriterReceipt.WriterReceiptAction != "reject" ||
+		rejectedWriterReceipt.WriterReceiptPersisted ||
+		rejectedWriterReceipt.ShadowWriteAllowed ||
+		rejectedWriterReceipt.WriterReady ||
+		rejectedWriterReceipt.WriteAllowed ||
+		rejectedWriterReceipt.MutatesState ||
+		rejectedWriterReceipt.Reason != "candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: candidate execution runner provided_text is not nano-direct" {
+		t.Fatalf("rejected writer implementation should not produce a writer receipt: %+v", rejectedWriterReceipt)
+	}
 
 	tampered := decision
 	tampered.DecisionID = "decision-tampered"
@@ -2347,6 +2444,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedWriterImpl.WriterImplementationID != "" ||
 		tamperedWriterImpl.Reason != "candidate_admission_ledger_id_mismatch" {
 		t.Fatalf("tampered admission ledger id should fail writer implementation: %+v", tamperedWriterImpl)
+	}
+	tamperedWriterImplID := writerImpl
+	tamperedWriterImplID.WriterImplementationID = "writer-implementation-tampered"
+	tamperedWriterReceipt := admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(tamperedWriterImplID)
+	if tamperedWriterReceipt.Passed ||
+		tamperedWriterReceipt.WriterReceiptID != "" ||
+		tamperedWriterReceipt.Reason != "candidate_admission_writer_implementation_id_mismatch" {
+		t.Fatalf("tampered writer implementation id should fail writer receipt: %+v", tamperedWriterReceipt)
 	}
 }
 

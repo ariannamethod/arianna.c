@@ -31,6 +31,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema  = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
 	admissionLiveRouteTurnCandidateAdmissionLedgerSchema          = "arianna.live_route_turn_candidate_admission_ledger.v1"
 	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema      = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema   = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -909,6 +910,25 @@ type admissionLiveRouteTurnCandidateAdmissionWriterImplementation struct {
 	Passed                        bool   `json:"passed"`
 	Reason                        string `json:"reason,omitempty"`
 	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionWriterReceipt struct {
+	admissionLiveRouteTurnCandidateAdmissionWriterImplementation
+
+	WriterReceiptState                     string `json:"writer_receipt_state,omitempty"`
+	WriterReceiptAction                    string `json:"writer_receipt_action,omitempty"`
+	WriterReceiptKind                      string `json:"writer_receipt_kind,omitempty"`
+	WriterReceiptTarget                    string `json:"writer_receipt_target,omitempty"`
+	WriterReceiptMode                      string `json:"writer_receipt_mode,omitempty"`
+	WriterReceiptShape                     string `json:"writer_receipt_shape,omitempty"`
+	WriterReceiptPersisted                 bool   `json:"writer_receipt_persisted"`
+	ShadowWriteAllowed                     bool   `json:"shadow_write_allowed"`
+	SourceWriterImplementationPassed       bool   `json:"source_writer_implementation_passed"`
+	SourceWriterImplementationID           string `json:"source_writer_implementation_id,omitempty"`
+	SourceWriterImplementationEntrypoint   string `json:"source_writer_implementation_entrypoint,omitempty"`
+	SourceLedgerImplementationEntrypoint   string `json:"source_ledger_implementation_entrypoint,omitempty"`
+	SourceRollbackImplementationEntrypoint string `json:"source_rollback_implementation_entrypoint,omitempty"`
+	WriterReceiptID                        string `json:"writer_receipt_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2667,6 +2687,10 @@ func admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -5286,6 +5310,277 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionWriterImplementation(impl adm
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(impl)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(impl admissionLiveRouteTurnCandidateAdmissionWriterImplementation) admissionLiveRouteTurnCandidateAdmissionWriterReceipt {
+	receipt := admissionLiveRouteTurnCandidateAdmissionWriterReceipt{
+		admissionLiveRouteTurnCandidateAdmissionWriterImplementation: impl,
+		WriterReceiptState:                     "blocked",
+		WriterReceiptAction:                    "reject",
+		SourceWriterImplementationPassed:       impl.Passed,
+		SourceWriterImplementationID:           impl.WriterImplementationID,
+		SourceWriterImplementationEntrypoint:   impl.WriterEntrypoint,
+		SourceLedgerImplementationEntrypoint:   impl.LedgerEntrypoint,
+		SourceRollbackImplementationEntrypoint: impl.RollbackEntrypoint,
+	}
+	receipt.Schema = admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema
+	receipt.Timing = "live_admission_writer_receipt"
+	receipt.Passed = false
+	receipt.WriterReceiptID = ""
+	receipt.WriterReceiptPersisted = false
+	receipt.ShadowWriteAllowed = false
+	receipt.WriteAllowed = false
+	receipt.MutatesState = false
+
+	if impl.Schema == "" {
+		receipt.Reason = "missing_candidate_admission_writer_implementation"
+		return receipt
+	}
+	if impl.Schema != admissionLiveRouteTurnCandidateAdmissionWriterImplSchema {
+		receipt.Reason = "unexpected_candidate_admission_writer_implementation_schema " + impl.Schema
+		return receipt
+	}
+	if !impl.Passed {
+		receipt.Reason = "candidate_admission_writer_implementation_failed"
+		if impl.Reason != "" {
+			receipt.Reason += ": " + impl.Reason
+		}
+		return receipt
+	}
+	if impl.WriterImplementationID == "" {
+		receipt.Reason = "missing_candidate_admission_writer_implementation_id"
+		return receipt
+	}
+	if wantImplID := admissionLiveRouteTurnCandidateAdmissionWriterImplementationID(impl); wantImplID == "" || impl.WriterImplementationID != wantImplID {
+		receipt.Reason = "candidate_admission_writer_implementation_id_mismatch"
+		return receipt
+	}
+	if impl.ImplementationState != "implementation_contract_drafted_dry_run" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_state"
+		return receipt
+	}
+	if impl.ImplementationAction != "define_append_only_writer_ledger_rollback" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_action"
+		return receipt
+	}
+	if impl.WriterEntrypoint != "append_shadow_candidate_receipt_dry_run" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_writer_entrypoint"
+		return receipt
+	}
+	if impl.LedgerEntrypoint != "append_admission_ledger_receipt_dry_run" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_ledger_entrypoint"
+		return receipt
+	}
+	if impl.RollbackEntrypoint != "remove_exact_shadow_candidate_receipt_dry_run" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_rollback_entrypoint"
+		return receipt
+	}
+	if impl.WriteTarget != "shadow_receipt_log" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_write_target"
+		return receipt
+	}
+	if impl.BodyTarget != "none" {
+		receipt.Reason = "candidate_admission_writer_implementation_unexpected_body_target"
+		return receipt
+	}
+	if !impl.AppendOnly || !impl.RollbackRequired || !impl.ImplementationContractReady {
+		receipt.Reason = "candidate_admission_writer_implementation_contract_not_ready"
+		return receipt
+	}
+	if impl.LedgerState != "receipt_drafted_dry_run" ||
+		impl.LedgerAction != "append_candidate_admission_receipt_dry_run" ||
+		impl.LedgerContract != "live_admission_ledger.v1" ||
+		impl.LedgerMode != "append_only_dry_run" ||
+		impl.LedgerEntryKind != "dream_candidate_admission" ||
+		impl.LedgerEntryStatus != "shadow_candidate_receipt" ||
+		impl.LedgerReceiptShape != "candidate_contract_provenance" {
+		receipt.Reason = "candidate_admission_writer_implementation_ledger_mismatch"
+		return receipt
+	}
+	if !impl.LedgerAppendReady || impl.LedgerReceiptPersisted || impl.LedgerImplementationReady {
+		receipt.Reason = "candidate_admission_writer_implementation_ledger_state_mismatch"
+		return receipt
+	}
+	if impl.ContractsReady || impl.WriteAllowed || impl.MutatesState || impl.LiveAdmissionEnabled || impl.AdmissionAllowed {
+		receipt.Reason = "candidate_admission_writer_implementation_already_open"
+		return receipt
+	}
+	if !impl.LiveReady {
+		receipt.Reason = "candidate_admission_writer_implementation_not_live_ready"
+		return receipt
+	}
+	if !impl.ContractShapeReady {
+		receipt.Reason = "candidate_admission_writer_implementation_contract_shape_not_ready"
+		return receipt
+	}
+	if impl.SourceWriterContractPresent || impl.SourceRollbackContractPresent || impl.SourceLedgerContractPresent {
+		receipt.Reason = "candidate_admission_writer_implementation_source_contract_already_present"
+		return receipt
+	}
+	if impl.WriterImplementationReady || impl.RollbackImplementationReady || impl.LedgerImplementationReady {
+		receipt.Reason = "candidate_admission_writer_implementation_impl_already_ready"
+		return receipt
+	}
+	if impl.WriterContract != "live_admission_writer.v1" ||
+		impl.RollbackContract != "live_admission_rollback.v1" ||
+		impl.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		impl.WriterContractShape != "append_shadow_candidate_receipt" ||
+		impl.RollbackContractShape != "remove_exact_writer_receipt" ||
+		impl.LedgerContractShape != "append_only_receipt_log" ||
+		impl.WriteScope != "dream_candidate_admission" ||
+		impl.RollbackScope != "single_writer_receipt" {
+		receipt.Reason = "candidate_admission_writer_implementation_contract_shape_mismatch"
+		return receipt
+	}
+	if !impl.ManualEnableRequested || !impl.EnableKeyMatched {
+		receipt.Reason = "candidate_admission_writer_implementation_enable_not_armed"
+		return receipt
+	}
+	if !impl.RequiresWriter || impl.WriterReady || !impl.RequiresRollback || impl.RollbackReady {
+		receipt.Reason = "candidate_admission_writer_implementation_writer_rollback_state_mismatch"
+		return receipt
+	}
+	if impl.WriterState != "absent" ||
+		impl.WriterAction != "require_writer_contract" ||
+		impl.RollbackState != "absent" ||
+		impl.RollbackAction != "require_rollback_contract" {
+		receipt.Reason = "candidate_admission_writer_implementation_preflight_state_mismatch"
+		return receipt
+	}
+	if impl.StageState != "staged_dry_run" || impl.StageAction != "stage_live_candidate_dry_run" {
+		receipt.Reason = "candidate_admission_writer_implementation_stage_not_staged"
+		return receipt
+	}
+	if !impl.SourceLedgerPassed ||
+		!impl.SourceWriterContractPassed ||
+		!impl.SourceWriterInventoryPassed ||
+		!impl.SourceWriterPreflightPassed ||
+		!impl.SourceStagePassed ||
+		!impl.SourceEnablePassed ||
+		!impl.SourceSwitchPassed ||
+		!impl.SourcePromotionPassed ||
+		!impl.SourceDecisionPassed ||
+		!impl.AdmissionPolicyPassed ||
+		!impl.LiveRouteChoicePassed {
+		receipt.Reason = "candidate_admission_writer_implementation_source_not_passed"
+		return receipt
+	}
+	if impl.WriterImplementationID == "" ||
+		impl.AdmissionLedgerID == "" ||
+		impl.AdmissionWriterContractID == "" ||
+		impl.AdmissionWriterInventoryID == "" ||
+		impl.AdmissionWriterPreflightID == "" ||
+		impl.AdmissionLiveStageID == "" ||
+		impl.AdmissionEnableGateID == "" ||
+		impl.AdmissionSwitchID == "" ||
+		impl.AdmissionPromotionID == "" ||
+		impl.AdmissionDecisionID == "" ||
+		impl.AdmissionAdapterID == "" ||
+		impl.CandidateRunID == "" ||
+		impl.CandidateDraftID == "" ||
+		impl.CandidateExecutionID == "" ||
+		impl.GeneratorAdapterID == "" ||
+		impl.HandoffID == "" ||
+		impl.DreamCandidateRunID == "" ||
+		impl.CandidateTextHash == "" ||
+		impl.TurnTextHash == "" {
+		receipt.Reason = "candidate_admission_writer_implementation_missing_provenance"
+		return receipt
+	}
+
+	receipt.WriterReceiptState = "shadow_receipt_appended_dry_run"
+	receipt.WriterReceiptAction = impl.WriterEntrypoint
+	receipt.WriterReceiptKind = impl.LedgerEntryKind
+	receipt.WriterReceiptTarget = impl.WriteTarget
+	receipt.WriterReceiptMode = impl.LedgerMode
+	receipt.WriterReceiptShape = impl.LedgerReceiptShape
+	receipt.WriterReceiptPersisted = true
+	receipt.ShadowWriteAllowed = true
+	receipt.WriterState = "ready_dry_run"
+	receipt.WriterAction = impl.WriterEntrypoint
+	receipt.WriterReady = true
+	receipt.WriterImplementationReady = true
+	receipt.RollbackReady = false
+	receipt.RollbackImplementationReady = false
+	receipt.LedgerImplementationReady = false
+	receipt.ContractsReady = false
+	receipt.WriteAllowed = false
+	receipt.AdmissionAllowed = false
+	receipt.LiveAdmissionEnabled = false
+	receipt.MutatesState = false
+	receipt.WriterReceiptID = admissionLiveRouteTurnCandidateAdmissionWriterReceiptID(receipt)
+	if receipt.WriterReceiptID == "" {
+		receipt.Reason = "missing_candidate_admission_writer_receipt_id"
+		return receipt
+	}
+	receipt.Passed = true
+	receipt.Reason = "shadow writer receipt appended as dry-run; body write remains disabled"
+	return receipt
+}
+
+func admissionLiveRouteTurnCandidateAdmissionWriterReceiptID(receipt admissionLiveRouteTurnCandidateAdmissionWriterReceipt) string {
+	h := hashJSON(struct {
+		WriterImplementationID    string `json:"writer_implementation_id"`
+		AdmissionLedgerID         string `json:"admission_ledger_id"`
+		AdmissionWriterContractID string `json:"admission_writer_contract_id"`
+		CandidateRunID            string `json:"candidate_run_id"`
+		CandidateTextHash         string `json:"candidate_text_hash"`
+		TurnTextHash              string `json:"turn_text_hash"`
+		WriterReceiptState        string `json:"writer_receipt_state"`
+		WriterReceiptAction       string `json:"writer_receipt_action"`
+		WriterReceiptKind         string `json:"writer_receipt_kind"`
+		WriterReceiptTarget       string `json:"writer_receipt_target"`
+		WriterReceiptMode         string `json:"writer_receipt_mode"`
+		WriterReceiptShape        string `json:"writer_receipt_shape"`
+		WriterReceiptPersisted    bool   `json:"writer_receipt_persisted"`
+		ShadowWriteAllowed        bool   `json:"shadow_write_allowed"`
+		WriterReady               bool   `json:"writer_ready"`
+		WriterImplementationReady bool   `json:"writer_implementation_ready"`
+		BodyTarget                string `json:"body_target"`
+		WriteAllowed              bool   `json:"write_allowed"`
+		MutatesState              bool   `json:"mutates_state"`
+	}{
+		WriterImplementationID:    receipt.WriterImplementationID,
+		AdmissionLedgerID:         receipt.AdmissionLedgerID,
+		AdmissionWriterContractID: receipt.AdmissionWriterContractID,
+		CandidateRunID:            receipt.CandidateRunID,
+		CandidateTextHash:         receipt.CandidateTextHash,
+		TurnTextHash:              receipt.TurnTextHash,
+		WriterReceiptState:        receipt.WriterReceiptState,
+		WriterReceiptAction:       receipt.WriterReceiptAction,
+		WriterReceiptKind:         receipt.WriterReceiptKind,
+		WriterReceiptTarget:       receipt.WriterReceiptTarget,
+		WriterReceiptMode:         receipt.WriterReceiptMode,
+		WriterReceiptShape:        receipt.WriterReceiptShape,
+		WriterReceiptPersisted:    receipt.WriterReceiptPersisted,
+		ShadowWriteAllowed:        receipt.ShadowWriteAllowed,
+		WriterReady:               receipt.WriterReady,
+		WriterImplementationReady: receipt.WriterImplementationReady,
+		BodyTarget:                receipt.BodyTarget,
+		WriteAllowed:              receipt.WriteAllowed,
+		MutatesState:              receipt.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "writer-receipt-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionWriterReceipt(receipt admissionLiveRouteTurnCandidateAdmissionWriterReceipt) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(receipt)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

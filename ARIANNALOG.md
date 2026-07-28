@@ -3947,3 +3947,22 @@ implementation readiness false for writer/rollback/ledger, `contracts_ready=fals
 any upstream body-write permission remain blocked without an implementation id. `make
 admission-live-route-turn-candidate-nano-direct-writer-implementation-smoke` proves the real-nano chain can draft the
 append-only writer boundary while the body remains untouched.
+
+**Follow-up, same day - writer implementation now appends a shadow writer receipt.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_writer_receipt.v1` after the writer-implementation receipt. It consumes
+only a passed `implementation_state=implementation_contract_drafted_dry_run` implementation, rechecks the stable
+`writer-implementation-<hash>` id, preserves the full decision/promotion/switch/enable/stage/preflight/inventory/
+contract/ledger/implementation provenance, and appends only an auditable shadow receipt.
+
+The passed writer receipt reports `writer_receipt_state=shadow_receipt_appended_dry_run`,
+`writer_receipt_action=append_shadow_candidate_receipt_dry_run`,
+`writer_receipt_target=shadow_receipt_log`, `writer_receipt_mode=append_only_dry_run`,
+`writer_receipt_shape=candidate_contract_provenance`, `writer_receipt_persisted=true`,
+`shadow_write_allowed=true`, `writer_ready=true`, `writer_implementation_ready=true`,
+`rollback_implementation_ready=false`, `ledger_implementation_ready=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`,
+`mutates_state=false`, and a stable `writer-receipt-<hash>` id. Failed implementations, tampered implementation ids,
+missing provenance, source-contract lies, or any upstream body-write permission stay blocked without a writer receipt
+id. `make admission-live-route-turn-candidate-nano-direct-writer-receipt-smoke` proves the real-nano chain can append
+the first shadow writer receipt while live body state remains closed.
