@@ -2176,6 +2176,68 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerReceipt.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer receipt lost provenance: receipt=%+v impl=%+v", writerReceipt, writerImpl)
 	}
+	rollbackImpl := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationForWriterReceipt(writerReceipt)
+	if rollbackImpl.Schema != admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema ||
+		rollbackImpl.Timing != "live_admission_rollback_implementation" ||
+		rollbackImpl.RollbackImplementationState != "rollback_contract_drafted_dry_run" ||
+		rollbackImpl.RollbackImplementationAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		rollbackImpl.RollbackEntrypointResolved != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		rollbackImpl.RollbackTarget != "shadow_receipt_log" ||
+		rollbackImpl.RollbackTargetKind != "dream_candidate_admission" ||
+		rollbackImpl.RollbackTargetID != writerReceipt.WriterReceiptID ||
+		rollbackImpl.RollbackMode != "exact_receipt_id_dry_run" ||
+		!rollbackImpl.ExactReceiptMatchRequired ||
+		!rollbackImpl.RollbackDryRunOnly ||
+		rollbackImpl.RollbackReceiptRemoved ||
+		!rollbackImpl.WriterReady ||
+		rollbackImpl.WriterState != "ready_dry_run" ||
+		rollbackImpl.WriterAction != "append_shadow_candidate_receipt_dry_run" ||
+		!rollbackImpl.RollbackReady ||
+		rollbackImpl.RollbackState != "ready_dry_run" ||
+		rollbackImpl.RollbackAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!rollbackImpl.WriterImplementationReady ||
+		!rollbackImpl.RollbackImplementationReady ||
+		rollbackImpl.LedgerImplementationReady ||
+		rollbackImpl.ContractsReady ||
+		rollbackImpl.WriteAllowed ||
+		rollbackImpl.AdmissionAllowed ||
+		rollbackImpl.LiveAdmissionEnabled ||
+		rollbackImpl.MutatesState ||
+		!strings.HasPrefix(rollbackImpl.RollbackImplementationID, "rollback-implementation-") ||
+		!rollbackImpl.Passed ||
+		!rollbackImpl.LiveReady ||
+		!rollbackImpl.ManualEnableRequested ||
+		!rollbackImpl.EnableKeyMatched ||
+		!rollbackImpl.RequiresWriter ||
+		!rollbackImpl.RequiresRollback ||
+		rollbackImpl.SourceWriterReceiptSchema != admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema ||
+		!rollbackImpl.SourceWriterReceiptPassed ||
+		rollbackImpl.SourceWriterReceiptID != writerReceipt.WriterReceiptID ||
+		rollbackImpl.SourceWriterReceiptAction != "append_shadow_candidate_receipt_dry_run" ||
+		!rollbackImpl.SourceWriterReceiptPersisted ||
+		!rollbackImpl.SourceWriterReceiptShadowWritable ||
+		rollbackImpl.Reason != "rollback implementation drafted for exact writer receipt; body write remains disabled" {
+		t.Fatalf("rollback implementation should prove exact dry-run rollback only: %+v", rollbackImpl)
+	}
+	if rollbackImpl.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		rollbackImpl.WriterImplementationID != writerImpl.WriterImplementationID ||
+		rollbackImpl.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		rollbackImpl.AdmissionWriterContractID != writerContract.WriterContractID ||
+		rollbackImpl.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		rollbackImpl.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		rollbackImpl.AdmissionLiveStageID != liveStage.LiveStageID ||
+		rollbackImpl.AdmissionEnableGateID != armedGate.EnableGateID ||
+		rollbackImpl.AdmissionSwitchID != sw.SwitchID ||
+		rollbackImpl.AdmissionPromotionID != promotion.PromotionID ||
+		rollbackImpl.AdmissionDecisionID != decision.DecisionID ||
+		rollbackImpl.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		rollbackImpl.CandidateExecutionID != execution.ExecutionID ||
+		rollbackImpl.CandidateDraftID != draft.DraftID ||
+		rollbackImpl.CandidateRunID != candidate.RunID ||
+		rollbackImpl.CandidateTextHash != hashJSON(text) ||
+		rollbackImpl.TurnTextHash != obs.TextHash {
+		t.Fatalf("rollback implementation lost provenance: rollback=%+v receipt=%+v", rollbackImpl, writerReceipt)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2256,6 +2318,18 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedWriterReceipt.MutatesState ||
 		blockedWriterReceipt.Reason != "candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed writer implementation should not produce a writer receipt: %+v", blockedWriterReceipt)
+	}
+	blockedRollbackImpl := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationForWriterReceipt(blockedWriterReceipt)
+	if blockedRollbackImpl.Passed ||
+		blockedRollbackImpl.RollbackImplementationID != "" ||
+		blockedRollbackImpl.RollbackImplementationState != "blocked" ||
+		blockedRollbackImpl.RollbackImplementationAction != "reject" ||
+		blockedRollbackImpl.RollbackReady ||
+		blockedRollbackImpl.RollbackImplementationReady ||
+		blockedRollbackImpl.WriteAllowed ||
+		blockedRollbackImpl.MutatesState ||
+		blockedRollbackImpl.Reason != "candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed writer receipt should not produce rollback implementation: %+v", blockedRollbackImpl)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2452,6 +2526,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedWriterReceipt.WriterReceiptID != "" ||
 		tamperedWriterReceipt.Reason != "candidate_admission_writer_implementation_id_mismatch" {
 		t.Fatalf("tampered writer implementation id should fail writer receipt: %+v", tamperedWriterReceipt)
+	}
+	tamperedReceiptID := writerReceipt
+	tamperedReceiptID.WriterReceiptID = "writer-receipt-tampered"
+	tamperedRollbackImpl := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationForWriterReceipt(tamperedReceiptID)
+	if tamperedRollbackImpl.Passed ||
+		tamperedRollbackImpl.RollbackImplementationID != "" ||
+		tamperedRollbackImpl.Reason != "candidate_admission_writer_receipt_id_mismatch" {
+		t.Fatalf("tampered writer receipt id should fail rollback implementation: %+v", tamperedRollbackImpl)
 	}
 }
 

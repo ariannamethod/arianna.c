@@ -3966,3 +3966,23 @@ The passed writer receipt reports `writer_receipt_state=shadow_receipt_appended_
 missing provenance, source-contract lies, or any upstream body-write permission stay blocked without a writer receipt
 id. `make admission-live-route-turn-candidate-nano-direct-writer-receipt-smoke` proves the real-nano chain can append
 the first shadow writer receipt while live body state remains closed.
+
+**Follow-up, same day - writer receipt now drafts an exact rollback implementation.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_rollback_implementation.v1` after the writer-receipt boundary. It consumes
+only a passed `writer_receipt_state=shadow_receipt_appended_dry_run` receipt, rechecks the stable
+`writer-receipt-<hash>` id, preserves the full decision/promotion/switch/enable/stage/preflight/inventory/contract/
+ledger/implementation/receipt provenance, and proves that rollback is scoped to the exact shadow writer receipt.
+
+The passed rollback implementation reports `rollback_implementation_state=rollback_contract_drafted_dry_run`,
+`rollback_implementation_action=remove_exact_shadow_candidate_receipt_dry_run`,
+`rollback_target=shadow_receipt_log`, `rollback_target_kind=dream_candidate_admission`,
+`rollback_target_id=writer-receipt-<hash>`, `rollback_mode=exact_receipt_id_dry_run`,
+`exact_receipt_match_required=true`, `rollback_dry_run_only=true`, `rollback_receipt_removed=false`,
+`rollback_ready=true`, `rollback_implementation_ready=true`, `writer_ready=true`,
+`writer_implementation_ready=true`, `ledger_implementation_ready=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`,
+`mutates_state=false`, and a stable `rollback-implementation-<hash>` id. Failed writer receipts, tampered receipt ids,
+missing provenance, non-exact rollback scopes, or any upstream body-write permission stay blocked without a rollback
+implementation id. `make admission-live-route-turn-candidate-nano-direct-rollback-implementation-smoke` proves the
+real-nano chain can prepare exact rollback while the shadow receipt remains present and live body state remains closed.
