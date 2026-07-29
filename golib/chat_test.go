@@ -1841,6 +1841,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", admissionLiveRouteTurnCandidateAdmissionPermitConfirmation)
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
@@ -1867,6 +1868,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	sealLog := filepath.Join(dir, "live-route-candidate-admission-seal.jsonl")
 	finalGateLog := filepath.Join(dir, "live-route-candidate-admission-final-gate.jsonl")
 	resonanceIntentLog := filepath.Join(dir, "live-route-candidate-admission-resonance-intent.jsonl")
+	resonanceReceiverLog := filepath.Join(dir, "live-route-candidate-admission-resonance-receiver.jsonl")
 	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
@@ -1888,13 +1890,14 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_LOG", sealLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_LOG", finalGateLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_LOG", resonanceIntentLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_LOG", resonanceReceiverLog)
 
 	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the ledger should verify.")
 	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
-	if len(lines) != 25 {
-		t.Fatalf("expected 25 candidate chain lines, got %d: %v", len(lines), lines)
+	if len(lines) != 26 {
+		t.Fatalf("expected 26 candidate chain lines, got %d: %v", len(lines), lines)
 	}
-	verificationLine := lines[len(lines)-6]
+	verificationLine := lines[len(lines)-7]
 	for _, want := range []string{
 		"live-route candidate admission ledger verification dry-run",
 		"class=direct-user",
@@ -1948,7 +1951,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		got.Reason != "candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission ledger verification: %+v", got)
 	}
-	readinessLine := lines[len(lines)-5]
+	readinessLine := lines[len(lines)-6]
 	for _, want := range []string{
 		"live-route candidate admission readiness dry-run",
 		"class=direct-user",
@@ -1998,7 +2001,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		readiness.Reason != "candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission readiness: %+v", readiness)
 	}
-	permitLine := lines[len(lines)-4]
+	permitLine := lines[len(lines)-5]
 	for _, want := range []string{
 		"live-route candidate admission permit dry-run",
 		"class=direct-user",
@@ -2053,7 +2056,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		permit.Reason != "candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission permit: %+v", permit)
 	}
-	sealLine := lines[len(lines)-3]
+	sealLine := lines[len(lines)-4]
 	for _, want := range []string{
 		"live-route candidate admission seal dry-run",
 		"class=direct-user",
@@ -2109,7 +2112,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		seal.Reason != "candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission seal: %+v", seal)
 	}
-	finalGateLine := lines[len(lines)-2]
+	finalGateLine := lines[len(lines)-3]
 	for _, want := range []string{
 		"live-route candidate admission final gate dry-run",
 		"class=direct-user",
@@ -2169,7 +2172,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		finalGate.Reason != "candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission final gate: %+v", finalGate)
 	}
-	resonanceIntentLine := lines[len(lines)-1]
+	resonanceIntentLine := lines[len(lines)-2]
 	for _, want := range []string{
 		"live-route candidate admission resonance intent dry-run",
 		"class=direct-user",
@@ -2244,6 +2247,90 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		resonanceIntent.AdmissionResonanceIntentID != "" ||
 		resonanceIntent.Reason != "candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission resonance intent: %+v", resonanceIntent)
+	}
+	resonanceReceiverLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission resonance receiver dry-run",
+		"class=direct-user",
+		"route=user_bridge",
+		"source=user_bridge",
+		"intent=",
+		"final_gate=",
+		"seal=",
+		"permit=",
+		"readiness=",
+		"ledger_verification=",
+		"receiver= receiver_kind= influence_kind= max_influence=0.00 ttl_turns=0 causal_id= source_causal_id=",
+		"pre_state_hash= post_state_hash= delta_hash= state_hash_mode=",
+		"raw_text_observed=false raw_text_forwarded=false janus_surface_allowed=false cooc_learning_allowed=false delta_harvest_allowed=false body_mutation_allowed=false rollback_required=false",
+		"receiver_state=blocked",
+		"receiver_action=reject",
+		"dry_run_only=true",
+		"intent_verified=false",
+		"final_gate_verified=false",
+		"seal_verified=false",
+		"permit_verified=false",
+		"readiness_verified=false",
+		"ledger_verified=false",
+		"writer_ready=false rollback_ready=false ledger_ready=false receiver_ready=false",
+		"contracts_ready=false write_allowed=false admission_allowed=false live_ready=false live_enabled=false mutates=false",
+		"admission_resonance_receiver_id=",
+		"passed=false",
+		"reason=candidate_admission_resonance_intent_failed: candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution",
+	} {
+		if !strings.Contains(resonanceReceiverLine, want) {
+			t.Fatalf("candidate admission resonance receiver line missing %q: %q", want, resonanceReceiverLine)
+		}
+	}
+	raw, err = os.ReadFile(resonanceReceiverLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resonanceReceiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &resonanceReceiver); err != nil {
+		t.Fatal(err)
+	}
+	if resonanceReceiver.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema ||
+		resonanceReceiver.Passed ||
+		resonanceReceiver.LiveReady ||
+		resonanceReceiver.LiveAdmissionEnabled ||
+		resonanceReceiver.AdmissionAllowed ||
+		resonanceReceiver.AdmissionResonanceReceiverState != "blocked" ||
+		resonanceReceiver.AdmissionResonanceReceiverAction != "reject" ||
+		!resonanceReceiver.AdmissionResonanceReceiverDryRunOnly ||
+		resonanceReceiver.AdmissionResonanceReceiverIntentVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverFinalGateVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverSealVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverPermitVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverReadinessVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverLedgerVerified ||
+		resonanceReceiver.AdmissionResonanceReceiverWriterReady ||
+		resonanceReceiver.AdmissionResonanceReceiverRollbackReady ||
+		resonanceReceiver.AdmissionResonanceReceiverLedgerReady ||
+		resonanceReceiver.AdmissionResonanceReceiverReceiver != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverReceiverKind != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverInfluenceKind != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverMaxInfluence != 0 ||
+		resonanceReceiver.AdmissionResonanceReceiverTTLTurns != 0 ||
+		resonanceReceiver.AdmissionResonanceReceiverCausalID != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverPreStateHash != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverPostStateHash != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverStateDeltaHash != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverStateHashMode != "" ||
+		resonanceReceiver.AdmissionResonanceReceiverRawDreamTextObserved ||
+		resonanceReceiver.AdmissionResonanceReceiverRawDreamTextForwarded ||
+		resonanceReceiver.AdmissionResonanceReceiverJanusSurfaceAllowed ||
+		resonanceReceiver.AdmissionResonanceReceiverCoocLearningAllowed ||
+		resonanceReceiver.AdmissionResonanceReceiverDeltaHarvestAllowed ||
+		resonanceReceiver.AdmissionResonanceReceiverBodyMutationAllowed ||
+		resonanceReceiver.AdmissionResonanceReceiverRollbackRequired ||
+		resonanceReceiver.AdmissionResonanceReceiverReady ||
+		resonanceReceiver.WriteAllowed ||
+		resonanceReceiver.MutatesState ||
+		resonanceReceiver.SourceAdmissionResonanceIntentPassed ||
+		resonanceReceiver.AdmissionResonanceReceiverID != "" ||
+		resonanceReceiver.Reason != "candidate_admission_resonance_intent_failed: candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
+		t.Fatalf("bad candidate admission resonance receiver: %+v", resonanceReceiver)
 	}
 }
 

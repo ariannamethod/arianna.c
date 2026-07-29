@@ -41,6 +41,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionSealSchema               = "arianna.live_route_turn_candidate_admission_seal.v1"
 	admissionLiveRouteTurnCandidateAdmissionFinalGateSchema          = "arianna.live_route_turn_candidate_admission_final_gate.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema    = "arianna.live_route_turn_candidate_admission_resonance_intent.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema  = "arianna.live_route_turn_candidate_admission_resonance_receiver.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -1212,6 +1213,62 @@ type admissionLiveRouteTurnCandidateAdmissionResonanceIntent struct {
 	SourceRollbackImplementationIDForResonanceIntent string  `json:"source_rollback_implementation_id_for_resonance_intent,omitempty"`
 	SourceWriterReceiptIDForResonanceIntent          string  `json:"source_writer_receipt_id_for_resonance_intent,omitempty"`
 	AdmissionResonanceIntentID                       string  `json:"admission_resonance_intent_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionResonanceReceiver struct {
+	admissionLiveRouteTurnCandidateAdmissionResonanceIntent
+
+	AdmissionResonanceReceiverState                    string  `json:"admission_resonance_receiver_state,omitempty"`
+	AdmissionResonanceReceiverAction                   string  `json:"admission_resonance_receiver_action,omitempty"`
+	AdmissionResonanceReceiverTarget                   string  `json:"admission_resonance_receiver_target,omitempty"`
+	AdmissionResonanceReceiverTargetKind               string  `json:"admission_resonance_receiver_target_kind,omitempty"`
+	AdmissionResonanceReceiverTargetMode               string  `json:"admission_resonance_receiver_target_mode,omitempty"`
+	AdmissionResonanceReceiverReceiptShape             string  `json:"admission_resonance_receiver_receipt_shape,omitempty"`
+	AdmissionResonanceReceiverDryRunOnly               bool    `json:"admission_resonance_receiver_dry_run_only"`
+	AdmissionResonanceReceiverIntentVerified           bool    `json:"admission_resonance_receiver_intent_verified"`
+	AdmissionResonanceReceiverFinalGateVerified        bool    `json:"admission_resonance_receiver_final_gate_verified"`
+	AdmissionResonanceReceiverSealVerified             bool    `json:"admission_resonance_receiver_seal_verified"`
+	AdmissionResonanceReceiverPermitVerified           bool    `json:"admission_resonance_receiver_permit_verified"`
+	AdmissionResonanceReceiverReadinessVerified        bool    `json:"admission_resonance_receiver_readiness_verified"`
+	AdmissionResonanceReceiverLedgerVerified           bool    `json:"admission_resonance_receiver_ledger_verified"`
+	AdmissionResonanceReceiverWriterReady              bool    `json:"admission_resonance_receiver_writer_ready"`
+	AdmissionResonanceReceiverRollbackReady            bool    `json:"admission_resonance_receiver_rollback_ready"`
+	AdmissionResonanceReceiverLedgerReady              bool    `json:"admission_resonance_receiver_ledger_ready"`
+	AdmissionResonanceReceiverReceiver                 string  `json:"admission_resonance_receiver_receiver,omitempty"`
+	AdmissionResonanceReceiverReceiverKind             string  `json:"admission_resonance_receiver_receiver_kind,omitempty"`
+	AdmissionResonanceReceiverInfluenceKind            string  `json:"admission_resonance_receiver_influence_kind,omitempty"`
+	AdmissionResonanceReceiverMaxInfluence             float64 `json:"admission_resonance_receiver_max_influence"`
+	AdmissionResonanceReceiverTTLTurns                 int     `json:"admission_resonance_receiver_ttl_turns"`
+	AdmissionResonanceReceiverCausalID                 string  `json:"admission_resonance_receiver_causal_id,omitempty"`
+	AdmissionResonanceReceiverPreStateHash             string  `json:"admission_resonance_receiver_pre_state_hash,omitempty"`
+	AdmissionResonanceReceiverPostStateHash            string  `json:"admission_resonance_receiver_post_state_hash,omitempty"`
+	AdmissionResonanceReceiverStateDeltaHash           string  `json:"admission_resonance_receiver_state_delta_hash,omitempty"`
+	AdmissionResonanceReceiverStateHashMode            string  `json:"admission_resonance_receiver_state_hash_mode,omitempty"`
+	AdmissionResonanceReceiverRawDreamTextObserved     bool    `json:"admission_resonance_receiver_raw_dream_text_observed"`
+	AdmissionResonanceReceiverRawDreamTextForwarded    bool    `json:"admission_resonance_receiver_raw_dream_text_forwarded"`
+	AdmissionResonanceReceiverJanusSurfaceAllowed      bool    `json:"admission_resonance_receiver_janus_surface_allowed"`
+	AdmissionResonanceReceiverCoocLearningAllowed      bool    `json:"admission_resonance_receiver_cooc_learning_allowed"`
+	AdmissionResonanceReceiverDeltaHarvestAllowed      bool    `json:"admission_resonance_receiver_delta_harvest_allowed"`
+	AdmissionResonanceReceiverBodyMutationAllowed      bool    `json:"admission_resonance_receiver_body_mutation_allowed"`
+	AdmissionResonanceReceiverRollbackRequired         bool    `json:"admission_resonance_receiver_rollback_required"`
+	AdmissionResonanceReceiverReady                    bool    `json:"admission_resonance_receiver_ready"`
+	SourceAdmissionResonanceIntentSchema               string  `json:"source_admission_resonance_intent_schema,omitempty"`
+	SourceAdmissionResonanceIntentPassed               bool    `json:"source_admission_resonance_intent_passed"`
+	SourceAdmissionResonanceIntentID                   string  `json:"source_admission_resonance_intent_id,omitempty"`
+	SourceAdmissionResonanceIntentAction               string  `json:"source_admission_resonance_intent_action,omitempty"`
+	SourceAdmissionResonanceIntentReady                bool    `json:"source_admission_resonance_intent_ready"`
+	SourceAdmissionResonanceIntentCausalID             string  `json:"source_admission_resonance_intent_causal_id,omitempty"`
+	SourceAdmissionFinalGateIDForResonanceReceiver     string  `json:"source_admission_final_gate_id_for_resonance_receiver,omitempty"`
+	SourceAdmissionSealIDForResonanceReceiver          string  `json:"source_admission_seal_id_for_resonance_receiver,omitempty"`
+	SourceAdmissionPermitIDForResonanceReceiver        string  `json:"source_admission_permit_id_for_resonance_receiver,omitempty"`
+	SourceAdmissionReadinessIDForResonanceReceiver     string  `json:"source_admission_readiness_id_for_resonance_receiver,omitempty"`
+	SourceLedgerVerificationIDForResonanceReceiver     string  `json:"source_ledger_verification_id_for_resonance_receiver,omitempty"`
+	SourceLedgerPersistenceIDForResonanceReceiver      string  `json:"source_ledger_persistence_id_for_resonance_receiver,omitempty"`
+	SourceLedgerImplementationIDForResonanceReceiver   string  `json:"source_ledger_implementation_id_for_resonance_receiver,omitempty"`
+	SourceAdmissionLedgerIDForResonanceReceiver        string  `json:"source_admission_ledger_id_for_resonance_receiver,omitempty"`
+	SourceRollbackImplementationIDForResonanceReceiver string  `json:"source_rollback_implementation_id_for_resonance_receiver,omitempty"`
+	SourceWriterReceiptIDForResonanceReceiver          string  `json:"source_writer_receipt_id_for_resonance_receiver,omitempty"`
+	AdmissionResonanceReceiverID                       string  `json:"admission_resonance_receiver_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -3010,6 +3067,10 @@ func admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -8559,6 +8620,449 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceIntent(intent admiss
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(intent)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverForIntent(intent admissionLiveRouteTurnCandidateAdmissionResonanceIntent) admissionLiveRouteTurnCandidateAdmissionResonanceReceiver {
+	sourceSchema := intent.Schema
+	receiver := admissionLiveRouteTurnCandidateAdmissionResonanceReceiver{
+		admissionLiveRouteTurnCandidateAdmissionResonanceIntent: intent,
+		AdmissionResonanceReceiverState:                         "blocked",
+		AdmissionResonanceReceiverAction:                        "reject",
+		AdmissionResonanceReceiverDryRunOnly:                    true,
+		SourceAdmissionResonanceIntentSchema:                    sourceSchema,
+		SourceAdmissionResonanceIntentPassed:                    intent.Passed,
+		SourceAdmissionResonanceIntentID:                        intent.AdmissionResonanceIntentID,
+		SourceAdmissionResonanceIntentAction:                    intent.AdmissionResonanceIntentAction,
+		SourceAdmissionResonanceIntentReady:                     intent.AdmissionResonanceIntentReady,
+		SourceAdmissionResonanceIntentCausalID:                  intent.AdmissionResonanceIntentCausalID,
+		SourceAdmissionFinalGateIDForResonanceReceiver:          intent.AdmissionFinalGateID,
+		SourceAdmissionSealIDForResonanceReceiver:               intent.AdmissionSealID,
+		SourceAdmissionPermitIDForResonanceReceiver:             intent.AdmissionPermitID,
+		SourceAdmissionReadinessIDForResonanceReceiver:          intent.AdmissionReadinessID,
+		SourceLedgerVerificationIDForResonanceReceiver:          intent.LedgerVerificationID,
+		SourceLedgerPersistenceIDForResonanceReceiver:           intent.LedgerPersistenceID,
+		SourceLedgerImplementationIDForResonanceReceiver:        intent.LedgerImplementationID,
+		SourceAdmissionLedgerIDForResonanceReceiver:             intent.AdmissionLedgerID,
+		SourceRollbackImplementationIDForResonanceReceiver:      intent.RollbackImplementationID,
+		SourceWriterReceiptIDForResonanceReceiver:               intent.WriterReceiptID,
+	}
+	receiver.Schema = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema
+	receiver.Timing = "live_admission_resonance_receiver"
+	receiver.Passed = false
+	receiver.AdmissionResonanceReceiverID = ""
+	receiver.AdmissionResonanceReceiverReady = false
+	receiver.LiveReady = false
+	receiver.BodyTarget = "none"
+	receiver.ContractsReady = false
+	receiver.WriteAllowed = false
+	receiver.AdmissionAllowed = false
+	receiver.LiveAdmissionEnabled = false
+	receiver.MutatesState = false
+
+	if sourceSchema == "" {
+		receiver.Reason = "missing_candidate_admission_resonance_intent"
+		return receiver
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema {
+		receiver.Reason = "unexpected_candidate_admission_resonance_intent_schema " + sourceSchema
+		return receiver
+	}
+	if !intent.Passed {
+		receiver.Reason = "candidate_admission_resonance_intent_failed"
+		if intent.Reason != "" {
+			receiver.Reason += ": " + intent.Reason
+		}
+		return receiver
+	}
+	if intent.AdmissionResonanceIntentID == "" {
+		receiver.Reason = "missing_candidate_admission_resonance_intent_id"
+		return receiver
+	}
+	if wantIntentID := admissionLiveRouteTurnCandidateAdmissionResonanceIntentID(intent); wantIntentID == "" || intent.AdmissionResonanceIntentID != wantIntentID {
+		receiver.Reason = "candidate_admission_resonance_intent_id_mismatch"
+		return receiver
+	}
+	if intent.AdmissionResonanceIntentState != "resonance_intent_drafted_dry_run" ||
+		intent.AdmissionResonanceIntentAction != "draft_resonance_direction_intent_dry_run" ||
+		intent.AdmissionResonanceIntentTarget != "resonance" ||
+		intent.AdmissionResonanceIntentTargetKind != "first_live_receiver" ||
+		intent.AdmissionResonanceIntentTargetMode != "bounded_direction_dry_run" ||
+		intent.AdmissionResonanceIntentReceiptShape != "sealed_candidate_contract_provenance" {
+		receiver.Reason = "candidate_admission_resonance_intent_shape_mismatch"
+		return receiver
+	}
+	if !intent.AdmissionResonanceIntentDryRunOnly ||
+		!intent.AdmissionResonanceIntentFinalGateVerified ||
+		!intent.AdmissionResonanceIntentSealVerified ||
+		!intent.AdmissionResonanceIntentPermitVerified ||
+		!intent.AdmissionResonanceIntentReadinessVerified ||
+		!intent.AdmissionResonanceIntentLedgerVerified ||
+		!intent.AdmissionResonanceIntentWriterReady ||
+		!intent.AdmissionResonanceIntentRollbackReady ||
+		!intent.AdmissionResonanceIntentLedgerReady ||
+		!intent.AdmissionResonanceIntentReady {
+		receiver.Reason = "candidate_admission_resonance_intent_not_verified_dry_run"
+		return receiver
+	}
+	if intent.AdmissionResonanceIntentReceiver != "resonance" ||
+		intent.AdmissionResonanceIntentReceiverKind != "internal_world" ||
+		intent.AdmissionResonanceIntentInfluenceKind != "bounded_direction" ||
+		intent.AdmissionResonanceIntentMaxInfluence != admissionLiveRouteTurnCandidateAdmissionResonanceIntentMaxGain ||
+		intent.AdmissionResonanceIntentTTLTurns != admissionLiveRouteTurnCandidateAdmissionResonanceIntentTTL ||
+		intent.AdmissionResonanceIntentCausalID == "" {
+		receiver.Reason = "candidate_admission_resonance_intent_receiver_mismatch"
+		return receiver
+	}
+	if wantCausalID := admissionLiveRouteTurnCandidateAdmissionResonanceIntentCausalID(intent); wantCausalID == "" || intent.AdmissionResonanceIntentCausalID != wantCausalID {
+		receiver.Reason = "candidate_admission_resonance_intent_causal_id_mismatch"
+		return receiver
+	}
+	if intent.AdmissionResonanceIntentRawDreamTextAllowed ||
+		intent.AdmissionResonanceIntentJanusSurfaceAllowed ||
+		intent.AdmissionResonanceIntentCoocLearningAllowed ||
+		intent.AdmissionResonanceIntentDeltaHarvestAllowed ||
+		!intent.AdmissionResonanceIntentRollbackRequired ||
+		!intent.AdmissionResonanceIntentPreStateHashRequired ||
+		!intent.AdmissionResonanceIntentPostStateHashRequired {
+		receiver.Reason = "candidate_admission_resonance_intent_guard_mismatch"
+		return receiver
+	}
+	if intent.ContractsReady || intent.WriteAllowed || intent.MutatesState || intent.LiveAdmissionEnabled || intent.AdmissionAllowed {
+		receiver.Reason = "candidate_admission_resonance_intent_already_open"
+		return receiver
+	}
+	if intent.BodyTarget != "none" {
+		receiver.Reason = "candidate_admission_resonance_intent_body_target_mismatch"
+		return receiver
+	}
+	if !intent.LiveReady {
+		receiver.Reason = "candidate_admission_resonance_intent_not_live_ready"
+		return receiver
+	}
+	if intent.SourceAdmissionFinalGateSchema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema ||
+		!intent.SourceAdmissionFinalGatePassed ||
+		intent.SourceAdmissionFinalGateID != intent.AdmissionFinalGateID ||
+		intent.SourceAdmissionFinalGateAction != "verify_sealed_admission_provenance_dry_run" ||
+		!intent.SourceAdmissionFinalGateReady {
+		receiver.Reason = "candidate_admission_resonance_intent_source_final_gate_mismatch"
+		return receiver
+	}
+	if wantFinalGateID := admissionLiveRouteTurnCandidateAdmissionFinalGateID(intent.admissionLiveRouteTurnCandidateAdmissionFinalGate); wantFinalGateID == "" || intent.AdmissionFinalGateID != wantFinalGateID {
+		receiver.Reason = "candidate_admission_final_gate_id_mismatch_for_resonance_receiver"
+		return receiver
+	}
+	if intent.SourceAdmissionSealIDForResonanceIntent != intent.AdmissionSealID ||
+		intent.SourceAdmissionPermitIDForResonanceIntent != intent.AdmissionPermitID ||
+		intent.SourceAdmissionReadinessIDForResonanceIntent != intent.AdmissionReadinessID ||
+		intent.SourceLedgerVerificationIDForResonanceIntent != intent.LedgerVerificationID ||
+		intent.SourceLedgerPersistenceIDForResonanceIntent != intent.LedgerPersistenceID ||
+		intent.SourceLedgerImplementationIDForResonanceIntent != intent.LedgerImplementationID ||
+		intent.SourceAdmissionLedgerIDForResonanceIntent != intent.AdmissionLedgerID ||
+		intent.SourceRollbackImplementationIDForResonanceIntent != intent.RollbackImplementationID ||
+		intent.SourceWriterReceiptIDForResonanceIntent != intent.WriterReceiptID {
+		receiver.Reason = "candidate_admission_resonance_intent_source_id_mismatch"
+		return receiver
+	}
+	if intent.AdmissionResonanceIntentID == "" ||
+		intent.AdmissionFinalGateID == "" ||
+		intent.AdmissionSealID == "" ||
+		intent.AdmissionPermitID == "" ||
+		intent.AdmissionReadinessID == "" ||
+		intent.LedgerVerificationID == "" ||
+		intent.LedgerPersistenceID == "" ||
+		intent.LedgerImplementationID == "" ||
+		intent.RollbackImplementationID == "" ||
+		intent.WriterReceiptID == "" ||
+		intent.WriterImplementationID == "" ||
+		intent.AdmissionLedgerID == "" ||
+		intent.AdmissionWriterContractID == "" ||
+		intent.AdmissionWriterInventoryID == "" ||
+		intent.AdmissionWriterPreflightID == "" ||
+		intent.AdmissionLiveStageID == "" ||
+		intent.AdmissionEnableGateID == "" ||
+		intent.AdmissionSwitchID == "" ||
+		intent.AdmissionPromotionID == "" ||
+		intent.AdmissionDecisionID == "" ||
+		intent.AdmissionAdapterID == "" ||
+		intent.CandidateRunID == "" ||
+		intent.CandidateDraftID == "" ||
+		intent.CandidateExecutionID == "" ||
+		intent.GeneratorAdapterID == "" ||
+		intent.HandoffID == "" ||
+		intent.DreamCandidateRunID == "" ||
+		intent.CandidateTextHash == "" ||
+		intent.TurnTextHash == "" {
+		receiver.Reason = "candidate_admission_resonance_intent_missing_provenance"
+		return receiver
+	}
+
+	receiver.AdmissionResonanceReceiverState = "receiver_previewed_dry_run"
+	receiver.AdmissionResonanceReceiverAction = "preview_resonance_receive_dry_run"
+	receiver.AdmissionResonanceReceiverTarget = "resonance"
+	receiver.AdmissionResonanceReceiverTargetKind = "first_live_receiver"
+	receiver.AdmissionResonanceReceiverTargetMode = "bounded_direction_preview_dry_run"
+	receiver.AdmissionResonanceReceiverReceiptShape = "resonance_receiver_state_proof"
+	receiver.AdmissionResonanceReceiverDryRunOnly = true
+	receiver.AdmissionResonanceReceiverIntentVerified = true
+	receiver.AdmissionResonanceReceiverFinalGateVerified = intent.AdmissionResonanceIntentFinalGateVerified
+	receiver.AdmissionResonanceReceiverSealVerified = intent.AdmissionResonanceIntentSealVerified
+	receiver.AdmissionResonanceReceiverPermitVerified = intent.AdmissionResonanceIntentPermitVerified
+	receiver.AdmissionResonanceReceiverReadinessVerified = intent.AdmissionResonanceIntentReadinessVerified
+	receiver.AdmissionResonanceReceiverLedgerVerified = intent.AdmissionResonanceIntentLedgerVerified
+	receiver.AdmissionResonanceReceiverWriterReady = intent.AdmissionResonanceIntentWriterReady
+	receiver.AdmissionResonanceReceiverRollbackReady = intent.AdmissionResonanceIntentRollbackReady
+	receiver.AdmissionResonanceReceiverLedgerReady = intent.AdmissionResonanceIntentLedgerReady
+	receiver.AdmissionResonanceReceiverReceiver = intent.AdmissionResonanceIntentReceiver
+	receiver.AdmissionResonanceReceiverReceiverKind = intent.AdmissionResonanceIntentReceiverKind
+	receiver.AdmissionResonanceReceiverInfluenceKind = intent.AdmissionResonanceIntentInfluenceKind
+	receiver.AdmissionResonanceReceiverMaxInfluence = intent.AdmissionResonanceIntentMaxInfluence
+	receiver.AdmissionResonanceReceiverTTLTurns = intent.AdmissionResonanceIntentTTLTurns
+	receiver.AdmissionResonanceReceiverStateHashMode = "sealed_metadata_preview"
+	receiver.AdmissionResonanceReceiverRawDreamTextObserved = false
+	receiver.AdmissionResonanceReceiverRawDreamTextForwarded = false
+	receiver.AdmissionResonanceReceiverJanusSurfaceAllowed = false
+	receiver.AdmissionResonanceReceiverCoocLearningAllowed = false
+	receiver.AdmissionResonanceReceiverDeltaHarvestAllowed = false
+	receiver.AdmissionResonanceReceiverBodyMutationAllowed = false
+	receiver.AdmissionResonanceReceiverRollbackRequired = true
+	receiver.AdmissionResonanceReceiverReady = true
+	receiver.LiveReady = true
+	receiver.BodyTarget = "none"
+	receiver.ContractsReady = false
+	receiver.WriteAllowed = false
+	receiver.AdmissionAllowed = false
+	receiver.LiveAdmissionEnabled = false
+	receiver.MutatesState = false
+	receiver.AdmissionResonanceReceiverCausalID = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverCausalID(receiver)
+	if receiver.AdmissionResonanceReceiverCausalID == "" {
+		receiver.Reason = "missing_candidate_admission_resonance_receiver_causal_id"
+		return receiver
+	}
+	receiver.AdmissionResonanceReceiverPreStateHash = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverPreStateHash(receiver)
+	receiver.AdmissionResonanceReceiverPostStateHash = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverPostStateHash(receiver)
+	receiver.AdmissionResonanceReceiverStateDeltaHash = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverStateDeltaHash(receiver)
+	if receiver.AdmissionResonanceReceiverPreStateHash == "" ||
+		receiver.AdmissionResonanceReceiverPostStateHash == "" ||
+		receiver.AdmissionResonanceReceiverStateDeltaHash == "" ||
+		receiver.AdmissionResonanceReceiverPreStateHash == receiver.AdmissionResonanceReceiverPostStateHash {
+		receiver.Reason = "candidate_admission_resonance_receiver_state_proof_missing"
+		return receiver
+	}
+	receiver.AdmissionResonanceReceiverID = admissionLiveRouteTurnCandidateAdmissionResonanceReceiverID(receiver)
+	if receiver.AdmissionResonanceReceiverID == "" {
+		receiver.Reason = "missing_candidate_admission_resonance_receiver_id"
+		return receiver
+	}
+	receiver.Passed = true
+	receiver.Reason = "resonance receiver previewed sealed intent without body mutation"
+	return receiver
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverCausalID(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) string {
+	h := hashJSON(struct {
+		AdmissionResonanceIntentID       string `json:"admission_resonance_intent_id"`
+		AdmissionResonanceIntentCausalID string `json:"admission_resonance_intent_causal_id"`
+		CandidateRunID                   string `json:"candidate_run_id"`
+		CandidateTextHash                string `json:"candidate_text_hash"`
+		TurnTextHash                     string `json:"turn_text_hash"`
+		Receiver                         string `json:"receiver"`
+		ReceiverKind                     string `json:"receiver_kind"`
+	}{
+		AdmissionResonanceIntentID:       receiver.AdmissionResonanceIntentID,
+		AdmissionResonanceIntentCausalID: receiver.AdmissionResonanceIntentCausalID,
+		CandidateRunID:                   receiver.CandidateRunID,
+		CandidateTextHash:                receiver.CandidateTextHash,
+		TurnTextHash:                     receiver.TurnTextHash,
+		Receiver:                         receiver.AdmissionResonanceReceiverReceiver,
+		ReceiverKind:                     receiver.AdmissionResonanceReceiverReceiverKind,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-receiver-causal-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverPreStateHash(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) string {
+	h := hashJSON(struct {
+		AdmissionResonanceIntentID       string `json:"admission_resonance_intent_id"`
+		AdmissionResonanceIntentCausalID string `json:"admission_resonance_intent_causal_id"`
+		CandidateRunID                   string `json:"candidate_run_id"`
+		CandidateTextHash                string `json:"candidate_text_hash"`
+		TurnTextHash                     string `json:"turn_text_hash"`
+		StateHashMode                    string `json:"state_hash_mode"`
+		Receiver                         string `json:"receiver"`
+	}{
+		AdmissionResonanceIntentID:       receiver.AdmissionResonanceIntentID,
+		AdmissionResonanceIntentCausalID: receiver.AdmissionResonanceIntentCausalID,
+		CandidateRunID:                   receiver.CandidateRunID,
+		CandidateTextHash:                receiver.CandidateTextHash,
+		TurnTextHash:                     receiver.TurnTextHash,
+		StateHashMode:                    receiver.AdmissionResonanceReceiverStateHashMode,
+		Receiver:                         receiver.AdmissionResonanceReceiverReceiver,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-receiver-pre-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverPostStateHash(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) string {
+	h := hashJSON(struct {
+		PreStateHash  string  `json:"pre_state_hash"`
+		CausalID      string  `json:"causal_id"`
+		Receiver      string  `json:"receiver"`
+		InfluenceKind string  `json:"influence_kind"`
+		MaxInfluence  float64 `json:"max_influence"`
+		TTLTurns      int     `json:"ttl_turns"`
+		StateHashMode string  `json:"state_hash_mode"`
+	}{
+		PreStateHash:  receiver.AdmissionResonanceReceiverPreStateHash,
+		CausalID:      receiver.AdmissionResonanceReceiverCausalID,
+		Receiver:      receiver.AdmissionResonanceReceiverReceiver,
+		InfluenceKind: receiver.AdmissionResonanceReceiverInfluenceKind,
+		MaxInfluence:  receiver.AdmissionResonanceReceiverMaxInfluence,
+		TTLTurns:      receiver.AdmissionResonanceReceiverTTLTurns,
+		StateHashMode: receiver.AdmissionResonanceReceiverStateHashMode,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-receiver-post-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverStateDeltaHash(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) string {
+	h := hashJSON(struct {
+		PreStateHash        string `json:"pre_state_hash"`
+		PostStateHash       string `json:"post_state_hash"`
+		AdmissionIntentID   string `json:"admission_resonance_intent_id"`
+		ReceiverCausalID    string `json:"admission_resonance_receiver_causal_id"`
+		RawTextObserved     bool   `json:"raw_text_observed"`
+		JanusSurfaceAllowed bool   `json:"janus_surface_allowed"`
+		CoocLearningAllowed bool   `json:"cooc_learning_allowed"`
+		DeltaHarvestAllowed bool   `json:"delta_harvest_allowed"`
+		BodyMutationAllowed bool   `json:"body_mutation_allowed"`
+		RollbackRequired    bool   `json:"rollback_required"`
+	}{
+		PreStateHash:        receiver.AdmissionResonanceReceiverPreStateHash,
+		PostStateHash:       receiver.AdmissionResonanceReceiverPostStateHash,
+		AdmissionIntentID:   receiver.AdmissionResonanceIntentID,
+		ReceiverCausalID:    receiver.AdmissionResonanceReceiverCausalID,
+		RawTextObserved:     receiver.AdmissionResonanceReceiverRawDreamTextObserved,
+		JanusSurfaceAllowed: receiver.AdmissionResonanceReceiverJanusSurfaceAllowed,
+		CoocLearningAllowed: receiver.AdmissionResonanceReceiverCoocLearningAllowed,
+		DeltaHarvestAllowed: receiver.AdmissionResonanceReceiverDeltaHarvestAllowed,
+		BodyMutationAllowed: receiver.AdmissionResonanceReceiverBodyMutationAllowed,
+		RollbackRequired:    receiver.AdmissionResonanceReceiverRollbackRequired,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-receiver-delta-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverID(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) string {
+	h := hashJSON(struct {
+		AdmissionResonanceIntentID              string  `json:"admission_resonance_intent_id"`
+		AdmissionFinalGateID                    string  `json:"admission_final_gate_id"`
+		AdmissionSealID                         string  `json:"admission_seal_id"`
+		AdmissionPermitID                       string  `json:"admission_permit_id"`
+		LedgerVerificationID                    string  `json:"ledger_verification_id"`
+		AdmissionResonanceReceiverState         string  `json:"admission_resonance_receiver_state"`
+		AdmissionResonanceReceiverAction        string  `json:"admission_resonance_receiver_action"`
+		AdmissionResonanceReceiverTarget        string  `json:"admission_resonance_receiver_target"`
+		AdmissionResonanceReceiverTargetKind    string  `json:"admission_resonance_receiver_target_kind"`
+		AdmissionResonanceReceiverTargetMode    string  `json:"admission_resonance_receiver_target_mode"`
+		AdmissionResonanceReceiverReceiptShape  string  `json:"admission_resonance_receiver_receipt_shape"`
+		AdmissionResonanceReceiverDryRunOnly    bool    `json:"admission_resonance_receiver_dry_run_only"`
+		AdmissionResonanceReceiverVerified      bool    `json:"admission_resonance_receiver_intent_verified"`
+		AdmissionResonanceReceiverReceiver      string  `json:"admission_resonance_receiver_receiver"`
+		AdmissionResonanceReceiverReceiverKind  string  `json:"admission_resonance_receiver_receiver_kind"`
+		AdmissionResonanceReceiverInfluenceKind string  `json:"admission_resonance_receiver_influence_kind"`
+		AdmissionResonanceReceiverMaxInfluence  float64 `json:"admission_resonance_receiver_max_influence"`
+		AdmissionResonanceReceiverTTLTurns      int     `json:"admission_resonance_receiver_ttl_turns"`
+		AdmissionResonanceReceiverCausalID      string  `json:"admission_resonance_receiver_causal_id"`
+		AdmissionResonanceReceiverPreHash       string  `json:"admission_resonance_receiver_pre_state_hash"`
+		AdmissionResonanceReceiverPostHash      string  `json:"admission_resonance_receiver_post_state_hash"`
+		AdmissionResonanceReceiverDeltaHash     string  `json:"admission_resonance_receiver_state_delta_hash"`
+		AdmissionResonanceReceiverHashMode      string  `json:"admission_resonance_receiver_state_hash_mode"`
+		RawTextObserved                         bool    `json:"raw_text_observed"`
+		RawTextForwarded                        bool    `json:"raw_text_forwarded"`
+		JanusSurfaceAllowed                     bool    `json:"janus_surface_allowed"`
+		CoocLearningAllowed                     bool    `json:"cooc_learning_allowed"`
+		DeltaHarvestAllowed                     bool    `json:"delta_harvest_allowed"`
+		BodyMutationAllowed                     bool    `json:"body_mutation_allowed"`
+		RollbackRequired                        bool    `json:"rollback_required"`
+		ReceiverReady                           bool    `json:"receiver_ready"`
+		SourceAdmissionResonanceIntentID        string  `json:"source_admission_resonance_intent_id"`
+		SourceAdmissionResonanceIntentCausalID  string  `json:"source_admission_resonance_intent_causal_id"`
+		ContractsReady                          bool    `json:"contracts_ready"`
+		BodyTarget                              string  `json:"body_target"`
+		WriteAllowed                            bool    `json:"write_allowed"`
+		AdmissionAllowed                        bool    `json:"admission_allowed"`
+		LiveAdmissionEnabled                    bool    `json:"live_admission_enabled"`
+		MutatesState                            bool    `json:"mutates_state"`
+	}{
+		AdmissionResonanceIntentID:              receiver.AdmissionResonanceIntentID,
+		AdmissionFinalGateID:                    receiver.AdmissionFinalGateID,
+		AdmissionSealID:                         receiver.AdmissionSealID,
+		AdmissionPermitID:                       receiver.AdmissionPermitID,
+		LedgerVerificationID:                    receiver.LedgerVerificationID,
+		AdmissionResonanceReceiverState:         receiver.AdmissionResonanceReceiverState,
+		AdmissionResonanceReceiverAction:        receiver.AdmissionResonanceReceiverAction,
+		AdmissionResonanceReceiverTarget:        receiver.AdmissionResonanceReceiverTarget,
+		AdmissionResonanceReceiverTargetKind:    receiver.AdmissionResonanceReceiverTargetKind,
+		AdmissionResonanceReceiverTargetMode:    receiver.AdmissionResonanceReceiverTargetMode,
+		AdmissionResonanceReceiverReceiptShape:  receiver.AdmissionResonanceReceiverReceiptShape,
+		AdmissionResonanceReceiverDryRunOnly:    receiver.AdmissionResonanceReceiverDryRunOnly,
+		AdmissionResonanceReceiverVerified:      receiver.AdmissionResonanceReceiverIntentVerified,
+		AdmissionResonanceReceiverReceiver:      receiver.AdmissionResonanceReceiverReceiver,
+		AdmissionResonanceReceiverReceiverKind:  receiver.AdmissionResonanceReceiverReceiverKind,
+		AdmissionResonanceReceiverInfluenceKind: receiver.AdmissionResonanceReceiverInfluenceKind,
+		AdmissionResonanceReceiverMaxInfluence:  receiver.AdmissionResonanceReceiverMaxInfluence,
+		AdmissionResonanceReceiverTTLTurns:      receiver.AdmissionResonanceReceiverTTLTurns,
+		AdmissionResonanceReceiverCausalID:      receiver.AdmissionResonanceReceiverCausalID,
+		AdmissionResonanceReceiverPreHash:       receiver.AdmissionResonanceReceiverPreStateHash,
+		AdmissionResonanceReceiverPostHash:      receiver.AdmissionResonanceReceiverPostStateHash,
+		AdmissionResonanceReceiverDeltaHash:     receiver.AdmissionResonanceReceiverStateDeltaHash,
+		AdmissionResonanceReceiverHashMode:      receiver.AdmissionResonanceReceiverStateHashMode,
+		RawTextObserved:                         receiver.AdmissionResonanceReceiverRawDreamTextObserved,
+		RawTextForwarded:                        receiver.AdmissionResonanceReceiverRawDreamTextForwarded,
+		JanusSurfaceAllowed:                     receiver.AdmissionResonanceReceiverJanusSurfaceAllowed,
+		CoocLearningAllowed:                     receiver.AdmissionResonanceReceiverCoocLearningAllowed,
+		DeltaHarvestAllowed:                     receiver.AdmissionResonanceReceiverDeltaHarvestAllowed,
+		BodyMutationAllowed:                     receiver.AdmissionResonanceReceiverBodyMutationAllowed,
+		RollbackRequired:                        receiver.AdmissionResonanceReceiverRollbackRequired,
+		ReceiverReady:                           receiver.AdmissionResonanceReceiverReady,
+		SourceAdmissionResonanceIntentID:        receiver.SourceAdmissionResonanceIntentID,
+		SourceAdmissionResonanceIntentCausalID:  receiver.SourceAdmissionResonanceIntentCausalID,
+		ContractsReady:                          receiver.ContractsReady,
+		BodyTarget:                              receiver.BodyTarget,
+		WriteAllowed:                            receiver.WriteAllowed,
+		AdmissionAllowed:                        receiver.AdmissionAllowed,
+		LiveAdmissionEnabled:                    receiver.LiveAdmissionEnabled,
+		MutatesState:                            receiver.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-receiver-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceReceiver(receiver admissionLiveRouteTurnCandidateAdmissionResonanceReceiver) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(receiver)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

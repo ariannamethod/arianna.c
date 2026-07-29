@@ -4172,3 +4172,34 @@ The passed intent reports `admission_resonance_intent_state=resonance_intent_dra
 permissions, or missing ids stay blocked without a resonance intent id. `make
 admission-live-route-turn-candidate-nano-direct-resonance-intent-smoke` proves the real-nano chain can draft the
 first-receiver receipt without opening Janus, cooc/delta learning, or body mutation.
+
+**Follow-up, same day - Resonance now receives the first intent as a dry-run state proof.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_resonance_receiver.v1` after the Resonance intent. It consumes only a passed
+`admission_resonance_intent_state=resonance_intent_drafted_dry_run`, rechecks the stable `resonance-intent-<hash>` and
+`resonance-intent-causal-<hash>` plus the final gate, seal, permit, readiness, ledger verification, ledger persistence,
+ledger implementation, admission ledger, rollback implementation, and writer receipt ids. The receiver receipt does not
+read or forward raw dream text; it hashes sealed metadata only.
+
+The passed receiver reports `admission_resonance_receiver_state=receiver_previewed_dry_run`,
+`admission_resonance_receiver_action=preview_resonance_receive_dry_run`,
+`admission_resonance_receiver_target=resonance`, `admission_resonance_receiver_target_kind=first_live_receiver`,
+`admission_resonance_receiver_target_mode=bounded_direction_preview_dry_run`,
+`admission_resonance_receiver_receipt_shape=resonance_receiver_state_proof`,
+`admission_resonance_receiver_receiver_kind=internal_world`,
+`admission_resonance_receiver_influence_kind=bounded_direction`,
+`admission_resonance_receiver_max_influence=0.05`, `admission_resonance_receiver_ttl_turns=1`,
+`admission_resonance_receiver_state_hash_mode=sealed_metadata_preview`,
+`admission_resonance_receiver_raw_dream_text_observed=false`,
+`admission_resonance_receiver_raw_dream_text_forwarded=false`,
+`admission_resonance_receiver_janus_surface_allowed=false`,
+`admission_resonance_receiver_cooc_learning_allowed=false`,
+`admission_resonance_receiver_delta_harvest_allowed=false`,
+`admission_resonance_receiver_body_mutation_allowed=false`,
+`admission_resonance_receiver_rollback_required=true`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`, `mutates_state=false`, and stable
+`resonance-receiver-causal-<hash>`, `resonance-receiver-pre-<hash>`, `resonance-receiver-post-<hash>`,
+`resonance-receiver-delta-<hash>`, and `resonance-receiver-<hash>` ids. Failed intents, tampered ids, missing
+provenance, raw/Janus/cooc/delta openings, or body-write permissions stay blocked without a receiver id. `make
+admission-live-route-turn-candidate-nano-direct-resonance-receiver-smoke` proves the real-nano chain can give Resonance
+the first dry-run ear while the body remains closed.
