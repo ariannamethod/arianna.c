@@ -2488,6 +2488,106 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		readiness.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission readiness lost provenance: readiness=%+v verification=%+v", readiness, ledgerVerification)
 	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", admissionLiveRouteTurnCandidateAdmissionPermitConfirmation)
+	permit := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(readiness)
+	if permit.Schema != admissionLiveRouteTurnCandidateAdmissionPermitSchema ||
+		permit.Timing != "live_admission_permit" ||
+		permit.AdmissionPermitState != "operator_permitted_closed_dry_run" ||
+		permit.AdmissionPermitAction != "acknowledge_verified_live_admission_readiness_dry_run" ||
+		permit.AdmissionPermitTarget != "live_admission" ||
+		permit.AdmissionPermitTargetKind != "dream_candidate_admission" ||
+		permit.AdmissionPermitTargetMode != "permit_closed_dry_run" ||
+		!permit.AdmissionPermitDryRunOnly ||
+		!permit.AdmissionPermitReadinessVerified ||
+		!permit.AdmissionPermitLedgerVerified ||
+		!permit.AdmissionPermitWriterReady ||
+		!permit.AdmissionPermitRollbackReady ||
+		!permit.AdmissionPermitLedgerReady ||
+		!permit.AdmissionPermitReady ||
+		!permit.ManualPermitRequested ||
+		!permit.PermitKeyMatched ||
+		!permit.LedgerVerificationReady ||
+		!permit.LedgerPersistenceReady ||
+		!permit.WriterReady ||
+		!permit.RollbackReady ||
+		!permit.WriterImplementationReady ||
+		!permit.RollbackImplementationReady ||
+		!permit.LedgerImplementationReady ||
+		permit.ContractsReady ||
+		permit.WriteAllowed ||
+		permit.AdmissionAllowed ||
+		permit.LiveAdmissionEnabled ||
+		permit.MutatesState ||
+		!strings.HasPrefix(permit.AdmissionPermitID, "admission-permit-") ||
+		!permit.Passed ||
+		!permit.LiveReady ||
+		permit.SourceAdmissionReadinessSchema != admissionLiveRouteTurnCandidateAdmissionReadinessSchema ||
+		!permit.SourceAdmissionReadinessPassed ||
+		permit.SourceAdmissionReadinessID != readiness.AdmissionReadinessID ||
+		permit.SourceAdmissionReadinessAction != "declare_verified_live_admission_readiness_dry_run" ||
+		!permit.SourceAdmissionReadinessReady ||
+		!permit.SourceAdmissionReadinessLedgerVerified ||
+		permit.SourceLedgerVerificationIDForPermit != ledgerVerification.LedgerVerificationID ||
+		permit.SourceLedgerPersistenceIDForPermit != ledgerPersistence.LedgerPersistenceID ||
+		permit.SourceLedgerImplementationIDForPermit != ledgerImpl.LedgerImplementationID ||
+		permit.SourceAdmissionLedgerIDForPermit != ledger.AdmissionLedgerID ||
+		permit.SourceRollbackImplementationIDForPermit != rollbackImpl.RollbackImplementationID ||
+		permit.SourceWriterReceiptIDForPermit != writerReceipt.WriterReceiptID ||
+		permit.Reason != "operator permit accepted for verified readiness; live admission remains disabled" {
+		t.Fatalf("permit should accept only closed readiness without opening admission: %+v", permit)
+	}
+	if permit.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		permit.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		permit.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		permit.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		permit.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		permit.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		permit.WriterImplementationID != writerImpl.WriterImplementationID ||
+		permit.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		permit.AdmissionWriterContractID != writerContract.WriterContractID ||
+		permit.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		permit.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		permit.AdmissionLiveStageID != liveStage.LiveStageID ||
+		permit.AdmissionEnableGateID != armedGate.EnableGateID ||
+		permit.AdmissionSwitchID != sw.SwitchID ||
+		permit.AdmissionPromotionID != promotion.PromotionID ||
+		permit.AdmissionDecisionID != decision.DecisionID ||
+		permit.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		permit.CandidateExecutionID != execution.ExecutionID ||
+		permit.CandidateDraftID != draft.DraftID ||
+		permit.CandidateRunID != candidate.RunID ||
+		permit.CandidateTextHash != hashJSON(text) ||
+		permit.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission permit lost provenance: permit=%+v readiness=%+v", permit, readiness)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", "")
+	missingPermitKey := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(readiness)
+	if missingPermitKey.Passed ||
+		missingPermitKey.AdmissionPermitID != "" ||
+		missingPermitKey.AdmissionPermitState != "blocked" ||
+		missingPermitKey.AdmissionPermitAction != "reject" ||
+		!missingPermitKey.AdmissionPermitDryRunOnly ||
+		missingPermitKey.ManualPermitRequested ||
+		missingPermitKey.PermitKeyMatched ||
+		missingPermitKey.WriteAllowed ||
+		missingPermitKey.MutatesState ||
+		missingPermitKey.Reason != "live_admission_permit_key_missing" {
+		t.Fatalf("missing permit key should fail closed: %+v", missingPermitKey)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", "wrong")
+	wrongPermitKey := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(readiness)
+	if wrongPermitKey.Passed ||
+		wrongPermitKey.AdmissionPermitID != "" ||
+		wrongPermitKey.AdmissionPermitState != "blocked" ||
+		wrongPermitKey.AdmissionPermitAction != "reject" ||
+		!wrongPermitKey.AdmissionPermitDryRunOnly ||
+		!wrongPermitKey.ManualPermitRequested ||
+		wrongPermitKey.PermitKeyMatched ||
+		wrongPermitKey.WriteAllowed ||
+		wrongPermitKey.MutatesState ||
+		wrongPermitKey.Reason != "live_admission_permit_key_mismatch" {
+		t.Fatalf("wrong permit key should fail closed: %+v", wrongPermitKey)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2636,6 +2736,19 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedReadiness.MutatesState ||
 		blockedReadiness.Reason != "candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed ledger verification should not declare admission readiness: %+v", blockedReadiness)
+	}
+	blockedPermit := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(blockedReadiness)
+	if blockedPermit.Passed ||
+		blockedPermit.AdmissionPermitID != "" ||
+		blockedPermit.AdmissionPermitState != "blocked" ||
+		blockedPermit.AdmissionPermitAction != "reject" ||
+		!blockedPermit.AdmissionPermitDryRunOnly ||
+		blockedPermit.AdmissionPermitReadinessVerified ||
+		blockedPermit.AdmissionPermitReady ||
+		blockedPermit.WriteAllowed ||
+		blockedPermit.MutatesState ||
+		blockedPermit.Reason != "candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("blocked readiness should not produce admission permit: %+v", blockedPermit)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2872,6 +2985,15 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedReadiness.AdmissionReadinessID != "" ||
 		tamperedReadiness.Reason != "candidate_admission_ledger_verification_id_mismatch" {
 		t.Fatalf("tampered ledger verification id should fail admission readiness: %+v", tamperedReadiness)
+	}
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", admissionLiveRouteTurnCandidateAdmissionPermitConfirmation)
+	tamperedReadinessID := readiness
+	tamperedReadinessID.AdmissionReadinessID = "admission-readiness-tampered"
+	tamperedPermit := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(tamperedReadinessID)
+	if tamperedPermit.Passed ||
+		tamperedPermit.AdmissionPermitID != "" ||
+		tamperedPermit.Reason != "candidate_admission_readiness_id_mismatch" {
+		t.Fatalf("tampered readiness id should fail admission permit: %+v", tamperedPermit)
 	}
 }
 

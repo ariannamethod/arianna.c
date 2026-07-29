@@ -4077,3 +4077,25 @@ tampered verification ids, mismatched source ids, missing provenance, pre-enable
 permission stay blocked without an admission readiness id. `make
 admission-live-route-turn-candidate-nano-direct-readiness-smoke` proves the real-nano chain can declare verified
 readiness while live admission and body state remain closed.
+
+**Follow-up, same day - closed readiness now requires an explicit admission permit receipt.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_permit.v1` after readiness. It consumes only a passed
+`admission_readiness_state=verified_closed_dry_run`, rechecks the stable `admission-readiness-<hash>` plus the source
+`ledger-verification-<hash>`, `ledger-persistence-<hash>`, `ledger-implementation-<hash>`, `admission-ledger-<hash>`,
+`rollback-implementation-<hash>`, and `writer-receipt-<hash>` ids, and requires
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY=ARIANNA_LIVE_ADMISSION_PERMIT_DRY_RUN_ONLY`.
+
+The passed admission permit reports `admission_permit_state=operator_permitted_closed_dry_run`,
+`admission_permit_action=acknowledge_verified_live_admission_readiness_dry_run`,
+`admission_permit_target=live_admission`, `admission_permit_target_kind=dream_candidate_admission`,
+`admission_permit_target_mode=permit_closed_dry_run`, `admission_permit_dry_run_only=true`,
+`admission_permit_readiness_verified=true`, `admission_permit_ledger_verified=true`,
+`admission_permit_writer_ready=true`, `admission_permit_rollback_ready=true`, `admission_permit_ledger_ready=true`,
+`admission_permit_ready=true`, `manual_permit_requested=true`, `permit_key_matched=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`body_target=none`, `mutates_state=false`, and a stable `admission-permit-<hash>` id. Failed readiness, missing/wrong
+permit key, tampered readiness ids, mismatched source ids, missing provenance, pre-enabled contracts, or any upstream
+body-write permission stay blocked without an admission permit id. `make
+admission-live-route-turn-candidate-nano-direct-permit-smoke` proves the real-nano chain can accept the operator permit
+while live admission and body state remain closed.
