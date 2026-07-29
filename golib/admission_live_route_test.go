@@ -2635,6 +2635,99 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		seal.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission seal lost provenance: seal=%+v permit=%+v", seal, permit)
 	}
+	finalGate := admissionLiveRouteTurnCandidateAdmissionFinalGateForSeal(seal)
+	if finalGate.Schema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema ||
+		finalGate.Timing != "live_admission_final_gate" ||
+		finalGate.AdmissionFinalGateState != "ready_closed_dry_run" ||
+		finalGate.AdmissionFinalGateAction != "verify_sealed_admission_provenance_dry_run" ||
+		finalGate.AdmissionFinalGateTarget != "live_admission" ||
+		finalGate.AdmissionFinalGateTargetKind != "dream_candidate_admission" ||
+		finalGate.AdmissionFinalGateTargetMode != "final_gate_closed_dry_run" ||
+		finalGate.AdmissionFinalGateReceiptShape != "sealed_candidate_contract_provenance" ||
+		!finalGate.AdmissionFinalGateDryRunOnly ||
+		!finalGate.AdmissionFinalGateSealVerified ||
+		!finalGate.AdmissionFinalGatePermitVerified ||
+		!finalGate.AdmissionFinalGateReadinessVerified ||
+		!finalGate.AdmissionFinalGateLedgerVerified ||
+		!finalGate.AdmissionFinalGateWriterReady ||
+		!finalGate.AdmissionFinalGateRollbackReady ||
+		!finalGate.AdmissionFinalGateLedgerReady ||
+		!finalGate.AdmissionFinalGateReady ||
+		!finalGate.AdmissionSealReady ||
+		!finalGate.AdmissionPermitReady ||
+		!finalGate.PermitKeyMatched ||
+		!finalGate.LedgerVerificationReady ||
+		!finalGate.LedgerPersistenceReady ||
+		!finalGate.WriterReady ||
+		!finalGate.RollbackReady ||
+		!finalGate.WriterImplementationReady ||
+		!finalGate.RollbackImplementationReady ||
+		!finalGate.LedgerImplementationReady ||
+		finalGate.ContractsReady ||
+		finalGate.WriteAllowed ||
+		finalGate.AdmissionAllowed ||
+		finalGate.LiveAdmissionEnabled ||
+		finalGate.MutatesState ||
+		finalGate.BodyTarget != "none" ||
+		!strings.HasPrefix(finalGate.AdmissionFinalGateID, "admission-final-gate-") ||
+		!finalGate.Passed ||
+		!finalGate.LiveReady ||
+		finalGate.SourceAdmissionSealSchema != admissionLiveRouteTurnCandidateAdmissionSealSchema ||
+		!finalGate.SourceAdmissionSealPassed ||
+		finalGate.SourceAdmissionSealID != seal.AdmissionSealID ||
+		finalGate.SourceAdmissionSealAction != "seal_operator_permit_provenance_dry_run" ||
+		!finalGate.SourceAdmissionSealReady ||
+		finalGate.SourceAdmissionPermitIDForFinalGate != permit.AdmissionPermitID ||
+		finalGate.SourceAdmissionReadinessIDForFinalGate != readiness.AdmissionReadinessID ||
+		finalGate.SourceLedgerVerificationIDForFinalGate != ledgerVerification.LedgerVerificationID ||
+		finalGate.SourceLedgerPersistenceIDForFinalGate != ledgerPersistence.LedgerPersistenceID ||
+		finalGate.SourceLedgerImplementationIDForFinalGate != ledgerImpl.LedgerImplementationID ||
+		finalGate.SourceAdmissionLedgerIDForFinalGate != ledger.AdmissionLedgerID ||
+		finalGate.SourceRollbackImplementationIDForFinalGate != rollbackImpl.RollbackImplementationID ||
+		finalGate.SourceWriterReceiptIDForFinalGate != writerReceipt.WriterReceiptID ||
+		finalGate.Reason != "sealed admission provenance cleared final gate; live admission remains disabled" {
+		t.Fatalf("final gate should verify only the sealed permit without opening admission: %+v", finalGate)
+	}
+	if finalGate.AdmissionSealID != seal.AdmissionSealID ||
+		finalGate.AdmissionPermitID != permit.AdmissionPermitID ||
+		finalGate.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		finalGate.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		finalGate.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		finalGate.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		finalGate.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		finalGate.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		finalGate.WriterImplementationID != writerImpl.WriterImplementationID ||
+		finalGate.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		finalGate.AdmissionWriterContractID != writerContract.WriterContractID ||
+		finalGate.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		finalGate.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		finalGate.AdmissionLiveStageID != liveStage.LiveStageID ||
+		finalGate.AdmissionEnableGateID != armedGate.EnableGateID ||
+		finalGate.AdmissionSwitchID != sw.SwitchID ||
+		finalGate.AdmissionPromotionID != promotion.PromotionID ||
+		finalGate.AdmissionDecisionID != decision.DecisionID ||
+		finalGate.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		finalGate.CandidateExecutionID != execution.ExecutionID ||
+		finalGate.CandidateDraftID != draft.DraftID ||
+		finalGate.CandidateRunID != candidate.RunID ||
+		finalGate.CandidateTextHash != hashJSON(text) ||
+		finalGate.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission final gate lost provenance: final_gate=%+v seal=%+v", finalGate, seal)
+	}
+	tamperedFinalGateSeal := seal
+	tamperedFinalGateSeal.AdmissionSealID = "admission-seal-tampered"
+	tamperedFinalGate := admissionLiveRouteTurnCandidateAdmissionFinalGateForSeal(tamperedFinalGateSeal)
+	if tamperedFinalGate.Passed ||
+		tamperedFinalGate.AdmissionFinalGateID != "" ||
+		tamperedFinalGate.AdmissionFinalGateState != "blocked" ||
+		tamperedFinalGate.AdmissionFinalGateAction != "reject" ||
+		!tamperedFinalGate.AdmissionFinalGateDryRunOnly ||
+		tamperedFinalGate.AdmissionFinalGateReady ||
+		tamperedFinalGate.WriteAllowed ||
+		tamperedFinalGate.MutatesState ||
+		tamperedFinalGate.Reason != "candidate_admission_seal_id_mismatch" {
+		t.Fatalf("tampered seal id should fail closed before final gate: %+v", tamperedFinalGate)
+	}
 	tamperedPermit := permit
 	tamperedPermit.AdmissionPermitID = "admission-permit-tampered"
 	tamperedSeal := admissionLiveRouteTurnCandidateAdmissionSealForPermit(tamperedPermit)
@@ -2851,6 +2944,19 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedSeal.MutatesState ||
 		blockedSeal.Reason != "candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("blocked permit should not produce admission seal: %+v", blockedSeal)
+	}
+	blockedFinalGate := admissionLiveRouteTurnCandidateAdmissionFinalGateForSeal(blockedSeal)
+	if blockedFinalGate.Passed ||
+		blockedFinalGate.AdmissionFinalGateID != "" ||
+		blockedFinalGate.AdmissionFinalGateState != "blocked" ||
+		blockedFinalGate.AdmissionFinalGateAction != "reject" ||
+		!blockedFinalGate.AdmissionFinalGateDryRunOnly ||
+		blockedFinalGate.AdmissionFinalGateSealVerified ||
+		blockedFinalGate.AdmissionFinalGateReady ||
+		blockedFinalGate.WriteAllowed ||
+		blockedFinalGate.MutatesState ||
+		blockedFinalGate.Reason != "candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("blocked seal should not pass admission final gate: %+v", blockedFinalGate)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||

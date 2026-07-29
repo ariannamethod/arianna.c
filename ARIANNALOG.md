@@ -4120,3 +4120,27 @@ The passed admission seal reports `admission_seal_state=sealed_closed_dry_run`,
 mismatched source ids, missing provenance, pre-enabled contracts, or any upstream body-write permission stay blocked
 without an admission seal id. `make admission-live-route-turn-candidate-nano-direct-seal-smoke` proves the real-nano
 chain can seal the permit packet while live admission and body state remain closed.
+
+**Follow-up, same day - sealed admission packets now stop at a final closed gate.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_final_gate.v1` after the admission seal. It consumes only a passed
+`admission_seal_state=sealed_closed_dry_run`, rechecks the stable `admission-seal-<hash>` plus the source
+`admission-permit-<hash>`, `admission-readiness-<hash>`, `ledger-verification-<hash>`,
+`ledger-persistence-<hash>`, `ledger-implementation-<hash>`, `admission-ledger-<hash>`,
+`rollback-implementation-<hash>`, and `writer-receipt-<hash>` ids, and refuses to become a body writer.
+
+The passed admission final gate reports `admission_final_gate_state=ready_closed_dry_run`,
+`admission_final_gate_action=verify_sealed_admission_provenance_dry_run`,
+`admission_final_gate_target=live_admission`, `admission_final_gate_target_kind=dream_candidate_admission`,
+`admission_final_gate_target_mode=final_gate_closed_dry_run`,
+`admission_final_gate_receipt_shape=sealed_candidate_contract_provenance`,
+`admission_final_gate_dry_run_only=true`, `admission_final_gate_seal_verified=true`,
+`admission_final_gate_permit_verified=true`, `admission_final_gate_readiness_verified=true`,
+`admission_final_gate_ledger_verified=true`, `admission_final_gate_writer_ready=true`,
+`admission_final_gate_rollback_ready=true`, `admission_final_gate_ledger_ready=true`,
+`admission_final_gate_ready=true`, `contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `body_target=none`, `mutates_state=false`, and a stable
+`admission-final-gate-<hash>` id. Failed seals, tampered seal or permit ids, mismatched source ids, missing provenance,
+pre-enabled contracts, or any upstream body-write permission stay blocked without an admission final gate id. `make
+admission-live-route-turn-candidate-nano-direct-final-gate-smoke` proves the real-nano chain can reach the last closed
+gate while live admission and body state remain disabled.

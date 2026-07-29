@@ -1839,6 +1839,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", admissionLiveRouteTurnCandidateAdmissionPermitConfirmation)
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
@@ -1863,6 +1864,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	readinessLog := filepath.Join(dir, "live-route-candidate-admission-readiness.jsonl")
 	permitLog := filepath.Join(dir, "live-route-candidate-admission-permit.jsonl")
 	sealLog := filepath.Join(dir, "live-route-candidate-admission-seal.jsonl")
+	finalGateLog := filepath.Join(dir, "live-route-candidate-admission-final-gate.jsonl")
 	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
@@ -1882,13 +1884,14 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_LOG", readinessLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_LOG", permitLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_LOG", sealLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_LOG", finalGateLog)
 
 	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the ledger should verify.")
 	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
-	if len(lines) != 23 {
-		t.Fatalf("expected 23 candidate chain lines, got %d: %v", len(lines), lines)
+	if len(lines) != 24 {
+		t.Fatalf("expected 24 candidate chain lines, got %d: %v", len(lines), lines)
 	}
-	verificationLine := lines[len(lines)-4]
+	verificationLine := lines[len(lines)-5]
 	for _, want := range []string{
 		"live-route candidate admission ledger verification dry-run",
 		"class=direct-user",
@@ -1942,7 +1945,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		got.Reason != "candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission ledger verification: %+v", got)
 	}
-	readinessLine := lines[len(lines)-3]
+	readinessLine := lines[len(lines)-4]
 	for _, want := range []string{
 		"live-route candidate admission readiness dry-run",
 		"class=direct-user",
@@ -1992,7 +1995,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		readiness.Reason != "candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission readiness: %+v", readiness)
 	}
-	permitLine := lines[len(lines)-2]
+	permitLine := lines[len(lines)-3]
 	for _, want := range []string{
 		"live-route candidate admission permit dry-run",
 		"class=direct-user",
@@ -2047,7 +2050,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		permit.Reason != "candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission permit: %+v", permit)
 	}
-	sealLine := lines[len(lines)-1]
+	sealLine := lines[len(lines)-2]
 	for _, want := range []string{
 		"live-route candidate admission seal dry-run",
 		"class=direct-user",
@@ -2102,6 +2105,66 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		seal.AdmissionSealID != "" ||
 		seal.Reason != "candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission seal: %+v", seal)
+	}
+	finalGateLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission final gate dry-run",
+		"class=direct-user",
+		"route=user_bridge",
+		"source=user_bridge",
+		"seal=",
+		"permit=",
+		"readiness=",
+		"ledger_verification=",
+		"final_gate=blocked",
+		"final_gate_action=reject",
+		"dry_run_only=true",
+		"seal_verified=false",
+		"permit_verified=false",
+		"readiness_verified=false",
+		"ledger_verified=false",
+		"writer_ready=false rollback_ready=false ledger_ready=false final_gate_ready=false",
+		"seal_ready=false permit_ready=false key_matched=true",
+		"readiness_ready=false verification_ready=false persistence_ready=false writer_impl=false rollback_impl=false ledger_impl=false",
+		"contracts_ready=false write_allowed=false admission_allowed=false live_ready=false live_enabled=false mutates=false",
+		"admission_final_gate_id=",
+		"passed=false",
+		"reason=candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution",
+	} {
+		if !strings.Contains(finalGateLine, want) {
+			t.Fatalf("candidate admission final gate line missing %q: %q", want, finalGateLine)
+		}
+	}
+	raw, err = os.ReadFile(finalGateLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var finalGate admissionLiveRouteTurnCandidateAdmissionFinalGate
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &finalGate); err != nil {
+		t.Fatal(err)
+	}
+	if finalGate.Schema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema ||
+		finalGate.Passed ||
+		finalGate.LiveReady ||
+		finalGate.LiveAdmissionEnabled ||
+		finalGate.AdmissionAllowed ||
+		finalGate.AdmissionFinalGateState != "blocked" ||
+		finalGate.AdmissionFinalGateAction != "reject" ||
+		!finalGate.AdmissionFinalGateDryRunOnly ||
+		finalGate.AdmissionFinalGateSealVerified ||
+		finalGate.AdmissionFinalGatePermitVerified ||
+		finalGate.AdmissionFinalGateReadinessVerified ||
+		finalGate.AdmissionFinalGateLedgerVerified ||
+		finalGate.AdmissionFinalGateWriterReady ||
+		finalGate.AdmissionFinalGateRollbackReady ||
+		finalGate.AdmissionFinalGateLedgerReady ||
+		finalGate.AdmissionFinalGateReady ||
+		finalGate.WriteAllowed ||
+		finalGate.MutatesState ||
+		finalGate.SourceAdmissionSealPassed ||
+		finalGate.AdmissionFinalGateID != "" ||
+		finalGate.Reason != "candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
+		t.Fatalf("bad candidate admission final gate: %+v", finalGate)
 	}
 }
 
