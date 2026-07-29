@@ -4144,3 +4144,31 @@ The passed admission final gate reports `admission_final_gate_state=ready_closed
 pre-enabled contracts, or any upstream body-write permission stay blocked without an admission final gate id. `make
 admission-live-route-turn-candidate-nano-direct-final-gate-smoke` proves the real-nano chain can reach the last closed
 gate while live admission and body state remain disabled.
+
+**Follow-up, same day - the closed gate now drafts the first Resonance intent.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_resonance_intent.v1` after the final gate. It consumes only a passed
+`admission_final_gate_state=ready_closed_dry_run`, rechecks the final gate, seal, permit, readiness, ledger
+verification, ledger persistence, ledger implementation, admission ledger, rollback implementation, and writer receipt
+ids, then drafts a bounded direction receipt for `receiver=resonance`.
+
+The passed intent reports `admission_resonance_intent_state=resonance_intent_drafted_dry_run`,
+`admission_resonance_intent_action=draft_resonance_direction_intent_dry_run`,
+`admission_resonance_intent_target=resonance`, `admission_resonance_intent_target_kind=first_live_receiver`,
+`admission_resonance_intent_target_mode=bounded_direction_dry_run`,
+`admission_resonance_intent_receipt_shape=sealed_candidate_contract_provenance`,
+`admission_resonance_intent_receiver_kind=internal_world`,
+`admission_resonance_intent_influence_kind=bounded_direction`,
+`admission_resonance_intent_max_influence=0.05`, `admission_resonance_intent_ttl_turns=1`,
+`admission_resonance_intent_raw_dream_text_allowed=false`,
+`admission_resonance_intent_janus_surface_allowed=false`,
+`admission_resonance_intent_cooc_learning_allowed=false`,
+`admission_resonance_intent_delta_harvest_allowed=false`,
+`admission_resonance_intent_rollback_required=true`,
+`admission_resonance_intent_pre_state_hash_required=true`,
+`admission_resonance_intent_post_state_hash_required=true`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`, `mutates_state=false`, and stable
+`resonance-intent-causal-<hash>` / `resonance-intent-<hash>` ids. Failed final gates, tampered provenance, body-write
+permissions, or missing ids stay blocked without a resonance intent id. `make
+admission-live-route-turn-candidate-nano-direct-resonance-intent-smoke` proves the real-nano chain can draft the
+first-receiver receipt without opening Janus, cooc/delta learning, or body mutation.

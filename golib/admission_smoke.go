@@ -2380,6 +2380,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() && finalGateLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_LOG is required")
 	}
+	resonanceIntentLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() && resonanceIntentLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2596,6 +2600,28 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionSealDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN are required for admission final gate smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN are required for admission resonance intent smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
@@ -2615,13 +2641,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
 	if (admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionPermitKey() != admissionLiveRouteTurnCandidateAdmissionPermitConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY must match dry-run confirmation for admission permit smoke")
 	}
@@ -2723,6 +2751,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		wantLines++
 	}
 	if admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() {
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {
 		wantLines++
 	}
 	if len(lines) != wantLines {
@@ -2944,6 +2975,22 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"dry_run_only=true seal_verified=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true final_gate_ready=true seal_ready=true permit_ready=true key_matched=true readiness_ready=true verification_ready=true persistence_ready=true writer_impl=true rollback_impl=true ledger_impl=true",
 			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_final_gate_id=admission-final-gate-",
 			"passed=true reason=sealed admission provenance cleared final gate; live admission remains disabled",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {
+		wants = append(wants,
+			"live-route candidate admission resonance intent dry-run: class=dream route=direct source=direct final_gate=admission-final-gate-",
+			"seal=admission-seal-",
+			"permit=admission-permit-",
+			"readiness=admission-readiness-",
+			"ledger_verification=ledger-verification-",
+			"receiver=resonance receiver_kind=internal_world influence_kind=bounded_direction max_influence=0.05 ttl_turns=1 causal_id=resonance-intent-causal-",
+			"raw_text_allowed=false janus_surface_allowed=false cooc_learning_allowed=false delta_harvest_allowed=false rollback_required=true pre_hash_required=true post_hash_required=true",
+			"intent=resonance_intent_drafted_dry_run intent_action=draft_resonance_direction_intent_dry_run",
+			"intent_target=resonance intent_target_kind=first_live_receiver intent_target_mode=bounded_direction_dry_run receipt_shape=sealed_candidate_contract_provenance",
+			"dry_run_only=true final_gate_verified=true seal_verified=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true intent_ready=true",
+			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_resonance_intent_id=resonance-intent-",
+			"passed=true reason=resonance intent drafted from final gate; live admission remains disabled",
 		)
 	}
 	for _, want := range wants {
@@ -3170,6 +3217,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &finalGate); err != nil {
 			return fmt.Errorf("candidate admission final gate receipt: %w", err)
+		}
+	}
+	var resonanceIntent admissionLiveRouteTurnCandidateAdmissionResonanceIntent
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {
+		if raw, err := readOne(resonanceIntentLogPath, "candidate admission resonance intent"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &resonanceIntent); err != nil {
+			return fmt.Errorf("candidate admission resonance intent receipt: %w", err)
 		}
 	}
 
@@ -4543,8 +4598,96 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission final gate receipt: final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {
+		if resonanceIntent.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema ||
+			!resonanceIntent.Passed ||
+			!resonanceIntent.LiveReady ||
+			resonanceIntent.LiveAdmissionEnabled ||
+			resonanceIntent.AdmissionAllowed ||
+			resonanceIntent.ContractsReady ||
+			resonanceIntent.WriteAllowed ||
+			resonanceIntent.MutatesState ||
+			resonanceIntent.BodyTarget != "none" ||
+			resonanceIntent.AdmissionResonanceIntentState != "resonance_intent_drafted_dry_run" ||
+			resonanceIntent.AdmissionResonanceIntentAction != "draft_resonance_direction_intent_dry_run" ||
+			resonanceIntent.AdmissionResonanceIntentTarget != "resonance" ||
+			resonanceIntent.AdmissionResonanceIntentTargetKind != "first_live_receiver" ||
+			resonanceIntent.AdmissionResonanceIntentTargetMode != "bounded_direction_dry_run" ||
+			resonanceIntent.AdmissionResonanceIntentReceiptShape != "sealed_candidate_contract_provenance" ||
+			!resonanceIntent.AdmissionResonanceIntentDryRunOnly ||
+			!resonanceIntent.AdmissionResonanceIntentFinalGateVerified ||
+			!resonanceIntent.AdmissionResonanceIntentSealVerified ||
+			!resonanceIntent.AdmissionResonanceIntentPermitVerified ||
+			!resonanceIntent.AdmissionResonanceIntentReadinessVerified ||
+			!resonanceIntent.AdmissionResonanceIntentLedgerVerified ||
+			!resonanceIntent.AdmissionResonanceIntentWriterReady ||
+			!resonanceIntent.AdmissionResonanceIntentRollbackReady ||
+			!resonanceIntent.AdmissionResonanceIntentLedgerReady ||
+			resonanceIntent.AdmissionResonanceIntentReceiver != "resonance" ||
+			resonanceIntent.AdmissionResonanceIntentReceiverKind != "internal_world" ||
+			resonanceIntent.AdmissionResonanceIntentInfluenceKind != "bounded_direction" ||
+			resonanceIntent.AdmissionResonanceIntentMaxInfluence != admissionLiveRouteTurnCandidateAdmissionResonanceIntentMaxGain ||
+			resonanceIntent.AdmissionResonanceIntentTTLTurns != admissionLiveRouteTurnCandidateAdmissionResonanceIntentTTL ||
+			resonanceIntent.AdmissionResonanceIntentCausalID == "" ||
+			resonanceIntent.AdmissionResonanceIntentRawDreamTextAllowed ||
+			resonanceIntent.AdmissionResonanceIntentJanusSurfaceAllowed ||
+			resonanceIntent.AdmissionResonanceIntentCoocLearningAllowed ||
+			resonanceIntent.AdmissionResonanceIntentDeltaHarvestAllowed ||
+			!resonanceIntent.AdmissionResonanceIntentRollbackRequired ||
+			!resonanceIntent.AdmissionResonanceIntentPreStateHashRequired ||
+			!resonanceIntent.AdmissionResonanceIntentPostStateHashRequired ||
+			!resonanceIntent.AdmissionResonanceIntentReady ||
+			resonanceIntent.SourceAdmissionFinalGateSchema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema ||
+			!resonanceIntent.SourceAdmissionFinalGatePassed ||
+			resonanceIntent.SourceAdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+			resonanceIntent.SourceAdmissionFinalGateAction != "verify_sealed_admission_provenance_dry_run" ||
+			!resonanceIntent.SourceAdmissionFinalGateReady ||
+			resonanceIntent.SourceAdmissionSealIDForResonanceIntent != seal.AdmissionSealID ||
+			resonanceIntent.SourceAdmissionPermitIDForResonanceIntent != permit.AdmissionPermitID ||
+			resonanceIntent.SourceAdmissionReadinessIDForResonanceIntent != readiness.AdmissionReadinessID ||
+			resonanceIntent.SourceLedgerVerificationIDForResonanceIntent != ledgerVerification.LedgerVerificationID ||
+			resonanceIntent.SourceLedgerPersistenceIDForResonanceIntent != ledgerPersistence.LedgerPersistenceID ||
+			resonanceIntent.SourceLedgerImplementationIDForResonanceIntent != ledgerImpl.LedgerImplementationID ||
+			resonanceIntent.SourceAdmissionLedgerIDForResonanceIntent != ledger.AdmissionLedgerID ||
+			resonanceIntent.SourceRollbackImplementationIDForResonanceIntent != rollbackImpl.RollbackImplementationID ||
+			resonanceIntent.SourceWriterReceiptIDForResonanceIntent != writerReceipt.WriterReceiptID ||
+			resonanceIntent.AdmissionResonanceIntentID == "" ||
+			resonanceIntent.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+			resonanceIntent.AdmissionSealID != seal.AdmissionSealID ||
+			resonanceIntent.AdmissionPermitID != permit.AdmissionPermitID ||
+			resonanceIntent.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+			resonanceIntent.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+			resonanceIntent.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+			resonanceIntent.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+			resonanceIntent.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+			resonanceIntent.WriterReceiptID != writerReceipt.WriterReceiptID ||
+			resonanceIntent.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+			resonanceIntent.AdmissionWriterContractID != writerContract.WriterContractID ||
+			resonanceIntent.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+			resonanceIntent.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			resonanceIntent.AdmissionLiveStageID != liveStage.LiveStageID ||
+			resonanceIntent.AdmissionEnableGateID != gate.EnableGateID ||
+			resonanceIntent.AdmissionSwitchID != sw.SwitchID ||
+			resonanceIntent.AdmissionPromotionID != promotion.PromotionID ||
+			resonanceIntent.AdmissionDecisionID != decision.DecisionID ||
+			resonanceIntent.CandidateExecutionID != execution.ExecutionID ||
+			resonanceIntent.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			resonanceIntent.CandidateDraftID != draft.DraftID ||
+			resonanceIntent.HandoffID != admission.HandoffID ||
+			resonanceIntent.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			resonanceIntent.DreamCandidateRunID != candidate.RunID ||
+			resonanceIntent.CandidateRunID != draft.CandidateRunID ||
+			resonanceIntent.CandidateTextHash != execution.GeneratedTextHash ||
+			resonanceIntent.TurnTextHash != execution.TurnTextHash ||
+			resonanceIntent.Reason != "resonance intent drafted from final gate; live admission remains disabled" {
+			return fmt.Errorf("bad nano-direct admission resonance intent receipt: resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath, resonanceIntentLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
