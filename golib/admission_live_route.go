@@ -33,6 +33,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema      = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
 	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema   = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
 	admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema    = "arianna.live_route_turn_candidate_admission_rollback_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema      = "arianna.live_route_turn_candidate_admission_ledger_implementation.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -952,6 +953,28 @@ type admissionLiveRouteTurnCandidateAdmissionRollbackImplementation struct {
 	SourceWriterReceiptPersisted      bool   `json:"source_writer_receipt_persisted"`
 	SourceWriterReceiptShadowWritable bool   `json:"source_writer_receipt_shadow_writable"`
 	RollbackImplementationID          string `json:"rollback_implementation_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionLedgerImplementation struct {
+	admissionLiveRouteTurnCandidateAdmissionRollbackImplementation
+
+	LedgerImplementationState            string `json:"ledger_implementation_state,omitempty"`
+	LedgerImplementationAction           string `json:"ledger_implementation_action,omitempty"`
+	LedgerEntrypointResolved             string `json:"ledger_entrypoint_resolved,omitempty"`
+	LedgerImplementationTarget           string `json:"ledger_implementation_target,omitempty"`
+	LedgerImplementationTargetKind       string `json:"ledger_implementation_target_kind,omitempty"`
+	LedgerImplementationTargetMode       string `json:"ledger_implementation_target_mode,omitempty"`
+	LedgerImplementationAppendOnly       bool   `json:"ledger_implementation_append_only"`
+	LedgerImplementationDryRunOnly       bool   `json:"ledger_implementation_dry_run_only"`
+	LedgerImplementationReceiptPersisted bool   `json:"ledger_implementation_receipt_persisted"`
+	SourceRollbackImplementationSchema   string `json:"source_rollback_implementation_schema,omitempty"`
+	SourceRollbackImplementationPassed   bool   `json:"source_rollback_implementation_passed"`
+	SourceRollbackImplementationID       string `json:"source_rollback_implementation_id,omitempty"`
+	SourceRollbackImplementationAction   string `json:"source_rollback_implementation_action,omitempty"`
+	SourceRollbackImplementationReady    bool   `json:"source_rollback_implementation_ready"`
+	SourceRollbackTargetID               string `json:"source_rollback_target_id,omitempty"`
+	SourceWriterReceiptIDForLedger       string `json:"source_writer_receipt_id_for_ledger,omitempty"`
+	LedgerImplementationID               string `json:"ledger_implementation_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2718,6 +2741,10 @@ func admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -5916,6 +5943,308 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionRollbackImplementation(rollba
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(rollback)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerImplementationForRollbackImplementation(rollback admissionLiveRouteTurnCandidateAdmissionRollbackImplementation) admissionLiveRouteTurnCandidateAdmissionLedgerImplementation {
+	sourceSchema := rollback.Schema
+	ledger := admissionLiveRouteTurnCandidateAdmissionLedgerImplementation{
+		admissionLiveRouteTurnCandidateAdmissionRollbackImplementation: rollback,
+		LedgerImplementationState:                                      "blocked",
+		LedgerImplementationAction:                                     "reject",
+		LedgerImplementationDryRunOnly:                                 true,
+		SourceRollbackImplementationSchema:                             sourceSchema,
+		SourceRollbackImplementationPassed:                             rollback.Passed,
+		SourceRollbackImplementationID:                                 rollback.RollbackImplementationID,
+		SourceRollbackImplementationAction:                             rollback.RollbackImplementationAction,
+		SourceRollbackImplementationReady:                              rollback.RollbackImplementationReady,
+		SourceRollbackTargetID:                                         rollback.RollbackTargetID,
+		SourceWriterReceiptIDForLedger:                                 rollback.WriterReceiptID,
+	}
+	ledger.Schema = admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema
+	ledger.Timing = "live_admission_ledger_implementation"
+	ledger.Passed = false
+	ledger.LedgerImplementationID = ""
+	ledger.LedgerImplementationReady = false
+	ledger.ContractsReady = false
+	ledger.WriteAllowed = false
+	ledger.AdmissionAllowed = false
+	ledger.LiveAdmissionEnabled = false
+	ledger.MutatesState = false
+	ledger.LedgerImplementationReceiptPersisted = false
+
+	if sourceSchema == "" {
+		ledger.Reason = "missing_candidate_admission_rollback_implementation"
+		return ledger
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema {
+		ledger.Reason = "unexpected_candidate_admission_rollback_implementation_schema " + sourceSchema
+		return ledger
+	}
+	if !rollback.Passed {
+		ledger.Reason = "candidate_admission_rollback_implementation_failed"
+		if rollback.Reason != "" {
+			ledger.Reason += ": " + rollback.Reason
+		}
+		return ledger
+	}
+	if rollback.RollbackImplementationID == "" {
+		ledger.Reason = "missing_candidate_admission_rollback_implementation_id"
+		return ledger
+	}
+	if wantRollbackID := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationID(rollback); wantRollbackID == "" || rollback.RollbackImplementationID != wantRollbackID {
+		ledger.Reason = "candidate_admission_rollback_implementation_id_mismatch"
+		return ledger
+	}
+	if rollback.WriterReceiptID == "" {
+		ledger.Reason = "missing_candidate_admission_writer_receipt_id_for_ledger"
+		return ledger
+	}
+	if wantReceiptID := admissionLiveRouteTurnCandidateAdmissionWriterReceiptID(rollback.admissionLiveRouteTurnCandidateAdmissionWriterReceipt); wantReceiptID == "" || rollback.WriterReceiptID != wantReceiptID {
+		ledger.Reason = "candidate_admission_writer_receipt_id_mismatch_for_ledger"
+		return ledger
+	}
+	if rollback.RollbackImplementationState != "rollback_contract_drafted_dry_run" ||
+		rollback.RollbackImplementationAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		rollback.RollbackEntrypointResolved != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		rollback.RollbackTarget != "shadow_receipt_log" ||
+		rollback.RollbackTargetKind != "dream_candidate_admission" ||
+		rollback.RollbackTargetID != rollback.WriterReceiptID ||
+		rollback.RollbackMode != "exact_receipt_id_dry_run" {
+		ledger.Reason = "candidate_admission_rollback_implementation_shape_mismatch"
+		return ledger
+	}
+	if !rollback.ExactReceiptMatchRequired || !rollback.RollbackDryRunOnly || rollback.RollbackReceiptRemoved {
+		ledger.Reason = "candidate_admission_rollback_implementation_not_exact_dry_run"
+		return ledger
+	}
+	if rollback.SourceWriterReceiptSchema != admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema ||
+		!rollback.SourceWriterReceiptPassed ||
+		rollback.SourceWriterReceiptID != rollback.WriterReceiptID ||
+		rollback.SourceWriterReceiptAction != "append_shadow_candidate_receipt_dry_run" ||
+		!rollback.SourceWriterReceiptPersisted ||
+		!rollback.SourceWriterReceiptShadowWritable {
+		ledger.Reason = "candidate_admission_rollback_implementation_source_receipt_mismatch"
+		return ledger
+	}
+	if !rollback.WriterReady ||
+		rollback.WriterState != "ready_dry_run" ||
+		rollback.WriterAction != "append_shadow_candidate_receipt_dry_run" ||
+		!rollback.WriterImplementationReady ||
+		!rollback.RollbackReady ||
+		rollback.RollbackState != "ready_dry_run" ||
+		rollback.RollbackAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!rollback.RollbackImplementationReady ||
+		rollback.LedgerImplementationReady {
+		ledger.Reason = "candidate_admission_rollback_implementation_readiness_mismatch"
+		return ledger
+	}
+	if rollback.ContractsReady || rollback.WriteAllowed || rollback.MutatesState || rollback.LiveAdmissionEnabled || rollback.AdmissionAllowed {
+		ledger.Reason = "candidate_admission_rollback_implementation_already_open"
+		return ledger
+	}
+	if !rollback.LiveReady {
+		ledger.Reason = "candidate_admission_rollback_implementation_not_live_ready"
+		return ledger
+	}
+	if rollback.LedgerState != "receipt_drafted_dry_run" ||
+		rollback.LedgerAction != "append_candidate_admission_receipt_dry_run" ||
+		rollback.LedgerContract != "live_admission_ledger.v1" ||
+		rollback.LedgerMode != "append_only_dry_run" ||
+		rollback.LedgerEntryKind != "dream_candidate_admission" ||
+		rollback.LedgerEntryStatus != "shadow_candidate_receipt" ||
+		rollback.LedgerReceiptShape != "candidate_contract_provenance" {
+		ledger.Reason = "candidate_admission_rollback_implementation_ledger_mismatch"
+		return ledger
+	}
+	if !rollback.LedgerAppendReady || rollback.LedgerReceiptPersisted {
+		ledger.Reason = "candidate_admission_rollback_implementation_ledger_state_mismatch"
+		return ledger
+	}
+	if rollback.ImplementationState != "implementation_contract_drafted_dry_run" ||
+		rollback.ImplementationAction != "define_append_only_writer_ledger_rollback" ||
+		rollback.WriterEntrypoint != "append_shadow_candidate_receipt_dry_run" ||
+		rollback.LedgerEntrypoint != "append_admission_ledger_receipt_dry_run" ||
+		rollback.RollbackEntrypoint != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		rollback.WriteTarget != "shadow_receipt_log" ||
+		rollback.BodyTarget != "none" {
+		ledger.Reason = "candidate_admission_rollback_implementation_writer_contract_mismatch"
+		return ledger
+	}
+	if !rollback.AppendOnly || !rollback.RollbackRequired || !rollback.ImplementationContractReady {
+		ledger.Reason = "candidate_admission_rollback_implementation_writer_contract_not_ready"
+		return ledger
+	}
+	if rollback.WriterReceiptState != "shadow_receipt_appended_dry_run" ||
+		rollback.WriterReceiptAction != "append_shadow_candidate_receipt_dry_run" ||
+		rollback.WriterReceiptKind != "dream_candidate_admission" ||
+		rollback.WriterReceiptTarget != "shadow_receipt_log" ||
+		rollback.WriterReceiptMode != "append_only_dry_run" ||
+		rollback.WriterReceiptShape != "candidate_contract_provenance" ||
+		!rollback.WriterReceiptPersisted ||
+		!rollback.ShadowWriteAllowed {
+		ledger.Reason = "candidate_admission_rollback_implementation_writer_receipt_mismatch"
+		return ledger
+	}
+	if !rollback.SourceWriterImplementationPassed ||
+		rollback.SourceWriterImplementationID != rollback.WriterImplementationID ||
+		rollback.SourceWriterImplementationEntrypoint != "append_shadow_candidate_receipt_dry_run" ||
+		rollback.SourceLedgerImplementationEntrypoint != "append_admission_ledger_receipt_dry_run" ||
+		rollback.SourceRollbackImplementationEntrypoint != "remove_exact_shadow_candidate_receipt_dry_run" {
+		ledger.Reason = "candidate_admission_rollback_implementation_source_writer_mismatch"
+		return ledger
+	}
+	if rollback.WriterContract != "live_admission_writer.v1" ||
+		rollback.RollbackContract != "live_admission_rollback.v1" ||
+		rollback.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		rollback.WriterContractShape != "append_shadow_candidate_receipt" ||
+		rollback.RollbackContractShape != "remove_exact_writer_receipt" ||
+		rollback.LedgerContractShape != "append_only_receipt_log" ||
+		rollback.WriteScope != "dream_candidate_admission" ||
+		rollback.RollbackScope != "single_writer_receipt" ||
+		!rollback.ContractShapeReady ||
+		rollback.SourceWriterContractPresent ||
+		rollback.SourceRollbackContractPresent ||
+		rollback.SourceLedgerContractPresent {
+		ledger.Reason = "candidate_admission_rollback_implementation_contract_shape_mismatch"
+		return ledger
+	}
+	if !rollback.ManualEnableRequested || !rollback.EnableKeyMatched || !rollback.RequiresWriter || !rollback.RequiresRollback {
+		ledger.Reason = "candidate_admission_rollback_implementation_requirements_mismatch"
+		return ledger
+	}
+	if !rollback.SourceLedgerPassed ||
+		!rollback.SourceWriterContractPassed ||
+		!rollback.SourceWriterInventoryPassed ||
+		!rollback.SourceWriterPreflightPassed ||
+		!rollback.SourceStagePassed ||
+		!rollback.SourceEnablePassed ||
+		!rollback.SourceSwitchPassed ||
+		!rollback.SourcePromotionPassed ||
+		!rollback.SourceDecisionPassed ||
+		!rollback.AdmissionPolicyPassed ||
+		!rollback.LiveRouteChoicePassed {
+		ledger.Reason = "candidate_admission_rollback_implementation_source_not_passed"
+		return ledger
+	}
+	if rollback.RollbackImplementationID == "" ||
+		rollback.WriterReceiptID == "" ||
+		rollback.WriterImplementationID == "" ||
+		rollback.AdmissionLedgerID == "" ||
+		rollback.AdmissionWriterContractID == "" ||
+		rollback.AdmissionWriterInventoryID == "" ||
+		rollback.AdmissionWriterPreflightID == "" ||
+		rollback.AdmissionLiveStageID == "" ||
+		rollback.AdmissionEnableGateID == "" ||
+		rollback.AdmissionSwitchID == "" ||
+		rollback.AdmissionPromotionID == "" ||
+		rollback.AdmissionDecisionID == "" ||
+		rollback.AdmissionAdapterID == "" ||
+		rollback.CandidateRunID == "" ||
+		rollback.CandidateDraftID == "" ||
+		rollback.CandidateExecutionID == "" ||
+		rollback.GeneratorAdapterID == "" ||
+		rollback.HandoffID == "" ||
+		rollback.DreamCandidateRunID == "" ||
+		rollback.CandidateTextHash == "" ||
+		rollback.TurnTextHash == "" {
+		ledger.Reason = "candidate_admission_rollback_implementation_missing_provenance"
+		return ledger
+	}
+
+	ledger.LedgerImplementationState = "ledger_contract_drafted_dry_run"
+	ledger.LedgerImplementationAction = rollback.LedgerEntrypoint
+	ledger.LedgerEntrypointResolved = rollback.LedgerEntrypoint
+	ledger.LedgerImplementationTarget = "admission_ledger"
+	ledger.LedgerImplementationTargetKind = rollback.LedgerEntryKind
+	ledger.LedgerImplementationTargetMode = "append_only_dry_run"
+	ledger.LedgerImplementationAppendOnly = true
+	ledger.LedgerImplementationDryRunOnly = true
+	ledger.LedgerImplementationReceiptPersisted = false
+	ledger.LedgerImplementationReady = true
+	ledger.ContractsReady = false
+	ledger.WriteAllowed = false
+	ledger.AdmissionAllowed = false
+	ledger.LiveAdmissionEnabled = false
+	ledger.MutatesState = false
+	ledger.LedgerImplementationID = admissionLiveRouteTurnCandidateAdmissionLedgerImplementationID(ledger)
+	if ledger.LedgerImplementationID == "" {
+		ledger.Reason = "missing_candidate_admission_ledger_implementation_id"
+		return ledger
+	}
+	ledger.Passed = true
+	ledger.Reason = "ledger implementation drafted for append-only admission receipts; contracts remain disabled"
+	return ledger
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerImplementationID(ledger admissionLiveRouteTurnCandidateAdmissionLedgerImplementation) string {
+	h := hashJSON(struct {
+		RollbackImplementationID       string `json:"rollback_implementation_id"`
+		WriterReceiptID                string `json:"writer_receipt_id"`
+		WriterImplementationID         string `json:"writer_implementation_id"`
+		AdmissionLedgerID              string `json:"admission_ledger_id"`
+		CandidateRunID                 string `json:"candidate_run_id"`
+		CandidateTextHash              string `json:"candidate_text_hash"`
+		TurnTextHash                   string `json:"turn_text_hash"`
+		LedgerImplementationState      string `json:"ledger_implementation_state"`
+		LedgerImplementationAction     string `json:"ledger_implementation_action"`
+		LedgerEntrypointResolved       string `json:"ledger_entrypoint_resolved"`
+		LedgerImplementationTarget     string `json:"ledger_implementation_target"`
+		LedgerImplementationTargetKind string `json:"ledger_implementation_target_kind"`
+		LedgerImplementationTargetMode string `json:"ledger_implementation_target_mode"`
+		LedgerImplementationAppendOnly bool   `json:"ledger_implementation_append_only"`
+		LedgerImplementationDryRunOnly bool   `json:"ledger_implementation_dry_run_only"`
+		LedgerImplementationReady      bool   `json:"ledger_implementation_ready"`
+		WriterImplementationReady      bool   `json:"writer_implementation_ready"`
+		RollbackImplementationReady    bool   `json:"rollback_implementation_ready"`
+		ContractsReady                 bool   `json:"contracts_ready"`
+		BodyTarget                     string `json:"body_target"`
+		WriteAllowed                   bool   `json:"write_allowed"`
+		MutatesState                   bool   `json:"mutates_state"`
+	}{
+		RollbackImplementationID:       ledger.RollbackImplementationID,
+		WriterReceiptID:                ledger.WriterReceiptID,
+		WriterImplementationID:         ledger.WriterImplementationID,
+		AdmissionLedgerID:              ledger.AdmissionLedgerID,
+		CandidateRunID:                 ledger.CandidateRunID,
+		CandidateTextHash:              ledger.CandidateTextHash,
+		TurnTextHash:                   ledger.TurnTextHash,
+		LedgerImplementationState:      ledger.LedgerImplementationState,
+		LedgerImplementationAction:     ledger.LedgerImplementationAction,
+		LedgerEntrypointResolved:       ledger.LedgerEntrypointResolved,
+		LedgerImplementationTarget:     ledger.LedgerImplementationTarget,
+		LedgerImplementationTargetKind: ledger.LedgerImplementationTargetKind,
+		LedgerImplementationTargetMode: ledger.LedgerImplementationTargetMode,
+		LedgerImplementationAppendOnly: ledger.LedgerImplementationAppendOnly,
+		LedgerImplementationDryRunOnly: ledger.LedgerImplementationDryRunOnly,
+		LedgerImplementationReady:      ledger.LedgerImplementationReady,
+		WriterImplementationReady:      ledger.WriterImplementationReady,
+		RollbackImplementationReady:    ledger.RollbackImplementationReady,
+		ContractsReady:                 ledger.ContractsReady,
+		BodyTarget:                     ledger.BodyTarget,
+		WriteAllowed:                   ledger.WriteAllowed,
+		MutatesState:                   ledger.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "ledger-implementation-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionLedgerImplementation(ledger admissionLiveRouteTurnCandidateAdmissionLedgerImplementation) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(ledger)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

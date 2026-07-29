@@ -1590,6 +1590,116 @@ func TestChatLiveRouteTurnCandidateAdmissionRollbackImplementationDryRunLine(t *
 	}
 }
 
+func TestChatLiveRouteTurnCandidateAdmissionLedgerImplementationDryRunLine(t *testing.T) {
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "The dream proves the ledger before it touches the body.")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	dir := t.TempDir()
+	dreamLog := filepath.Join(dir, "dream-admission-chat-ledger-implementation.jsonl")
+	decisionLog := filepath.Join(dir, "live-route-candidate-admission-decision.jsonl")
+	promotionLog := filepath.Join(dir, "live-route-candidate-admission-promotion.jsonl")
+	switchLog := filepath.Join(dir, "live-route-candidate-admission-switch.jsonl")
+	enableGateLog := filepath.Join(dir, "live-route-candidate-admission-enable-gate.jsonl")
+	liveStageLog := filepath.Join(dir, "live-route-candidate-admission-live-stage.jsonl")
+	writerPreflightLog := filepath.Join(dir, "live-route-candidate-admission-writer-preflight.jsonl")
+	writerInventoryLog := filepath.Join(dir, "live-route-candidate-admission-writer-inventory.jsonl")
+	writerContractLog := filepath.Join(dir, "live-route-candidate-admission-writer-contract.jsonl")
+	ledgerLog := filepath.Join(dir, "live-route-candidate-admission-ledger.jsonl")
+	writerImplLog := filepath.Join(dir, "live-route-candidate-admission-writer-implementation.jsonl")
+	writerReceiptLog := filepath.Join(dir, "live-route-candidate-admission-writer-receipt.jsonl")
+	rollbackImplLog := filepath.Join(dir, "live-route-candidate-admission-rollback-implementation.jsonl")
+	ledgerImplLog := filepath.Join(dir, "live-route-candidate-admission-ledger-implementation.jsonl")
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_LOG", switchLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_LOG", enableGateLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_LOG", liveStageLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_LOG", writerPreflightLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_LOG", writerInventoryLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_LOG", writerContractLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_LOG", ledgerLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_LOG", writerImplLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_LOG", writerReceiptLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_LOG", rollbackImplLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_LOG", ledgerImplLog)
+
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the ledger should remember.")
+	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
+	if len(lines) != 18 {
+		t.Fatalf("expected 18 candidate chain lines, got %d: %v", len(lines), lines)
+	}
+	ledgerLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission ledger implementation dry-run",
+		"class=direct-user",
+		"route=user_bridge",
+		"source=user_bridge",
+		"rollback_implementation=",
+		"ledger=blocked",
+		"ledger_action=reject",
+		"append_only=false",
+		"dry_run_only=true",
+		"receipt_persisted=false",
+		"writer_ready=false rollback_ready=false writer_impl=false rollback_impl=false ledger_impl=false",
+		"contracts_ready=false write_allowed=false admission_allowed=false live_ready=false live_enabled=false mutates=false",
+		"ledger_implementation_id=",
+		"passed=false",
+		"reason=candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution",
+	} {
+		if !strings.Contains(ledgerLine, want) {
+			t.Fatalf("candidate admission ledger implementation line missing %q: %q", want, ledgerLine)
+		}
+	}
+	raw, err := os.ReadFile(ledgerImplLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got admissionLiveRouteTurnCandidateAdmissionLedgerImplementation
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema ||
+		got.Passed ||
+		got.LiveReady ||
+		got.LiveAdmissionEnabled ||
+		got.AdmissionAllowed ||
+		!got.ManualEnableRequested ||
+		!got.EnableKeyMatched ||
+		got.LedgerImplementationState != "blocked" ||
+		got.LedgerImplementationAction != "reject" ||
+		got.LedgerImplementationAppendOnly ||
+		!got.LedgerImplementationDryRunOnly ||
+		got.LedgerImplementationReceiptPersisted ||
+		got.LedgerImplementationReady ||
+		got.WriteAllowed ||
+		got.MutatesState ||
+		got.SourceRollbackImplementationPassed ||
+		got.LedgerImplementationID != "" ||
+		got.Reason != "candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
+		t.Fatalf("bad candidate admission ledger implementation: %+v", got)
+	}
+}
+
 func TestChatLiveRouteTurnCandidateReviewLine(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 
