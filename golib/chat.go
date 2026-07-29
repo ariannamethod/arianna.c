@@ -223,7 +223,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun()
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -265,7 +266,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun()
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -298,7 +300,8 @@ func chatLiveRouteTurnCandidateChainText() string {
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"); strings.TrimSpace(text) != "" {
 			return text
 		}
@@ -625,6 +628,28 @@ func chatLiveRouteTurnCandidateAdmissionReadinessLine(readiness admissionLiveRou
 		chatLiveRouteReasonSuffix(readiness.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionPermitLine(permit admissionLiveRouteTurnCandidateAdmissionPermit) string {
+	return fmt.Sprintf("│  · live-route candidate admission permit dry-run: class=%s route=%s source=%s readiness=%s ledger_verification=%s ledger_persistence=%s ledger_implementation=%s admission_ledger=%s writer_receipt=%s rollback_implementation=%s permit=%s permit_action=%s permit_target=%s permit_target_kind=%s permit_target_mode=%s dry_run_only=%t readiness_verified=%t ledger_verified=%t writer_ready=%t rollback_ready=%t ledger_ready=%t permit_ready=%t manual_requested=%t key_matched=%t readiness_ready=%t verification_ready=%t persistence_ready=%t writer_impl=%t rollback_impl=%t ledger_impl=%t contracts_ready=%t write_allowed=%t admission_allowed=%t live_ready=%t live_enabled=%t mutates=%t admission_permit_id=%s passed=%t%s",
+		permit.PromptClass, permit.Route, permit.Source,
+		permit.AdmissionReadinessID, permit.LedgerVerificationID,
+		permit.LedgerPersistenceID, permit.LedgerImplementationID,
+		permit.AdmissionLedgerID, permit.WriterReceiptID, permit.RollbackImplementationID,
+		permit.AdmissionPermitState, permit.AdmissionPermitAction,
+		permit.AdmissionPermitTarget, permit.AdmissionPermitTargetKind,
+		permit.AdmissionPermitTargetMode, permit.AdmissionPermitDryRunOnly,
+		permit.AdmissionPermitReadinessVerified, permit.AdmissionPermitLedgerVerified,
+		permit.AdmissionPermitWriterReady, permit.AdmissionPermitRollbackReady,
+		permit.AdmissionPermitLedgerReady, permit.AdmissionPermitReady,
+		permit.ManualPermitRequested, permit.PermitKeyMatched,
+		permit.AdmissionReadinessReady, permit.LedgerVerificationReady,
+		permit.LedgerPersistenceReady, permit.WriterImplementationReady,
+		permit.RollbackImplementationReady, permit.LedgerImplementationReady,
+		permit.ContractsReady, permit.WriteAllowed, permit.AdmissionAllowed,
+		permit.LiveReady, permit.LiveAdmissionEnabled, permit.MutatesState,
+		permit.AdmissionPermitID, permit.Passed,
+		chatLiveRouteReasonSuffix(permit.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -683,7 +708,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionDryRun() &&
 		admissionLiveRouteTurnCandidateDraftDryRun() {
@@ -708,7 +734,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		decision = admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 			chain.Execution,
 			chain.Adapter,
@@ -739,7 +766,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		promotion = admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision)
 		if admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() {
 			if err := recordAdmissionLiveRouteTurnCandidateAdmissionPromotion(promotion); err != nil {
@@ -762,7 +790,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		sw = admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() {
@@ -784,7 +813,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		gate = admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() {
@@ -805,7 +835,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		stage = admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() {
@@ -825,7 +856,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		preflight = admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(stage)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
@@ -844,7 +876,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		inventory = admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(preflight)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
@@ -862,7 +895,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		contract = admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(inventory)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
@@ -879,7 +913,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		ledger = admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(contract)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() {
@@ -895,7 +930,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		impl = admissionLiveRouteTurnCandidateAdmissionWriterImplementationForLedger(ledger)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() {
@@ -910,7 +946,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		receipt = admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(impl)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() {
@@ -924,7 +961,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		rollback = admissionLiveRouteTurnCandidateAdmissionRollbackImplementationForWriterReceipt(receipt)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() {
@@ -937,7 +975,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	if admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		ledgerImpl = admissionLiveRouteTurnCandidateAdmissionLedgerImplementationForRollbackImplementation(rollback)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() {
@@ -949,7 +988,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	persistence := admissionLiveRouteTurnCandidateAdmissionLedgerPersistence{}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		persistence = admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceForLedgerImplementation(ledgerImpl)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() {
@@ -960,7 +1000,8 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	}
 	verification := admissionLiveRouteTurnCandidateAdmissionLedgerVerification{}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		verification = admissionLiveRouteTurnCandidateAdmissionLedgerVerificationForLedgerPersistence(persistence)
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() {
@@ -969,12 +1010,22 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 		}
 		lines = append(lines, chatLiveRouteTurnCandidateAdmissionLedgerVerificationLine(verification))
 	}
-	if admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		readiness := admissionLiveRouteTurnCandidateAdmissionReadinessForLedgerVerification(verification)
-		if err := recordAdmissionLiveRouteTurnCandidateAdmissionReadiness(readiness); err != nil {
-			return append(lines, fmt.Sprintf("│  · live-route candidate admission readiness dry-run log failed: %v", err))
+		if admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
+			if err := recordAdmissionLiveRouteTurnCandidateAdmissionReadiness(readiness); err != nil {
+				return append(lines, fmt.Sprintf("│  · live-route candidate admission readiness dry-run log failed: %v", err))
+			}
+			lines = append(lines, chatLiveRouteTurnCandidateAdmissionReadinessLine(readiness))
 		}
-		lines = append(lines, chatLiveRouteTurnCandidateAdmissionReadinessLine(readiness))
+		if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
+			permit := admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(readiness)
+			if err := recordAdmissionLiveRouteTurnCandidateAdmissionPermit(permit); err != nil {
+				return append(lines, fmt.Sprintf("│  · live-route candidate admission permit dry-run log failed: %v", err))
+			}
+			lines = append(lines, chatLiveRouteTurnCandidateAdmissionPermitLine(permit))
+		}
 	}
 	return lines
 }

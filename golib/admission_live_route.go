@@ -37,10 +37,12 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema  = "arianna.live_route_turn_candidate_admission_ledger_persistence.v1"
 	admissionLiveRouteTurnCandidateAdmissionLedgerVerificationSchema = "arianna.live_route_turn_candidate_admission_ledger_verification.v1"
 	admissionLiveRouteTurnCandidateAdmissionReadinessSchema          = "arianna.live_route_turn_candidate_admission_readiness.v1"
+	admissionLiveRouteTurnCandidateAdmissionPermitSchema             = "arianna.live_route_turn_candidate_admission_permit.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
 	admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation = "ARIANNA_LIVE_ADMISSION_ENABLE_DRY_RUN_ONLY"
+	admissionLiveRouteTurnCandidateAdmissionPermitConfirmation     = "ARIANNA_LIVE_ADMISSION_PERMIT_DRY_RUN_ONLY"
 
 	admissionLiveRouteTurnCandidateExecutionRunnerProvided   = "provided_text"
 	admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit   = "metabolism-self-emit"
@@ -1057,6 +1059,38 @@ type admissionLiveRouteTurnCandidateAdmissionReadiness struct {
 	SourceRollbackImplementationIDForReadiness string `json:"source_rollback_implementation_id_for_readiness,omitempty"`
 	SourceWriterReceiptIDForReadiness          string `json:"source_writer_receipt_id_for_readiness,omitempty"`
 	AdmissionReadinessID                       string `json:"admission_readiness_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionPermit struct {
+	admissionLiveRouteTurnCandidateAdmissionReadiness
+
+	AdmissionPermitState                    string `json:"admission_permit_state,omitempty"`
+	AdmissionPermitAction                   string `json:"admission_permit_action,omitempty"`
+	AdmissionPermitTarget                   string `json:"admission_permit_target,omitempty"`
+	AdmissionPermitTargetKind               string `json:"admission_permit_target_kind,omitempty"`
+	AdmissionPermitTargetMode               string `json:"admission_permit_target_mode,omitempty"`
+	AdmissionPermitDryRunOnly               bool   `json:"admission_permit_dry_run_only"`
+	AdmissionPermitReadinessVerified        bool   `json:"admission_permit_readiness_verified"`
+	AdmissionPermitLedgerVerified           bool   `json:"admission_permit_ledger_verified"`
+	AdmissionPermitWriterReady              bool   `json:"admission_permit_writer_ready"`
+	AdmissionPermitRollbackReady            bool   `json:"admission_permit_rollback_ready"`
+	AdmissionPermitLedgerReady              bool   `json:"admission_permit_ledger_ready"`
+	AdmissionPermitReady                    bool   `json:"admission_permit_ready"`
+	ManualPermitRequested                   bool   `json:"manual_permit_requested"`
+	PermitKeyMatched                        bool   `json:"permit_key_matched"`
+	SourceAdmissionReadinessSchema          string `json:"source_admission_readiness_schema,omitempty"`
+	SourceAdmissionReadinessPassed          bool   `json:"source_admission_readiness_passed"`
+	SourceAdmissionReadinessID              string `json:"source_admission_readiness_id,omitempty"`
+	SourceAdmissionReadinessAction          string `json:"source_admission_readiness_action,omitempty"`
+	SourceAdmissionReadinessReady           bool   `json:"source_admission_readiness_ready"`
+	SourceAdmissionReadinessLedgerVerified  bool   `json:"source_admission_readiness_ledger_verified"`
+	SourceLedgerVerificationIDForPermit     string `json:"source_ledger_verification_id_for_permit,omitempty"`
+	SourceLedgerPersistenceIDForPermit      string `json:"source_ledger_persistence_id_for_permit,omitempty"`
+	SourceLedgerImplementationIDForPermit   string `json:"source_ledger_implementation_id_for_permit,omitempty"`
+	SourceAdmissionLedgerIDForPermit        string `json:"source_admission_ledger_id_for_permit,omitempty"`
+	SourceRollbackImplementationIDForPermit string `json:"source_rollback_implementation_id_for_permit,omitempty"`
+	SourceWriterReceiptIDForPermit          string `json:"source_writer_receipt_id_for_permit,omitempty"`
+	AdmissionPermitID                       string `json:"admission_permit_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2841,8 +2875,16 @@ func admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN")
 }
 
+func admissionLiveRouteTurnCandidateAdmissionPermitDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN")
+}
+
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
 	return strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY"))
+}
+
+func admissionLiveRouteTurnCandidateAdmissionPermitKey() string {
+	return strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY"))
 }
 
 func admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission admissionLiveRouteTurnCandidateAdmission, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateAdmissionAdapter {
@@ -7269,6 +7311,266 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionReadiness(readiness admission
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(readiness)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionPermitForReadiness(readiness admissionLiveRouteTurnCandidateAdmissionReadiness) admissionLiveRouteTurnCandidateAdmissionPermit {
+	sourceSchema := readiness.Schema
+	permitKey := admissionLiveRouteTurnCandidateAdmissionPermitKey()
+	permit := admissionLiveRouteTurnCandidateAdmissionPermit{
+		admissionLiveRouteTurnCandidateAdmissionReadiness: readiness,
+		AdmissionPermitState:                              "blocked",
+		AdmissionPermitAction:                             "reject",
+		AdmissionPermitDryRunOnly:                         true,
+		ManualPermitRequested:                             permitKey != "",
+		PermitKeyMatched:                                  permitKey == admissionLiveRouteTurnCandidateAdmissionPermitConfirmation,
+		SourceAdmissionReadinessSchema:                    sourceSchema,
+		SourceAdmissionReadinessPassed:                    readiness.Passed,
+		SourceAdmissionReadinessID:                        readiness.AdmissionReadinessID,
+		SourceAdmissionReadinessAction:                    readiness.AdmissionReadinessAction,
+		SourceAdmissionReadinessReady:                     readiness.AdmissionReadinessReady,
+		SourceAdmissionReadinessLedgerVerified:            readiness.AdmissionReadinessLedgerVerified,
+		SourceLedgerVerificationIDForPermit:               readiness.LedgerVerificationID,
+		SourceLedgerPersistenceIDForPermit:                readiness.LedgerPersistenceID,
+		SourceLedgerImplementationIDForPermit:             readiness.LedgerImplementationID,
+		SourceAdmissionLedgerIDForPermit:                  readiness.AdmissionLedgerID,
+		SourceRollbackImplementationIDForPermit:           readiness.RollbackImplementationID,
+		SourceWriterReceiptIDForPermit:                    readiness.WriterReceiptID,
+	}
+	permit.Schema = admissionLiveRouteTurnCandidateAdmissionPermitSchema
+	permit.Timing = "live_admission_permit"
+	permit.Passed = false
+	permit.AdmissionPermitID = ""
+	permit.AdmissionPermitReady = false
+	permit.ContractsReady = false
+	permit.WriteAllowed = false
+	permit.AdmissionAllowed = false
+	permit.LiveAdmissionEnabled = false
+	permit.MutatesState = false
+
+	if sourceSchema == "" {
+		permit.Reason = "missing_candidate_admission_readiness"
+		return permit
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionReadinessSchema {
+		permit.Reason = "unexpected_candidate_admission_readiness_schema " + sourceSchema
+		return permit
+	}
+	if !readiness.Passed {
+		permit.Reason = "candidate_admission_readiness_failed"
+		if readiness.Reason != "" {
+			permit.Reason += ": " + readiness.Reason
+		}
+		return permit
+	}
+	if readiness.AdmissionReadinessID == "" {
+		permit.Reason = "missing_candidate_admission_readiness_id"
+		return permit
+	}
+	if wantReadinessID := admissionLiveRouteTurnCandidateAdmissionReadinessID(readiness); wantReadinessID == "" || readiness.AdmissionReadinessID != wantReadinessID {
+		permit.Reason = "candidate_admission_readiness_id_mismatch"
+		return permit
+	}
+	if readiness.AdmissionReadinessState != "verified_closed_dry_run" ||
+		readiness.AdmissionReadinessAction != "declare_verified_live_admission_readiness_dry_run" ||
+		readiness.AdmissionReadinessTarget != "live_admission" ||
+		readiness.AdmissionReadinessTargetKind != "dream_candidate_admission" ||
+		readiness.AdmissionReadinessTargetMode != "closed_verified_dry_run" {
+		permit.Reason = "candidate_admission_readiness_shape_mismatch"
+		return permit
+	}
+	if !readiness.AdmissionReadinessDryRunOnly ||
+		!readiness.AdmissionReadinessLedgerVerified ||
+		!readiness.AdmissionReadinessWriterReady ||
+		!readiness.AdmissionReadinessRollbackReady ||
+		!readiness.AdmissionReadinessLedgerReady ||
+		!readiness.AdmissionReadinessReady {
+		permit.Reason = "candidate_admission_readiness_not_verified_dry_run"
+		return permit
+	}
+	if readiness.ContractsReady || readiness.WriteAllowed || readiness.MutatesState || readiness.LiveAdmissionEnabled || readiness.AdmissionAllowed {
+		permit.Reason = "candidate_admission_readiness_already_open"
+		return permit
+	}
+	if !readiness.LiveReady {
+		permit.Reason = "candidate_admission_readiness_not_live_ready"
+		return permit
+	}
+	if readiness.SourceLedgerVerificationSchema != admissionLiveRouteTurnCandidateAdmissionLedgerVerificationSchema ||
+		!readiness.SourceLedgerVerificationPassed ||
+		readiness.SourceLedgerVerificationID != readiness.LedgerVerificationID ||
+		readiness.SourceLedgerVerificationAction != "verify_persisted_admission_ledger_receipt_dry_run" ||
+		!readiness.SourceLedgerVerificationReady ||
+		!readiness.SourceLedgerVerificationReceiptVerified {
+		permit.Reason = "candidate_admission_readiness_source_verification_mismatch"
+		return permit
+	}
+	if wantVerificationID := admissionLiveRouteTurnCandidateAdmissionLedgerVerificationID(readiness.admissionLiveRouteTurnCandidateAdmissionLedgerVerification); wantVerificationID == "" || readiness.LedgerVerificationID != wantVerificationID {
+		permit.Reason = "candidate_admission_ledger_verification_id_mismatch_for_admission_permit"
+		return permit
+	}
+	if readiness.SourceLedgerPersistenceIDForReadiness != readiness.LedgerPersistenceID ||
+		readiness.SourceLedgerImplementationIDForReadiness != readiness.LedgerImplementationID ||
+		readiness.SourceAdmissionLedgerIDForReadiness != readiness.AdmissionLedgerID ||
+		readiness.SourceRollbackImplementationIDForReadiness != readiness.RollbackImplementationID ||
+		readiness.SourceWriterReceiptIDForReadiness != readiness.WriterReceiptID {
+		permit.Reason = "candidate_admission_readiness_source_id_mismatch"
+		return permit
+	}
+	if readiness.AdmissionReadinessID == "" ||
+		readiness.LedgerVerificationID == "" ||
+		readiness.LedgerPersistenceID == "" ||
+		readiness.LedgerImplementationID == "" ||
+		readiness.RollbackImplementationID == "" ||
+		readiness.WriterReceiptID == "" ||
+		readiness.WriterImplementationID == "" ||
+		readiness.AdmissionLedgerID == "" ||
+		readiness.AdmissionWriterContractID == "" ||
+		readiness.AdmissionWriterInventoryID == "" ||
+		readiness.AdmissionWriterPreflightID == "" ||
+		readiness.AdmissionLiveStageID == "" ||
+		readiness.AdmissionEnableGateID == "" ||
+		readiness.AdmissionSwitchID == "" ||
+		readiness.AdmissionPromotionID == "" ||
+		readiness.AdmissionDecisionID == "" ||
+		readiness.AdmissionAdapterID == "" ||
+		readiness.CandidateRunID == "" ||
+		readiness.CandidateDraftID == "" ||
+		readiness.CandidateExecutionID == "" ||
+		readiness.GeneratorAdapterID == "" ||
+		readiness.HandoffID == "" ||
+		readiness.DreamCandidateRunID == "" ||
+		readiness.CandidateTextHash == "" ||
+		readiness.TurnTextHash == "" {
+		permit.Reason = "candidate_admission_readiness_missing_provenance"
+		return permit
+	}
+	if !permit.ManualPermitRequested {
+		permit.Reason = "live_admission_permit_key_missing"
+		return permit
+	}
+	if !permit.PermitKeyMatched {
+		permit.Reason = "live_admission_permit_key_mismatch"
+		return permit
+	}
+
+	permit.AdmissionPermitState = "operator_permitted_closed_dry_run"
+	permit.AdmissionPermitAction = "acknowledge_verified_live_admission_readiness_dry_run"
+	permit.AdmissionPermitTarget = "live_admission"
+	permit.AdmissionPermitTargetKind = "dream_candidate_admission"
+	permit.AdmissionPermitTargetMode = "permit_closed_dry_run"
+	permit.AdmissionPermitDryRunOnly = true
+	permit.AdmissionPermitReadinessVerified = true
+	permit.AdmissionPermitLedgerVerified = readiness.AdmissionReadinessLedgerVerified
+	permit.AdmissionPermitWriterReady = readiness.AdmissionReadinessWriterReady
+	permit.AdmissionPermitRollbackReady = readiness.AdmissionReadinessRollbackReady
+	permit.AdmissionPermitLedgerReady = readiness.AdmissionReadinessLedgerReady
+	permit.AdmissionPermitReady = true
+	permit.ContractsReady = false
+	permit.WriteAllowed = false
+	permit.AdmissionAllowed = false
+	permit.LiveAdmissionEnabled = false
+	permit.MutatesState = false
+	permit.AdmissionPermitID = admissionLiveRouteTurnCandidateAdmissionPermitID(permit)
+	if permit.AdmissionPermitID == "" {
+		permit.Reason = "missing_candidate_admission_permit_id"
+		return permit
+	}
+	permit.Passed = true
+	permit.Reason = "operator permit accepted for verified readiness; live admission remains disabled"
+	return permit
+}
+
+func admissionLiveRouteTurnCandidateAdmissionPermitID(permit admissionLiveRouteTurnCandidateAdmissionPermit) string {
+	h := hashJSON(struct {
+		AdmissionReadinessID                string `json:"admission_readiness_id"`
+		LedgerVerificationID                string `json:"ledger_verification_id"`
+		LedgerPersistenceID                 string `json:"ledger_persistence_id"`
+		LedgerImplementationID              string `json:"ledger_implementation_id"`
+		RollbackImplementationID            string `json:"rollback_implementation_id"`
+		WriterReceiptID                     string `json:"writer_receipt_id"`
+		AdmissionLedgerID                   string `json:"admission_ledger_id"`
+		CandidateRunID                      string `json:"candidate_run_id"`
+		CandidateTextHash                   string `json:"candidate_text_hash"`
+		TurnTextHash                        string `json:"turn_text_hash"`
+		AdmissionPermitState                string `json:"admission_permit_state"`
+		AdmissionPermitAction               string `json:"admission_permit_action"`
+		AdmissionPermitTarget               string `json:"admission_permit_target"`
+		AdmissionPermitTargetKind           string `json:"admission_permit_target_kind"`
+		AdmissionPermitTargetMode           string `json:"admission_permit_target_mode"`
+		AdmissionPermitDryRunOnly           bool   `json:"admission_permit_dry_run_only"`
+		AdmissionPermitReadinessVerified    bool   `json:"admission_permit_readiness_verified"`
+		AdmissionPermitLedgerVerified       bool   `json:"admission_permit_ledger_verified"`
+		AdmissionPermitWriterReady          bool   `json:"admission_permit_writer_ready"`
+		AdmissionPermitRollbackReady        bool   `json:"admission_permit_rollback_ready"`
+		AdmissionPermitLedgerReady          bool   `json:"admission_permit_ledger_ready"`
+		AdmissionPermitReady                bool   `json:"admission_permit_ready"`
+		ManualPermitRequested               bool   `json:"manual_permit_requested"`
+		PermitKeyMatched                    bool   `json:"permit_key_matched"`
+		SourceAdmissionReadinessID          string `json:"source_admission_readiness_id"`
+		SourceAdmissionReadinessReady       bool   `json:"source_admission_readiness_ready"`
+		SourceAdmissionReadinessLedgerReady bool   `json:"source_admission_readiness_ledger_verified"`
+		ContractsReady                      bool   `json:"contracts_ready"`
+		BodyTarget                          string `json:"body_target"`
+		WriteAllowed                        bool   `json:"write_allowed"`
+		AdmissionAllowed                    bool   `json:"admission_allowed"`
+		LiveAdmissionEnabled                bool   `json:"live_admission_enabled"`
+		MutatesState                        bool   `json:"mutates_state"`
+	}{
+		AdmissionReadinessID:                permit.AdmissionReadinessID,
+		LedgerVerificationID:                permit.LedgerVerificationID,
+		LedgerPersistenceID:                 permit.LedgerPersistenceID,
+		LedgerImplementationID:              permit.LedgerImplementationID,
+		RollbackImplementationID:            permit.RollbackImplementationID,
+		WriterReceiptID:                     permit.WriterReceiptID,
+		AdmissionLedgerID:                   permit.AdmissionLedgerID,
+		CandidateRunID:                      permit.CandidateRunID,
+		CandidateTextHash:                   permit.CandidateTextHash,
+		TurnTextHash:                        permit.TurnTextHash,
+		AdmissionPermitState:                permit.AdmissionPermitState,
+		AdmissionPermitAction:               permit.AdmissionPermitAction,
+		AdmissionPermitTarget:               permit.AdmissionPermitTarget,
+		AdmissionPermitTargetKind:           permit.AdmissionPermitTargetKind,
+		AdmissionPermitTargetMode:           permit.AdmissionPermitTargetMode,
+		AdmissionPermitDryRunOnly:           permit.AdmissionPermitDryRunOnly,
+		AdmissionPermitReadinessVerified:    permit.AdmissionPermitReadinessVerified,
+		AdmissionPermitLedgerVerified:       permit.AdmissionPermitLedgerVerified,
+		AdmissionPermitWriterReady:          permit.AdmissionPermitWriterReady,
+		AdmissionPermitRollbackReady:        permit.AdmissionPermitRollbackReady,
+		AdmissionPermitLedgerReady:          permit.AdmissionPermitLedgerReady,
+		AdmissionPermitReady:                permit.AdmissionPermitReady,
+		ManualPermitRequested:               permit.ManualPermitRequested,
+		PermitKeyMatched:                    permit.PermitKeyMatched,
+		SourceAdmissionReadinessID:          permit.SourceAdmissionReadinessID,
+		SourceAdmissionReadinessReady:       permit.SourceAdmissionReadinessReady,
+		SourceAdmissionReadinessLedgerReady: permit.SourceAdmissionReadinessLedgerVerified,
+		ContractsReady:                      permit.ContractsReady,
+		BodyTarget:                          permit.BodyTarget,
+		WriteAllowed:                        permit.WriteAllowed,
+		AdmissionAllowed:                    permit.AdmissionAllowed,
+		LiveAdmissionEnabled:                permit.LiveAdmissionEnabled,
+		MutatesState:                        permit.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "admission-permit-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionPermit(permit admissionLiveRouteTurnCandidateAdmissionPermit) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(permit)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
