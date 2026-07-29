@@ -228,7 +228,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -275,7 +276,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -786,6 +788,55 @@ func chatLiveRouteTurnCandidateAdmissionResonanceReceiverLine(receiver admission
 		chatLiveRouteReasonSuffix(receiver.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation admissionLiveRouteTurnCandidateAdmissionResonanceObservation) string {
+	return fmt.Sprintf("│  · live-route candidate admission resonance observation dry-run: class=%s route=%s source=%s receiver=%s intent=%s final_gate=%s seal=%s permit=%s readiness=%s ledger_verification=%s observer=%s observer_kind=%s observation_kind=%s observation_mode=%s causal_id=%s append_hash=%s read_back_hash=%s source_receiver_causal_id=%s source_receiver_delta_hash=%s append_only=%t read_back=%t receipt_verified=%t raw_text_observed=%t raw_text_forwarded=%t janus_surface_allowed=%t cooc_learning_allowed=%t delta_harvest_allowed=%t body_mutation_allowed=%t rollback_required=%t observation_state=%s observation_action=%s observation_target=%s observation_target_kind=%s observation_target_mode=%s receipt_shape=%s dry_run_only=%t receiver_verified=%t intent_verified=%t final_gate_verified=%t seal_verified=%t permit_verified=%t readiness_verified=%t ledger_verified=%t writer_ready=%t rollback_ready=%t ledger_ready=%t observation_ready=%t contracts_ready=%t write_allowed=%t admission_allowed=%t live_ready=%t live_enabled=%t mutates=%t admission_resonance_observation_id=%s passed=%t%s",
+		observation.PromptClass, observation.Route, observation.Source,
+		observation.AdmissionResonanceReceiverID, observation.AdmissionResonanceIntentID,
+		observation.AdmissionFinalGateID, observation.AdmissionSealID, observation.AdmissionPermitID,
+		observation.AdmissionReadinessID, observation.LedgerVerificationID,
+		observation.AdmissionResonanceObservationObserver,
+		observation.AdmissionResonanceObservationObserverKind,
+		observation.AdmissionResonanceObservationKind,
+		observation.AdmissionResonanceObservationMode,
+		observation.AdmissionResonanceObservationCausalID,
+		observation.AdmissionResonanceObservationAppendHash,
+		observation.AdmissionResonanceObservationReadBackHash,
+		observation.SourceAdmissionResonanceReceiverCausalID,
+		observation.SourceAdmissionResonanceReceiverStateDeltaHash,
+		observation.AdmissionResonanceObservationAppendOnly,
+		observation.AdmissionResonanceObservationReadBack,
+		observation.AdmissionResonanceObservationReceiptVerified,
+		observation.AdmissionResonanceObservationRawDreamTextObserved,
+		observation.AdmissionResonanceObservationRawDreamTextForwarded,
+		observation.AdmissionResonanceObservationJanusSurfaceAllowed,
+		observation.AdmissionResonanceObservationCoocLearningAllowed,
+		observation.AdmissionResonanceObservationDeltaHarvestAllowed,
+		observation.AdmissionResonanceObservationBodyMutationAllowed,
+		observation.AdmissionResonanceObservationRollbackRequired,
+		observation.AdmissionResonanceObservationState,
+		observation.AdmissionResonanceObservationAction,
+		observation.AdmissionResonanceObservationTarget,
+		observation.AdmissionResonanceObservationTargetKind,
+		observation.AdmissionResonanceObservationTargetMode,
+		observation.AdmissionResonanceObservationReceiptShape,
+		observation.AdmissionResonanceObservationDryRunOnly,
+		observation.AdmissionResonanceObservationReceiverVerified,
+		observation.AdmissionResonanceObservationIntentVerified,
+		observation.AdmissionResonanceObservationFinalGateVerified,
+		observation.AdmissionResonanceObservationSealVerified,
+		observation.AdmissionResonanceObservationPermitVerified,
+		observation.AdmissionResonanceObservationReadinessVerified,
+		observation.AdmissionResonanceObservationLedgerVerified,
+		observation.AdmissionResonanceObservationWriterReady,
+		observation.AdmissionResonanceObservationRollbackReady,
+		observation.AdmissionResonanceObservationLedgerReady,
+		observation.AdmissionResonanceObservationReady,
+		observation.ContractsReady, observation.WriteAllowed, observation.AdmissionAllowed,
+		observation.LiveReady, observation.LiveAdmissionEnabled, observation.MutatesState,
+		observation.AdmissionResonanceObservationID, observation.Passed,
+		chatLiveRouteReasonSuffix(observation.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -793,7 +844,9 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	finalGateDryRun := admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun()
 	resonanceIntentDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun()
 	resonanceReceiverDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()
-	resonanceIntentNeeded := resonanceIntentDryRun || resonanceReceiverDryRun
+	resonanceObservationDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
+	resonanceReceiverNeeded := resonanceReceiverDryRun || resonanceObservationDryRun
+	resonanceIntentNeeded := resonanceIntentDryRun || resonanceReceiverNeeded
 	finalGateNeeded := finalGateDryRun || resonanceIntentNeeded
 	chain := chatLiveRouteTurnCandidateChainForText(obs, chatLiveRouteTurnCandidateChainText())
 	lines := []string{}
@@ -1229,12 +1282,21 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 							}
 							lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceIntentLine(intent))
 						}
-						if resonanceReceiverDryRun {
+						if resonanceReceiverNeeded {
 							receiver := admissionLiveRouteTurnCandidateAdmissionResonanceReceiverForIntent(intent)
-							if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceReceiver(receiver); err != nil {
-								return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance receiver dry-run log failed: %v", err))
+							if resonanceReceiverDryRun {
+								if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceReceiver(receiver); err != nil {
+									return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance receiver dry-run log failed: %v", err))
+								}
+								lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceReceiverLine(receiver))
 							}
-							lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceReceiverLine(receiver))
+							if resonanceObservationDryRun {
+								observation := admissionLiveRouteTurnCandidateAdmissionResonanceObservationForReceiver(receiver)
+								if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceObservation(observation); err != nil {
+									return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance observation dry-run log failed: %v", err))
+								}
+								lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation))
+							}
 						}
 					}
 				}
