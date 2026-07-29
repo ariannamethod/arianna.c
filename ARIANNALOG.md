@@ -4099,3 +4099,24 @@ permit key, tampered readiness ids, mismatched source ids, missing provenance, p
 body-write permission stay blocked without an admission permit id. `make
 admission-live-route-turn-candidate-nano-direct-permit-smoke` proves the real-nano chain can accept the operator permit
 while live admission and body state remain closed.
+
+**Follow-up, same day - admission permits now seal immutable closed provenance before anything can approach admission.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_seal.v1` after the operator permit receipt. It consumes only a passed
+`admission_permit_state=operator_permitted_closed_dry_run`, rechecks the stable `admission-permit-<hash>` plus the source
+`admission-readiness-<hash>`, `ledger-verification-<hash>`, `ledger-persistence-<hash>`,
+`ledger-implementation-<hash>`, `admission-ledger-<hash>`, `rollback-implementation-<hash>`, and
+`writer-receipt-<hash>` ids, and seals the permit provenance without enabling live writes.
+
+The passed admission seal reports `admission_seal_state=sealed_closed_dry_run`,
+`admission_seal_action=seal_operator_permit_provenance_dry_run`, `admission_seal_target=live_admission`,
+`admission_seal_target_kind=dream_candidate_admission`, `admission_seal_target_mode=sealed_closed_dry_run`,
+`admission_seal_receipt_shape=candidate_contract_provenance`, `admission_seal_dry_run_only=true`,
+`admission_seal_permit_verified=true`, `admission_seal_readiness_verified=true`,
+`admission_seal_ledger_verified=true`, `admission_seal_writer_ready=true`,
+`admission_seal_rollback_ready=true`, `admission_seal_ledger_ready=true`, `admission_seal_ready=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`body_target=none`, `mutates_state=false`, and a stable `admission-seal-<hash>` id. Failed permits, tampered permit ids,
+mismatched source ids, missing provenance, pre-enabled contracts, or any upstream body-write permission stay blocked
+without an admission seal id. `make admission-live-route-turn-candidate-nano-direct-seal-smoke` proves the real-nano
+chain can seal the permit packet while live admission and body state remain closed.
