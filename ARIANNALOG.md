@@ -4054,3 +4054,26 @@ tampered persistence ids, mismatched source ids, missing provenance, pre-enabled
 permission stay blocked without a ledger verification id. `make
 admission-live-route-turn-candidate-nano-direct-ledger-verification-smoke` proves the real-nano chain can verify the
 persisted append-only ledger receipt while live admission and body state remain closed.
+
+**Follow-up, same day - verified ledger receipts now declare closed admission readiness.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_readiness.v1` after the ledger-verification boundary. It consumes only a
+passed `ledger_verification_state=ledger_receipt_verified_dry_run`, rechecks the stable
+`ledger-verification-<hash>` id plus the source `ledger-persistence-<hash>`, `ledger-implementation-<hash>`,
+`admission-ledger-<hash>`, `rollback-implementation-<hash>`, and `writer-receipt-<hash>` ids, preserves the full
+candidate contract provenance, and separates closed readiness from live admission.
+
+The passed admission readiness reports `admission_readiness_state=verified_closed_dry_run`,
+`admission_readiness_action=declare_verified_live_admission_readiness_dry_run`,
+`admission_readiness_target=live_admission`, `admission_readiness_target_kind=dream_candidate_admission`,
+`admission_readiness_target_mode=closed_verified_dry_run`, `admission_readiness_dry_run_only=true`,
+`admission_readiness_ledger_verified=true`, `admission_readiness_writer_ready=true`,
+`admission_readiness_rollback_ready=true`, `admission_readiness_ledger_ready=true`,
+`admission_readiness_ready=true`, `ledger_verification_ready=true`, `ledger_persistence_ready=true`,
+`writer_implementation_ready=true`, `rollback_implementation_ready=true`, `ledger_implementation_ready=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`body_target=none`, `mutates_state=false`, and a stable `admission-readiness-<hash>` id. Failed verification receipts,
+tampered verification ids, mismatched source ids, missing provenance, pre-enabled contracts, or any upstream body-write
+permission stay blocked without an admission readiness id. `make
+admission-live-route-turn-candidate-nano-direct-readiness-smoke` proves the real-nano chain can declare verified
+readiness while live admission and body state remain closed.

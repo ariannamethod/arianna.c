@@ -2422,6 +2422,72 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		ledgerVerification.TurnTextHash != obs.TextHash {
 		t.Fatalf("ledger verification lost provenance: verification=%+v persistence=%+v", ledgerVerification, ledgerPersistence)
 	}
+	readiness := admissionLiveRouteTurnCandidateAdmissionReadinessForLedgerVerification(ledgerVerification)
+	if readiness.Schema != admissionLiveRouteTurnCandidateAdmissionReadinessSchema ||
+		readiness.Timing != "live_admission_readiness" ||
+		readiness.AdmissionReadinessState != "verified_closed_dry_run" ||
+		readiness.AdmissionReadinessAction != "declare_verified_live_admission_readiness_dry_run" ||
+		readiness.AdmissionReadinessTarget != "live_admission" ||
+		readiness.AdmissionReadinessTargetKind != "dream_candidate_admission" ||
+		readiness.AdmissionReadinessTargetMode != "closed_verified_dry_run" ||
+		!readiness.AdmissionReadinessDryRunOnly ||
+		!readiness.AdmissionReadinessLedgerVerified ||
+		!readiness.AdmissionReadinessWriterReady ||
+		!readiness.AdmissionReadinessRollbackReady ||
+		!readiness.AdmissionReadinessLedgerReady ||
+		!readiness.AdmissionReadinessReady ||
+		!readiness.LedgerVerificationReady ||
+		!readiness.LedgerPersistenceReady ||
+		!readiness.WriterReady ||
+		!readiness.RollbackReady ||
+		!readiness.WriterImplementationReady ||
+		!readiness.RollbackImplementationReady ||
+		!readiness.LedgerImplementationReady ||
+		readiness.ContractsReady ||
+		readiness.WriteAllowed ||
+		readiness.AdmissionAllowed ||
+		readiness.LiveAdmissionEnabled ||
+		readiness.MutatesState ||
+		!strings.HasPrefix(readiness.AdmissionReadinessID, "admission-readiness-") ||
+		!readiness.Passed ||
+		!readiness.LiveReady ||
+		readiness.SourceLedgerVerificationSchema != admissionLiveRouteTurnCandidateAdmissionLedgerVerificationSchema ||
+		!readiness.SourceLedgerVerificationPassed ||
+		readiness.SourceLedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		readiness.SourceLedgerVerificationAction != "verify_persisted_admission_ledger_receipt_dry_run" ||
+		!readiness.SourceLedgerVerificationReady ||
+		!readiness.SourceLedgerVerificationReceiptVerified ||
+		readiness.SourceLedgerPersistenceIDForReadiness != ledgerPersistence.LedgerPersistenceID ||
+		readiness.SourceLedgerImplementationIDForReadiness != ledgerImpl.LedgerImplementationID ||
+		readiness.SourceAdmissionLedgerIDForReadiness != ledger.AdmissionLedgerID ||
+		readiness.SourceRollbackImplementationIDForReadiness != rollbackImpl.RollbackImplementationID ||
+		readiness.SourceWriterReceiptIDForReadiness != writerReceipt.WriterReceiptID ||
+		readiness.Reason != "verified ledger and writer boundaries are ready; live admission remains disabled" {
+		t.Fatalf("readiness should declare only closed verified admission readiness: %+v", readiness)
+	}
+	if readiness.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		readiness.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		readiness.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		readiness.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		readiness.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		readiness.WriterImplementationID != writerImpl.WriterImplementationID ||
+		readiness.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		readiness.AdmissionWriterContractID != writerContract.WriterContractID ||
+		readiness.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		readiness.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		readiness.AdmissionLiveStageID != liveStage.LiveStageID ||
+		readiness.AdmissionEnableGateID != armedGate.EnableGateID ||
+		readiness.AdmissionSwitchID != sw.SwitchID ||
+		readiness.AdmissionPromotionID != promotion.PromotionID ||
+		readiness.AdmissionDecisionID != decision.DecisionID ||
+		readiness.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		readiness.CandidateExecutionID != execution.ExecutionID ||
+		readiness.CandidateDraftID != draft.DraftID ||
+		readiness.CandidateRunID != candidate.RunID ||
+		readiness.CandidateTextHash != hashJSON(text) ||
+		readiness.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission readiness lost provenance: readiness=%+v verification=%+v", readiness, ledgerVerification)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2557,6 +2623,19 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedLedgerVerification.MutatesState ||
 		blockedLedgerVerification.Reason != "candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed ledger persistence should not verify a ledger receipt: %+v", blockedLedgerVerification)
+	}
+	blockedReadiness := admissionLiveRouteTurnCandidateAdmissionReadinessForLedgerVerification(blockedLedgerVerification)
+	if blockedReadiness.Passed ||
+		blockedReadiness.AdmissionReadinessID != "" ||
+		blockedReadiness.AdmissionReadinessState != "blocked" ||
+		blockedReadiness.AdmissionReadinessAction != "reject" ||
+		!blockedReadiness.AdmissionReadinessDryRunOnly ||
+		blockedReadiness.AdmissionReadinessLedgerVerified ||
+		blockedReadiness.AdmissionReadinessReady ||
+		blockedReadiness.WriteAllowed ||
+		blockedReadiness.MutatesState ||
+		blockedReadiness.Reason != "candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed ledger verification should not declare admission readiness: %+v", blockedReadiness)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2785,6 +2864,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedLedgerVerification.LedgerVerificationID != "" ||
 		tamperedLedgerVerification.Reason != "candidate_admission_ledger_persistence_id_mismatch" {
 		t.Fatalf("tampered ledger persistence id should fail ledger verification: %+v", tamperedLedgerVerification)
+	}
+	tamperedLedgerVerificationID := ledgerVerification
+	tamperedLedgerVerificationID.LedgerVerificationID = "ledger-verification-tampered"
+	tamperedReadiness := admissionLiveRouteTurnCandidateAdmissionReadinessForLedgerVerification(tamperedLedgerVerificationID)
+	if tamperedReadiness.Passed ||
+		tamperedReadiness.AdmissionReadinessID != "" ||
+		tamperedReadiness.Reason != "candidate_admission_ledger_verification_id_mismatch" {
+		t.Fatalf("tampered ledger verification id should fail admission readiness: %+v", tamperedReadiness)
 	}
 }
 
