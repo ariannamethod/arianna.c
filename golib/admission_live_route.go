@@ -8,32 +8,33 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema                                  = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema                                = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema                       = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema                            = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema                           = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema                     = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema                    = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnCandidateExecutionSchema                = "arianna.live_route_turn_candidate_execution.v1"
-	admissionLiveRouteTurnGeneratorAdapterSchema                  = "arianna.live_route_turn_generator_adapter.v1"
-	admissionLiveRouteTurnCandidateDraftSchema                    = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema                            = "arianna.live_route_turn_candidate_review.v1"
-	admissionLiveRouteTurnCandidateAdmissionSchema                = "arianna.live_route_turn_candidate_admission.v1"
-	admissionLiveRouteTurnCandidateAdmissionAdapterSchema         = "arianna.live_route_turn_candidate_admission_adapter.v1"
-	admissionLiveRouteTurnCandidateAdmissionDecisionSchema        = "arianna.live_route_turn_candidate_admission_decision.v1"
-	admissionLiveRouteTurnCandidateAdmissionPromotionSchema       = "arianna.live_route_turn_candidate_admission_promotion.v1"
-	admissionLiveRouteTurnCandidateAdmissionSwitchSchema          = "arianna.live_route_turn_candidate_admission_switch.v1"
-	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema      = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
-	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema       = "arianna.live_route_turn_candidate_admission_live_stage.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema = "arianna.live_route_turn_candidate_admission_writer_inventory.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema  = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerSchema          = "arianna.live_route_turn_candidate_admission_ledger.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema      = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema   = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
-	admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema    = "arianna.live_route_turn_candidate_admission_rollback_implementation.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema      = "arianna.live_route_turn_candidate_admission_ledger_implementation.v1"
+	admissionLiveRoutePlanSchema                                    = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema                                  = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema                         = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema                              = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema                             = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema                       = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema                      = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnCandidateExecutionSchema                  = "arianna.live_route_turn_candidate_execution.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema                    = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema                      = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema                              = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRouteTurnCandidateAdmissionSchema                  = "arianna.live_route_turn_candidate_admission.v1"
+	admissionLiveRouteTurnCandidateAdmissionAdapterSchema           = "arianna.live_route_turn_candidate_admission_adapter.v1"
+	admissionLiveRouteTurnCandidateAdmissionDecisionSchema          = "arianna.live_route_turn_candidate_admission_decision.v1"
+	admissionLiveRouteTurnCandidateAdmissionPromotionSchema         = "arianna.live_route_turn_candidate_admission_promotion.v1"
+	admissionLiveRouteTurnCandidateAdmissionSwitchSchema            = "arianna.live_route_turn_candidate_admission_switch.v1"
+	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema        = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema         = "arianna.live_route_turn_candidate_admission_live_stage.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema   = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema   = "arianna.live_route_turn_candidate_admission_writer_inventory.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema    = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerSchema            = "arianna.live_route_turn_candidate_admission_ledger.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema        = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema     = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
+	admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema      = "arianna.live_route_turn_candidate_admission_rollback_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema        = "arianna.live_route_turn_candidate_admission_ledger_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema = "arianna.live_route_turn_candidate_admission_ledger_persistence.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -975,6 +976,30 @@ type admissionLiveRouteTurnCandidateAdmissionLedgerImplementation struct {
 	SourceRollbackTargetID               string `json:"source_rollback_target_id,omitempty"`
 	SourceWriterReceiptIDForLedger       string `json:"source_writer_receipt_id_for_ledger,omitempty"`
 	LedgerImplementationID               string `json:"ledger_implementation_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionLedgerPersistence struct {
+	admissionLiveRouteTurnCandidateAdmissionLedgerImplementation
+
+	LedgerPersistenceState                    string `json:"ledger_persistence_state,omitempty"`
+	LedgerPersistenceAction                   string `json:"ledger_persistence_action,omitempty"`
+	LedgerPersistenceTarget                   string `json:"ledger_persistence_target,omitempty"`
+	LedgerPersistenceTargetKind               string `json:"ledger_persistence_target_kind,omitempty"`
+	LedgerPersistenceTargetMode               string `json:"ledger_persistence_target_mode,omitempty"`
+	LedgerPersistenceReceiptShape             string `json:"ledger_persistence_receipt_shape,omitempty"`
+	LedgerPersistenceAppendOnly               bool   `json:"ledger_persistence_append_only"`
+	LedgerPersistenceDryRunOnly               bool   `json:"ledger_persistence_dry_run_only"`
+	LedgerPersistenceReceiptPersisted         bool   `json:"ledger_persistence_receipt_persisted"`
+	LedgerPersistenceReady                    bool   `json:"ledger_persistence_ready"`
+	SourceLedgerImplementationSchema          string `json:"source_ledger_implementation_schema,omitempty"`
+	SourceLedgerImplementationPassed          bool   `json:"source_ledger_implementation_passed"`
+	SourceLedgerImplementationID              string `json:"source_ledger_implementation_id,omitempty"`
+	SourceLedgerImplementationAction          string `json:"source_ledger_implementation_action,omitempty"`
+	SourceLedgerImplementationReady           bool   `json:"source_ledger_implementation_ready"`
+	SourceAdmissionLedgerIDForPersistence     string `json:"source_admission_ledger_id_for_persistence,omitempty"`
+	SourceRollbackImplementationIDForLedger   string `json:"source_rollback_implementation_id_for_ledger,omitempty"`
+	SourceWriterReceiptIDForLedgerPersistence string `json:"source_writer_receipt_id_for_ledger_persistence,omitempty"`
+	LedgerPersistenceID                       string `json:"ledger_persistence_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2745,6 +2770,10 @@ func admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() bool
 
 func admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -6245,6 +6274,324 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionLedgerImplementation(ledger a
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(ledger)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceForLedgerImplementation(ledger admissionLiveRouteTurnCandidateAdmissionLedgerImplementation) admissionLiveRouteTurnCandidateAdmissionLedgerPersistence {
+	sourceSchema := ledger.Schema
+	persistence := admissionLiveRouteTurnCandidateAdmissionLedgerPersistence{
+		admissionLiveRouteTurnCandidateAdmissionLedgerImplementation: ledger,
+		LedgerPersistenceState:                    "blocked",
+		LedgerPersistenceAction:                   "reject",
+		LedgerPersistenceDryRunOnly:               true,
+		SourceLedgerImplementationSchema:          sourceSchema,
+		SourceLedgerImplementationPassed:          ledger.Passed,
+		SourceLedgerImplementationID:              ledger.LedgerImplementationID,
+		SourceLedgerImplementationAction:          ledger.LedgerImplementationAction,
+		SourceLedgerImplementationReady:           ledger.LedgerImplementationReady,
+		SourceAdmissionLedgerIDForPersistence:     ledger.AdmissionLedgerID,
+		SourceRollbackImplementationIDForLedger:   ledger.RollbackImplementationID,
+		SourceWriterReceiptIDForLedgerPersistence: ledger.WriterReceiptID,
+	}
+	persistence.Schema = admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema
+	persistence.Timing = "live_admission_ledger_persistence"
+	persistence.Passed = false
+	persistence.LedgerPersistenceID = ""
+	persistence.LedgerPersistenceReady = false
+	persistence.ContractsReady = false
+	persistence.WriteAllowed = false
+	persistence.AdmissionAllowed = false
+	persistence.LiveAdmissionEnabled = false
+	persistence.MutatesState = false
+	persistence.LedgerPersistenceReceiptPersisted = false
+
+	if sourceSchema == "" {
+		persistence.Reason = "missing_candidate_admission_ledger_implementation"
+		return persistence
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema {
+		persistence.Reason = "unexpected_candidate_admission_ledger_implementation_schema " + sourceSchema
+		return persistence
+	}
+	if !ledger.Passed {
+		persistence.Reason = "candidate_admission_ledger_implementation_failed"
+		if ledger.Reason != "" {
+			persistence.Reason += ": " + ledger.Reason
+		}
+		return persistence
+	}
+	if ledger.LedgerImplementationID == "" {
+		persistence.Reason = "missing_candidate_admission_ledger_implementation_id"
+		return persistence
+	}
+	if wantLedgerImplID := admissionLiveRouteTurnCandidateAdmissionLedgerImplementationID(ledger); wantLedgerImplID == "" || ledger.LedgerImplementationID != wantLedgerImplID {
+		persistence.Reason = "candidate_admission_ledger_implementation_id_mismatch"
+		return persistence
+	}
+	if ledger.LedgerImplementationState != "ledger_contract_drafted_dry_run" ||
+		ledger.LedgerImplementationAction != "append_admission_ledger_receipt_dry_run" ||
+		ledger.LedgerEntrypointResolved != "append_admission_ledger_receipt_dry_run" ||
+		ledger.LedgerImplementationTarget != "admission_ledger" ||
+		ledger.LedgerImplementationTargetKind != "dream_candidate_admission" ||
+		ledger.LedgerImplementationTargetMode != "append_only_dry_run" {
+		persistence.Reason = "candidate_admission_ledger_implementation_shape_mismatch"
+		return persistence
+	}
+	if !ledger.LedgerImplementationAppendOnly || !ledger.LedgerImplementationDryRunOnly || ledger.LedgerImplementationReceiptPersisted {
+		persistence.Reason = "candidate_admission_ledger_implementation_not_append_only_dry_run"
+		return persistence
+	}
+	if !ledger.LedgerImplementationReady {
+		persistence.Reason = "candidate_admission_ledger_implementation_not_ready"
+		return persistence
+	}
+	if ledger.ContractsReady || ledger.WriteAllowed || ledger.MutatesState || ledger.LiveAdmissionEnabled || ledger.AdmissionAllowed {
+		persistence.Reason = "candidate_admission_ledger_implementation_already_open"
+		return persistence
+	}
+	if !ledger.LiveReady {
+		persistence.Reason = "candidate_admission_ledger_implementation_not_live_ready"
+		return persistence
+	}
+	if ledger.AdmissionLedgerID == "" {
+		persistence.Reason = "missing_candidate_admission_ledger_id_for_persistence"
+		return persistence
+	}
+	if ledger.LedgerState != "receipt_drafted_dry_run" ||
+		ledger.LedgerAction != "append_candidate_admission_receipt_dry_run" ||
+		ledger.LedgerContract != "live_admission_ledger.v1" ||
+		ledger.LedgerMode != "append_only_dry_run" ||
+		ledger.LedgerEntryKind != "dream_candidate_admission" ||
+		ledger.LedgerEntryStatus != "shadow_candidate_receipt" ||
+		ledger.LedgerReceiptShape != "candidate_contract_provenance" {
+		persistence.Reason = "candidate_admission_ledger_implementation_source_ledger_mismatch"
+		return persistence
+	}
+	if !ledger.LedgerAppendReady || ledger.LedgerReceiptPersisted {
+		persistence.Reason = "candidate_admission_ledger_implementation_source_ledger_state_mismatch"
+		return persistence
+	}
+	if ledger.RollbackImplementationID == "" ||
+		ledger.SourceRollbackImplementationID != ledger.RollbackImplementationID ||
+		ledger.SourceRollbackImplementationSchema != admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema ||
+		!ledger.SourceRollbackImplementationPassed ||
+		ledger.SourceRollbackImplementationAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!ledger.SourceRollbackImplementationReady {
+		persistence.Reason = "candidate_admission_ledger_implementation_source_rollback_mismatch"
+		return persistence
+	}
+	if wantRollbackID := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationID(ledger.admissionLiveRouteTurnCandidateAdmissionRollbackImplementation); wantRollbackID == "" || ledger.RollbackImplementationID != wantRollbackID {
+		persistence.Reason = "candidate_admission_rollback_implementation_id_mismatch_for_ledger_persistence"
+		return persistence
+	}
+	if ledger.WriterReceiptID == "" ||
+		ledger.SourceWriterReceiptIDForLedger != ledger.WriterReceiptID ||
+		ledger.SourceRollbackTargetID != ledger.WriterReceiptID {
+		persistence.Reason = "candidate_admission_ledger_implementation_source_writer_receipt_mismatch"
+		return persistence
+	}
+	if wantReceiptID := admissionLiveRouteTurnCandidateAdmissionWriterReceiptID(ledger.admissionLiveRouteTurnCandidateAdmissionWriterReceipt); wantReceiptID == "" || ledger.WriterReceiptID != wantReceiptID {
+		persistence.Reason = "candidate_admission_writer_receipt_id_mismatch_for_ledger_persistence"
+		return persistence
+	}
+	if !ledger.WriterReady ||
+		ledger.WriterState != "ready_dry_run" ||
+		ledger.WriterAction != "append_shadow_candidate_receipt_dry_run" ||
+		!ledger.RollbackReady ||
+		ledger.RollbackState != "ready_dry_run" ||
+		ledger.RollbackAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!ledger.WriterImplementationReady ||
+		!ledger.RollbackImplementationReady {
+		persistence.Reason = "candidate_admission_ledger_implementation_readiness_mismatch"
+		return persistence
+	}
+	if ledger.WriterReceiptState != "shadow_receipt_appended_dry_run" ||
+		ledger.WriterReceiptAction != "append_shadow_candidate_receipt_dry_run" ||
+		ledger.WriterReceiptKind != "dream_candidate_admission" ||
+		ledger.WriterReceiptTarget != "shadow_receipt_log" ||
+		ledger.WriterReceiptMode != "append_only_dry_run" ||
+		ledger.WriterReceiptShape != "candidate_contract_provenance" ||
+		!ledger.WriterReceiptPersisted ||
+		!ledger.ShadowWriteAllowed {
+		persistence.Reason = "candidate_admission_ledger_implementation_writer_receipt_mismatch"
+		return persistence
+	}
+	if ledger.RollbackImplementationState != "rollback_contract_drafted_dry_run" ||
+		ledger.RollbackImplementationAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		ledger.RollbackEntrypointResolved != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		ledger.RollbackTarget != "shadow_receipt_log" ||
+		ledger.RollbackTargetKind != "dream_candidate_admission" ||
+		ledger.RollbackTargetID != ledger.WriterReceiptID ||
+		ledger.RollbackMode != "exact_receipt_id_dry_run" ||
+		!ledger.ExactReceiptMatchRequired ||
+		!ledger.RollbackDryRunOnly ||
+		ledger.RollbackReceiptRemoved {
+		persistence.Reason = "candidate_admission_ledger_implementation_rollback_mismatch"
+		return persistence
+	}
+	if ledger.ImplementationState != "implementation_contract_drafted_dry_run" ||
+		ledger.ImplementationAction != "define_append_only_writer_ledger_rollback" ||
+		ledger.WriterEntrypoint != "append_shadow_candidate_receipt_dry_run" ||
+		ledger.LedgerEntrypoint != "append_admission_ledger_receipt_dry_run" ||
+		ledger.RollbackEntrypoint != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		ledger.WriteTarget != "shadow_receipt_log" ||
+		ledger.BodyTarget != "none" ||
+		!ledger.AppendOnly ||
+		!ledger.RollbackRequired ||
+		!ledger.ImplementationContractReady {
+		persistence.Reason = "candidate_admission_ledger_implementation_writer_contract_mismatch"
+		return persistence
+	}
+	if ledger.WriterContract != "live_admission_writer.v1" ||
+		ledger.RollbackContract != "live_admission_rollback.v1" ||
+		ledger.AdmissionLedgerContract != "live_admission_ledger.v1" ||
+		ledger.WriterContractShape != "append_shadow_candidate_receipt" ||
+		ledger.RollbackContractShape != "remove_exact_writer_receipt" ||
+		ledger.LedgerContractShape != "append_only_receipt_log" ||
+		ledger.WriteScope != "dream_candidate_admission" ||
+		ledger.RollbackScope != "single_writer_receipt" ||
+		!ledger.ContractShapeReady ||
+		ledger.SourceWriterContractPresent ||
+		ledger.SourceRollbackContractPresent ||
+		ledger.SourceLedgerContractPresent {
+		persistence.Reason = "candidate_admission_ledger_implementation_contract_shape_mismatch"
+		return persistence
+	}
+	if !ledger.ManualEnableRequested || !ledger.EnableKeyMatched || !ledger.RequiresWriter || !ledger.RequiresRollback {
+		persistence.Reason = "candidate_admission_ledger_implementation_requirements_mismatch"
+		return persistence
+	}
+	if !ledger.SourceLedgerPassed ||
+		!ledger.SourceWriterContractPassed ||
+		!ledger.SourceWriterInventoryPassed ||
+		!ledger.SourceWriterPreflightPassed ||
+		!ledger.SourceStagePassed ||
+		!ledger.SourceEnablePassed ||
+		!ledger.SourceSwitchPassed ||
+		!ledger.SourcePromotionPassed ||
+		!ledger.SourceDecisionPassed ||
+		!ledger.AdmissionPolicyPassed ||
+		!ledger.LiveRouteChoicePassed {
+		persistence.Reason = "candidate_admission_ledger_implementation_source_not_passed"
+		return persistence
+	}
+	if ledger.LedgerImplementationID == "" ||
+		ledger.RollbackImplementationID == "" ||
+		ledger.WriterReceiptID == "" ||
+		ledger.WriterImplementationID == "" ||
+		ledger.AdmissionLedgerID == "" ||
+		ledger.AdmissionWriterContractID == "" ||
+		ledger.AdmissionWriterInventoryID == "" ||
+		ledger.AdmissionWriterPreflightID == "" ||
+		ledger.AdmissionLiveStageID == "" ||
+		ledger.AdmissionEnableGateID == "" ||
+		ledger.AdmissionSwitchID == "" ||
+		ledger.AdmissionPromotionID == "" ||
+		ledger.AdmissionDecisionID == "" ||
+		ledger.AdmissionAdapterID == "" ||
+		ledger.CandidateRunID == "" ||
+		ledger.CandidateDraftID == "" ||
+		ledger.CandidateExecutionID == "" ||
+		ledger.GeneratorAdapterID == "" ||
+		ledger.HandoffID == "" ||
+		ledger.DreamCandidateRunID == "" ||
+		ledger.CandidateTextHash == "" ||
+		ledger.TurnTextHash == "" {
+		persistence.Reason = "candidate_admission_ledger_implementation_missing_provenance"
+		return persistence
+	}
+
+	persistence.LedgerPersistenceState = "ledger_receipt_persisted_dry_run"
+	persistence.LedgerPersistenceAction = ledger.LedgerEntrypointResolved
+	persistence.LedgerPersistenceTarget = ledger.LedgerImplementationTarget
+	persistence.LedgerPersistenceTargetKind = ledger.LedgerImplementationTargetKind
+	persistence.LedgerPersistenceTargetMode = ledger.LedgerImplementationTargetMode
+	persistence.LedgerPersistenceReceiptShape = ledger.LedgerReceiptShape
+	persistence.LedgerPersistenceAppendOnly = true
+	persistence.LedgerPersistenceDryRunOnly = true
+	persistence.LedgerPersistenceReceiptPersisted = true
+	persistence.LedgerPersistenceReady = true
+	persistence.ContractsReady = false
+	persistence.WriteAllowed = false
+	persistence.AdmissionAllowed = false
+	persistence.LiveAdmissionEnabled = false
+	persistence.MutatesState = false
+	persistence.LedgerPersistenceID = admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceID(persistence)
+	if persistence.LedgerPersistenceID == "" {
+		persistence.Reason = "missing_candidate_admission_ledger_persistence_id"
+		return persistence
+	}
+	persistence.Passed = true
+	persistence.Reason = "ledger receipt persisted to append-only dry-run log; live admission remains disabled"
+	return persistence
+}
+
+func admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceID(persistence admissionLiveRouteTurnCandidateAdmissionLedgerPersistence) string {
+	h := hashJSON(struct {
+		LedgerImplementationID            string `json:"ledger_implementation_id"`
+		RollbackImplementationID          string `json:"rollback_implementation_id"`
+		WriterReceiptID                   string `json:"writer_receipt_id"`
+		AdmissionLedgerID                 string `json:"admission_ledger_id"`
+		CandidateRunID                    string `json:"candidate_run_id"`
+		CandidateTextHash                 string `json:"candidate_text_hash"`
+		TurnTextHash                      string `json:"turn_text_hash"`
+		LedgerPersistenceState            string `json:"ledger_persistence_state"`
+		LedgerPersistenceAction           string `json:"ledger_persistence_action"`
+		LedgerPersistenceTarget           string `json:"ledger_persistence_target"`
+		LedgerPersistenceTargetKind       string `json:"ledger_persistence_target_kind"`
+		LedgerPersistenceTargetMode       string `json:"ledger_persistence_target_mode"`
+		LedgerPersistenceReceiptShape     string `json:"ledger_persistence_receipt_shape"`
+		LedgerPersistenceAppendOnly       bool   `json:"ledger_persistence_append_only"`
+		LedgerPersistenceDryRunOnly       bool   `json:"ledger_persistence_dry_run_only"`
+		LedgerPersistenceReceiptPersisted bool   `json:"ledger_persistence_receipt_persisted"`
+		LedgerPersistenceReady            bool   `json:"ledger_persistence_ready"`
+		ContractsReady                    bool   `json:"contracts_ready"`
+		BodyTarget                        string `json:"body_target"`
+		WriteAllowed                      bool   `json:"write_allowed"`
+		MutatesState                      bool   `json:"mutates_state"`
+	}{
+		LedgerImplementationID:            persistence.LedgerImplementationID,
+		RollbackImplementationID:          persistence.RollbackImplementationID,
+		WriterReceiptID:                   persistence.WriterReceiptID,
+		AdmissionLedgerID:                 persistence.AdmissionLedgerID,
+		CandidateRunID:                    persistence.CandidateRunID,
+		CandidateTextHash:                 persistence.CandidateTextHash,
+		TurnTextHash:                      persistence.TurnTextHash,
+		LedgerPersistenceState:            persistence.LedgerPersistenceState,
+		LedgerPersistenceAction:           persistence.LedgerPersistenceAction,
+		LedgerPersistenceTarget:           persistence.LedgerPersistenceTarget,
+		LedgerPersistenceTargetKind:       persistence.LedgerPersistenceTargetKind,
+		LedgerPersistenceTargetMode:       persistence.LedgerPersistenceTargetMode,
+		LedgerPersistenceReceiptShape:     persistence.LedgerPersistenceReceiptShape,
+		LedgerPersistenceAppendOnly:       persistence.LedgerPersistenceAppendOnly,
+		LedgerPersistenceDryRunOnly:       persistence.LedgerPersistenceDryRunOnly,
+		LedgerPersistenceReceiptPersisted: persistence.LedgerPersistenceReceiptPersisted,
+		LedgerPersistenceReady:            persistence.LedgerPersistenceReady,
+		ContractsReady:                    persistence.ContractsReady,
+		BodyTarget:                        persistence.BodyTarget,
+		WriteAllowed:                      persistence.WriteAllowed,
+		MutatesState:                      persistence.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "ledger-persistence-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionLedgerPersistence(persistence admissionLiveRouteTurnCandidateAdmissionLedgerPersistence) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(persistence)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}

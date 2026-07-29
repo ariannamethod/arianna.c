@@ -4008,3 +4008,26 @@ implementations, tampered rollback ids, mismatched source writer receipts, missi
 any upstream body-write permission stay blocked without a ledger implementation id. `make
 admission-live-route-turn-candidate-nano-direct-ledger-implementation-smoke` proves the real-nano chain can draft the
 append-only ledger implementation while live admission and body state remain closed.
+
+**Follow-up, same day - admission ledger implementation now persists an append-only dry-run receipt.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_ledger_persistence.v1` after the ledger-implementation boundary. It consumes
+only a passed `ledger_implementation_state=ledger_contract_drafted_dry_run`, rechecks the stable
+`ledger-implementation-<hash>` id plus the source `admission-ledger-<hash>`, `rollback-implementation-<hash>`, and
+`writer-receipt-<hash>` ids, preserves the full candidate contract provenance, and records the ledger receipt as an
+append-only dry-run persistence proof.
+
+The passed ledger persistence reports `ledger_persistence_state=ledger_receipt_persisted_dry_run`,
+`ledger_persistence_action=append_admission_ledger_receipt_dry_run`,
+`ledger_persistence_target=admission_ledger`, `ledger_persistence_target_kind=dream_candidate_admission`,
+`ledger_persistence_target_mode=append_only_dry_run`,
+`ledger_persistence_receipt_shape=candidate_contract_provenance`, `ledger_persistence_append_only=true`,
+`ledger_persistence_dry_run_only=true`, `ledger_persistence_receipt_persisted=true`,
+`ledger_persistence_ready=true`, `writer_implementation_ready=true`, `rollback_implementation_ready=true`,
+`ledger_implementation_ready=true`, `contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `body_target=none`, `mutates_state=false`, and a stable
+`ledger-persistence-<hash>` id. Failed ledger implementations, tampered ledger implementation ids, mismatched source
+ledger/rollback/writer receipts, missing provenance, pre-enabled contracts, or any upstream body-write permission stay
+blocked without a ledger persistence id. `make
+admission-live-route-turn-candidate-nano-direct-ledger-persistence-smoke` proves the real-nano chain can persist the
+append-only ledger receipt while live admission and body state remain closed.
