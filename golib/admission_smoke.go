@@ -2388,6 +2388,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() && resonanceReceiverLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_LOG is required")
 	}
+	resonanceObservationLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() && resonanceObservationLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2649,6 +2653,30 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN are required for admission resonance receiver smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN are required for admission resonance observation smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
@@ -2670,7 +2698,8 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
@@ -2678,7 +2707,8 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionPermitKey() != admissionLiveRouteTurnCandidateAdmissionPermitConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY must match dry-run confirmation for admission permit smoke")
 	}
@@ -2786,6 +2816,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		wantLines++
 	}
 	if admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() {
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() {
 		wantLines++
 	}
 	if len(lines) != wantLines {
@@ -3023,6 +3056,23 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"dry_run_only=true final_gate_verified=true seal_verified=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true intent_ready=true",
 			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_resonance_intent_id=resonance-intent-",
 			"passed=true reason=resonance intent drafted from final gate; live admission remains disabled",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() {
+		wants = append(wants,
+			"live-route candidate admission resonance observation dry-run: class=dream route=direct source=direct receiver=resonance-receiver-",
+			"intent=resonance-intent-",
+			"final_gate=admission-final-gate-",
+			"observer=resonance observer_kind=internal_world observation_kind=receiver_state_proof observation_mode=sealed_metadata_observation causal_id=resonance-observation-causal-",
+			"append_hash=resonance-observation-append-",
+			"read_back_hash=resonance-observation-read-",
+			"source_receiver_causal_id=resonance-receiver-causal-",
+			"source_receiver_delta_hash=resonance-receiver-delta-",
+			"append_only=true read_back=true receipt_verified=true raw_text_observed=false raw_text_forwarded=false janus_surface_allowed=false cooc_learning_allowed=false delta_harvest_allowed=false body_mutation_allowed=false rollback_required=true",
+			"observation_state=observation_recorded_dry_run observation_action=record_resonance_receiver_observation_dry_run observation_target=resonance observation_target_kind=internal_world_observation observation_target_mode=append_only_read_back_dry_run receipt_shape=resonance_receiver_state_proof_ledger",
+			"dry_run_only=true receiver_verified=true intent_verified=true final_gate_verified=true seal_verified=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true observation_ready=true",
+			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_resonance_observation_id=resonance-observation-",
+			"passed=true reason=resonance observation recorded and read back without body mutation",
 		)
 	}
 	for _, want := range wants {
@@ -3265,6 +3315,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &resonanceReceiver); err != nil {
 			return fmt.Errorf("candidate admission resonance receiver receipt: %w", err)
+		}
+	}
+	var resonanceObservation admissionLiveRouteTurnCandidateAdmissionResonanceObservation
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() {
+		if raw, err := readOne(resonanceObservationLogPath, "candidate admission resonance observation"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &resonanceObservation); err != nil {
+			return fmt.Errorf("candidate admission resonance observation receipt: %w", err)
 		}
 	}
 
@@ -4822,8 +4880,115 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission resonance receiver receipt: resonance_receiver=%+v resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceReceiver, resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() {
+		if resonanceObservation.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema ||
+			!resonanceObservation.Passed ||
+			!resonanceObservation.LiveReady ||
+			resonanceObservation.LiveAdmissionEnabled ||
+			resonanceObservation.AdmissionAllowed ||
+			resonanceObservation.ContractsReady ||
+			resonanceObservation.WriteAllowed ||
+			resonanceObservation.MutatesState ||
+			resonanceObservation.BodyTarget != "none" ||
+			resonanceObservation.AdmissionResonanceObservationState != "observation_recorded_dry_run" ||
+			resonanceObservation.AdmissionResonanceObservationAction != "record_resonance_receiver_observation_dry_run" ||
+			resonanceObservation.AdmissionResonanceObservationTarget != "resonance" ||
+			resonanceObservation.AdmissionResonanceObservationTargetKind != "internal_world_observation" ||
+			resonanceObservation.AdmissionResonanceObservationTargetMode != "append_only_read_back_dry_run" ||
+			resonanceObservation.AdmissionResonanceObservationReceiptShape != "resonance_receiver_state_proof_ledger" ||
+			!resonanceObservation.AdmissionResonanceObservationDryRunOnly ||
+			!resonanceObservation.AdmissionResonanceObservationReceiverVerified ||
+			!resonanceObservation.AdmissionResonanceObservationIntentVerified ||
+			!resonanceObservation.AdmissionResonanceObservationFinalGateVerified ||
+			!resonanceObservation.AdmissionResonanceObservationSealVerified ||
+			!resonanceObservation.AdmissionResonanceObservationPermitVerified ||
+			!resonanceObservation.AdmissionResonanceObservationReadinessVerified ||
+			!resonanceObservation.AdmissionResonanceObservationLedgerVerified ||
+			!resonanceObservation.AdmissionResonanceObservationWriterReady ||
+			!resonanceObservation.AdmissionResonanceObservationRollbackReady ||
+			!resonanceObservation.AdmissionResonanceObservationLedgerReady ||
+			resonanceObservation.AdmissionResonanceObservationObserver != "resonance" ||
+			resonanceObservation.AdmissionResonanceObservationObserverKind != "internal_world" ||
+			resonanceObservation.AdmissionResonanceObservationKind != "receiver_state_proof" ||
+			resonanceObservation.AdmissionResonanceObservationMode != "sealed_metadata_observation" ||
+			resonanceObservation.AdmissionResonanceObservationCausalID == "" ||
+			resonanceObservation.AdmissionResonanceObservationCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceObservationCausalID(resonanceObservation) ||
+			resonanceObservation.AdmissionResonanceObservationAppendHash == "" ||
+			resonanceObservation.AdmissionResonanceObservationAppendHash != admissionLiveRouteTurnCandidateAdmissionResonanceObservationAppendHash(resonanceObservation) ||
+			resonanceObservation.AdmissionResonanceObservationReadBackHash == "" ||
+			resonanceObservation.AdmissionResonanceObservationReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceObservationReadBackHash(resonanceObservation) ||
+			resonanceObservation.AdmissionResonanceObservationAppendHash == resonanceObservation.AdmissionResonanceObservationReadBackHash ||
+			!resonanceObservation.AdmissionResonanceObservationAppendOnly ||
+			!resonanceObservation.AdmissionResonanceObservationReadBack ||
+			!resonanceObservation.AdmissionResonanceObservationReceiptVerified ||
+			resonanceObservation.AdmissionResonanceObservationRawDreamTextObserved ||
+			resonanceObservation.AdmissionResonanceObservationRawDreamTextForwarded ||
+			resonanceObservation.AdmissionResonanceObservationJanusSurfaceAllowed ||
+			resonanceObservation.AdmissionResonanceObservationCoocLearningAllowed ||
+			resonanceObservation.AdmissionResonanceObservationDeltaHarvestAllowed ||
+			resonanceObservation.AdmissionResonanceObservationBodyMutationAllowed ||
+			!resonanceObservation.AdmissionResonanceObservationRollbackRequired ||
+			!resonanceObservation.AdmissionResonanceObservationReady ||
+			resonanceObservation.SourceAdmissionResonanceReceiverSchema != admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema ||
+			!resonanceObservation.SourceAdmissionResonanceReceiverPassed ||
+			resonanceObservation.SourceAdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+			resonanceObservation.SourceAdmissionResonanceReceiverAction != "preview_resonance_receive_dry_run" ||
+			!resonanceObservation.SourceAdmissionResonanceReceiverReady ||
+			resonanceObservation.SourceAdmissionResonanceReceiverCausalID != resonanceReceiver.AdmissionResonanceReceiverCausalID ||
+			resonanceObservation.SourceAdmissionResonanceReceiverPreStateHash != resonanceReceiver.AdmissionResonanceReceiverPreStateHash ||
+			resonanceObservation.SourceAdmissionResonanceReceiverPostStateHash != resonanceReceiver.AdmissionResonanceReceiverPostStateHash ||
+			resonanceObservation.SourceAdmissionResonanceReceiverStateDeltaHash != resonanceReceiver.AdmissionResonanceReceiverStateDeltaHash ||
+			resonanceObservation.SourceAdmissionResonanceIntentIDForObservation != resonanceIntent.AdmissionResonanceIntentID ||
+			resonanceObservation.SourceAdmissionFinalGateIDForResonanceObservation != finalGate.AdmissionFinalGateID ||
+			resonanceObservation.SourceAdmissionSealIDForResonanceObservation != seal.AdmissionSealID ||
+			resonanceObservation.SourceAdmissionPermitIDForResonanceObservation != permit.AdmissionPermitID ||
+			resonanceObservation.SourceAdmissionReadinessIDForResonanceObservation != readiness.AdmissionReadinessID ||
+			resonanceObservation.SourceLedgerVerificationIDForResonanceObservation != ledgerVerification.LedgerVerificationID ||
+			resonanceObservation.SourceLedgerPersistenceIDForResonanceObservation != ledgerPersistence.LedgerPersistenceID ||
+			resonanceObservation.SourceLedgerImplementationIDForResonanceObservation != ledgerImpl.LedgerImplementationID ||
+			resonanceObservation.SourceAdmissionLedgerIDForResonanceObservation != ledger.AdmissionLedgerID ||
+			resonanceObservation.SourceRollbackImplementationIDForResonanceObservation != rollbackImpl.RollbackImplementationID ||
+			resonanceObservation.SourceWriterReceiptIDForResonanceObservation != writerReceipt.WriterReceiptID ||
+			resonanceObservation.AdmissionResonanceObservationID == "" ||
+			resonanceObservation.AdmissionResonanceObservationID != admissionLiveRouteTurnCandidateAdmissionResonanceObservationID(resonanceObservation) ||
+			resonanceObservation.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+			resonanceObservation.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+			resonanceObservation.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+			resonanceObservation.AdmissionSealID != seal.AdmissionSealID ||
+			resonanceObservation.AdmissionPermitID != permit.AdmissionPermitID ||
+			resonanceObservation.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+			resonanceObservation.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+			resonanceObservation.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+			resonanceObservation.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+			resonanceObservation.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+			resonanceObservation.WriterReceiptID != writerReceipt.WriterReceiptID ||
+			resonanceObservation.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+			resonanceObservation.AdmissionWriterContractID != writerContract.WriterContractID ||
+			resonanceObservation.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+			resonanceObservation.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			resonanceObservation.AdmissionLiveStageID != liveStage.LiveStageID ||
+			resonanceObservation.AdmissionEnableGateID != gate.EnableGateID ||
+			resonanceObservation.AdmissionSwitchID != sw.SwitchID ||
+			resonanceObservation.AdmissionPromotionID != promotion.PromotionID ||
+			resonanceObservation.AdmissionDecisionID != decision.DecisionID ||
+			resonanceObservation.CandidateExecutionID != execution.ExecutionID ||
+			resonanceObservation.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			resonanceObservation.CandidateDraftID != draft.DraftID ||
+			resonanceObservation.HandoffID != admission.HandoffID ||
+			resonanceObservation.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			resonanceObservation.DreamCandidateRunID != candidate.RunID ||
+			resonanceObservation.CandidateRunID != draft.CandidateRunID ||
+			resonanceObservation.CandidateTextHash != execution.GeneratedTextHash ||
+			resonanceObservation.TurnTextHash != execution.TurnTextHash ||
+			resonanceObservation.Reason != "resonance observation recorded and read back without body mutation" {
+			return fmt.Errorf("bad nano-direct admission resonance observation receipt: resonance_observation=%+v resonance_receiver=%+v resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceObservation, resonanceReceiver, resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s resonance_receiver=%s resonance_observation=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath, resonanceIntentLogPath, resonanceReceiverLogPath, resonanceObservationLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s resonance_receiver=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath, resonanceIntentLogPath, resonanceReceiverLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {

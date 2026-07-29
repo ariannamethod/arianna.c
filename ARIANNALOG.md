@@ -4203,3 +4203,35 @@ The passed receiver reports `admission_resonance_receiver_state=receiver_preview
 provenance, raw/Janus/cooc/delta openings, or body-write permissions stay blocked without a receiver id. `make
 admission-live-route-turn-candidate-nano-direct-resonance-receiver-smoke` proves the real-nano chain can give Resonance
 the first dry-run ear while the body remains closed.
+
+**Follow-up, same day - Resonance can now observe its sealed receiver proof without opening the body.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_resonance_observation.v1` after the receiver receipt. It consumes only a
+passed `admission_resonance_receiver_state=receiver_previewed_dry_run`, rechecks the receiver id, receiver causal id,
+pre/post/delta hashes, and upstream intent/final-gate/seal/permit/readiness/ledger/writer/rollback provenance, then
+records append/read-back hashes under `sealed_metadata_observation`.
+
+The passed observation reports `admission_resonance_observation_state=observation_recorded_dry_run`,
+`admission_resonance_observation_action=record_resonance_receiver_observation_dry_run`,
+`admission_resonance_observation_target=resonance`,
+`admission_resonance_observation_target_kind=internal_world_observation`,
+`admission_resonance_observation_target_mode=append_only_read_back_dry_run`,
+`admission_resonance_observation_receipt_shape=resonance_receiver_state_proof_ledger`,
+`admission_resonance_observation_observer=resonance`,
+`admission_resonance_observation_observer_kind=internal_world`,
+`admission_resonance_observation_kind=receiver_state_proof`,
+`admission_resonance_observation_mode=sealed_metadata_observation`,
+`admission_resonance_observation_dry_run_only=true`, `admission_resonance_observation_append_only=true`,
+`admission_resonance_observation_read_back=true`, `admission_resonance_observation_receipt_verified=true`,
+`admission_resonance_observation_raw_dream_text_observed=false`,
+`admission_resonance_observation_raw_dream_text_forwarded=false`,
+`admission_resonance_observation_janus_surface_allowed=false`,
+`admission_resonance_observation_cooc_learning_allowed=false`,
+`admission_resonance_observation_delta_harvest_allowed=false`,
+`admission_resonance_observation_body_mutation_allowed=false`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`, `mutates_state=false`, and stable
+`resonance-observation-causal-<hash>`, `resonance-observation-append-<hash>`,
+`resonance-observation-read-<hash>`, and `resonance-observation-<hash>` ids. Failed receivers, tampered receiver ids,
+raw/Janus/cooc/delta openings, body-write permissions, missing provenance, or missing read-back hashes stay blocked
+without an observation id. `make admission-live-route-turn-candidate-nano-direct-resonance-observation-smoke` proves the
+real-nano chain can record Resonance's sealed read-back observation while live admission and body mutation remain closed.

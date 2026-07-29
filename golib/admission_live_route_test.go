@@ -2898,6 +2898,126 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		resonanceReceiver.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission resonance receiver lost provenance: receiver=%+v intent=%+v", resonanceReceiver, resonanceIntent)
 	}
+	resonanceObservation := admissionLiveRouteTurnCandidateAdmissionResonanceObservationForReceiver(resonanceReceiver)
+	if resonanceObservation.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema ||
+		resonanceObservation.Timing != "live_admission_resonance_observation" ||
+		resonanceObservation.AdmissionResonanceObservationState != "observation_recorded_dry_run" ||
+		resonanceObservation.AdmissionResonanceObservationAction != "record_resonance_receiver_observation_dry_run" ||
+		resonanceObservation.AdmissionResonanceObservationTarget != "resonance" ||
+		resonanceObservation.AdmissionResonanceObservationTargetKind != "internal_world_observation" ||
+		resonanceObservation.AdmissionResonanceObservationTargetMode != "append_only_read_back_dry_run" ||
+		resonanceObservation.AdmissionResonanceObservationReceiptShape != "resonance_receiver_state_proof_ledger" ||
+		!resonanceObservation.AdmissionResonanceObservationDryRunOnly ||
+		!resonanceObservation.AdmissionResonanceObservationReceiverVerified ||
+		!resonanceObservation.AdmissionResonanceObservationIntentVerified ||
+		!resonanceObservation.AdmissionResonanceObservationFinalGateVerified ||
+		!resonanceObservation.AdmissionResonanceObservationSealVerified ||
+		!resonanceObservation.AdmissionResonanceObservationPermitVerified ||
+		!resonanceObservation.AdmissionResonanceObservationReadinessVerified ||
+		!resonanceObservation.AdmissionResonanceObservationLedgerVerified ||
+		!resonanceObservation.AdmissionResonanceObservationWriterReady ||
+		!resonanceObservation.AdmissionResonanceObservationRollbackReady ||
+		!resonanceObservation.AdmissionResonanceObservationLedgerReady ||
+		resonanceObservation.AdmissionResonanceObservationObserver != "resonance" ||
+		resonanceObservation.AdmissionResonanceObservationObserverKind != "internal_world" ||
+		resonanceObservation.AdmissionResonanceObservationKind != "receiver_state_proof" ||
+		resonanceObservation.AdmissionResonanceObservationMode != "sealed_metadata_observation" ||
+		!strings.HasPrefix(resonanceObservation.AdmissionResonanceObservationCausalID, "resonance-observation-causal-") ||
+		resonanceObservation.AdmissionResonanceObservationCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceObservationCausalID(resonanceObservation) ||
+		!strings.HasPrefix(resonanceObservation.AdmissionResonanceObservationAppendHash, "resonance-observation-append-") ||
+		resonanceObservation.AdmissionResonanceObservationAppendHash != admissionLiveRouteTurnCandidateAdmissionResonanceObservationAppendHash(resonanceObservation) ||
+		!strings.HasPrefix(resonanceObservation.AdmissionResonanceObservationReadBackHash, "resonance-observation-read-") ||
+		resonanceObservation.AdmissionResonanceObservationReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceObservationReadBackHash(resonanceObservation) ||
+		resonanceObservation.AdmissionResonanceObservationAppendHash == resonanceObservation.AdmissionResonanceObservationReadBackHash ||
+		!resonanceObservation.AdmissionResonanceObservationAppendOnly ||
+		!resonanceObservation.AdmissionResonanceObservationReadBack ||
+		!resonanceObservation.AdmissionResonanceObservationReceiptVerified ||
+		resonanceObservation.AdmissionResonanceObservationRawDreamTextObserved ||
+		resonanceObservation.AdmissionResonanceObservationRawDreamTextForwarded ||
+		resonanceObservation.AdmissionResonanceObservationJanusSurfaceAllowed ||
+		resonanceObservation.AdmissionResonanceObservationCoocLearningAllowed ||
+		resonanceObservation.AdmissionResonanceObservationDeltaHarvestAllowed ||
+		resonanceObservation.AdmissionResonanceObservationBodyMutationAllowed ||
+		!resonanceObservation.AdmissionResonanceObservationRollbackRequired ||
+		!resonanceObservation.AdmissionResonanceObservationReady ||
+		resonanceObservation.ContractsReady ||
+		resonanceObservation.WriteAllowed ||
+		resonanceObservation.AdmissionAllowed ||
+		resonanceObservation.LiveAdmissionEnabled ||
+		resonanceObservation.MutatesState ||
+		resonanceObservation.BodyTarget != "none" ||
+		!strings.HasPrefix(resonanceObservation.AdmissionResonanceObservationID, "resonance-observation-") ||
+		resonanceObservation.AdmissionResonanceObservationID != admissionLiveRouteTurnCandidateAdmissionResonanceObservationID(resonanceObservation) ||
+		!resonanceObservation.Passed ||
+		!resonanceObservation.LiveReady ||
+		resonanceObservation.SourceAdmissionResonanceReceiverSchema != admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema ||
+		!resonanceObservation.SourceAdmissionResonanceReceiverPassed ||
+		resonanceObservation.SourceAdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceObservation.SourceAdmissionResonanceReceiverAction != "preview_resonance_receive_dry_run" ||
+		!resonanceObservation.SourceAdmissionResonanceReceiverReady ||
+		resonanceObservation.SourceAdmissionResonanceReceiverCausalID != resonanceReceiver.AdmissionResonanceReceiverCausalID ||
+		resonanceObservation.SourceAdmissionResonanceReceiverPreStateHash != resonanceReceiver.AdmissionResonanceReceiverPreStateHash ||
+		resonanceObservation.SourceAdmissionResonanceReceiverPostStateHash != resonanceReceiver.AdmissionResonanceReceiverPostStateHash ||
+		resonanceObservation.SourceAdmissionResonanceReceiverStateDeltaHash != resonanceReceiver.AdmissionResonanceReceiverStateDeltaHash ||
+		resonanceObservation.SourceAdmissionResonanceIntentIDForObservation != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceObservation.SourceAdmissionFinalGateIDForResonanceObservation != finalGate.AdmissionFinalGateID ||
+		resonanceObservation.SourceAdmissionSealIDForResonanceObservation != seal.AdmissionSealID ||
+		resonanceObservation.SourceAdmissionPermitIDForResonanceObservation != permit.AdmissionPermitID ||
+		resonanceObservation.SourceAdmissionReadinessIDForResonanceObservation != readiness.AdmissionReadinessID ||
+		resonanceObservation.SourceLedgerVerificationIDForResonanceObservation != ledgerVerification.LedgerVerificationID ||
+		resonanceObservation.SourceLedgerPersistenceIDForResonanceObservation != ledgerPersistence.LedgerPersistenceID ||
+		resonanceObservation.SourceLedgerImplementationIDForResonanceObservation != ledgerImpl.LedgerImplementationID ||
+		resonanceObservation.SourceAdmissionLedgerIDForResonanceObservation != ledger.AdmissionLedgerID ||
+		resonanceObservation.SourceRollbackImplementationIDForResonanceObservation != rollbackImpl.RollbackImplementationID ||
+		resonanceObservation.SourceWriterReceiptIDForResonanceObservation != writerReceipt.WriterReceiptID ||
+		resonanceObservation.Reason != "resonance observation recorded and read back without body mutation" {
+		t.Fatalf("resonance observation should record only sealed receiver provenance: %+v", resonanceObservation)
+	}
+	if resonanceObservation.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceObservation.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceObservation.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceObservation.AdmissionSealID != seal.AdmissionSealID ||
+		resonanceObservation.AdmissionPermitID != permit.AdmissionPermitID ||
+		resonanceObservation.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		resonanceObservation.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		resonanceObservation.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		resonanceObservation.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		resonanceObservation.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		resonanceObservation.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		resonanceObservation.WriterImplementationID != writerImpl.WriterImplementationID ||
+		resonanceObservation.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		resonanceObservation.AdmissionWriterContractID != writerContract.WriterContractID ||
+		resonanceObservation.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		resonanceObservation.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		resonanceObservation.AdmissionLiveStageID != liveStage.LiveStageID ||
+		resonanceObservation.AdmissionEnableGateID != armedGate.EnableGateID ||
+		resonanceObservation.AdmissionSwitchID != sw.SwitchID ||
+		resonanceObservation.AdmissionPromotionID != promotion.PromotionID ||
+		resonanceObservation.AdmissionDecisionID != decision.DecisionID ||
+		resonanceObservation.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		resonanceObservation.CandidateExecutionID != execution.ExecutionID ||
+		resonanceObservation.CandidateDraftID != draft.DraftID ||
+		resonanceObservation.CandidateRunID != candidate.RunID ||
+		resonanceObservation.CandidateTextHash != hashJSON(text) ||
+		resonanceObservation.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission resonance observation lost provenance: observation=%+v receiver=%+v", resonanceObservation, resonanceReceiver)
+	}
+	tamperedResonanceObservationReceiver := resonanceReceiver
+	tamperedResonanceObservationReceiver.AdmissionResonanceReceiverID = "resonance-receiver-tampered"
+	tamperedResonanceObservation := admissionLiveRouteTurnCandidateAdmissionResonanceObservationForReceiver(tamperedResonanceObservationReceiver)
+	if tamperedResonanceObservation.Passed ||
+		tamperedResonanceObservation.AdmissionResonanceObservationID != "" ||
+		tamperedResonanceObservation.AdmissionResonanceObservationState != "blocked" ||
+		tamperedResonanceObservation.AdmissionResonanceObservationAction != "reject" ||
+		!tamperedResonanceObservation.AdmissionResonanceObservationDryRunOnly ||
+		tamperedResonanceObservation.AdmissionResonanceObservationReady ||
+		tamperedResonanceObservation.LiveReady ||
+		tamperedResonanceObservation.BodyTarget != "none" ||
+		tamperedResonanceObservation.WriteAllowed ||
+		tamperedResonanceObservation.MutatesState ||
+		tamperedResonanceObservation.Reason != "candidate_admission_resonance_receiver_id_mismatch" {
+		t.Fatalf("tampered resonance receiver id should fail closed before observation: %+v", tamperedResonanceObservation)
+	}
 	tamperedResonanceReceiverIntent := resonanceIntent
 	tamperedResonanceReceiverIntent.AdmissionResonanceIntentID = "resonance-intent-tampered"
 	tamperedResonanceReceiver := admissionLiveRouteTurnCandidateAdmissionResonanceReceiverForIntent(tamperedResonanceReceiverIntent)
