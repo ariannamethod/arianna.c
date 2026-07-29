@@ -39,6 +39,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionReadinessSchema          = "arianna.live_route_turn_candidate_admission_readiness.v1"
 	admissionLiveRouteTurnCandidateAdmissionPermitSchema             = "arianna.live_route_turn_candidate_admission_permit.v1"
 	admissionLiveRouteTurnCandidateAdmissionSealSchema               = "arianna.live_route_turn_candidate_admission_seal.v1"
+	admissionLiveRouteTurnCandidateAdmissionFinalGateSchema          = "arianna.live_route_turn_candidate_admission_final_gate.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -1125,6 +1126,40 @@ type admissionLiveRouteTurnCandidateAdmissionSeal struct {
 	SourceRollbackImplementationIDForSeal string `json:"source_rollback_implementation_id_for_seal,omitempty"`
 	SourceWriterReceiptIDForSeal          string `json:"source_writer_receipt_id_for_seal,omitempty"`
 	AdmissionSealID                       string `json:"admission_seal_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionFinalGate struct {
+	admissionLiveRouteTurnCandidateAdmissionSeal
+
+	AdmissionFinalGateState                    string `json:"admission_final_gate_state,omitempty"`
+	AdmissionFinalGateAction                   string `json:"admission_final_gate_action,omitempty"`
+	AdmissionFinalGateTarget                   string `json:"admission_final_gate_target,omitempty"`
+	AdmissionFinalGateTargetKind               string `json:"admission_final_gate_target_kind,omitempty"`
+	AdmissionFinalGateTargetMode               string `json:"admission_final_gate_target_mode,omitempty"`
+	AdmissionFinalGateReceiptShape             string `json:"admission_final_gate_receipt_shape,omitempty"`
+	AdmissionFinalGateDryRunOnly               bool   `json:"admission_final_gate_dry_run_only"`
+	AdmissionFinalGateSealVerified             bool   `json:"admission_final_gate_seal_verified"`
+	AdmissionFinalGatePermitVerified           bool   `json:"admission_final_gate_permit_verified"`
+	AdmissionFinalGateReadinessVerified        bool   `json:"admission_final_gate_readiness_verified"`
+	AdmissionFinalGateLedgerVerified           bool   `json:"admission_final_gate_ledger_verified"`
+	AdmissionFinalGateWriterReady              bool   `json:"admission_final_gate_writer_ready"`
+	AdmissionFinalGateRollbackReady            bool   `json:"admission_final_gate_rollback_ready"`
+	AdmissionFinalGateLedgerReady              bool   `json:"admission_final_gate_ledger_ready"`
+	AdmissionFinalGateReady                    bool   `json:"admission_final_gate_ready"`
+	SourceAdmissionSealSchema                  string `json:"source_admission_seal_schema,omitempty"`
+	SourceAdmissionSealPassed                  bool   `json:"source_admission_seal_passed"`
+	SourceAdmissionSealID                      string `json:"source_admission_seal_id,omitempty"`
+	SourceAdmissionSealAction                  string `json:"source_admission_seal_action,omitempty"`
+	SourceAdmissionSealReady                   bool   `json:"source_admission_seal_ready"`
+	SourceAdmissionPermitIDForFinalGate        string `json:"source_admission_permit_id_for_final_gate,omitempty"`
+	SourceAdmissionReadinessIDForFinalGate     string `json:"source_admission_readiness_id_for_final_gate,omitempty"`
+	SourceLedgerVerificationIDForFinalGate     string `json:"source_ledger_verification_id_for_final_gate,omitempty"`
+	SourceLedgerPersistenceIDForFinalGate      string `json:"source_ledger_persistence_id_for_final_gate,omitempty"`
+	SourceLedgerImplementationIDForFinalGate   string `json:"source_ledger_implementation_id_for_final_gate,omitempty"`
+	SourceAdmissionLedgerIDForFinalGate        string `json:"source_admission_ledger_id_for_final_gate,omitempty"`
+	SourceRollbackImplementationIDForFinalGate string `json:"source_rollback_implementation_id_for_final_gate,omitempty"`
+	SourceWriterReceiptIDForFinalGate          string `json:"source_writer_receipt_id_for_final_gate,omitempty"`
+	AdmissionFinalGateID                       string `json:"admission_final_gate_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2915,6 +2950,10 @@ func admissionLiveRouteTurnCandidateAdmissionPermitDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionSealDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -7870,6 +7909,285 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionSeal(seal admissionLiveRouteT
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(seal)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionFinalGateForSeal(seal admissionLiveRouteTurnCandidateAdmissionSeal) admissionLiveRouteTurnCandidateAdmissionFinalGate {
+	sourceSchema := seal.Schema
+	finalGate := admissionLiveRouteTurnCandidateAdmissionFinalGate{
+		admissionLiveRouteTurnCandidateAdmissionSeal: seal,
+		AdmissionFinalGateState:                      "blocked",
+		AdmissionFinalGateAction:                     "reject",
+		AdmissionFinalGateDryRunOnly:                 true,
+		SourceAdmissionSealSchema:                    sourceSchema,
+		SourceAdmissionSealPassed:                    seal.Passed,
+		SourceAdmissionSealID:                        seal.AdmissionSealID,
+		SourceAdmissionSealAction:                    seal.AdmissionSealAction,
+		SourceAdmissionSealReady:                     seal.AdmissionSealReady,
+		SourceAdmissionPermitIDForFinalGate:          seal.AdmissionPermitID,
+		SourceAdmissionReadinessIDForFinalGate:       seal.AdmissionReadinessID,
+		SourceLedgerVerificationIDForFinalGate:       seal.LedgerVerificationID,
+		SourceLedgerPersistenceIDForFinalGate:        seal.LedgerPersistenceID,
+		SourceLedgerImplementationIDForFinalGate:     seal.LedgerImplementationID,
+		SourceAdmissionLedgerIDForFinalGate:          seal.AdmissionLedgerID,
+		SourceRollbackImplementationIDForFinalGate:   seal.RollbackImplementationID,
+		SourceWriterReceiptIDForFinalGate:            seal.WriterReceiptID,
+	}
+	finalGate.Schema = admissionLiveRouteTurnCandidateAdmissionFinalGateSchema
+	finalGate.Timing = "live_admission_final_gate"
+	finalGate.Passed = false
+	finalGate.AdmissionFinalGateID = ""
+	finalGate.AdmissionFinalGateReady = false
+	finalGate.ContractsReady = false
+	finalGate.WriteAllowed = false
+	finalGate.AdmissionAllowed = false
+	finalGate.LiveAdmissionEnabled = false
+	finalGate.MutatesState = false
+
+	if sourceSchema == "" {
+		finalGate.Reason = "missing_candidate_admission_seal"
+		return finalGate
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionSealSchema {
+		finalGate.Reason = "unexpected_candidate_admission_seal_schema " + sourceSchema
+		return finalGate
+	}
+	if !seal.Passed {
+		finalGate.Reason = "candidate_admission_seal_failed"
+		if seal.Reason != "" {
+			finalGate.Reason += ": " + seal.Reason
+		}
+		return finalGate
+	}
+	if seal.AdmissionSealID == "" {
+		finalGate.Reason = "missing_candidate_admission_seal_id"
+		return finalGate
+	}
+	if wantSealID := admissionLiveRouteTurnCandidateAdmissionSealID(seal); wantSealID == "" || seal.AdmissionSealID != wantSealID {
+		finalGate.Reason = "candidate_admission_seal_id_mismatch"
+		return finalGate
+	}
+	if seal.AdmissionSealState != "sealed_closed_dry_run" ||
+		seal.AdmissionSealAction != "seal_operator_permit_provenance_dry_run" ||
+		seal.AdmissionSealTarget != "live_admission" ||
+		seal.AdmissionSealTargetKind != "dream_candidate_admission" ||
+		seal.AdmissionSealTargetMode != "sealed_closed_dry_run" ||
+		seal.AdmissionSealReceiptShape != "candidate_contract_provenance" {
+		finalGate.Reason = "candidate_admission_seal_shape_mismatch"
+		return finalGate
+	}
+	if !seal.AdmissionSealDryRunOnly ||
+		!seal.AdmissionSealPermitVerified ||
+		!seal.AdmissionSealReadinessVerified ||
+		!seal.AdmissionSealLedgerVerified ||
+		!seal.AdmissionSealWriterReady ||
+		!seal.AdmissionSealRollbackReady ||
+		!seal.AdmissionSealLedgerReady ||
+		!seal.AdmissionSealReady {
+		finalGate.Reason = "candidate_admission_seal_not_verified_dry_run"
+		return finalGate
+	}
+	if seal.ContractsReady || seal.WriteAllowed || seal.MutatesState || seal.LiveAdmissionEnabled || seal.AdmissionAllowed {
+		finalGate.Reason = "candidate_admission_seal_already_open"
+		return finalGate
+	}
+	if !seal.LiveReady {
+		finalGate.Reason = "candidate_admission_seal_not_live_ready"
+		return finalGate
+	}
+	if seal.SourceAdmissionPermitSchema != admissionLiveRouteTurnCandidateAdmissionPermitSchema ||
+		!seal.SourceAdmissionPermitPassed ||
+		seal.SourceAdmissionPermitID != seal.AdmissionPermitID ||
+		seal.SourceAdmissionPermitAction != "acknowledge_verified_live_admission_readiness_dry_run" ||
+		!seal.SourceAdmissionPermitReady ||
+		!seal.SourceAdmissionPermitKeyMatched {
+		finalGate.Reason = "candidate_admission_seal_source_permit_mismatch"
+		return finalGate
+	}
+	if wantPermitID := admissionLiveRouteTurnCandidateAdmissionPermitID(seal.admissionLiveRouteTurnCandidateAdmissionPermit); wantPermitID == "" || seal.AdmissionPermitID != wantPermitID {
+		finalGate.Reason = "candidate_admission_permit_id_mismatch_for_final_gate"
+		return finalGate
+	}
+	if seal.SourceAdmissionReadinessIDForSeal != seal.AdmissionReadinessID ||
+		seal.SourceLedgerVerificationIDForSeal != seal.LedgerVerificationID ||
+		seal.SourceLedgerPersistenceIDForSeal != seal.LedgerPersistenceID ||
+		seal.SourceLedgerImplementationIDForSeal != seal.LedgerImplementationID ||
+		seal.SourceAdmissionLedgerIDForSeal != seal.AdmissionLedgerID ||
+		seal.SourceRollbackImplementationIDForSeal != seal.RollbackImplementationID ||
+		seal.SourceWriterReceiptIDForSeal != seal.WriterReceiptID {
+		finalGate.Reason = "candidate_admission_seal_source_id_mismatch"
+		return finalGate
+	}
+	if seal.AdmissionSealID == "" ||
+		seal.AdmissionPermitID == "" ||
+		seal.AdmissionReadinessID == "" ||
+		seal.LedgerVerificationID == "" ||
+		seal.LedgerPersistenceID == "" ||
+		seal.LedgerImplementationID == "" ||
+		seal.RollbackImplementationID == "" ||
+		seal.WriterReceiptID == "" ||
+		seal.WriterImplementationID == "" ||
+		seal.AdmissionLedgerID == "" ||
+		seal.AdmissionWriterContractID == "" ||
+		seal.AdmissionWriterInventoryID == "" ||
+		seal.AdmissionWriterPreflightID == "" ||
+		seal.AdmissionLiveStageID == "" ||
+		seal.AdmissionEnableGateID == "" ||
+		seal.AdmissionSwitchID == "" ||
+		seal.AdmissionPromotionID == "" ||
+		seal.AdmissionDecisionID == "" ||
+		seal.AdmissionAdapterID == "" ||
+		seal.CandidateRunID == "" ||
+		seal.CandidateDraftID == "" ||
+		seal.CandidateExecutionID == "" ||
+		seal.GeneratorAdapterID == "" ||
+		seal.HandoffID == "" ||
+		seal.DreamCandidateRunID == "" ||
+		seal.CandidateTextHash == "" ||
+		seal.TurnTextHash == "" {
+		finalGate.Reason = "candidate_admission_seal_missing_provenance"
+		return finalGate
+	}
+
+	finalGate.AdmissionFinalGateState = "ready_closed_dry_run"
+	finalGate.AdmissionFinalGateAction = "verify_sealed_admission_provenance_dry_run"
+	finalGate.AdmissionFinalGateTarget = "live_admission"
+	finalGate.AdmissionFinalGateTargetKind = "dream_candidate_admission"
+	finalGate.AdmissionFinalGateTargetMode = "final_gate_closed_dry_run"
+	finalGate.AdmissionFinalGateReceiptShape = "sealed_candidate_contract_provenance"
+	finalGate.AdmissionFinalGateDryRunOnly = true
+	finalGate.AdmissionFinalGateSealVerified = true
+	finalGate.AdmissionFinalGatePermitVerified = seal.AdmissionSealPermitVerified
+	finalGate.AdmissionFinalGateReadinessVerified = seal.AdmissionSealReadinessVerified
+	finalGate.AdmissionFinalGateLedgerVerified = seal.AdmissionSealLedgerVerified
+	finalGate.AdmissionFinalGateWriterReady = seal.AdmissionSealWriterReady
+	finalGate.AdmissionFinalGateRollbackReady = seal.AdmissionSealRollbackReady
+	finalGate.AdmissionFinalGateLedgerReady = seal.AdmissionSealLedgerReady
+	finalGate.AdmissionFinalGateReady = true
+	finalGate.BodyTarget = "none"
+	finalGate.ContractsReady = false
+	finalGate.WriteAllowed = false
+	finalGate.AdmissionAllowed = false
+	finalGate.LiveAdmissionEnabled = false
+	finalGate.MutatesState = false
+	finalGate.AdmissionFinalGateID = admissionLiveRouteTurnCandidateAdmissionFinalGateID(finalGate)
+	if finalGate.AdmissionFinalGateID == "" {
+		finalGate.Reason = "missing_candidate_admission_final_gate_id"
+		return finalGate
+	}
+	finalGate.Passed = true
+	finalGate.Reason = "sealed admission provenance cleared final gate; live admission remains disabled"
+	return finalGate
+}
+
+func admissionLiveRouteTurnCandidateAdmissionFinalGateID(finalGate admissionLiveRouteTurnCandidateAdmissionFinalGate) string {
+	h := hashJSON(struct {
+		AdmissionSealID                       string `json:"admission_seal_id"`
+		AdmissionPermitID                     string `json:"admission_permit_id"`
+		AdmissionReadinessID                  string `json:"admission_readiness_id"`
+		LedgerVerificationID                  string `json:"ledger_verification_id"`
+		LedgerPersistenceID                   string `json:"ledger_persistence_id"`
+		LedgerImplementationID                string `json:"ledger_implementation_id"`
+		RollbackImplementationID              string `json:"rollback_implementation_id"`
+		WriterReceiptID                       string `json:"writer_receipt_id"`
+		AdmissionLedgerID                     string `json:"admission_ledger_id"`
+		CandidateRunID                        string `json:"candidate_run_id"`
+		CandidateTextHash                     string `json:"candidate_text_hash"`
+		TurnTextHash                          string `json:"turn_text_hash"`
+		AdmissionFinalGateState               string `json:"admission_final_gate_state"`
+		AdmissionFinalGateAction              string `json:"admission_final_gate_action"`
+		AdmissionFinalGateTarget              string `json:"admission_final_gate_target"`
+		AdmissionFinalGateTargetKind          string `json:"admission_final_gate_target_kind"`
+		AdmissionFinalGateTargetMode          string `json:"admission_final_gate_target_mode"`
+		AdmissionFinalGateReceiptShape        string `json:"admission_final_gate_receipt_shape"`
+		AdmissionFinalGateDryRunOnly          bool   `json:"admission_final_gate_dry_run_only"`
+		AdmissionFinalGateSealVerified        bool   `json:"admission_final_gate_seal_verified"`
+		AdmissionFinalGatePermitVerified      bool   `json:"admission_final_gate_permit_verified"`
+		AdmissionFinalGateReadinessVerified   bool   `json:"admission_final_gate_readiness_verified"`
+		AdmissionFinalGateLedgerVerified      bool   `json:"admission_final_gate_ledger_verified"`
+		AdmissionFinalGateWriterReady         bool   `json:"admission_final_gate_writer_ready"`
+		AdmissionFinalGateRollbackReady       bool   `json:"admission_final_gate_rollback_ready"`
+		AdmissionFinalGateLedgerReady         bool   `json:"admission_final_gate_ledger_ready"`
+		AdmissionFinalGateReady               bool   `json:"admission_final_gate_ready"`
+		SourceAdmissionSealID                 string `json:"source_admission_seal_id"`
+		SourceAdmissionPermitIDForFinalGate   string `json:"source_admission_permit_id_for_final_gate"`
+		SourceAdmissionReadinessIDForGate     string `json:"source_admission_readiness_id_for_final_gate"`
+		SourceLedgerVerificationIDForGate     string `json:"source_ledger_verification_id_for_final_gate"`
+		SourceLedgerPersistenceIDForGate      string `json:"source_ledger_persistence_id_for_final_gate"`
+		SourceLedgerImplementationIDForGate   string `json:"source_ledger_implementation_id_for_final_gate"`
+		SourceAdmissionLedgerIDForGate        string `json:"source_admission_ledger_id_for_final_gate"`
+		SourceRollbackImplementationIDForGate string `json:"source_rollback_implementation_id_for_final_gate"`
+		SourceWriterReceiptIDForGate          string `json:"source_writer_receipt_id_for_final_gate"`
+		ContractsReady                        bool   `json:"contracts_ready"`
+		BodyTarget                            string `json:"body_target"`
+		WriteAllowed                          bool   `json:"write_allowed"`
+		AdmissionAllowed                      bool   `json:"admission_allowed"`
+		LiveAdmissionEnabled                  bool   `json:"live_admission_enabled"`
+		MutatesState                          bool   `json:"mutates_state"`
+	}{
+		AdmissionSealID:                       finalGate.AdmissionSealID,
+		AdmissionPermitID:                     finalGate.AdmissionPermitID,
+		AdmissionReadinessID:                  finalGate.AdmissionReadinessID,
+		LedgerVerificationID:                  finalGate.LedgerVerificationID,
+		LedgerPersistenceID:                   finalGate.LedgerPersistenceID,
+		LedgerImplementationID:                finalGate.LedgerImplementationID,
+		RollbackImplementationID:              finalGate.RollbackImplementationID,
+		WriterReceiptID:                       finalGate.WriterReceiptID,
+		AdmissionLedgerID:                     finalGate.AdmissionLedgerID,
+		CandidateRunID:                        finalGate.CandidateRunID,
+		CandidateTextHash:                     finalGate.CandidateTextHash,
+		TurnTextHash:                          finalGate.TurnTextHash,
+		AdmissionFinalGateState:               finalGate.AdmissionFinalGateState,
+		AdmissionFinalGateAction:              finalGate.AdmissionFinalGateAction,
+		AdmissionFinalGateTarget:              finalGate.AdmissionFinalGateTarget,
+		AdmissionFinalGateTargetKind:          finalGate.AdmissionFinalGateTargetKind,
+		AdmissionFinalGateTargetMode:          finalGate.AdmissionFinalGateTargetMode,
+		AdmissionFinalGateReceiptShape:        finalGate.AdmissionFinalGateReceiptShape,
+		AdmissionFinalGateDryRunOnly:          finalGate.AdmissionFinalGateDryRunOnly,
+		AdmissionFinalGateSealVerified:        finalGate.AdmissionFinalGateSealVerified,
+		AdmissionFinalGatePermitVerified:      finalGate.AdmissionFinalGatePermitVerified,
+		AdmissionFinalGateReadinessVerified:   finalGate.AdmissionFinalGateReadinessVerified,
+		AdmissionFinalGateLedgerVerified:      finalGate.AdmissionFinalGateLedgerVerified,
+		AdmissionFinalGateWriterReady:         finalGate.AdmissionFinalGateWriterReady,
+		AdmissionFinalGateRollbackReady:       finalGate.AdmissionFinalGateRollbackReady,
+		AdmissionFinalGateLedgerReady:         finalGate.AdmissionFinalGateLedgerReady,
+		AdmissionFinalGateReady:               finalGate.AdmissionFinalGateReady,
+		SourceAdmissionSealID:                 finalGate.SourceAdmissionSealID,
+		SourceAdmissionPermitIDForFinalGate:   finalGate.SourceAdmissionPermitIDForFinalGate,
+		SourceAdmissionReadinessIDForGate:     finalGate.SourceAdmissionReadinessIDForFinalGate,
+		SourceLedgerVerificationIDForGate:     finalGate.SourceLedgerVerificationIDForFinalGate,
+		SourceLedgerPersistenceIDForGate:      finalGate.SourceLedgerPersistenceIDForFinalGate,
+		SourceLedgerImplementationIDForGate:   finalGate.SourceLedgerImplementationIDForFinalGate,
+		SourceAdmissionLedgerIDForGate:        finalGate.SourceAdmissionLedgerIDForFinalGate,
+		SourceRollbackImplementationIDForGate: finalGate.SourceRollbackImplementationIDForFinalGate,
+		SourceWriterReceiptIDForGate:          finalGate.SourceWriterReceiptIDForFinalGate,
+		ContractsReady:                        finalGate.ContractsReady,
+		BodyTarget:                            finalGate.BodyTarget,
+		WriteAllowed:                          finalGate.WriteAllowed,
+		AdmissionAllowed:                      finalGate.AdmissionAllowed,
+		LiveAdmissionEnabled:                  finalGate.LiveAdmissionEnabled,
+		MutatesState:                          finalGate.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "admission-final-gate-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionFinalGate(finalGate admissionLiveRouteTurnCandidateAdmissionFinalGate) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(finalGate)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
