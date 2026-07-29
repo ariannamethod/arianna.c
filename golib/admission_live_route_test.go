@@ -2714,6 +2714,107 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		finalGate.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission final gate lost provenance: final_gate=%+v seal=%+v", finalGate, seal)
 	}
+	resonanceIntent := admissionLiveRouteTurnCandidateAdmissionResonanceIntentForFinalGate(finalGate)
+	if resonanceIntent.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema ||
+		resonanceIntent.Timing != "live_admission_resonance_intent" ||
+		resonanceIntent.AdmissionResonanceIntentState != "resonance_intent_drafted_dry_run" ||
+		resonanceIntent.AdmissionResonanceIntentAction != "draft_resonance_direction_intent_dry_run" ||
+		resonanceIntent.AdmissionResonanceIntentTarget != "resonance" ||
+		resonanceIntent.AdmissionResonanceIntentTargetKind != "first_live_receiver" ||
+		resonanceIntent.AdmissionResonanceIntentTargetMode != "bounded_direction_dry_run" ||
+		resonanceIntent.AdmissionResonanceIntentReceiptShape != "sealed_candidate_contract_provenance" ||
+		!resonanceIntent.AdmissionResonanceIntentDryRunOnly ||
+		!resonanceIntent.AdmissionResonanceIntentFinalGateVerified ||
+		!resonanceIntent.AdmissionResonanceIntentSealVerified ||
+		!resonanceIntent.AdmissionResonanceIntentPermitVerified ||
+		!resonanceIntent.AdmissionResonanceIntentReadinessVerified ||
+		!resonanceIntent.AdmissionResonanceIntentLedgerVerified ||
+		!resonanceIntent.AdmissionResonanceIntentWriterReady ||
+		!resonanceIntent.AdmissionResonanceIntentRollbackReady ||
+		!resonanceIntent.AdmissionResonanceIntentLedgerReady ||
+		resonanceIntent.AdmissionResonanceIntentReceiver != "resonance" ||
+		resonanceIntent.AdmissionResonanceIntentReceiverKind != "internal_world" ||
+		resonanceIntent.AdmissionResonanceIntentInfluenceKind != "bounded_direction" ||
+		resonanceIntent.AdmissionResonanceIntentMaxInfluence != admissionLiveRouteTurnCandidateAdmissionResonanceIntentMaxGain ||
+		resonanceIntent.AdmissionResonanceIntentTTLTurns != admissionLiveRouteTurnCandidateAdmissionResonanceIntentTTL ||
+		!strings.HasPrefix(resonanceIntent.AdmissionResonanceIntentCausalID, "resonance-intent-causal-") ||
+		resonanceIntent.AdmissionResonanceIntentRawDreamTextAllowed ||
+		resonanceIntent.AdmissionResonanceIntentJanusSurfaceAllowed ||
+		resonanceIntent.AdmissionResonanceIntentCoocLearningAllowed ||
+		resonanceIntent.AdmissionResonanceIntentDeltaHarvestAllowed ||
+		!resonanceIntent.AdmissionResonanceIntentRollbackRequired ||
+		!resonanceIntent.AdmissionResonanceIntentPreStateHashRequired ||
+		!resonanceIntent.AdmissionResonanceIntentPostStateHashRequired ||
+		!resonanceIntent.AdmissionResonanceIntentReady ||
+		resonanceIntent.ContractsReady ||
+		resonanceIntent.WriteAllowed ||
+		resonanceIntent.AdmissionAllowed ||
+		resonanceIntent.LiveAdmissionEnabled ||
+		resonanceIntent.MutatesState ||
+		resonanceIntent.BodyTarget != "none" ||
+		!strings.HasPrefix(resonanceIntent.AdmissionResonanceIntentID, "resonance-intent-") ||
+		!resonanceIntent.Passed ||
+		!resonanceIntent.LiveReady ||
+		resonanceIntent.SourceAdmissionFinalGateSchema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema ||
+		!resonanceIntent.SourceAdmissionFinalGatePassed ||
+		resonanceIntent.SourceAdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceIntent.SourceAdmissionFinalGateAction != "verify_sealed_admission_provenance_dry_run" ||
+		!resonanceIntent.SourceAdmissionFinalGateReady ||
+		resonanceIntent.SourceAdmissionSealIDForResonanceIntent != seal.AdmissionSealID ||
+		resonanceIntent.SourceAdmissionPermitIDForResonanceIntent != permit.AdmissionPermitID ||
+		resonanceIntent.SourceAdmissionReadinessIDForResonanceIntent != readiness.AdmissionReadinessID ||
+		resonanceIntent.SourceLedgerVerificationIDForResonanceIntent != ledgerVerification.LedgerVerificationID ||
+		resonanceIntent.SourceLedgerPersistenceIDForResonanceIntent != ledgerPersistence.LedgerPersistenceID ||
+		resonanceIntent.SourceLedgerImplementationIDForResonanceIntent != ledgerImpl.LedgerImplementationID ||
+		resonanceIntent.SourceAdmissionLedgerIDForResonanceIntent != ledger.AdmissionLedgerID ||
+		resonanceIntent.SourceRollbackImplementationIDForResonanceIntent != rollbackImpl.RollbackImplementationID ||
+		resonanceIntent.SourceWriterReceiptIDForResonanceIntent != writerReceipt.WriterReceiptID ||
+		resonanceIntent.Reason != "resonance intent drafted from final gate; live admission remains disabled" {
+		t.Fatalf("resonance intent should hear only sealed final-gate provenance: %+v", resonanceIntent)
+	}
+	if resonanceIntent.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceIntent.AdmissionSealID != seal.AdmissionSealID ||
+		resonanceIntent.AdmissionPermitID != permit.AdmissionPermitID ||
+		resonanceIntent.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		resonanceIntent.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		resonanceIntent.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		resonanceIntent.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		resonanceIntent.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		resonanceIntent.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		resonanceIntent.WriterImplementationID != writerImpl.WriterImplementationID ||
+		resonanceIntent.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		resonanceIntent.AdmissionWriterContractID != writerContract.WriterContractID ||
+		resonanceIntent.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		resonanceIntent.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		resonanceIntent.AdmissionLiveStageID != liveStage.LiveStageID ||
+		resonanceIntent.AdmissionEnableGateID != armedGate.EnableGateID ||
+		resonanceIntent.AdmissionSwitchID != sw.SwitchID ||
+		resonanceIntent.AdmissionPromotionID != promotion.PromotionID ||
+		resonanceIntent.AdmissionDecisionID != decision.DecisionID ||
+		resonanceIntent.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		resonanceIntent.CandidateExecutionID != execution.ExecutionID ||
+		resonanceIntent.CandidateDraftID != draft.DraftID ||
+		resonanceIntent.CandidateRunID != candidate.RunID ||
+		resonanceIntent.CandidateTextHash != hashJSON(text) ||
+		resonanceIntent.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission resonance intent lost provenance: intent=%+v final_gate=%+v", resonanceIntent, finalGate)
+	}
+	tamperedResonanceIntentGate := finalGate
+	tamperedResonanceIntentGate.AdmissionFinalGateID = "admission-final-gate-tampered"
+	tamperedResonanceIntent := admissionLiveRouteTurnCandidateAdmissionResonanceIntentForFinalGate(tamperedResonanceIntentGate)
+	if tamperedResonanceIntent.Passed ||
+		tamperedResonanceIntent.AdmissionResonanceIntentID != "" ||
+		tamperedResonanceIntent.AdmissionResonanceIntentState != "blocked" ||
+		tamperedResonanceIntent.AdmissionResonanceIntentAction != "reject" ||
+		!tamperedResonanceIntent.AdmissionResonanceIntentDryRunOnly ||
+		tamperedResonanceIntent.AdmissionResonanceIntentReady ||
+		tamperedResonanceIntent.LiveReady ||
+		tamperedResonanceIntent.BodyTarget != "none" ||
+		tamperedResonanceIntent.WriteAllowed ||
+		tamperedResonanceIntent.MutatesState ||
+		tamperedResonanceIntent.Reason != "candidate_admission_final_gate_id_mismatch" {
+		t.Fatalf("tampered final gate id should fail closed before resonance intent: %+v", tamperedResonanceIntent)
+	}
 	tamperedFinalGateSeal := seal
 	tamperedFinalGateSeal.AdmissionSealID = "admission-seal-tampered"
 	tamperedFinalGate := admissionLiveRouteTurnCandidateAdmissionFinalGateForSeal(tamperedFinalGateSeal)
@@ -2957,6 +3058,21 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedFinalGate.MutatesState ||
 		blockedFinalGate.Reason != "candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("blocked seal should not pass admission final gate: %+v", blockedFinalGate)
+	}
+	blockedResonanceIntent := admissionLiveRouteTurnCandidateAdmissionResonanceIntentForFinalGate(blockedFinalGate)
+	if blockedResonanceIntent.Passed ||
+		blockedResonanceIntent.AdmissionResonanceIntentID != "" ||
+		blockedResonanceIntent.AdmissionResonanceIntentState != "blocked" ||
+		blockedResonanceIntent.AdmissionResonanceIntentAction != "reject" ||
+		!blockedResonanceIntent.AdmissionResonanceIntentDryRunOnly ||
+		blockedResonanceIntent.AdmissionResonanceIntentFinalGateVerified ||
+		blockedResonanceIntent.AdmissionResonanceIntentReady ||
+		blockedResonanceIntent.LiveReady ||
+		blockedResonanceIntent.BodyTarget != "none" ||
+		blockedResonanceIntent.WriteAllowed ||
+		blockedResonanceIntent.MutatesState ||
+		blockedResonanceIntent.Reason != "candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("blocked final gate should not produce resonance intent: %+v", blockedResonanceIntent)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||

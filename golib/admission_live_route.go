@@ -40,11 +40,14 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionPermitSchema             = "arianna.live_route_turn_candidate_admission_permit.v1"
 	admissionLiveRouteTurnCandidateAdmissionSealSchema               = "arianna.live_route_turn_candidate_admission_seal.v1"
 	admissionLiveRouteTurnCandidateAdmissionFinalGateSchema          = "arianna.live_route_turn_candidate_admission_final_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema    = "arianna.live_route_turn_candidate_admission_resonance_intent.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
 	admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation = "ARIANNA_LIVE_ADMISSION_ENABLE_DRY_RUN_ONLY"
 	admissionLiveRouteTurnCandidateAdmissionPermitConfirmation     = "ARIANNA_LIVE_ADMISSION_PERMIT_DRY_RUN_ONLY"
+	admissionLiveRouteTurnCandidateAdmissionResonanceIntentTTL     = 1
+	admissionLiveRouteTurnCandidateAdmissionResonanceIntentMaxGain = 0.05
 
 	admissionLiveRouteTurnCandidateExecutionRunnerProvided   = "provided_text"
 	admissionLiveRouteTurnCandidateExecutionRunnerSelfEmit   = "metabolism-self-emit"
@@ -1160,6 +1163,55 @@ type admissionLiveRouteTurnCandidateAdmissionFinalGate struct {
 	SourceRollbackImplementationIDForFinalGate string `json:"source_rollback_implementation_id_for_final_gate,omitempty"`
 	SourceWriterReceiptIDForFinalGate          string `json:"source_writer_receipt_id_for_final_gate,omitempty"`
 	AdmissionFinalGateID                       string `json:"admission_final_gate_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionResonanceIntent struct {
+	admissionLiveRouteTurnCandidateAdmissionFinalGate
+
+	AdmissionResonanceIntentState                    string  `json:"admission_resonance_intent_state,omitempty"`
+	AdmissionResonanceIntentAction                   string  `json:"admission_resonance_intent_action,omitempty"`
+	AdmissionResonanceIntentTarget                   string  `json:"admission_resonance_intent_target,omitempty"`
+	AdmissionResonanceIntentTargetKind               string  `json:"admission_resonance_intent_target_kind,omitempty"`
+	AdmissionResonanceIntentTargetMode               string  `json:"admission_resonance_intent_target_mode,omitempty"`
+	AdmissionResonanceIntentReceiptShape             string  `json:"admission_resonance_intent_receipt_shape,omitempty"`
+	AdmissionResonanceIntentDryRunOnly               bool    `json:"admission_resonance_intent_dry_run_only"`
+	AdmissionResonanceIntentFinalGateVerified        bool    `json:"admission_resonance_intent_final_gate_verified"`
+	AdmissionResonanceIntentSealVerified             bool    `json:"admission_resonance_intent_seal_verified"`
+	AdmissionResonanceIntentPermitVerified           bool    `json:"admission_resonance_intent_permit_verified"`
+	AdmissionResonanceIntentReadinessVerified        bool    `json:"admission_resonance_intent_readiness_verified"`
+	AdmissionResonanceIntentLedgerVerified           bool    `json:"admission_resonance_intent_ledger_verified"`
+	AdmissionResonanceIntentWriterReady              bool    `json:"admission_resonance_intent_writer_ready"`
+	AdmissionResonanceIntentRollbackReady            bool    `json:"admission_resonance_intent_rollback_ready"`
+	AdmissionResonanceIntentLedgerReady              bool    `json:"admission_resonance_intent_ledger_ready"`
+	AdmissionResonanceIntentReceiver                 string  `json:"admission_resonance_intent_receiver,omitempty"`
+	AdmissionResonanceIntentReceiverKind             string  `json:"admission_resonance_intent_receiver_kind,omitempty"`
+	AdmissionResonanceIntentInfluenceKind            string  `json:"admission_resonance_intent_influence_kind,omitempty"`
+	AdmissionResonanceIntentMaxInfluence             float64 `json:"admission_resonance_intent_max_influence"`
+	AdmissionResonanceIntentTTLTurns                 int     `json:"admission_resonance_intent_ttl_turns"`
+	AdmissionResonanceIntentCausalID                 string  `json:"admission_resonance_intent_causal_id,omitempty"`
+	AdmissionResonanceIntentRawDreamTextAllowed      bool    `json:"admission_resonance_intent_raw_dream_text_allowed"`
+	AdmissionResonanceIntentJanusSurfaceAllowed      bool    `json:"admission_resonance_intent_janus_surface_allowed"`
+	AdmissionResonanceIntentCoocLearningAllowed      bool    `json:"admission_resonance_intent_cooc_learning_allowed"`
+	AdmissionResonanceIntentDeltaHarvestAllowed      bool    `json:"admission_resonance_intent_delta_harvest_allowed"`
+	AdmissionResonanceIntentRollbackRequired         bool    `json:"admission_resonance_intent_rollback_required"`
+	AdmissionResonanceIntentPreStateHashRequired     bool    `json:"admission_resonance_intent_pre_state_hash_required"`
+	AdmissionResonanceIntentPostStateHashRequired    bool    `json:"admission_resonance_intent_post_state_hash_required"`
+	AdmissionResonanceIntentReady                    bool    `json:"admission_resonance_intent_ready"`
+	SourceAdmissionFinalGateSchema                   string  `json:"source_admission_final_gate_schema,omitempty"`
+	SourceAdmissionFinalGatePassed                   bool    `json:"source_admission_final_gate_passed"`
+	SourceAdmissionFinalGateID                       string  `json:"source_admission_final_gate_id,omitempty"`
+	SourceAdmissionFinalGateAction                   string  `json:"source_admission_final_gate_action,omitempty"`
+	SourceAdmissionFinalGateReady                    bool    `json:"source_admission_final_gate_ready"`
+	SourceAdmissionSealIDForResonanceIntent          string  `json:"source_admission_seal_id_for_resonance_intent,omitempty"`
+	SourceAdmissionPermitIDForResonanceIntent        string  `json:"source_admission_permit_id_for_resonance_intent,omitempty"`
+	SourceAdmissionReadinessIDForResonanceIntent     string  `json:"source_admission_readiness_id_for_resonance_intent,omitempty"`
+	SourceLedgerVerificationIDForResonanceIntent     string  `json:"source_ledger_verification_id_for_resonance_intent,omitempty"`
+	SourceLedgerPersistenceIDForResonanceIntent      string  `json:"source_ledger_persistence_id_for_resonance_intent,omitempty"`
+	SourceLedgerImplementationIDForResonanceIntent   string  `json:"source_ledger_implementation_id_for_resonance_intent,omitempty"`
+	SourceAdmissionLedgerIDForResonanceIntent        string  `json:"source_admission_ledger_id_for_resonance_intent,omitempty"`
+	SourceRollbackImplementationIDForResonanceIntent string  `json:"source_rollback_implementation_id_for_resonance_intent,omitempty"`
+	SourceWriterReceiptIDForResonanceIntent          string  `json:"source_writer_receipt_id_for_resonance_intent,omitempty"`
+	AdmissionResonanceIntentID                       string  `json:"admission_resonance_intent_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -2954,6 +3006,10 @@ func admissionLiveRouteTurnCandidateAdmissionSealDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -8188,6 +8244,321 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionFinalGate(finalGate admission
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(finalGate)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceIntentForFinalGate(finalGate admissionLiveRouteTurnCandidateAdmissionFinalGate) admissionLiveRouteTurnCandidateAdmissionResonanceIntent {
+	sourceSchema := finalGate.Schema
+	intent := admissionLiveRouteTurnCandidateAdmissionResonanceIntent{
+		admissionLiveRouteTurnCandidateAdmissionFinalGate: finalGate,
+		AdmissionResonanceIntentState:                     "blocked",
+		AdmissionResonanceIntentAction:                    "reject",
+		AdmissionResonanceIntentDryRunOnly:                true,
+		SourceAdmissionFinalGateSchema:                    sourceSchema,
+		SourceAdmissionFinalGatePassed:                    finalGate.Passed,
+		SourceAdmissionFinalGateID:                        finalGate.AdmissionFinalGateID,
+		SourceAdmissionFinalGateAction:                    finalGate.AdmissionFinalGateAction,
+		SourceAdmissionFinalGateReady:                     finalGate.AdmissionFinalGateReady,
+		SourceAdmissionSealIDForResonanceIntent:           finalGate.AdmissionSealID,
+		SourceAdmissionPermitIDForResonanceIntent:         finalGate.AdmissionPermitID,
+		SourceAdmissionReadinessIDForResonanceIntent:      finalGate.AdmissionReadinessID,
+		SourceLedgerVerificationIDForResonanceIntent:      finalGate.LedgerVerificationID,
+		SourceLedgerPersistenceIDForResonanceIntent:       finalGate.LedgerPersistenceID,
+		SourceLedgerImplementationIDForResonanceIntent:    finalGate.LedgerImplementationID,
+		SourceAdmissionLedgerIDForResonanceIntent:         finalGate.AdmissionLedgerID,
+		SourceRollbackImplementationIDForResonanceIntent:  finalGate.RollbackImplementationID,
+		SourceWriterReceiptIDForResonanceIntent:           finalGate.WriterReceiptID,
+	}
+	intent.Schema = admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema
+	intent.Timing = "live_admission_resonance_intent"
+	intent.Passed = false
+	intent.AdmissionResonanceIntentID = ""
+	intent.AdmissionResonanceIntentReady = false
+	intent.LiveReady = false
+	intent.BodyTarget = "none"
+	intent.ContractsReady = false
+	intent.WriteAllowed = false
+	intent.AdmissionAllowed = false
+	intent.LiveAdmissionEnabled = false
+	intent.MutatesState = false
+
+	if sourceSchema == "" {
+		intent.Reason = "missing_candidate_admission_final_gate"
+		return intent
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionFinalGateSchema {
+		intent.Reason = "unexpected_candidate_admission_final_gate_schema " + sourceSchema
+		return intent
+	}
+	if !finalGate.Passed {
+		intent.Reason = "candidate_admission_final_gate_failed"
+		if finalGate.Reason != "" {
+			intent.Reason += ": " + finalGate.Reason
+		}
+		return intent
+	}
+	if finalGate.AdmissionFinalGateID == "" {
+		intent.Reason = "missing_candidate_admission_final_gate_id"
+		return intent
+	}
+	if wantFinalGateID := admissionLiveRouteTurnCandidateAdmissionFinalGateID(finalGate); wantFinalGateID == "" || finalGate.AdmissionFinalGateID != wantFinalGateID {
+		intent.Reason = "candidate_admission_final_gate_id_mismatch"
+		return intent
+	}
+	if finalGate.AdmissionFinalGateState != "ready_closed_dry_run" ||
+		finalGate.AdmissionFinalGateAction != "verify_sealed_admission_provenance_dry_run" ||
+		finalGate.AdmissionFinalGateTarget != "live_admission" ||
+		finalGate.AdmissionFinalGateTargetKind != "dream_candidate_admission" ||
+		finalGate.AdmissionFinalGateTargetMode != "final_gate_closed_dry_run" ||
+		finalGate.AdmissionFinalGateReceiptShape != "sealed_candidate_contract_provenance" {
+		intent.Reason = "candidate_admission_final_gate_shape_mismatch"
+		return intent
+	}
+	if !finalGate.AdmissionFinalGateDryRunOnly ||
+		!finalGate.AdmissionFinalGateSealVerified ||
+		!finalGate.AdmissionFinalGatePermitVerified ||
+		!finalGate.AdmissionFinalGateReadinessVerified ||
+		!finalGate.AdmissionFinalGateLedgerVerified ||
+		!finalGate.AdmissionFinalGateWriterReady ||
+		!finalGate.AdmissionFinalGateRollbackReady ||
+		!finalGate.AdmissionFinalGateLedgerReady ||
+		!finalGate.AdmissionFinalGateReady {
+		intent.Reason = "candidate_admission_final_gate_not_verified_dry_run"
+		return intent
+	}
+	if finalGate.ContractsReady || finalGate.WriteAllowed || finalGate.MutatesState || finalGate.LiveAdmissionEnabled || finalGate.AdmissionAllowed {
+		intent.Reason = "candidate_admission_final_gate_already_open"
+		return intent
+	}
+	if finalGate.BodyTarget != "none" {
+		intent.Reason = "candidate_admission_final_gate_body_target_mismatch"
+		return intent
+	}
+	if !finalGate.LiveReady {
+		intent.Reason = "candidate_admission_final_gate_not_live_ready"
+		return intent
+	}
+	if finalGate.SourceAdmissionSealSchema != admissionLiveRouteTurnCandidateAdmissionSealSchema ||
+		!finalGate.SourceAdmissionSealPassed ||
+		finalGate.SourceAdmissionSealID != finalGate.AdmissionSealID ||
+		finalGate.SourceAdmissionSealAction != "seal_operator_permit_provenance_dry_run" ||
+		!finalGate.SourceAdmissionSealReady {
+		intent.Reason = "candidate_admission_final_gate_source_seal_mismatch"
+		return intent
+	}
+	if wantSealID := admissionLiveRouteTurnCandidateAdmissionSealID(finalGate.admissionLiveRouteTurnCandidateAdmissionSeal); wantSealID == "" || finalGate.AdmissionSealID != wantSealID {
+		intent.Reason = "candidate_admission_seal_id_mismatch_for_resonance_intent"
+		return intent
+	}
+	if finalGate.SourceAdmissionPermitIDForFinalGate != finalGate.AdmissionPermitID ||
+		finalGate.SourceAdmissionReadinessIDForFinalGate != finalGate.AdmissionReadinessID ||
+		finalGate.SourceLedgerVerificationIDForFinalGate != finalGate.LedgerVerificationID ||
+		finalGate.SourceLedgerPersistenceIDForFinalGate != finalGate.LedgerPersistenceID ||
+		finalGate.SourceLedgerImplementationIDForFinalGate != finalGate.LedgerImplementationID ||
+		finalGate.SourceAdmissionLedgerIDForFinalGate != finalGate.AdmissionLedgerID ||
+		finalGate.SourceRollbackImplementationIDForFinalGate != finalGate.RollbackImplementationID ||
+		finalGate.SourceWriterReceiptIDForFinalGate != finalGate.WriterReceiptID {
+		intent.Reason = "candidate_admission_final_gate_source_id_mismatch"
+		return intent
+	}
+	if finalGate.AdmissionFinalGateID == "" ||
+		finalGate.AdmissionSealID == "" ||
+		finalGate.AdmissionPermitID == "" ||
+		finalGate.AdmissionReadinessID == "" ||
+		finalGate.LedgerVerificationID == "" ||
+		finalGate.LedgerPersistenceID == "" ||
+		finalGate.LedgerImplementationID == "" ||
+		finalGate.RollbackImplementationID == "" ||
+		finalGate.WriterReceiptID == "" ||
+		finalGate.WriterImplementationID == "" ||
+		finalGate.AdmissionLedgerID == "" ||
+		finalGate.AdmissionWriterContractID == "" ||
+		finalGate.AdmissionWriterInventoryID == "" ||
+		finalGate.AdmissionWriterPreflightID == "" ||
+		finalGate.AdmissionLiveStageID == "" ||
+		finalGate.AdmissionEnableGateID == "" ||
+		finalGate.AdmissionSwitchID == "" ||
+		finalGate.AdmissionPromotionID == "" ||
+		finalGate.AdmissionDecisionID == "" ||
+		finalGate.AdmissionAdapterID == "" ||
+		finalGate.CandidateRunID == "" ||
+		finalGate.CandidateDraftID == "" ||
+		finalGate.CandidateExecutionID == "" ||
+		finalGate.GeneratorAdapterID == "" ||
+		finalGate.HandoffID == "" ||
+		finalGate.DreamCandidateRunID == "" ||
+		finalGate.CandidateTextHash == "" ||
+		finalGate.TurnTextHash == "" {
+		intent.Reason = "candidate_admission_final_gate_missing_provenance"
+		return intent
+	}
+
+	intent.AdmissionResonanceIntentState = "resonance_intent_drafted_dry_run"
+	intent.AdmissionResonanceIntentAction = "draft_resonance_direction_intent_dry_run"
+	intent.AdmissionResonanceIntentTarget = "resonance"
+	intent.AdmissionResonanceIntentTargetKind = "first_live_receiver"
+	intent.AdmissionResonanceIntentTargetMode = "bounded_direction_dry_run"
+	intent.AdmissionResonanceIntentReceiptShape = "sealed_candidate_contract_provenance"
+	intent.AdmissionResonanceIntentDryRunOnly = true
+	intent.AdmissionResonanceIntentFinalGateVerified = true
+	intent.AdmissionResonanceIntentSealVerified = finalGate.AdmissionFinalGateSealVerified
+	intent.AdmissionResonanceIntentPermitVerified = finalGate.AdmissionFinalGatePermitVerified
+	intent.AdmissionResonanceIntentReadinessVerified = finalGate.AdmissionFinalGateReadinessVerified
+	intent.AdmissionResonanceIntentLedgerVerified = finalGate.AdmissionFinalGateLedgerVerified
+	intent.AdmissionResonanceIntentWriterReady = finalGate.AdmissionFinalGateWriterReady
+	intent.AdmissionResonanceIntentRollbackReady = finalGate.AdmissionFinalGateRollbackReady
+	intent.AdmissionResonanceIntentLedgerReady = finalGate.AdmissionFinalGateLedgerReady
+	intent.AdmissionResonanceIntentReceiver = "resonance"
+	intent.AdmissionResonanceIntentReceiverKind = "internal_world"
+	intent.AdmissionResonanceIntentInfluenceKind = "bounded_direction"
+	intent.AdmissionResonanceIntentMaxInfluence = admissionLiveRouteTurnCandidateAdmissionResonanceIntentMaxGain
+	intent.AdmissionResonanceIntentTTLTurns = admissionLiveRouteTurnCandidateAdmissionResonanceIntentTTL
+	intent.AdmissionResonanceIntentRawDreamTextAllowed = false
+	intent.AdmissionResonanceIntentJanusSurfaceAllowed = false
+	intent.AdmissionResonanceIntentCoocLearningAllowed = false
+	intent.AdmissionResonanceIntentDeltaHarvestAllowed = false
+	intent.AdmissionResonanceIntentRollbackRequired = true
+	intent.AdmissionResonanceIntentPreStateHashRequired = true
+	intent.AdmissionResonanceIntentPostStateHashRequired = true
+	intent.AdmissionResonanceIntentReady = true
+	intent.LiveReady = true
+	intent.BodyTarget = "none"
+	intent.ContractsReady = false
+	intent.WriteAllowed = false
+	intent.AdmissionAllowed = false
+	intent.LiveAdmissionEnabled = false
+	intent.MutatesState = false
+	intent.AdmissionResonanceIntentCausalID = admissionLiveRouteTurnCandidateAdmissionResonanceIntentCausalID(intent)
+	if intent.AdmissionResonanceIntentCausalID == "" {
+		intent.Reason = "missing_candidate_admission_resonance_intent_causal_id"
+		return intent
+	}
+	intent.AdmissionResonanceIntentID = admissionLiveRouteTurnCandidateAdmissionResonanceIntentID(intent)
+	if intent.AdmissionResonanceIntentID == "" {
+		intent.Reason = "missing_candidate_admission_resonance_intent_id"
+		return intent
+	}
+	intent.Passed = true
+	intent.Reason = "resonance intent drafted from final gate; live admission remains disabled"
+	return intent
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceIntentCausalID(intent admissionLiveRouteTurnCandidateAdmissionResonanceIntent) string {
+	h := hashJSON(struct {
+		AdmissionFinalGateID string `json:"admission_final_gate_id"`
+		AdmissionSealID      string `json:"admission_seal_id"`
+		CandidateRunID       string `json:"candidate_run_id"`
+		CandidateTextHash    string `json:"candidate_text_hash"`
+		TurnTextHash         string `json:"turn_text_hash"`
+		Receiver             string `json:"receiver"`
+	}{
+		AdmissionFinalGateID: intent.AdmissionFinalGateID,
+		AdmissionSealID:      intent.AdmissionSealID,
+		CandidateRunID:       intent.CandidateRunID,
+		CandidateTextHash:    intent.CandidateTextHash,
+		TurnTextHash:         intent.TurnTextHash,
+		Receiver:             intent.AdmissionResonanceIntentReceiver,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-intent-causal-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceIntentID(intent admissionLiveRouteTurnCandidateAdmissionResonanceIntent) string {
+	h := hashJSON(struct {
+		AdmissionFinalGateID                        string  `json:"admission_final_gate_id"`
+		AdmissionSealID                             string  `json:"admission_seal_id"`
+		AdmissionPermitID                           string  `json:"admission_permit_id"`
+		LedgerVerificationID                        string  `json:"ledger_verification_id"`
+		AdmissionResonanceIntentState               string  `json:"admission_resonance_intent_state"`
+		AdmissionResonanceIntentAction              string  `json:"admission_resonance_intent_action"`
+		AdmissionResonanceIntentTarget              string  `json:"admission_resonance_intent_target"`
+		AdmissionResonanceIntentTargetKind          string  `json:"admission_resonance_intent_target_kind"`
+		AdmissionResonanceIntentTargetMode          string  `json:"admission_resonance_intent_target_mode"`
+		AdmissionResonanceIntentReceiptShape        string  `json:"admission_resonance_intent_receipt_shape"`
+		AdmissionResonanceIntentDryRunOnly          bool    `json:"admission_resonance_intent_dry_run_only"`
+		AdmissionResonanceIntentFinalGateVerified   bool    `json:"admission_resonance_intent_final_gate_verified"`
+		AdmissionResonanceIntentReceiver            string  `json:"admission_resonance_intent_receiver"`
+		AdmissionResonanceIntentReceiverKind        string  `json:"admission_resonance_intent_receiver_kind"`
+		AdmissionResonanceIntentInfluenceKind       string  `json:"admission_resonance_intent_influence_kind"`
+		AdmissionResonanceIntentMaxInfluence        float64 `json:"admission_resonance_intent_max_influence"`
+		AdmissionResonanceIntentTTLTurns            int     `json:"admission_resonance_intent_ttl_turns"`
+		AdmissionResonanceIntentCausalID            string  `json:"admission_resonance_intent_causal_id"`
+		AdmissionResonanceIntentRawTextAllowed      bool    `json:"admission_resonance_intent_raw_dream_text_allowed"`
+		AdmissionResonanceIntentJanusAllowed        bool    `json:"admission_resonance_intent_janus_surface_allowed"`
+		AdmissionResonanceIntentCoocLearningAllowed bool    `json:"admission_resonance_intent_cooc_learning_allowed"`
+		AdmissionResonanceIntentDeltaHarvestAllowed bool    `json:"admission_resonance_intent_delta_harvest_allowed"`
+		AdmissionResonanceIntentRollbackRequired    bool    `json:"admission_resonance_intent_rollback_required"`
+		AdmissionResonanceIntentPreHashRequired     bool    `json:"admission_resonance_intent_pre_state_hash_required"`
+		AdmissionResonanceIntentPostHashRequired    bool    `json:"admission_resonance_intent_post_state_hash_required"`
+		AdmissionResonanceIntentReady               bool    `json:"admission_resonance_intent_ready"`
+		SourceAdmissionFinalGateID                  string  `json:"source_admission_final_gate_id"`
+		SourceAdmissionSealIDForIntent              string  `json:"source_admission_seal_id_for_resonance_intent"`
+		SourceWriterReceiptIDForIntent              string  `json:"source_writer_receipt_id_for_resonance_intent"`
+		ContractsReady                              bool    `json:"contracts_ready"`
+		BodyTarget                                  string  `json:"body_target"`
+		WriteAllowed                                bool    `json:"write_allowed"`
+		AdmissionAllowed                            bool    `json:"admission_allowed"`
+		LiveAdmissionEnabled                        bool    `json:"live_admission_enabled"`
+		MutatesState                                bool    `json:"mutates_state"`
+	}{
+		AdmissionFinalGateID:                        intent.AdmissionFinalGateID,
+		AdmissionSealID:                             intent.AdmissionSealID,
+		AdmissionPermitID:                           intent.AdmissionPermitID,
+		LedgerVerificationID:                        intent.LedgerVerificationID,
+		AdmissionResonanceIntentState:               intent.AdmissionResonanceIntentState,
+		AdmissionResonanceIntentAction:              intent.AdmissionResonanceIntentAction,
+		AdmissionResonanceIntentTarget:              intent.AdmissionResonanceIntentTarget,
+		AdmissionResonanceIntentTargetKind:          intent.AdmissionResonanceIntentTargetKind,
+		AdmissionResonanceIntentTargetMode:          intent.AdmissionResonanceIntentTargetMode,
+		AdmissionResonanceIntentReceiptShape:        intent.AdmissionResonanceIntentReceiptShape,
+		AdmissionResonanceIntentDryRunOnly:          intent.AdmissionResonanceIntentDryRunOnly,
+		AdmissionResonanceIntentFinalGateVerified:   intent.AdmissionResonanceIntentFinalGateVerified,
+		AdmissionResonanceIntentReceiver:            intent.AdmissionResonanceIntentReceiver,
+		AdmissionResonanceIntentReceiverKind:        intent.AdmissionResonanceIntentReceiverKind,
+		AdmissionResonanceIntentInfluenceKind:       intent.AdmissionResonanceIntentInfluenceKind,
+		AdmissionResonanceIntentMaxInfluence:        intent.AdmissionResonanceIntentMaxInfluence,
+		AdmissionResonanceIntentTTLTurns:            intent.AdmissionResonanceIntentTTLTurns,
+		AdmissionResonanceIntentCausalID:            intent.AdmissionResonanceIntentCausalID,
+		AdmissionResonanceIntentRawTextAllowed:      intent.AdmissionResonanceIntentRawDreamTextAllowed,
+		AdmissionResonanceIntentJanusAllowed:        intent.AdmissionResonanceIntentJanusSurfaceAllowed,
+		AdmissionResonanceIntentCoocLearningAllowed: intent.AdmissionResonanceIntentCoocLearningAllowed,
+		AdmissionResonanceIntentDeltaHarvestAllowed: intent.AdmissionResonanceIntentDeltaHarvestAllowed,
+		AdmissionResonanceIntentRollbackRequired:    intent.AdmissionResonanceIntentRollbackRequired,
+		AdmissionResonanceIntentPreHashRequired:     intent.AdmissionResonanceIntentPreStateHashRequired,
+		AdmissionResonanceIntentPostHashRequired:    intent.AdmissionResonanceIntentPostStateHashRequired,
+		AdmissionResonanceIntentReady:               intent.AdmissionResonanceIntentReady,
+		SourceAdmissionFinalGateID:                  intent.SourceAdmissionFinalGateID,
+		SourceAdmissionSealIDForIntent:              intent.SourceAdmissionSealIDForResonanceIntent,
+		SourceWriterReceiptIDForIntent:              intent.SourceWriterReceiptIDForResonanceIntent,
+		ContractsReady:                              intent.ContractsReady,
+		BodyTarget:                                  intent.BodyTarget,
+		WriteAllowed:                                intent.WriteAllowed,
+		AdmissionAllowed:                            intent.AdmissionAllowed,
+		LiveAdmissionEnabled:                        intent.LiveAdmissionEnabled,
+		MutatesState:                                intent.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-intent-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceIntent(intent admissionLiveRouteTurnCandidateAdmissionResonanceIntent) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(intent)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
