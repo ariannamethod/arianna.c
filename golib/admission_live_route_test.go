@@ -2238,6 +2238,69 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		rollbackImpl.TurnTextHash != obs.TextHash {
 		t.Fatalf("rollback implementation lost provenance: rollback=%+v receipt=%+v", rollbackImpl, writerReceipt)
 	}
+	ledgerImpl := admissionLiveRouteTurnCandidateAdmissionLedgerImplementationForRollbackImplementation(rollbackImpl)
+	if ledgerImpl.Schema != admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema ||
+		ledgerImpl.Timing != "live_admission_ledger_implementation" ||
+		ledgerImpl.LedgerImplementationState != "ledger_contract_drafted_dry_run" ||
+		ledgerImpl.LedgerImplementationAction != "append_admission_ledger_receipt_dry_run" ||
+		ledgerImpl.LedgerEntrypointResolved != "append_admission_ledger_receipt_dry_run" ||
+		ledgerImpl.LedgerImplementationTarget != "admission_ledger" ||
+		ledgerImpl.LedgerImplementationTargetKind != "dream_candidate_admission" ||
+		ledgerImpl.LedgerImplementationTargetMode != "append_only_dry_run" ||
+		!ledgerImpl.LedgerImplementationAppendOnly ||
+		!ledgerImpl.LedgerImplementationDryRunOnly ||
+		ledgerImpl.LedgerImplementationReceiptPersisted ||
+		!ledgerImpl.WriterReady ||
+		ledgerImpl.WriterState != "ready_dry_run" ||
+		ledgerImpl.WriterAction != "append_shadow_candidate_receipt_dry_run" ||
+		!ledgerImpl.RollbackReady ||
+		ledgerImpl.RollbackState != "ready_dry_run" ||
+		ledgerImpl.RollbackAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!ledgerImpl.WriterImplementationReady ||
+		!ledgerImpl.RollbackImplementationReady ||
+		!ledgerImpl.LedgerImplementationReady ||
+		ledgerImpl.ContractsReady ||
+		ledgerImpl.WriteAllowed ||
+		ledgerImpl.AdmissionAllowed ||
+		ledgerImpl.LiveAdmissionEnabled ||
+		ledgerImpl.MutatesState ||
+		!strings.HasPrefix(ledgerImpl.LedgerImplementationID, "ledger-implementation-") ||
+		!ledgerImpl.Passed ||
+		!ledgerImpl.LiveReady ||
+		!ledgerImpl.ManualEnableRequested ||
+		!ledgerImpl.EnableKeyMatched ||
+		!ledgerImpl.RequiresWriter ||
+		!ledgerImpl.RequiresRollback ||
+		ledgerImpl.SourceRollbackImplementationSchema != admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema ||
+		!ledgerImpl.SourceRollbackImplementationPassed ||
+		ledgerImpl.SourceRollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		ledgerImpl.SourceRollbackImplementationAction != "remove_exact_shadow_candidate_receipt_dry_run" ||
+		!ledgerImpl.SourceRollbackImplementationReady ||
+		ledgerImpl.SourceRollbackTargetID != writerReceipt.WriterReceiptID ||
+		ledgerImpl.SourceWriterReceiptIDForLedger != writerReceipt.WriterReceiptID ||
+		ledgerImpl.Reason != "ledger implementation drafted for append-only admission receipts; contracts remain disabled" {
+		t.Fatalf("ledger implementation should only draft a non-mutating append-only contract: %+v", ledgerImpl)
+	}
+	if ledgerImpl.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		ledgerImpl.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		ledgerImpl.WriterImplementationID != writerImpl.WriterImplementationID ||
+		ledgerImpl.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		ledgerImpl.AdmissionWriterContractID != writerContract.WriterContractID ||
+		ledgerImpl.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		ledgerImpl.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		ledgerImpl.AdmissionLiveStageID != liveStage.LiveStageID ||
+		ledgerImpl.AdmissionEnableGateID != armedGate.EnableGateID ||
+		ledgerImpl.AdmissionSwitchID != sw.SwitchID ||
+		ledgerImpl.AdmissionPromotionID != promotion.PromotionID ||
+		ledgerImpl.AdmissionDecisionID != decision.DecisionID ||
+		ledgerImpl.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		ledgerImpl.CandidateExecutionID != execution.ExecutionID ||
+		ledgerImpl.CandidateDraftID != draft.DraftID ||
+		ledgerImpl.CandidateRunID != candidate.RunID ||
+		ledgerImpl.CandidateTextHash != hashJSON(text) ||
+		ledgerImpl.TurnTextHash != obs.TextHash {
+		t.Fatalf("ledger implementation lost provenance: ledger=%+v rollback=%+v", ledgerImpl, rollbackImpl)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2330,6 +2393,20 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedRollbackImpl.MutatesState ||
 		blockedRollbackImpl.Reason != "candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed writer receipt should not produce rollback implementation: %+v", blockedRollbackImpl)
+	}
+	blockedLedgerImpl := admissionLiveRouteTurnCandidateAdmissionLedgerImplementationForRollbackImplementation(blockedRollbackImpl)
+	if blockedLedgerImpl.Passed ||
+		blockedLedgerImpl.LedgerImplementationID != "" ||
+		blockedLedgerImpl.LedgerImplementationState != "blocked" ||
+		blockedLedgerImpl.LedgerImplementationAction != "reject" ||
+		blockedLedgerImpl.LedgerImplementationAppendOnly ||
+		!blockedLedgerImpl.LedgerImplementationDryRunOnly ||
+		blockedLedgerImpl.LedgerImplementationReceiptPersisted ||
+		blockedLedgerImpl.LedgerImplementationReady ||
+		blockedLedgerImpl.WriteAllowed ||
+		blockedLedgerImpl.MutatesState ||
+		blockedLedgerImpl.Reason != "candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed rollback implementation should not produce ledger implementation: %+v", blockedLedgerImpl)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2534,6 +2611,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedRollbackImpl.RollbackImplementationID != "" ||
 		tamperedRollbackImpl.Reason != "candidate_admission_writer_receipt_id_mismatch" {
 		t.Fatalf("tampered writer receipt id should fail rollback implementation: %+v", tamperedRollbackImpl)
+	}
+	tamperedRollbackImplID := rollbackImpl
+	tamperedRollbackImplID.RollbackImplementationID = "rollback-implementation-tampered"
+	tamperedLedgerImpl := admissionLiveRouteTurnCandidateAdmissionLedgerImplementationForRollbackImplementation(tamperedRollbackImplID)
+	if tamperedLedgerImpl.Passed ||
+		tamperedLedgerImpl.LedgerImplementationID != "" ||
+		tamperedLedgerImpl.Reason != "candidate_admission_rollback_implementation_id_mismatch" {
+		t.Fatalf("tampered rollback implementation id should fail ledger implementation: %+v", tamperedLedgerImpl)
 	}
 }
 

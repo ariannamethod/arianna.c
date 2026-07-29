@@ -3986,3 +3986,25 @@ The passed rollback implementation reports `rollback_implementation_state=rollba
 missing provenance, non-exact rollback scopes, or any upstream body-write permission stay blocked without a rollback
 implementation id. `make admission-live-route-turn-candidate-nano-direct-rollback-implementation-smoke` proves the
 real-nano chain can prepare exact rollback while the shadow receipt remains present and live body state remains closed.
+
+**Follow-up, same day - rollback implementation now drafts the admission ledger implementation.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_ledger_implementation.v1` after the rollback-implementation boundary. It
+consumes only a passed `rollback_implementation_state=rollback_contract_drafted_dry_run` receipt, rechecks the stable
+`rollback-implementation-<hash>` id plus the source `writer-receipt-<hash>` id, preserves the full decision/promotion/
+switch/enable/stage/preflight/inventory/contract/ledger/writer-implementation/writer-receipt/rollback-implementation
+provenance, and names the append-only ledger entrypoint without admitting anything into the live body.
+
+The passed ledger implementation reports `ledger_implementation_state=ledger_contract_drafted_dry_run`,
+`ledger_implementation_action=append_admission_ledger_receipt_dry_run`,
+`ledger_entrypoint_resolved=append_admission_ledger_receipt_dry_run`, `ledger_implementation_target=admission_ledger`,
+`ledger_implementation_target_kind=dream_candidate_admission`,
+`ledger_implementation_target_mode=append_only_dry_run`, `ledger_implementation_append_only=true`,
+`ledger_implementation_dry_run_only=true`, `ledger_implementation_receipt_persisted=false`,
+`ledger_implementation_ready=true`, `writer_implementation_ready=true`, `rollback_implementation_ready=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`,
+`body_target=none`, `mutates_state=false`, and a stable `ledger-implementation-<hash>` id. Failed rollback
+implementations, tampered rollback ids, mismatched source writer receipts, missing provenance, pre-enabled contracts, or
+any upstream body-write permission stay blocked without a ledger implementation id. `make
+admission-live-route-turn-candidate-nano-direct-ledger-implementation-smoke` proves the real-nano chain can draft the
+append-only ledger implementation while live admission and body state remain closed.
