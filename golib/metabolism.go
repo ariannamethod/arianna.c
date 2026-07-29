@@ -571,6 +571,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-nano-direct-seal-smoke" {
+		if err := runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke(); err != nil {
+			fmt.Println("admission-live-route-turn-candidate-nano-direct-seal-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-runner-emit" {
 		if err := runAdmissionLiveRouteTurnCandidateRunnerEmit(); err != nil {
 			fmt.Fprintln(os.Stderr, "admission-live-route-turn-candidate-runner-emit:", err)

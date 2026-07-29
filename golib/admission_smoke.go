@@ -2372,6 +2372,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() && permitLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_LOG is required")
 	}
+	sealLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() && sealLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2547,6 +2551,26 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionReadinessDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN are required for admission permit smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPermitDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN are required for admission seal smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
@@ -2564,11 +2588,13 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionPermitDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionSealDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
-	if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() &&
+	if (admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionSealDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionPermitKey() != admissionLiveRouteTurnCandidateAdmissionPermitConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY must match dry-run confirmation for admission permit smoke")
 	}
@@ -2664,6 +2690,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		wantLines++
 	}
 	if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
 		wantLines++
 	}
 	if len(lines) != wantLines {
@@ -2850,6 +2879,23 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"dry_run_only=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true permit_ready=true manual_requested=true key_matched=true readiness_ready=true verification_ready=true persistence_ready=true writer_impl=true rollback_impl=true ledger_impl=true",
 			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_permit_id=admission-permit-",
 			"passed=true reason=operator permit accepted for verified readiness; live admission remains disabled",
+		)
+	}
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
+		wants = append(wants,
+			"live-route candidate admission seal dry-run: class=dream route=direct source=direct permit=admission-permit-",
+			"readiness=admission-readiness-",
+			"ledger_verification=ledger-verification-",
+			"ledger_persistence=ledger-persistence-",
+			"ledger_implementation=ledger-implementation-",
+			"admission_ledger=admission-ledger-",
+			"writer_receipt=writer-receipt-",
+			"rollback_implementation=rollback-implementation-",
+			"seal=sealed_closed_dry_run seal_action=seal_operator_permit_provenance_dry_run",
+			"seal_target=live_admission seal_target_kind=dream_candidate_admission seal_target_mode=sealed_closed_dry_run receipt_shape=candidate_contract_provenance",
+			"dry_run_only=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true seal_ready=true permit_ready=true key_matched=true readiness_ready=true verification_ready=true persistence_ready=true writer_impl=true rollback_impl=true ledger_impl=true",
+			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_seal_id=admission-seal-",
+			"passed=true reason=operator permit sealed as immutable dry-run receipt; live admission remains disabled",
 		)
 	}
 	for _, want := range wants {
@@ -3060,6 +3106,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &permit); err != nil {
 			return fmt.Errorf("candidate admission permit receipt: %w", err)
+		}
+	}
+	var seal admissionLiveRouteTurnCandidateAdmissionSeal
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
+		if raw, err := readOne(sealLogPath, "candidate admission seal"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &seal); err != nil {
+			return fmt.Errorf("candidate admission seal receipt: %w", err)
 		}
 	}
 
@@ -4297,8 +4351,78 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission permit receipt: permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
+		if seal.Schema != admissionLiveRouteTurnCandidateAdmissionSealSchema ||
+			!seal.Passed ||
+			!seal.LiveReady ||
+			seal.LiveAdmissionEnabled ||
+			seal.AdmissionAllowed ||
+			seal.ContractsReady ||
+			seal.WriteAllowed ||
+			seal.MutatesState ||
+			seal.BodyTarget != "none" ||
+			seal.AdmissionSealState != "sealed_closed_dry_run" ||
+			seal.AdmissionSealAction != "seal_operator_permit_provenance_dry_run" ||
+			seal.AdmissionSealTarget != "live_admission" ||
+			seal.AdmissionSealTargetKind != "dream_candidate_admission" ||
+			seal.AdmissionSealTargetMode != "sealed_closed_dry_run" ||
+			seal.AdmissionSealReceiptShape != "candidate_contract_provenance" ||
+			!seal.AdmissionSealDryRunOnly ||
+			!seal.AdmissionSealPermitVerified ||
+			!seal.AdmissionSealReadinessVerified ||
+			!seal.AdmissionSealLedgerVerified ||
+			!seal.AdmissionSealWriterReady ||
+			!seal.AdmissionSealRollbackReady ||
+			!seal.AdmissionSealLedgerReady ||
+			!seal.AdmissionSealReady ||
+			seal.SourceAdmissionPermitSchema != admissionLiveRouteTurnCandidateAdmissionPermitSchema ||
+			!seal.SourceAdmissionPermitPassed ||
+			seal.SourceAdmissionPermitID != permit.AdmissionPermitID ||
+			seal.SourceAdmissionPermitAction != "acknowledge_verified_live_admission_readiness_dry_run" ||
+			!seal.SourceAdmissionPermitReady ||
+			!seal.SourceAdmissionPermitKeyMatched ||
+			seal.SourceAdmissionReadinessIDForSeal != readiness.AdmissionReadinessID ||
+			seal.SourceLedgerVerificationIDForSeal != ledgerVerification.LedgerVerificationID ||
+			seal.SourceLedgerPersistenceIDForSeal != ledgerPersistence.LedgerPersistenceID ||
+			seal.SourceLedgerImplementationIDForSeal != ledgerImpl.LedgerImplementationID ||
+			seal.SourceAdmissionLedgerIDForSeal != ledger.AdmissionLedgerID ||
+			seal.SourceRollbackImplementationIDForSeal != rollbackImpl.RollbackImplementationID ||
+			seal.SourceWriterReceiptIDForSeal != writerReceipt.WriterReceiptID ||
+			seal.AdmissionSealID == "" ||
+			seal.AdmissionPermitID != permit.AdmissionPermitID ||
+			seal.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+			seal.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+			seal.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+			seal.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+			seal.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+			seal.WriterReceiptID != writerReceipt.WriterReceiptID ||
+			seal.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+			seal.AdmissionWriterContractID != writerContract.WriterContractID ||
+			seal.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+			seal.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			seal.AdmissionLiveStageID != liveStage.LiveStageID ||
+			seal.AdmissionEnableGateID != gate.EnableGateID ||
+			seal.AdmissionSwitchID != sw.SwitchID ||
+			seal.AdmissionPromotionID != promotion.PromotionID ||
+			seal.AdmissionDecisionID != decision.DecisionID ||
+			seal.CandidateExecutionID != execution.ExecutionID ||
+			seal.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			seal.CandidateDraftID != draft.DraftID ||
+			seal.HandoffID != admission.HandoffID ||
+			seal.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			seal.DreamCandidateRunID != candidate.RunID ||
+			seal.CandidateRunID != draft.CandidateRunID ||
+			seal.CandidateTextHash != execution.GeneratedTextHash ||
+			seal.TurnTextHash != execution.TurnTextHash ||
+			seal.Reason != "operator permit sealed as immutable dry-run receipt; live admission remains disabled" {
+			return fmt.Errorf("bad nano-direct admission seal receipt: seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionSealDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionPermitDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() {
