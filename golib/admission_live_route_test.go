@@ -2301,6 +2301,64 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		ledgerImpl.TurnTextHash != obs.TextHash {
 		t.Fatalf("ledger implementation lost provenance: ledger=%+v rollback=%+v", ledgerImpl, rollbackImpl)
 	}
+	ledgerPersistence := admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceForLedgerImplementation(ledgerImpl)
+	if ledgerPersistence.Schema != admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema ||
+		ledgerPersistence.Timing != "live_admission_ledger_persistence" ||
+		ledgerPersistence.LedgerPersistenceState != "ledger_receipt_persisted_dry_run" ||
+		ledgerPersistence.LedgerPersistenceAction != "append_admission_ledger_receipt_dry_run" ||
+		ledgerPersistence.LedgerPersistenceTarget != "admission_ledger" ||
+		ledgerPersistence.LedgerPersistenceTargetKind != "dream_candidate_admission" ||
+		ledgerPersistence.LedgerPersistenceTargetMode != "append_only_dry_run" ||
+		ledgerPersistence.LedgerPersistenceReceiptShape != "candidate_contract_provenance" ||
+		!ledgerPersistence.LedgerPersistenceAppendOnly ||
+		!ledgerPersistence.LedgerPersistenceDryRunOnly ||
+		!ledgerPersistence.LedgerPersistenceReceiptPersisted ||
+		!ledgerPersistence.LedgerPersistenceReady ||
+		!ledgerPersistence.WriterReady ||
+		!ledgerPersistence.RollbackReady ||
+		!ledgerPersistence.WriterImplementationReady ||
+		!ledgerPersistence.RollbackImplementationReady ||
+		!ledgerPersistence.LedgerImplementationReady ||
+		ledgerPersistence.ContractsReady ||
+		ledgerPersistence.WriteAllowed ||
+		ledgerPersistence.AdmissionAllowed ||
+		ledgerPersistence.LiveAdmissionEnabled ||
+		ledgerPersistence.MutatesState ||
+		!strings.HasPrefix(ledgerPersistence.LedgerPersistenceID, "ledger-persistence-") ||
+		!ledgerPersistence.Passed ||
+		!ledgerPersistence.LiveReady ||
+		ledgerPersistence.SourceLedgerImplementationSchema != admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema ||
+		!ledgerPersistence.SourceLedgerImplementationPassed ||
+		ledgerPersistence.SourceLedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		ledgerPersistence.SourceLedgerImplementationAction != "append_admission_ledger_receipt_dry_run" ||
+		!ledgerPersistence.SourceLedgerImplementationReady ||
+		ledgerPersistence.SourceAdmissionLedgerIDForPersistence != ledger.AdmissionLedgerID ||
+		ledgerPersistence.SourceRollbackImplementationIDForLedger != rollbackImpl.RollbackImplementationID ||
+		ledgerPersistence.SourceWriterReceiptIDForLedgerPersistence != writerReceipt.WriterReceiptID ||
+		ledgerPersistence.Reason != "ledger receipt persisted to append-only dry-run log; live admission remains disabled" {
+		t.Fatalf("ledger persistence should persist only the append-only dry-run receipt: %+v", ledgerPersistence)
+	}
+	if ledgerPersistence.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		ledgerPersistence.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		ledgerPersistence.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		ledgerPersistence.WriterImplementationID != writerImpl.WriterImplementationID ||
+		ledgerPersistence.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		ledgerPersistence.AdmissionWriterContractID != writerContract.WriterContractID ||
+		ledgerPersistence.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		ledgerPersistence.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		ledgerPersistence.AdmissionLiveStageID != liveStage.LiveStageID ||
+		ledgerPersistence.AdmissionEnableGateID != armedGate.EnableGateID ||
+		ledgerPersistence.AdmissionSwitchID != sw.SwitchID ||
+		ledgerPersistence.AdmissionPromotionID != promotion.PromotionID ||
+		ledgerPersistence.AdmissionDecisionID != decision.DecisionID ||
+		ledgerPersistence.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		ledgerPersistence.CandidateExecutionID != execution.ExecutionID ||
+		ledgerPersistence.CandidateDraftID != draft.DraftID ||
+		ledgerPersistence.CandidateRunID != candidate.RunID ||
+		ledgerPersistence.CandidateTextHash != hashJSON(text) ||
+		ledgerPersistence.TurnTextHash != obs.TextHash {
+		t.Fatalf("ledger persistence lost provenance: persistence=%+v ledger=%+v", ledgerPersistence, ledgerImpl)
+	}
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", "")
 	blockedStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate)
 	if blockedStage.Passed ||
@@ -2407,6 +2465,20 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		blockedLedgerImpl.MutatesState ||
 		blockedLedgerImpl.Reason != "candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
 		t.Fatalf("closed rollback implementation should not produce ledger implementation: %+v", blockedLedgerImpl)
+	}
+	blockedLedgerPersistence := admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceForLedgerImplementation(blockedLedgerImpl)
+	if blockedLedgerPersistence.Passed ||
+		blockedLedgerPersistence.LedgerPersistenceID != "" ||
+		blockedLedgerPersistence.LedgerPersistenceState != "blocked" ||
+		blockedLedgerPersistence.LedgerPersistenceAction != "reject" ||
+		blockedLedgerPersistence.LedgerPersistenceAppendOnly ||
+		!blockedLedgerPersistence.LedgerPersistenceDryRunOnly ||
+		blockedLedgerPersistence.LedgerPersistenceReceiptPersisted ||
+		blockedLedgerPersistence.LedgerPersistenceReady ||
+		blockedLedgerPersistence.WriteAllowed ||
+		blockedLedgerPersistence.MutatesState ||
+		blockedLedgerPersistence.Reason != "candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_not_armed" {
+		t.Fatalf("closed ledger implementation should not persist ledger receipt: %+v", blockedLedgerPersistence)
 	}
 	wrongStage := admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(wrongGate)
 	if wrongStage.Passed ||
@@ -2619,6 +2691,14 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		tamperedLedgerImpl.LedgerImplementationID != "" ||
 		tamperedLedgerImpl.Reason != "candidate_admission_rollback_implementation_id_mismatch" {
 		t.Fatalf("tampered rollback implementation id should fail ledger implementation: %+v", tamperedLedgerImpl)
+	}
+	tamperedLedgerImplID := ledgerImpl
+	tamperedLedgerImplID.LedgerImplementationID = "ledger-implementation-tampered"
+	tamperedLedgerPersistence := admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceForLedgerImplementation(tamperedLedgerImplID)
+	if tamperedLedgerPersistence.Passed ||
+		tamperedLedgerPersistence.LedgerPersistenceID != "" ||
+		tamperedLedgerPersistence.Reason != "candidate_admission_ledger_implementation_id_mismatch" {
+		t.Fatalf("tampered ledger implementation id should fail ledger persistence: %+v", tamperedLedgerPersistence)
 	}
 }
 
