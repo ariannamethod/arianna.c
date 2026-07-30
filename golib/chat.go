@@ -230,7 +230,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -279,7 +280,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -886,6 +888,56 @@ func chatLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryLine(boundary admi
 		chatLiveRouteReasonSuffix(boundary.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionResonanceGraftPreflightLine(preflight admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight) string {
+	return fmt.Sprintf("│  · live-route candidate admission resonance graft preflight dry-run: class=%s route=%s source=%s boundary=%s observation=%s receiver=%s intent=%s final_gate=%s seal=%s permit=%s readiness=%s ledger_verification=%s preflight_kind=%s preflight_mode=%s preflight_stage=%s causal_id=%s preflight_hash=%s read_back_hash=%s source_boundary_causal_id=%s source_boundary_read_back_hash=%s admission_required=%t shadow_only=%t graft_allowed=%t raw_text_allowed=%t janus_surface_allowed=%t cooc_learning_allowed=%t delta_harvest_allowed=%t body_mutation_allowed=%t rollback_required=%t preflight_state=%s preflight_action=%s preflight_target=%s preflight_target_kind=%s preflight_target_mode=%s receipt_shape=%s dry_run_only=%t boundary_verified=%t observation_verified=%t receiver_verified=%t intent_verified=%t final_gate_verified=%t seal_verified=%t permit_verified=%t readiness_verified=%t ledger_verified=%t writer_ready=%t rollback_ready=%t ledger_ready=%t preflight_ready=%t contracts_ready=%t write_allowed=%t admission_allowed=%t live_ready=%t live_enabled=%t mutates=%t admission_resonance_graft_preflight_id=%s passed=%t%s",
+		preflight.PromptClass, preflight.Route, preflight.Source,
+		preflight.AdmissionResonanceGraftBoundaryID, preflight.AdmissionResonanceObservationID,
+		preflight.AdmissionResonanceReceiverID, preflight.AdmissionResonanceIntentID,
+		preflight.AdmissionFinalGateID, preflight.AdmissionSealID, preflight.AdmissionPermitID,
+		preflight.AdmissionReadinessID, preflight.LedgerVerificationID,
+		preflight.AdmissionResonanceGraftPreflightKind,
+		preflight.AdmissionResonanceGraftPreflightMode,
+		preflight.AdmissionResonanceGraftPreflightStage,
+		preflight.AdmissionResonanceGraftPreflightCausalID,
+		preflight.AdmissionResonanceGraftPreflightHash,
+		preflight.AdmissionResonanceGraftPreflightReadBackHash,
+		preflight.SourceAdmissionResonanceGraftBoundaryCausalID,
+		preflight.SourceAdmissionResonanceGraftBoundaryReadBackHash,
+		preflight.AdmissionResonanceGraftPreflightAdmissionRequired,
+		preflight.AdmissionResonanceGraftPreflightShadowOnly,
+		preflight.AdmissionResonanceGraftPreflightGraftAllowed,
+		preflight.AdmissionResonanceGraftPreflightRawDreamTextAllowed,
+		preflight.AdmissionResonanceGraftPreflightJanusSurfaceAllowed,
+		preflight.AdmissionResonanceGraftPreflightCoocLearningAllowed,
+		preflight.AdmissionResonanceGraftPreflightDeltaHarvestAllowed,
+		preflight.AdmissionResonanceGraftPreflightBodyMutationAllowed,
+		preflight.AdmissionResonanceGraftPreflightRollbackRequired,
+		preflight.AdmissionResonanceGraftPreflightState,
+		preflight.AdmissionResonanceGraftPreflightAction,
+		preflight.AdmissionResonanceGraftPreflightTarget,
+		preflight.AdmissionResonanceGraftPreflightTargetKind,
+		preflight.AdmissionResonanceGraftPreflightTargetMode,
+		preflight.AdmissionResonanceGraftPreflightReceiptShape,
+		preflight.AdmissionResonanceGraftPreflightDryRunOnly,
+		preflight.AdmissionResonanceGraftPreflightBoundaryVerified,
+		preflight.AdmissionResonanceGraftPreflightObservationVerified,
+		preflight.AdmissionResonanceGraftPreflightReceiverVerified,
+		preflight.AdmissionResonanceGraftPreflightIntentVerified,
+		preflight.AdmissionResonanceGraftPreflightFinalGateVerified,
+		preflight.AdmissionResonanceGraftPreflightSealVerified,
+		preflight.AdmissionResonanceGraftPreflightPermitVerified,
+		preflight.AdmissionResonanceGraftPreflightReadinessVerified,
+		preflight.AdmissionResonanceGraftPreflightLedgerVerified,
+		preflight.AdmissionResonanceGraftPreflightWriterReady,
+		preflight.AdmissionResonanceGraftPreflightRollbackReady,
+		preflight.AdmissionResonanceGraftPreflightLedgerReady,
+		preflight.AdmissionResonanceGraftPreflightReady,
+		preflight.ContractsReady, preflight.WriteAllowed, preflight.AdmissionAllowed,
+		preflight.LiveReady, preflight.LiveAdmissionEnabled, preflight.MutatesState,
+		preflight.AdmissionResonanceGraftPreflightID, preflight.Passed,
+		chatLiveRouteReasonSuffix(preflight.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -895,7 +947,9 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	resonanceReceiverDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()
 	resonanceObservationDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
 	resonanceGraftBoundaryDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
-	resonanceObservationNeeded := resonanceObservationDryRun || resonanceGraftBoundaryDryRun
+	resonanceGraftPreflightDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun()
+	resonanceGraftBoundaryNeeded := resonanceGraftBoundaryDryRun || resonanceGraftPreflightDryRun
+	resonanceObservationNeeded := resonanceObservationDryRun || resonanceGraftBoundaryNeeded
 	resonanceReceiverNeeded := resonanceReceiverDryRun || resonanceObservationNeeded
 	resonanceIntentNeeded := resonanceIntentDryRun || resonanceReceiverNeeded
 	finalGateNeeded := finalGateDryRun || resonanceIntentNeeded
@@ -1349,12 +1403,21 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 									}
 									lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation))
 								}
-								if resonanceGraftBoundaryDryRun {
+								if resonanceGraftBoundaryNeeded {
 									boundary := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryForObservation(observation)
-									if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary(boundary); err != nil {
-										return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft boundary dry-run log failed: %v", err))
+									if resonanceGraftBoundaryDryRun {
+										if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary(boundary); err != nil {
+											return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft boundary dry-run log failed: %v", err))
+										}
+										lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryLine(boundary))
 									}
-									lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryLine(boundary))
+									if resonanceGraftPreflightDryRun {
+										preflight := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightForBoundary(boundary)
+										if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight(preflight); err != nil {
+											return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft preflight dry-run log failed: %v", err))
+										}
+										lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftPreflightLine(preflight))
+									}
 								}
 							}
 						}

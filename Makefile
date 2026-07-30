@@ -98,6 +98,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_turn_candidate_nano_direct_resonance_receiver_smoke admission-live-route-turn-candidate-nano-direct-resonance-receiver-smoke
 .PHONY: admission_live_route_turn_candidate_nano_direct_resonance_observation_smoke admission-live-route-turn-candidate-nano-direct-resonance-observation-smoke
 .PHONY: admission_live_route_turn_candidate_nano_direct_resonance_graft_boundary_smoke admission-live-route-turn-candidate-nano-direct-resonance-graft-boundary-smoke
+.PHONY: admission_live_route_turn_candidate_nano_direct_resonance_graft_preflight_smoke admission-live-route-turn-candidate-nano-direct-resonance-graft-preflight-smoke
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -449,6 +450,11 @@ admission-live-route-turn-candidate-nano-direct-resonance-graft-boundary-smoke: 
 
 admission_live_route_turn_candidate_nano_direct_resonance_graft_boundary_smoke: metabolism nano
 	bash tools/admission_live_route_turn_candidate_nano_direct_resonance_graft_boundary_smoke.sh
+
+admission-live-route-turn-candidate-nano-direct-resonance-graft-preflight-smoke: admission_live_route_turn_candidate_nano_direct_resonance_graft_preflight_smoke
+
+admission_live_route_turn_candidate_nano_direct_resonance_graft_preflight_smoke: metabolism nano
+	bash tools/admission_live_route_turn_candidate_nano_direct_resonance_graft_preflight_smoke.sh
 
 admission-live-route-turn-generator-adapter-smoke: admission_live_route_turn_generator_adapter_smoke
 
