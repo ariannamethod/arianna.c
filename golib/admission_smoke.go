@@ -2408,6 +2408,10 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() && resonanceGraftCandidateLogPath == "" {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_CANDIDATE_LOG is required")
 	}
+	resonanceGraftCandidateStoreLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_CANDIDATE_STORE_LOG"))
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() && resonanceGraftCandidateStoreLogPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_CANDIDATE_STORE_LOG is required")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
 			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
@@ -2799,6 +2803,35 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun()) {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_PREFLIGHT_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_GATE_DRY_RUN are required for admission resonance graft candidate smoke")
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() &&
+		(!admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPromotionDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSwitchDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionReadinessDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionPermitDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionSealDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
+			!admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun()) {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SWITCH_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LIVE_STAGE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_INVENTORY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_CONTRACT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WRITER_RECEIPT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ROLLBACK_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_IMPLEMENTATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_PERSISTENCE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LEDGER_VERIFICATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_READINESS_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SEAL_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_FINAL_GATE_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_PREFLIGHT_DRY_RUN, AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_GATE_DRY_RUN, and AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_CANDIDATE_DRY_RUN are required for admission resonance graft candidate store smoke")
+	}
 	if admissionLiveRouteTurnCandidateAdmissionEnableGateDryRun() &&
 		!admissionLiveRouteTurnCandidateAdmissionLiveStageDryRun() &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != "" {
@@ -2825,7 +2858,8 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionEnableGateKey() != admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY must match dry-run confirmation for live admission stage smoke")
 	}
@@ -2838,7 +2872,8 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun()) &&
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun()) &&
 		admissionLiveRouteTurnCandidateAdmissionPermitKey() != admissionLiveRouteTurnCandidateAdmissionPermitConfirmation {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY must match dry-run confirmation for admission permit smoke")
 	}
@@ -2961,6 +2996,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		wantLines++
 	}
 	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() {
+		wantLines++
+	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
 		wantLines++
 	}
 	if len(lines) != wantLines {
@@ -3295,6 +3333,28 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			"passed=true reason=resonance shadow graft candidate drafted without body mutation",
 		)
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
+		wants = append(wants,
+			"live-route candidate admission resonance graft candidate store dry-run: class=dream route=direct source=direct candidate=resonance-graft-candidate-id-",
+			"gate=resonance-graft-gate-id-",
+			"preflight=resonance-graft-preflight-id-",
+			"boundary=resonance-graft-boundary-id-",
+			"observation=resonance-observation-",
+			"receiver=resonance-receiver-",
+			"intent=resonance-intent-",
+			"final_gate=admission-final-gate-",
+			"store_kind=shadow_graft_candidate_store store_mode=append_only_read_back_store store_stage=pre_live_graft_candidate_store causal_id=resonance-graft-candidate-store-causal-",
+			"store_hash=resonance-graft-candidate-store-",
+			"read_back_hash=resonance-graft-candidate-store-read-",
+			"source_candidate_causal_id=resonance-graft-candidate-causal-",
+			"source_candidate_read_back_hash=resonance-graft-candidate-read-",
+			"admission_required=true shadow_only=true graft_allowed=false raw_text_allowed=false janus_surface_allowed=false cooc_learning_allowed=false delta_harvest_allowed=false body_mutation_allowed=false rollback_required=true append_only=true read_back=true receipt_persisted=true receipt_verified=true",
+			"store_state=shadow_graft_candidate_stored_dry_run store_action=store_resonance_shadow_graft_candidate_dry_run store_target=resonance store_target_kind=internal_world_shadow_graft_candidate_store store_target_mode=append_only_read_back_store_dry_run receipt_shape=resonance_shadow_graft_candidate_store_receipt",
+			"dry_run_only=true candidate_verified=true gate_verified=true preflight_verified=true boundary_verified=true observation_verified=true receiver_verified=true intent_verified=true final_gate_verified=true seal_verified=true permit_verified=true readiness_verified=true ledger_verified=true writer_ready=true rollback_ready=true ledger_ready=true store_ready=true",
+			"contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_resonance_graft_candidate_store_id=resonance-graft-candidate-store-id-",
+			"passed=true reason=resonance shadow graft candidate stored and read back without body mutation",
+		)
+	}
 	for _, want := range wants {
 		found := false
 		for _, line := range lines {
@@ -3575,6 +3635,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return err
 		} else if err := json.Unmarshal(raw, &resonanceGraftCandidate); err != nil {
 			return fmt.Errorf("candidate admission resonance graft candidate receipt: %w", err)
+		}
+	}
+	var resonanceGraftCandidateStore admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStore
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
+		if raw, err := readOne(resonanceGraftCandidateStoreLogPath, "candidate admission resonance graft candidate store"); err != nil {
+			return err
+		} else if err := json.Unmarshal(raw, &resonanceGraftCandidateStore); err != nil {
+			return fmt.Errorf("candidate admission resonance graft candidate store receipt: %w", err)
 		}
 	}
 
@@ -5669,8 +5737,132 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission resonance graft candidate receipt: resonance_graft_candidate=%+v resonance_graft_gate=%+v resonance_graft_preflight=%+v resonance_graft_boundary=%+v resonance_observation=%+v resonance_receiver=%+v resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceGraftCandidate, resonanceGraftGate, resonanceGraftPreflight, resonanceGraftBoundary, resonanceObservation, resonanceReceiver, resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
+		if resonanceGraftCandidateStore.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreSchema ||
+			resonanceGraftCandidateStore.Timing != "live_admission_resonance_graft_candidate_store" ||
+			!resonanceGraftCandidateStore.Passed ||
+			!resonanceGraftCandidateStore.LiveReady ||
+			resonanceGraftCandidateStore.LiveAdmissionEnabled ||
+			resonanceGraftCandidateStore.AdmissionAllowed ||
+			resonanceGraftCandidateStore.ContractsReady ||
+			resonanceGraftCandidateStore.WriteAllowed ||
+			resonanceGraftCandidateStore.MutatesState ||
+			resonanceGraftCandidateStore.BodyTarget != "none" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreState != "shadow_graft_candidate_stored_dry_run" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreAction != "store_resonance_shadow_graft_candidate_dry_run" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreTarget != "resonance" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreTargetKind != "internal_world_shadow_graft_candidate_store" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreTargetMode != "append_only_read_back_store_dry_run" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReceiptShape != "resonance_shadow_graft_candidate_store_receipt" ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreDryRunOnly ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreCandidateVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreGateVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStorePreflightVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreBoundaryVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreObservationVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReceiverVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreIntentVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreFinalGateVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreSealVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStorePermitVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadinessVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreLedgerVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreWriterReady ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreRollbackReady ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreLedgerReady ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreKind != "shadow_graft_candidate_store" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreMode != "append_only_read_back_store" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreStage != "pre_live_graft_candidate_store" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreCausalID == "" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreCausalID(resonanceGraftCandidateStore) ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreHash == "" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreHash(resonanceGraftCandidateStore) ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadBackHash == "" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReadBackHash(resonanceGraftCandidateStore) ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreHash == resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadBackHash ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreAdmissionRequired ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreShadowOnly ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreGraftAllowed ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreRawDreamTextAllowed ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreJanusSurfaceAllowed ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreCoocLearningAllowed ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreDeltaHarvestAllowed ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreBodyMutationAllowed ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreRollbackRequired ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreAppendOnly ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadBack ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReceiptPersisted ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReceiptVerified ||
+			!resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReady ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateSchema ||
+			!resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidatePassed ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateID != resonanceGraftCandidate.AdmissionResonanceGraftCandidateID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateAction != "draft_resonance_shadow_graft_candidate_dry_run" ||
+			!resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateReady ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateCausalID != resonanceGraftCandidate.AdmissionResonanceGraftCandidateCausalID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateHash != resonanceGraftCandidate.AdmissionResonanceGraftCandidateHash ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftCandidateReadBackHash != resonanceGraftCandidate.AdmissionResonanceGraftCandidateReadBackHash ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftGateIDForCandidateStore != resonanceGraftGate.AdmissionResonanceGraftGateID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftPreflightIDForCandidateStore != resonanceGraftPreflight.AdmissionResonanceGraftPreflightID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceGraftBoundaryIDForCandidateStore != resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceObservationIDForCandidateStore != resonanceObservation.AdmissionResonanceObservationID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceReceiverIDForCandidateStore != resonanceReceiver.AdmissionResonanceReceiverID ||
+			resonanceGraftCandidateStore.SourceAdmissionResonanceIntentIDForCandidateStore != resonanceIntent.AdmissionResonanceIntentID ||
+			resonanceGraftCandidateStore.SourceAdmissionFinalGateIDForCandidateStore != finalGate.AdmissionFinalGateID ||
+			resonanceGraftCandidateStore.SourceAdmissionSealIDForCandidateStore != seal.AdmissionSealID ||
+			resonanceGraftCandidateStore.SourceAdmissionPermitIDForCandidateStore != permit.AdmissionPermitID ||
+			resonanceGraftCandidateStore.SourceAdmissionReadinessIDForCandidateStore != readiness.AdmissionReadinessID ||
+			resonanceGraftCandidateStore.SourceLedgerVerificationIDForCandidateStore != ledgerVerification.LedgerVerificationID ||
+			resonanceGraftCandidateStore.SourceLedgerPersistenceIDForCandidateStore != ledgerPersistence.LedgerPersistenceID ||
+			resonanceGraftCandidateStore.SourceLedgerImplementationIDForCandidateStore != ledgerImpl.LedgerImplementationID ||
+			resonanceGraftCandidateStore.SourceAdmissionLedgerIDForCandidateStore != ledger.AdmissionLedgerID ||
+			resonanceGraftCandidateStore.SourceRollbackImplementationIDForCandidateStore != rollbackImpl.RollbackImplementationID ||
+			resonanceGraftCandidateStore.SourceWriterReceiptIDForCandidateStore != writerReceipt.WriterReceiptID ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreID == "" ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreID(resonanceGraftCandidateStore) ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateID != resonanceGraftCandidate.AdmissionResonanceGraftCandidateID ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftGateID != resonanceGraftGate.AdmissionResonanceGraftGateID ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftPreflightID != resonanceGraftPreflight.AdmissionResonanceGraftPreflightID ||
+			resonanceGraftCandidateStore.AdmissionResonanceGraftBoundaryID != resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID ||
+			resonanceGraftCandidateStore.AdmissionResonanceObservationID != resonanceObservation.AdmissionResonanceObservationID ||
+			resonanceGraftCandidateStore.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+			resonanceGraftCandidateStore.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+			resonanceGraftCandidateStore.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+			resonanceGraftCandidateStore.AdmissionSealID != seal.AdmissionSealID ||
+			resonanceGraftCandidateStore.AdmissionPermitID != permit.AdmissionPermitID ||
+			resonanceGraftCandidateStore.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+			resonanceGraftCandidateStore.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+			resonanceGraftCandidateStore.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+			resonanceGraftCandidateStore.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+			resonanceGraftCandidateStore.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+			resonanceGraftCandidateStore.WriterReceiptID != writerReceipt.WriterReceiptID ||
+			resonanceGraftCandidateStore.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+			resonanceGraftCandidateStore.AdmissionWriterContractID != writerContract.WriterContractID ||
+			resonanceGraftCandidateStore.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+			resonanceGraftCandidateStore.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+			resonanceGraftCandidateStore.AdmissionLiveStageID != liveStage.LiveStageID ||
+			resonanceGraftCandidateStore.AdmissionEnableGateID != gate.EnableGateID ||
+			resonanceGraftCandidateStore.AdmissionSwitchID != sw.SwitchID ||
+			resonanceGraftCandidateStore.AdmissionPromotionID != promotion.PromotionID ||
+			resonanceGraftCandidateStore.AdmissionDecisionID != decision.DecisionID ||
+			resonanceGraftCandidateStore.CandidateExecutionID != execution.ExecutionID ||
+			resonanceGraftCandidateStore.GeneratorAdapterID != generatorAdapter.AdapterID ||
+			resonanceGraftCandidateStore.CandidateDraftID != draft.DraftID ||
+			resonanceGraftCandidateStore.HandoffID != admission.HandoffID ||
+			resonanceGraftCandidateStore.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
+			resonanceGraftCandidateStore.DreamCandidateRunID != candidate.RunID ||
+			resonanceGraftCandidateStore.CandidateRunID != draft.CandidateRunID ||
+			resonanceGraftCandidateStore.CandidateTextHash != execution.GeneratedTextHash ||
+			resonanceGraftCandidateStore.TurnTextHash != execution.TurnTextHash ||
+			resonanceGraftCandidateStore.Reason != "resonance shadow graft candidate stored and read back without body mutation" {
+			return fmt.Errorf("bad nano-direct admission resonance graft candidate store receipt: resonance_graft_candidate_store=%+v resonance_graft_candidate=%+v resonance_graft_gate=%+v resonance_graft_preflight=%+v resonance_graft_boundary=%+v resonance_observation=%+v resonance_receiver=%+v resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceGraftCandidateStore, resonanceGraftCandidate, resonanceGraftGate, resonanceGraftPreflight, resonanceGraftBoundary, resonanceObservation, resonanceReceiver, resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+	}
 
-	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() {
+	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
+		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s resonance_receiver=%s resonance_observation=%s resonance_graft_boundary=%s resonance_graft_preflight=%s resonance_graft_gate=%s resonance_graft_candidate=%s resonance_graft_candidate_store=%s\n",
+			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath, resonanceIntentLogPath, resonanceReceiverLogPath, resonanceObservationLogPath, resonanceGraftBoundaryLogPath, resonanceGraftPreflightLogPath, resonanceGraftGateLogPath, resonanceGraftCandidateLogPath, resonanceGraftCandidateStoreLogPath)
+	} else if admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s resonance_receiver=%s resonance_observation=%s resonance_graft_boundary=%s resonance_graft_preflight=%s resonance_graft_gate=%s resonance_graft_candidate=%s\n",
 			executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath, dreamLogPath, decisionLogPath, promotionLogPath, switchLogPath, enableGateLogPath, liveStageLogPath, writerPreflightLogPath, writerInventoryLogPath, writerContractLogPath, ledgerLogPath, writerImplLogPath, writerReceiptLogPath, rollbackImplLogPath, ledgerImplLogPath, ledgerPersistenceLogPath, ledgerVerificationLogPath, readinessLogPath, permitLogPath, sealLogPath, finalGateLogPath, resonanceIntentLogPath, resonanceReceiverLogPath, resonanceObservationLogPath, resonanceGraftBoundaryLogPath, resonanceGraftPreflightLogPath, resonanceGraftGateLogPath, resonanceGraftCandidateLogPath)
 	} else if admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() {
