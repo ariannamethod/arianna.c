@@ -4255,6 +4255,25 @@ are `resonance-graft-boundary-causal-<hash>`, `resonance-graft-boundary-<hash>`,
 admission-live-route-turn-candidate-nano-direct-resonance-graft-boundary-smoke` proves the real-nano chain can declare
 the boundary while live grafting remains locked behind future admission.
 
+**Follow-up, same day - Resonance graft admission now has a closed proof rung.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1` after the graft candidate store reader.
+It consumes only a passed read-only store-reader receipt, rechecks the reader id, causal id, reader hash, replay hash,
+read-back hash, and source store/candidate/gate/observation/final-gate/ledger provenance, then records a
+`shadow_graft_admission_proved_dry_run` receipt. The proof is still not live grafting:
+`admission_resonance_graft_admission_proof_graft_allowed=false`,
+`admission_resonance_graft_admission_proof_raw_dream_text_allowed=false`,
+`admission_resonance_graft_admission_proof_janus_surface_allowed=false`,
+`admission_resonance_graft_admission_proof_cooc_learning_allowed=false`,
+`admission_resonance_graft_admission_proof_delta_harvest_allowed=false`,
+`admission_resonance_graft_admission_proof_body_mutation_allowed=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`, and
+`mutates_state=false`. The stable ids are `resonance-graft-admission-proof-causal-<hash>`,
+`resonance-graft-admission-proof-<hash>`, `resonance-graft-admission-proof-replay-<hash>`,
+`resonance-graft-admission-proof-read-<hash>`, and `resonance-graft-admission-proof-id-<hash>`. `make
+admission-live-route-turn-candidate-nano-direct-resonance-graft-admission-proof-smoke` proves the real-nano chain can
+turn a read-back Resonance candidate into an admissible future graft input while the body stays closed.
+
 **Future TODO - Needle and preference focus after the runtime foundation stabilizes.** Needle
 (`ariannamethod/needle`) is a candidate tiny typed command-selection layer, not a replacement Arianna voice: it should
 read bounded state (field, turn, ledger context, available organism actions) and emit typed commands only through

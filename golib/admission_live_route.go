@@ -49,6 +49,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateSchema            = "arianna.live_route_turn_candidate_admission_resonance_graft_candidate.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreSchema       = "arianna.live_route_turn_candidate_admission_resonance_graft_candidate_store.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderSchema = "arianna.live_route_turn_candidate_admission_resonance_graft_candidate_store_reader.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofSchema       = "arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -1710,6 +1711,58 @@ type admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader 
 	SourceAdmissionFinalGateIDForStoreReader                         string `json:"source_admission_final_gate_id_for_store_reader,omitempty"`
 	SourceLedgerVerificationIDForStoreReader                         string `json:"source_ledger_verification_id_for_store_reader,omitempty"`
 	AdmissionResonanceGraftCandidateStoreReaderID                    string `json:"admission_resonance_graft_candidate_store_reader_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof struct {
+	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader
+
+	AdmissionResonanceGraftAdmissionProofState                    string `json:"admission_resonance_graft_admission_proof_state,omitempty"`
+	AdmissionResonanceGraftAdmissionProofAction                   string `json:"admission_resonance_graft_admission_proof_action,omitempty"`
+	AdmissionResonanceGraftAdmissionProofTarget                   string `json:"admission_resonance_graft_admission_proof_target,omitempty"`
+	AdmissionResonanceGraftAdmissionProofTargetKind               string `json:"admission_resonance_graft_admission_proof_target_kind,omitempty"`
+	AdmissionResonanceGraftAdmissionProofTargetMode               string `json:"admission_resonance_graft_admission_proof_target_mode,omitempty"`
+	AdmissionResonanceGraftAdmissionProofReceiptShape             string `json:"admission_resonance_graft_admission_proof_receipt_shape,omitempty"`
+	AdmissionResonanceGraftAdmissionProofDryRunOnly               bool   `json:"admission_resonance_graft_admission_proof_dry_run_only"`
+	AdmissionResonanceGraftAdmissionProofReaderVerified           bool   `json:"admission_resonance_graft_admission_proof_reader_verified"`
+	AdmissionResonanceGraftAdmissionProofStoreVerified            bool   `json:"admission_resonance_graft_admission_proof_store_verified"`
+	AdmissionResonanceGraftAdmissionProofCandidateVerified        bool   `json:"admission_resonance_graft_admission_proof_candidate_verified"`
+	AdmissionResonanceGraftAdmissionProofLedgerVerified           bool   `json:"admission_resonance_graft_admission_proof_ledger_verified"`
+	AdmissionResonanceGraftAdmissionProofReplayVerified           bool   `json:"admission_resonance_graft_admission_proof_replay_verified"`
+	AdmissionResonanceGraftAdmissionProofReadBackVerified         bool   `json:"admission_resonance_graft_admission_proof_read_back_verified"`
+	AdmissionResonanceGraftAdmissionProofHashVerified             bool   `json:"admission_resonance_graft_admission_proof_hash_verified"`
+	AdmissionResonanceGraftAdmissionProofKind                     string `json:"admission_resonance_graft_admission_proof_kind,omitempty"`
+	AdmissionResonanceGraftAdmissionProofMode                     string `json:"admission_resonance_graft_admission_proof_mode,omitempty"`
+	AdmissionResonanceGraftAdmissionProofStage                    string `json:"admission_resonance_graft_admission_proof_stage,omitempty"`
+	AdmissionResonanceGraftAdmissionProofCausalID                 string `json:"admission_resonance_graft_admission_proof_causal_id,omitempty"`
+	AdmissionResonanceGraftAdmissionProofHash                     string `json:"admission_resonance_graft_admission_proof_hash,omitempty"`
+	AdmissionResonanceGraftAdmissionProofReplayHash               string `json:"admission_resonance_graft_admission_proof_replay_hash,omitempty"`
+	AdmissionResonanceGraftAdmissionProofReadBackHash             string `json:"admission_resonance_graft_admission_proof_read_back_hash,omitempty"`
+	AdmissionResonanceGraftAdmissionProofAdmissionRequired        bool   `json:"admission_resonance_graft_admission_proof_admission_required"`
+	AdmissionResonanceGraftAdmissionProofShadowOnly               bool   `json:"admission_resonance_graft_admission_proof_shadow_only"`
+	AdmissionResonanceGraftAdmissionProofGraftAllowed             bool   `json:"admission_resonance_graft_admission_proof_graft_allowed"`
+	AdmissionResonanceGraftAdmissionProofRawDreamTextAllowed      bool   `json:"admission_resonance_graft_admission_proof_raw_dream_text_allowed"`
+	AdmissionResonanceGraftAdmissionProofJanusSurfaceAllowed      bool   `json:"admission_resonance_graft_admission_proof_janus_surface_allowed"`
+	AdmissionResonanceGraftAdmissionProofCoocLearningAllowed      bool   `json:"admission_resonance_graft_admission_proof_cooc_learning_allowed"`
+	AdmissionResonanceGraftAdmissionProofDeltaHarvestAllowed      bool   `json:"admission_resonance_graft_admission_proof_delta_harvest_allowed"`
+	AdmissionResonanceGraftAdmissionProofBodyMutationAllowed      bool   `json:"admission_resonance_graft_admission_proof_body_mutation_allowed"`
+	AdmissionResonanceGraftAdmissionProofRollbackRequired         bool   `json:"admission_resonance_graft_admission_proof_rollback_required"`
+	AdmissionResonanceGraftAdmissionProofReady                    bool   `json:"admission_resonance_graft_admission_proof_ready"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderSchema       string `json:"source_admission_resonance_graft_candidate_store_reader_schema,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderPassed       bool   `json:"source_admission_resonance_graft_candidate_store_reader_passed"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderID           string `json:"source_admission_resonance_graft_candidate_store_reader_id,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderAction       string `json:"source_admission_resonance_graft_candidate_store_reader_action,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderReady        bool   `json:"source_admission_resonance_graft_candidate_store_reader_ready"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderCausalID     string `json:"source_admission_resonance_graft_candidate_store_reader_causal_id,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderHash         string `json:"source_admission_resonance_graft_candidate_store_reader_hash,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderReplayHash   string `json:"source_admission_resonance_graft_candidate_store_reader_replay_hash,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash string `json:"source_admission_resonance_graft_candidate_store_reader_read_back_hash,omitempty"`
+	SourceAdmissionResonanceGraftCandidateStoreIDForProof         string `json:"source_admission_resonance_graft_candidate_store_id_for_admission_proof,omitempty"`
+	SourceAdmissionResonanceGraftCandidateIDForProof              string `json:"source_admission_resonance_graft_candidate_id_for_admission_proof,omitempty"`
+	SourceAdmissionResonanceGraftGateIDForProof                   string `json:"source_admission_resonance_graft_gate_id_for_admission_proof,omitempty"`
+	SourceAdmissionResonanceObservationIDForProof                 string `json:"source_admission_resonance_observation_id_for_admission_proof,omitempty"`
+	SourceAdmissionFinalGateIDForProof                            string `json:"source_admission_final_gate_id_for_admission_proof,omitempty"`
+	SourceLedgerVerificationIDForProof                            string `json:"source_ledger_verification_id_for_admission_proof,omitempty"`
+	AdmissionResonanceGraftAdmissionProofID                       string `json:"admission_resonance_graft_admission_proof_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -3540,6 +3593,10 @@ func admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun(
 
 func admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_CANDIDATE_STORE_READER_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -12599,6 +12656,418 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreR
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(reader)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofForStoreReader(reader admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader) admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof {
+	sourceSchema := reader.Schema
+	proof := admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof{
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader: reader,
+		AdmissionResonanceGraftAdmissionProofState:                                 "blocked",
+		AdmissionResonanceGraftAdmissionProofAction:                                "reject",
+		AdmissionResonanceGraftAdmissionProofDryRunOnly:                            true,
+		SourceAdmissionResonanceGraftCandidateStoreReaderSchema:                    sourceSchema,
+		SourceAdmissionResonanceGraftCandidateStoreReaderPassed:                    reader.Passed,
+		SourceAdmissionResonanceGraftCandidateStoreReaderID:                        reader.AdmissionResonanceGraftCandidateStoreReaderID,
+		SourceAdmissionResonanceGraftCandidateStoreReaderAction:                    reader.AdmissionResonanceGraftCandidateStoreReaderAction,
+		SourceAdmissionResonanceGraftCandidateStoreReaderReady:                     reader.AdmissionResonanceGraftCandidateStoreReaderReady,
+		SourceAdmissionResonanceGraftCandidateStoreReaderCausalID:                  reader.AdmissionResonanceGraftCandidateStoreReaderCausalID,
+		SourceAdmissionResonanceGraftCandidateStoreReaderHash:                      reader.AdmissionResonanceGraftCandidateStoreReaderHash,
+		SourceAdmissionResonanceGraftCandidateStoreReaderReplayHash:                reader.AdmissionResonanceGraftCandidateStoreReaderReplayHash,
+		SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash:              reader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		SourceAdmissionResonanceGraftCandidateStoreIDForProof:                      reader.AdmissionResonanceGraftCandidateStoreID,
+		SourceAdmissionResonanceGraftCandidateIDForProof:                           reader.AdmissionResonanceGraftCandidateID,
+		SourceAdmissionResonanceGraftGateIDForProof:                                reader.AdmissionResonanceGraftGateID,
+		SourceAdmissionResonanceObservationIDForProof:                              reader.AdmissionResonanceObservationID,
+		SourceAdmissionFinalGateIDForProof:                                         reader.AdmissionFinalGateID,
+		SourceLedgerVerificationIDForProof:                                         reader.LedgerVerificationID,
+	}
+	proof.Schema = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofSchema
+	proof.Timing = "live_admission_resonance_graft_admission_proof"
+	proof.Passed = false
+	proof.AdmissionResonanceGraftAdmissionProofID = ""
+	proof.AdmissionResonanceGraftAdmissionProofReady = false
+	proof.LiveReady = false
+	proof.BodyTarget = "none"
+	proof.ContractsReady = false
+	proof.WriteAllowed = false
+	proof.AdmissionAllowed = false
+	proof.LiveAdmissionEnabled = false
+	proof.MutatesState = false
+
+	if sourceSchema == "" {
+		proof.Reason = "missing_candidate_admission_resonance_graft_candidate_store_reader"
+		return proof
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderSchema {
+		proof.Reason = "unexpected_candidate_admission_resonance_graft_candidate_store_reader_schema " + sourceSchema
+		return proof
+	}
+	if !reader.Passed {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_failed"
+		if reader.Reason != "" {
+			proof.Reason += ": " + reader.Reason
+		}
+		return proof
+	}
+	if reader.AdmissionResonanceGraftCandidateStoreReaderID == "" {
+		proof.Reason = "missing_candidate_admission_resonance_graft_candidate_store_reader_id"
+		return proof
+	}
+	if wantReaderID := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderID(reader); wantReaderID == "" || reader.AdmissionResonanceGraftCandidateStoreReaderID != wantReaderID {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_id_mismatch"
+		return proof
+	}
+	if reader.AdmissionResonanceGraftCandidateStoreReaderState != "shadow_graft_candidate_store_read_back_dry_run" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderAction != "read_resonance_shadow_graft_candidate_store_dry_run" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderTarget != "resonance" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderTargetKind != "internal_world_shadow_graft_candidate_store_reader" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderTargetMode != "read_only_replay_dry_run" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderReceiptShape != "resonance_shadow_graft_candidate_store_reader_receipt" {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_shape_mismatch"
+		return proof
+	}
+	if !reader.AdmissionResonanceGraftCandidateStoreReaderDryRunOnly ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderStoreVerified ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderCandidateVerified ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderLedgerVerified ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderReadBackVerified ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderHashVerified ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderReady {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_not_verified_dry_run"
+		return proof
+	}
+	if reader.AdmissionResonanceGraftCandidateStoreReaderKind != "shadow_graft_candidate_store_reader" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderMode != "read_only_replay" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderStage != "pre_live_graft_candidate_store_reader" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderCausalID == "" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderHash == "" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderReplayHash == "" ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash == "" {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_target_mismatch"
+		return proof
+	}
+	if wantCausalID := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderCausalID(reader); wantCausalID == "" || reader.AdmissionResonanceGraftCandidateStoreReaderCausalID != wantCausalID {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_causal_id_mismatch"
+		return proof
+	}
+	if wantHash := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderHash(reader); wantHash == "" || reader.AdmissionResonanceGraftCandidateStoreReaderHash != wantHash {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_hash_mismatch"
+		return proof
+	}
+	if wantReplayHash := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderReplayHash(reader); wantReplayHash == "" || reader.AdmissionResonanceGraftCandidateStoreReaderReplayHash != wantReplayHash {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_replay_hash_mismatch"
+		return proof
+	}
+	if wantReadBackHash := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderReadBackHash(reader); wantReadBackHash == "" || reader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash != wantReadBackHash {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_read_back_hash_mismatch"
+		return proof
+	}
+	if reader.AdmissionResonanceGraftCandidateStoreReaderHash == reader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_read_back_missing"
+		return proof
+	}
+	if !reader.AdmissionResonanceGraftCandidateStoreReaderReadOnly ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderReplayOnly ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderSourceAppendOnly ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderSourceReadBack ||
+		!reader.AdmissionResonanceGraftCandidateStoreReaderSourceReceiptVerified ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderGraftAllowed ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderRawDreamTextAllowed ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderJanusSurfaceAllowed ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderCoocLearningAllowed ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderDeltaHarvestAllowed ||
+		reader.AdmissionResonanceGraftCandidateStoreReaderBodyMutationAllowed {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_guard_mismatch"
+		return proof
+	}
+	if reader.ContractsReady || reader.WriteAllowed || reader.MutatesState || reader.LiveAdmissionEnabled || reader.AdmissionAllowed {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_already_open"
+		return proof
+	}
+	if reader.BodyTarget != "none" {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_body_target_mismatch"
+		return proof
+	}
+	if !reader.LiveReady {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_not_live_ready"
+		return proof
+	}
+	if reader.SourceAdmissionResonanceGraftCandidateStoreSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreSchema ||
+		!reader.SourceAdmissionResonanceGraftCandidateStorePassed ||
+		reader.SourceAdmissionResonanceGraftCandidateStoreID != reader.AdmissionResonanceGraftCandidateStoreID ||
+		reader.SourceAdmissionResonanceGraftCandidateStoreAction != "store_resonance_shadow_graft_candidate_dry_run" ||
+		!reader.SourceAdmissionResonanceGraftCandidateStoreReady ||
+		reader.SourceAdmissionResonanceGraftCandidateStoreCausalID != reader.AdmissionResonanceGraftCandidateStoreCausalID ||
+		reader.SourceAdmissionResonanceGraftCandidateStoreHash != reader.AdmissionResonanceGraftCandidateStoreHash ||
+		reader.SourceAdmissionResonanceGraftCandidateStoreReadBackHash != reader.AdmissionResonanceGraftCandidateStoreReadBackHash ||
+		reader.SourceAdmissionResonanceGraftCandidateIDForStoreReader != reader.AdmissionResonanceGraftCandidateID ||
+		reader.SourceAdmissionResonanceGraftGateIDForStoreReader != reader.AdmissionResonanceGraftGateID ||
+		reader.SourceAdmissionResonanceObservationIDForStoreReader != reader.AdmissionResonanceObservationID ||
+		reader.SourceAdmissionFinalGateIDForStoreReader != reader.AdmissionFinalGateID ||
+		reader.SourceLedgerVerificationIDForStoreReader != reader.LedgerVerificationID {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_source_store_mismatch"
+		return proof
+	}
+	if reader.AdmissionResonanceGraftCandidateStoreReaderID == "" ||
+		reader.AdmissionResonanceGraftCandidateStoreID == "" ||
+		reader.AdmissionResonanceGraftCandidateID == "" ||
+		reader.AdmissionResonanceGraftGateID == "" ||
+		reader.AdmissionResonanceGraftPreflightID == "" ||
+		reader.AdmissionResonanceGraftBoundaryID == "" ||
+		reader.AdmissionResonanceObservationID == "" ||
+		reader.AdmissionResonanceReceiverID == "" ||
+		reader.AdmissionResonanceIntentID == "" ||
+		reader.AdmissionFinalGateID == "" ||
+		reader.AdmissionSealID == "" ||
+		reader.AdmissionPermitID == "" ||
+		reader.AdmissionReadinessID == "" ||
+		reader.LedgerVerificationID == "" ||
+		reader.LedgerPersistenceID == "" ||
+		reader.LedgerImplementationID == "" ||
+		reader.RollbackImplementationID == "" ||
+		reader.WriterReceiptID == "" ||
+		reader.WriterImplementationID == "" ||
+		reader.AdmissionLedgerID == "" ||
+		reader.AdmissionWriterContractID == "" ||
+		reader.AdmissionWriterInventoryID == "" ||
+		reader.AdmissionWriterPreflightID == "" ||
+		reader.CandidateRunID == "" ||
+		reader.CandidateTextHash == "" ||
+		reader.TurnTextHash == "" {
+		proof.Reason = "candidate_admission_resonance_graft_candidate_store_reader_missing_provenance"
+		return proof
+	}
+
+	proof.AdmissionResonanceGraftAdmissionProofState = "shadow_graft_admission_proved_dry_run"
+	proof.AdmissionResonanceGraftAdmissionProofAction = "prove_resonance_shadow_graft_admission_dry_run"
+	proof.AdmissionResonanceGraftAdmissionProofTarget = "resonance"
+	proof.AdmissionResonanceGraftAdmissionProofTargetKind = "internal_world_shadow_graft_admission_proof"
+	proof.AdmissionResonanceGraftAdmissionProofTargetMode = "verified_replay_closed_dry_run"
+	proof.AdmissionResonanceGraftAdmissionProofReceiptShape = "resonance_shadow_graft_admission_proof_receipt"
+	proof.AdmissionResonanceGraftAdmissionProofDryRunOnly = true
+	proof.AdmissionResonanceGraftAdmissionProofReaderVerified = true
+	proof.AdmissionResonanceGraftAdmissionProofStoreVerified = reader.AdmissionResonanceGraftCandidateStoreReaderStoreVerified
+	proof.AdmissionResonanceGraftAdmissionProofCandidateVerified = reader.AdmissionResonanceGraftCandidateStoreReaderCandidateVerified
+	proof.AdmissionResonanceGraftAdmissionProofLedgerVerified = reader.AdmissionResonanceGraftCandidateStoreReaderLedgerVerified
+	proof.AdmissionResonanceGraftAdmissionProofReplayVerified = true
+	proof.AdmissionResonanceGraftAdmissionProofReadBackVerified = true
+	proof.AdmissionResonanceGraftAdmissionProofHashVerified = true
+	proof.AdmissionResonanceGraftAdmissionProofKind = "shadow_graft_admission_proof"
+	proof.AdmissionResonanceGraftAdmissionProofMode = "verified_replay_closed"
+	proof.AdmissionResonanceGraftAdmissionProofStage = "pre_live_graft_admission_proof"
+	proof.AdmissionResonanceGraftAdmissionProofAdmissionRequired = true
+	proof.AdmissionResonanceGraftAdmissionProofShadowOnly = true
+	proof.AdmissionResonanceGraftAdmissionProofGraftAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofRawDreamTextAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofJanusSurfaceAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofCoocLearningAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofDeltaHarvestAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofBodyMutationAllowed = false
+	proof.AdmissionResonanceGraftAdmissionProofRollbackRequired = true
+	proof.AdmissionResonanceGraftAdmissionProofReady = true
+	proof.LiveReady = true
+	proof.BodyTarget = "none"
+	proof.ContractsReady = false
+	proof.WriteAllowed = false
+	proof.AdmissionAllowed = false
+	proof.LiveAdmissionEnabled = false
+	proof.MutatesState = false
+	proof.AdmissionResonanceGraftAdmissionProofCausalID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofCausalID(proof)
+	if proof.AdmissionResonanceGraftAdmissionProofCausalID == "" {
+		proof.Reason = "missing_candidate_admission_resonance_graft_admission_proof_causal_id"
+		return proof
+	}
+	proof.AdmissionResonanceGraftAdmissionProofHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofHash(proof)
+	proof.AdmissionResonanceGraftAdmissionProofReplayHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofReplayHash(proof)
+	proof.AdmissionResonanceGraftAdmissionProofReadBackHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofReadBackHash(proof)
+	if proof.AdmissionResonanceGraftAdmissionProofHash == "" ||
+		proof.AdmissionResonanceGraftAdmissionProofReplayHash == "" ||
+		proof.AdmissionResonanceGraftAdmissionProofReadBackHash == "" ||
+		proof.AdmissionResonanceGraftAdmissionProofHash == proof.AdmissionResonanceGraftAdmissionProofReadBackHash {
+		proof.Reason = "candidate_admission_resonance_graft_admission_proof_read_back_missing"
+		return proof
+	}
+	proof.AdmissionResonanceGraftAdmissionProofID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofID(proof)
+	if proof.AdmissionResonanceGraftAdmissionProofID == "" {
+		proof.Reason = "missing_candidate_admission_resonance_graft_admission_proof_id"
+		return proof
+	}
+	proof.Passed = true
+	proof.Reason = "resonance shadow graft admission proved from read-back store without opening body"
+	return proof
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofCausalID(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) string {
+	h := hashJSON(struct {
+		ReaderID       string `json:"reader_id"`
+		ReaderReadBack string `json:"reader_read_back"`
+		StoreID        string `json:"store_id"`
+		CandidateID    string `json:"candidate_id"`
+		GateID         string `json:"gate_id"`
+		ObservationID  string `json:"observation_id"`
+		LedgerID       string `json:"ledger_id"`
+		ProofKind      string `json:"proof_kind"`
+		ProofStage     string `json:"proof_stage"`
+	}{
+		ReaderID:       proof.SourceAdmissionResonanceGraftCandidateStoreReaderID,
+		ReaderReadBack: proof.SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		StoreID:        proof.SourceAdmissionResonanceGraftCandidateStoreIDForProof,
+		CandidateID:    proof.SourceAdmissionResonanceGraftCandidateIDForProof,
+		GateID:         proof.SourceAdmissionResonanceGraftGateIDForProof,
+		ObservationID:  proof.SourceAdmissionResonanceObservationIDForProof,
+		LedgerID:       proof.SourceLedgerVerificationIDForProof,
+		ProofKind:      proof.AdmissionResonanceGraftAdmissionProofKind,
+		ProofStage:     proof.AdmissionResonanceGraftAdmissionProofStage,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-admission-proof-causal-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofHash(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) string {
+	h := hashJSON(struct {
+		ProofCausalID string `json:"proof_causal_id"`
+		ReaderID      string `json:"reader_id"`
+		ReaderHash    string `json:"reader_hash"`
+		ReaderReplay  string `json:"reader_replay"`
+		ReaderRead    string `json:"reader_read"`
+		ProofMode     string `json:"proof_mode"`
+		ReceiptShape  string `json:"receipt_shape"`
+		ReaderOK      bool   `json:"reader_verified"`
+		ReplayOK      bool   `json:"replay_verified"`
+		ReadBackOK    bool   `json:"read_back_verified"`
+		GraftAllowed  bool   `json:"graft_allowed"`
+		BodyMutation  bool   `json:"body_mutation"`
+		LiveAdmission bool   `json:"live_admission"`
+	}{
+		ProofCausalID: proof.AdmissionResonanceGraftAdmissionProofCausalID,
+		ReaderID:      proof.SourceAdmissionResonanceGraftCandidateStoreReaderID,
+		ReaderHash:    proof.SourceAdmissionResonanceGraftCandidateStoreReaderHash,
+		ReaderReplay:  proof.SourceAdmissionResonanceGraftCandidateStoreReaderReplayHash,
+		ReaderRead:    proof.SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		ProofMode:     proof.AdmissionResonanceGraftAdmissionProofMode,
+		ReceiptShape:  proof.AdmissionResonanceGraftAdmissionProofReceiptShape,
+		ReaderOK:      proof.AdmissionResonanceGraftAdmissionProofReaderVerified,
+		ReplayOK:      proof.AdmissionResonanceGraftAdmissionProofReplayVerified,
+		ReadBackOK:    proof.AdmissionResonanceGraftAdmissionProofReadBackVerified,
+		GraftAllowed:  proof.AdmissionResonanceGraftAdmissionProofGraftAllowed,
+		BodyMutation:  proof.AdmissionResonanceGraftAdmissionProofBodyMutationAllowed,
+		LiveAdmission: proof.LiveAdmissionEnabled,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-admission-proof-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofReplayHash(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) string {
+	h := hashJSON(struct {
+		ProofHash  string `json:"proof_hash"`
+		ReaderID   string `json:"reader_id"`
+		ReaderRead string `json:"reader_read"`
+		ReadOnly   bool   `json:"read_only"`
+		ShadowOnly bool   `json:"shadow_only"`
+		ProofReady bool   `json:"proof_ready"`
+	}{
+		ProofHash:  proof.AdmissionResonanceGraftAdmissionProofHash,
+		ReaderID:   proof.SourceAdmissionResonanceGraftCandidateStoreReaderID,
+		ReaderRead: proof.SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		ReadOnly:   proof.AdmissionResonanceGraftCandidateStoreReaderReadOnly,
+		ShadowOnly: proof.AdmissionResonanceGraftAdmissionProofShadowOnly,
+		ProofReady: proof.AdmissionResonanceGraftAdmissionProofReady,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-admission-proof-replay-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofReadBackHash(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) string {
+	h := hashJSON(struct {
+		ProofHash     string `json:"proof_hash"`
+		ProofReplay   string `json:"proof_replay"`
+		ReaderRead    string `json:"reader_read"`
+		ProofReady    bool   `json:"proof_ready"`
+		ShadowOnly    bool   `json:"shadow_only"`
+		WriteAllowed  bool   `json:"write_allowed"`
+		MutatesState  bool   `json:"mutates_state"`
+		AdmissionOpen bool   `json:"admission_open"`
+	}{
+		ProofHash:     proof.AdmissionResonanceGraftAdmissionProofHash,
+		ProofReplay:   proof.AdmissionResonanceGraftAdmissionProofReplayHash,
+		ReaderRead:    proof.SourceAdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		ProofReady:    proof.AdmissionResonanceGraftAdmissionProofReady,
+		ShadowOnly:    proof.AdmissionResonanceGraftAdmissionProofShadowOnly,
+		WriteAllowed:  proof.WriteAllowed,
+		MutatesState:  proof.MutatesState,
+		AdmissionOpen: proof.LiveAdmissionEnabled,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-admission-proof-read-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofID(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) string {
+	h := hashJSON(struct {
+		ProofCausalID  string `json:"proof_causal_id"`
+		ProofHash      string `json:"proof_hash"`
+		ReplayHash     string `json:"replay_hash"`
+		ReadBackHash   string `json:"read_back_hash"`
+		ReaderID       string `json:"reader_id"`
+		StoreID        string `json:"store_id"`
+		CandidateID    string `json:"candidate_id"`
+		ProofState     string `json:"proof_state"`
+		ProofAction    string `json:"proof_action"`
+		ProofTarget    string `json:"proof_target"`
+		ProofMode      string `json:"proof_mode"`
+		ReaderVerified bool   `json:"reader_verified"`
+		ProofReady     bool   `json:"proof_ready"`
+		ContractsReady bool   `json:"contracts_ready"`
+		WriteAllowed   bool   `json:"write_allowed"`
+		AdmissionOpen  bool   `json:"admission_open"`
+		MutatesState   bool   `json:"mutates_state"`
+	}{
+		ProofCausalID:  proof.AdmissionResonanceGraftAdmissionProofCausalID,
+		ProofHash:      proof.AdmissionResonanceGraftAdmissionProofHash,
+		ReplayHash:     proof.AdmissionResonanceGraftAdmissionProofReplayHash,
+		ReadBackHash:   proof.AdmissionResonanceGraftAdmissionProofReadBackHash,
+		ReaderID:       proof.SourceAdmissionResonanceGraftCandidateStoreReaderID,
+		StoreID:        proof.SourceAdmissionResonanceGraftCandidateStoreIDForProof,
+		CandidateID:    proof.SourceAdmissionResonanceGraftCandidateIDForProof,
+		ProofState:     proof.AdmissionResonanceGraftAdmissionProofState,
+		ProofAction:    proof.AdmissionResonanceGraftAdmissionProofAction,
+		ProofTarget:    proof.AdmissionResonanceGraftAdmissionProofTarget,
+		ProofMode:      proof.AdmissionResonanceGraftAdmissionProofMode,
+		ReaderVerified: proof.AdmissionResonanceGraftAdmissionProofReaderVerified,
+		ProofReady:     proof.AdmissionResonanceGraftAdmissionProofReady,
+		ContractsReady: proof.ContractsReady,
+		WriteAllowed:   proof.WriteAllowed,
+		AdmissionOpen:  proof.LiveAdmissionEnabled,
+		MutatesState:   proof.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-admission-proof-id-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof(proof admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProof) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(proof)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
