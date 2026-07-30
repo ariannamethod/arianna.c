@@ -229,7 +229,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -277,7 +278,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionFinalGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -837,6 +839,53 @@ func chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation adm
 		chatLiveRouteReasonSuffix(observation.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryLine(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) string {
+	return fmt.Sprintf("│  · live-route candidate admission resonance graft boundary dry-run: class=%s route=%s source=%s observation=%s receiver=%s intent=%s final_gate=%s seal=%s permit=%s readiness=%s ledger_verification=%s boundary_kind=%s boundary_mode=%s boundary_stage=%s causal_id=%s boundary_hash=%s read_back_hash=%s source_observation_causal_id=%s source_observation_read_back_hash=%s shadow_only=%t graft_allowed=%t raw_text_allowed=%t janus_surface_allowed=%t cooc_learning_allowed=%t delta_harvest_allowed=%t body_mutation_allowed=%t rollback_required=%t boundary_state=%s boundary_action=%s boundary_target=%s boundary_target_kind=%s boundary_target_mode=%s receipt_shape=%s dry_run_only=%t observation_verified=%t receiver_verified=%t intent_verified=%t final_gate_verified=%t seal_verified=%t permit_verified=%t readiness_verified=%t ledger_verified=%t writer_ready=%t rollback_ready=%t ledger_ready=%t boundary_ready=%t contracts_ready=%t write_allowed=%t admission_allowed=%t live_ready=%t live_enabled=%t mutates=%t admission_resonance_graft_boundary_id=%s passed=%t%s",
+		boundary.PromptClass, boundary.Route, boundary.Source,
+		boundary.AdmissionResonanceObservationID, boundary.AdmissionResonanceReceiverID,
+		boundary.AdmissionResonanceIntentID, boundary.AdmissionFinalGateID, boundary.AdmissionSealID,
+		boundary.AdmissionPermitID, boundary.AdmissionReadinessID, boundary.LedgerVerificationID,
+		boundary.AdmissionResonanceGraftBoundaryKind,
+		boundary.AdmissionResonanceGraftBoundaryMode,
+		boundary.AdmissionResonanceGraftBoundaryStage,
+		boundary.AdmissionResonanceGraftBoundaryCausalID,
+		boundary.AdmissionResonanceGraftBoundaryHash,
+		boundary.AdmissionResonanceGraftBoundaryReadBackHash,
+		boundary.SourceAdmissionResonanceObservationCausalID,
+		boundary.SourceAdmissionResonanceObservationReadBackHash,
+		boundary.AdmissionResonanceGraftBoundaryShadowOnly,
+		boundary.AdmissionResonanceGraftBoundaryGraftAllowed,
+		boundary.AdmissionResonanceGraftBoundaryRawDreamTextAllowed,
+		boundary.AdmissionResonanceGraftBoundaryJanusSurfaceAllowed,
+		boundary.AdmissionResonanceGraftBoundaryCoocLearningAllowed,
+		boundary.AdmissionResonanceGraftBoundaryDeltaHarvestAllowed,
+		boundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed,
+		boundary.AdmissionResonanceGraftBoundaryRollbackRequired,
+		boundary.AdmissionResonanceGraftBoundaryState,
+		boundary.AdmissionResonanceGraftBoundaryAction,
+		boundary.AdmissionResonanceGraftBoundaryTarget,
+		boundary.AdmissionResonanceGraftBoundaryTargetKind,
+		boundary.AdmissionResonanceGraftBoundaryTargetMode,
+		boundary.AdmissionResonanceGraftBoundaryReceiptShape,
+		boundary.AdmissionResonanceGraftBoundaryDryRunOnly,
+		boundary.AdmissionResonanceGraftBoundaryObservationVerified,
+		boundary.AdmissionResonanceGraftBoundaryReceiverVerified,
+		boundary.AdmissionResonanceGraftBoundaryIntentVerified,
+		boundary.AdmissionResonanceGraftBoundaryFinalGateVerified,
+		boundary.AdmissionResonanceGraftBoundarySealVerified,
+		boundary.AdmissionResonanceGraftBoundaryPermitVerified,
+		boundary.AdmissionResonanceGraftBoundaryReadinessVerified,
+		boundary.AdmissionResonanceGraftBoundaryLedgerVerified,
+		boundary.AdmissionResonanceGraftBoundaryWriterReady,
+		boundary.AdmissionResonanceGraftBoundaryRollbackReady,
+		boundary.AdmissionResonanceGraftBoundaryLedgerReady,
+		boundary.AdmissionResonanceGraftBoundaryReady,
+		boundary.ContractsReady, boundary.WriteAllowed, boundary.AdmissionAllowed,
+		boundary.LiveReady, boundary.LiveAdmissionEnabled, boundary.MutatesState,
+		boundary.AdmissionResonanceGraftBoundaryID, boundary.Passed,
+		chatLiveRouteReasonSuffix(boundary.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -845,7 +894,9 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	resonanceIntentDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun()
 	resonanceReceiverDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun()
 	resonanceObservationDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun()
-	resonanceReceiverNeeded := resonanceReceiverDryRun || resonanceObservationDryRun
+	resonanceGraftBoundaryDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun()
+	resonanceObservationNeeded := resonanceObservationDryRun || resonanceGraftBoundaryDryRun
+	resonanceReceiverNeeded := resonanceReceiverDryRun || resonanceObservationNeeded
 	resonanceIntentNeeded := resonanceIntentDryRun || resonanceReceiverNeeded
 	finalGateNeeded := finalGateDryRun || resonanceIntentNeeded
 	chain := chatLiveRouteTurnCandidateChainForText(obs, chatLiveRouteTurnCandidateChainText())
@@ -1290,12 +1341,21 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 								}
 								lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceReceiverLine(receiver))
 							}
-							if resonanceObservationDryRun {
+							if resonanceObservationNeeded {
 								observation := admissionLiveRouteTurnCandidateAdmissionResonanceObservationForReceiver(receiver)
-								if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceObservation(observation); err != nil {
-									return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance observation dry-run log failed: %v", err))
+								if resonanceObservationDryRun {
+									if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceObservation(observation); err != nil {
+										return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance observation dry-run log failed: %v", err))
+									}
+									lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation))
 								}
-								lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceObservationLine(observation))
+								if resonanceGraftBoundaryDryRun {
+									boundary := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryForObservation(observation)
+									if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary(boundary); err != nil {
+										return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft boundary dry-run log failed: %v", err))
+									}
+									lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryLine(boundary))
+								}
 							}
 						}
 					}
