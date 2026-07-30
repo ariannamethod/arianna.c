@@ -4235,3 +4235,30 @@ The passed observation reports `admission_resonance_observation_state=observatio
 raw/Janus/cooc/delta openings, body-write permissions, missing provenance, or missing read-back hashes stay blocked
 without an observation id. `make admission-live-route-turn-candidate-nano-direct-resonance-observation-smoke` proves the
 real-nano chain can record Resonance's sealed read-back observation while live admission and body mutation remain closed.
+
+**Follow-up, same day - Resonance now has a closed shadow-graft boundary receipt.**
+`AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_DRY_RUN=1` adds
+`arianna.live_route_turn_candidate_admission_resonance_graft_boundary.v1` after the sealed observation. It consumes only
+a passed `observation_recorded_dry_run` receipt, rechecks the observation id, causal id, append/read-back hashes, and
+all upstream receiver/intent/final-gate/seal/permit/readiness/ledger/writer/rollback provenance, then declares a
+`shadow_graft_boundary_declared_dry_run` receipt for Resonance. This boundary is deliberately closed:
+`admission_resonance_graft_boundary_shadow_only=true`,
+`admission_resonance_graft_boundary_graft_allowed=false`,
+`admission_resonance_graft_boundary_raw_dream_text_allowed=false`,
+`admission_resonance_graft_boundary_janus_surface_allowed=false`,
+`admission_resonance_graft_boundary_cooc_learning_allowed=false`,
+`admission_resonance_graft_boundary_delta_harvest_allowed=false`,
+`admission_resonance_graft_boundary_body_mutation_allowed=false`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_target=none`, and `mutates_state=false`. The stable ids
+are `resonance-graft-boundary-causal-<hash>`, `resonance-graft-boundary-<hash>`,
+`resonance-graft-boundary-read-<hash>`, and `resonance-graft-boundary-id-<hash>`. `make
+admission-live-route-turn-candidate-nano-direct-resonance-graft-boundary-smoke` proves the real-nano chain can declare
+the boundary while live grafting remains locked behind future admission.
+
+**Future TODO - Needle and preference focus after the runtime foundation stabilizes.** Needle
+(`ariannamethod/needle`) is a candidate tiny typed command-selection layer, not a replacement Arianna voice: it should
+read bounded state (field, turn, ledger context, available organism actions) and emit typed commands only through
+Arianna.c's dry-run/schema/receipt/rollback/admission gates. Later preference/RL-like focus belongs to Janus and
+Resonance only, with Janus as the priority external mouth; Resonance can be focused for inner coherence. nanoArianna
+stays out of DPO/GRPO/RL by default; keep it as subconscious signal and prefer runtime calibration or Hebbian/DOE-like
+consolidation if it needs adjustment.

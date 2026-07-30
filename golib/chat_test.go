@@ -1843,6 +1843,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ENABLE_GATE_KEY", admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PERMIT_KEY", admissionLiveRouteTurnCandidateAdmissionPermitConfirmation)
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
@@ -1871,6 +1872,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	resonanceIntentLog := filepath.Join(dir, "live-route-candidate-admission-resonance-intent.jsonl")
 	resonanceReceiverLog := filepath.Join(dir, "live-route-candidate-admission-resonance-receiver.jsonl")
 	resonanceObservationLog := filepath.Join(dir, "live-route-candidate-admission-resonance-observation.jsonl")
+	resonanceGraftBoundaryLog := filepath.Join(dir, "live-route-candidate-admission-resonance-graft-boundary.jsonl")
 	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_LOG", decisionLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_PROMOTION_LOG", promotionLog)
@@ -1894,13 +1896,14 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_INTENT_LOG", resonanceIntentLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_RECEIVER_LOG", resonanceReceiverLog)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_LOG", resonanceObservationLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_LOG", resonanceGraftBoundaryLog)
 
 	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the ledger should verify.")
 	lines := chatLiveRouteTurnCandidateChainDryRunLines(obs)
-	if len(lines) != 27 {
-		t.Fatalf("expected 27 candidate chain lines, got %d: %v", len(lines), lines)
+	if len(lines) != 28 {
+		t.Fatalf("expected 28 candidate chain lines, got %d: %v", len(lines), lines)
 	}
-	verificationLine := lines[len(lines)-8]
+	verificationLine := lines[len(lines)-9]
 	for _, want := range []string{
 		"live-route candidate admission ledger verification dry-run",
 		"class=direct-user",
@@ -1954,7 +1957,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		got.Reason != "candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission ledger verification: %+v", got)
 	}
-	readinessLine := lines[len(lines)-7]
+	readinessLine := lines[len(lines)-8]
 	for _, want := range []string{
 		"live-route candidate admission readiness dry-run",
 		"class=direct-user",
@@ -2004,7 +2007,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		readiness.Reason != "candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission readiness: %+v", readiness)
 	}
-	permitLine := lines[len(lines)-6]
+	permitLine := lines[len(lines)-7]
 	for _, want := range []string{
 		"live-route candidate admission permit dry-run",
 		"class=direct-user",
@@ -2059,7 +2062,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		permit.Reason != "candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission permit: %+v", permit)
 	}
-	sealLine := lines[len(lines)-5]
+	sealLine := lines[len(lines)-6]
 	for _, want := range []string{
 		"live-route candidate admission seal dry-run",
 		"class=direct-user",
@@ -2115,7 +2118,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		seal.Reason != "candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission seal: %+v", seal)
 	}
-	finalGateLine := lines[len(lines)-4]
+	finalGateLine := lines[len(lines)-5]
 	for _, want := range []string{
 		"live-route candidate admission final gate dry-run",
 		"class=direct-user",
@@ -2175,7 +2178,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		finalGate.Reason != "candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission final gate: %+v", finalGate)
 	}
-	resonanceIntentLine := lines[len(lines)-3]
+	resonanceIntentLine := lines[len(lines)-4]
 	for _, want := range []string{
 		"live-route candidate admission resonance intent dry-run",
 		"class=direct-user",
@@ -2251,7 +2254,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		resonanceIntent.Reason != "candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission resonance intent: %+v", resonanceIntent)
 	}
-	resonanceReceiverLine := lines[len(lines)-2]
+	resonanceReceiverLine := lines[len(lines)-3]
 	for _, want := range []string{
 		"live-route candidate admission resonance receiver dry-run",
 		"class=direct-user",
@@ -2335,7 +2338,7 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		resonanceReceiver.Reason != "candidate_admission_resonance_intent_failed: candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission resonance receiver: %+v", resonanceReceiver)
 	}
-	resonanceObservationLine := lines[len(lines)-1]
+	resonanceObservationLine := lines[len(lines)-2]
 	for _, want := range []string{
 		"live-route candidate admission resonance observation dry-run",
 		"class=direct-user",
@@ -2421,6 +2424,103 @@ func TestChatLiveRouteTurnCandidateAdmissionLedgerVerificationDryRunLine(t *test
 		resonanceObservation.AdmissionResonanceObservationID != "" ||
 		resonanceObservation.Reason != "candidate_admission_resonance_receiver_failed: candidate_admission_resonance_intent_failed: candidate_admission_final_gate_failed: candidate_admission_seal_failed: candidate_admission_permit_failed: candidate_admission_readiness_failed: candidate_admission_ledger_verification_failed: candidate_admission_ledger_persistence_failed: candidate_admission_ledger_implementation_failed: candidate_admission_rollback_implementation_failed: candidate_admission_writer_receipt_failed: candidate_admission_writer_implementation_failed: candidate_admission_ledger_failed: candidate_admission_writer_contract_failed: candidate_admission_writer_inventory_failed: candidate_admission_writer_preflight_failed: candidate_admission_live_stage_failed: candidate_admission_enable_gate_failed: candidate_admission_switch_failed: candidate_admission_promotion_failed: candidate_admission_decision_failed: missing_candidate_execution" {
 		t.Fatalf("bad candidate admission resonance observation: %+v", resonanceObservation)
+	}
+	resonanceGraftBoundaryReason := "candidate_admission_resonance_observation_failed: " + resonanceObservation.Reason
+	resonanceGraftBoundaryLine := lines[len(lines)-1]
+	for _, want := range []string{
+		"live-route candidate admission resonance graft boundary dry-run",
+		"class=direct-user",
+		"route=user_bridge",
+		"source=user_bridge",
+		"observation=",
+		"receiver=",
+		"intent=",
+		"final_gate=",
+		"seal=",
+		"permit=",
+		"readiness=",
+		"ledger_verification=",
+		"boundary_kind= boundary_mode= boundary_stage= causal_id=",
+		"boundary_hash= read_back_hash= source_observation_causal_id= source_observation_read_back_hash=",
+		"shadow_only=false graft_allowed=false raw_text_allowed=false janus_surface_allowed=false cooc_learning_allowed=false delta_harvest_allowed=false body_mutation_allowed=false rollback_required=false",
+		"boundary_state=blocked",
+		"boundary_action=reject",
+		"boundary_target= boundary_target_kind= boundary_target_mode= receipt_shape=",
+		"dry_run_only=true",
+		"observation_verified=false",
+		"receiver_verified=false",
+		"intent_verified=false",
+		"final_gate_verified=false",
+		"seal_verified=false",
+		"permit_verified=false",
+		"readiness_verified=false",
+		"ledger_verified=false",
+		"writer_ready=false rollback_ready=false ledger_ready=false boundary_ready=false",
+		"contracts_ready=false write_allowed=false admission_allowed=false live_ready=false live_enabled=false mutates=false",
+		"admission_resonance_graft_boundary_id=",
+		"passed=false",
+		"reason=" + resonanceGraftBoundaryReason,
+	} {
+		if !strings.Contains(resonanceGraftBoundaryLine, want) {
+			t.Fatalf("candidate admission resonance graft boundary line missing %q: %q", want, resonanceGraftBoundaryLine)
+		}
+	}
+	raw, err = os.ReadFile(resonanceGraftBoundaryLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resonanceGraftBoundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &resonanceGraftBoundary); err != nil {
+		t.Fatal(err)
+	}
+	if resonanceGraftBoundary.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema ||
+		resonanceGraftBoundary.Passed ||
+		resonanceGraftBoundary.LiveReady ||
+		resonanceGraftBoundary.LiveAdmissionEnabled ||
+		resonanceGraftBoundary.AdmissionAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryState != "blocked" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryAction != "reject" ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryDryRunOnly ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryObservationVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReceiverVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryIntentVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryFinalGateVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundarySealVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryPermitVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadinessVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryLedgerVerified ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryWriterReady ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRollbackReady ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryLedgerReady ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryKind != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryMode != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryStage != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryCausalID != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryHash != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadBackHash != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryShadowOnly ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryGraftAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRawDreamTextAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryJanusSurfaceAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryCoocLearningAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryDeltaHarvestAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRollbackRequired ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReady ||
+		resonanceGraftBoundary.WriteAllowed ||
+		resonanceGraftBoundary.MutatesState ||
+		resonanceGraftBoundary.BodyTarget != "none" ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationSchema != admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationPassed ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationID != "" ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationAction != "reject" ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationReady ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationCausalID != "" ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationAppendHash != "" ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationReadBackHash != "" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID != "" ||
+		resonanceGraftBoundary.Reason != resonanceGraftBoundaryReason {
+		t.Fatalf("bad candidate admission resonance graft boundary: %+v", resonanceGraftBoundary)
 	}
 }
 

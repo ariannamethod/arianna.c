@@ -3002,6 +3002,125 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		resonanceObservation.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission resonance observation lost provenance: observation=%+v receiver=%+v", resonanceObservation, resonanceReceiver)
 	}
+	resonanceGraftBoundary := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryForObservation(resonanceObservation)
+	if resonanceGraftBoundary.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema ||
+		resonanceGraftBoundary.Timing != "live_admission_resonance_graft_boundary" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryState != "shadow_graft_boundary_declared_dry_run" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryAction != "declare_resonance_shadow_graft_boundary_dry_run" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryTarget != "resonance" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryTargetKind != "internal_world_shadow_graft" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryTargetMode != "receipt_only_closed_dry_run" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReceiptShape != "resonance_observation_shadow_graft_boundary" ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryDryRunOnly ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryObservationVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReceiverVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryIntentVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryFinalGateVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundarySealVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryPermitVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadinessVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryLedgerVerified ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryWriterReady ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRollbackReady ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryLedgerReady ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryKind != "shadow_graft_boundary" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryMode != "no_mutation_receipt" ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryStage != "pre_live_graft" ||
+		!strings.HasPrefix(resonanceGraftBoundary.AdmissionResonanceGraftBoundaryCausalID, "resonance-graft-boundary-causal-") ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryCausalID(resonanceGraftBoundary) ||
+		!strings.HasPrefix(resonanceGraftBoundary.AdmissionResonanceGraftBoundaryHash, "resonance-graft-boundary-") ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryHash(resonanceGraftBoundary) ||
+		!strings.HasPrefix(resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadBackHash, "resonance-graft-boundary-read-") ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryReadBackHash(resonanceGraftBoundary) ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryHash == resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReadBackHash ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryShadowOnly ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryGraftAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRawDreamTextAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryJanusSurfaceAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryCoocLearningAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryDeltaHarvestAllowed ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryRollbackRequired ||
+		!resonanceGraftBoundary.AdmissionResonanceGraftBoundaryReady ||
+		resonanceGraftBoundary.ContractsReady ||
+		resonanceGraftBoundary.WriteAllowed ||
+		resonanceGraftBoundary.AdmissionAllowed ||
+		resonanceGraftBoundary.LiveAdmissionEnabled ||
+		resonanceGraftBoundary.MutatesState ||
+		resonanceGraftBoundary.BodyTarget != "none" ||
+		!strings.HasPrefix(resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID, "resonance-graft-boundary-id-") ||
+		resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryID(resonanceGraftBoundary) ||
+		!resonanceGraftBoundary.Passed ||
+		!resonanceGraftBoundary.LiveReady ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationSchema != admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema ||
+		!resonanceGraftBoundary.SourceAdmissionResonanceObservationPassed ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationID != resonanceObservation.AdmissionResonanceObservationID ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationAction != "record_resonance_receiver_observation_dry_run" ||
+		!resonanceGraftBoundary.SourceAdmissionResonanceObservationReady ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationCausalID != resonanceObservation.AdmissionResonanceObservationCausalID ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationAppendHash != resonanceObservation.AdmissionResonanceObservationAppendHash ||
+		resonanceGraftBoundary.SourceAdmissionResonanceObservationReadBackHash != resonanceObservation.AdmissionResonanceObservationReadBackHash ||
+		resonanceGraftBoundary.SourceAdmissionResonanceReceiverIDForGraftBoundary != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceGraftBoundary.SourceAdmissionResonanceIntentIDForGraftBoundary != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceGraftBoundary.SourceAdmissionFinalGateIDForGraftBoundary != finalGate.AdmissionFinalGateID ||
+		resonanceGraftBoundary.SourceAdmissionSealIDForGraftBoundary != seal.AdmissionSealID ||
+		resonanceGraftBoundary.SourceAdmissionPermitIDForGraftBoundary != permit.AdmissionPermitID ||
+		resonanceGraftBoundary.SourceAdmissionReadinessIDForGraftBoundary != readiness.AdmissionReadinessID ||
+		resonanceGraftBoundary.SourceLedgerVerificationIDForGraftBoundary != ledgerVerification.LedgerVerificationID ||
+		resonanceGraftBoundary.SourceLedgerPersistenceIDForGraftBoundary != ledgerPersistence.LedgerPersistenceID ||
+		resonanceGraftBoundary.SourceLedgerImplementationIDForGraftBoundary != ledgerImpl.LedgerImplementationID ||
+		resonanceGraftBoundary.SourceAdmissionLedgerIDForGraftBoundary != ledger.AdmissionLedgerID ||
+		resonanceGraftBoundary.SourceRollbackImplementationIDForGraftBoundary != rollbackImpl.RollbackImplementationID ||
+		resonanceGraftBoundary.SourceWriterReceiptIDForGraftBoundary != writerReceipt.WriterReceiptID ||
+		resonanceGraftBoundary.Reason != "resonance shadow graft boundary declared without body mutation" {
+		t.Fatalf("resonance graft boundary should declare only a sealed shadow boundary: %+v", resonanceGraftBoundary)
+	}
+	if resonanceGraftBoundary.AdmissionResonanceObservationID != resonanceObservation.AdmissionResonanceObservationID ||
+		resonanceGraftBoundary.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceGraftBoundary.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceGraftBoundary.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceGraftBoundary.AdmissionSealID != seal.AdmissionSealID ||
+		resonanceGraftBoundary.AdmissionPermitID != permit.AdmissionPermitID ||
+		resonanceGraftBoundary.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		resonanceGraftBoundary.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		resonanceGraftBoundary.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		resonanceGraftBoundary.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		resonanceGraftBoundary.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		resonanceGraftBoundary.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		resonanceGraftBoundary.WriterImplementationID != writerImpl.WriterImplementationID ||
+		resonanceGraftBoundary.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		resonanceGraftBoundary.AdmissionWriterContractID != writerContract.WriterContractID ||
+		resonanceGraftBoundary.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		resonanceGraftBoundary.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		resonanceGraftBoundary.AdmissionLiveStageID != liveStage.LiveStageID ||
+		resonanceGraftBoundary.AdmissionEnableGateID != armedGate.EnableGateID ||
+		resonanceGraftBoundary.AdmissionSwitchID != sw.SwitchID ||
+		resonanceGraftBoundary.AdmissionPromotionID != promotion.PromotionID ||
+		resonanceGraftBoundary.AdmissionDecisionID != decision.DecisionID ||
+		resonanceGraftBoundary.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		resonanceGraftBoundary.CandidateExecutionID != execution.ExecutionID ||
+		resonanceGraftBoundary.CandidateDraftID != draft.DraftID ||
+		resonanceGraftBoundary.CandidateRunID != candidate.RunID ||
+		resonanceGraftBoundary.CandidateTextHash != hashJSON(text) ||
+		resonanceGraftBoundary.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission resonance graft boundary lost provenance: boundary=%+v observation=%+v", resonanceGraftBoundary, resonanceObservation)
+	}
+	tamperedResonanceGraftBoundaryObservation := resonanceObservation
+	tamperedResonanceGraftBoundaryObservation.AdmissionResonanceObservationID = "resonance-observation-tampered"
+	tamperedResonanceGraftBoundary := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryForObservation(tamperedResonanceGraftBoundaryObservation)
+	if tamperedResonanceGraftBoundary.Passed ||
+		tamperedResonanceGraftBoundary.AdmissionResonanceGraftBoundaryID != "" ||
+		tamperedResonanceGraftBoundary.AdmissionResonanceGraftBoundaryState != "blocked" ||
+		tamperedResonanceGraftBoundary.AdmissionResonanceGraftBoundaryAction != "reject" ||
+		!tamperedResonanceGraftBoundary.AdmissionResonanceGraftBoundaryDryRunOnly ||
+		tamperedResonanceGraftBoundary.AdmissionResonanceGraftBoundaryReady ||
+		tamperedResonanceGraftBoundary.LiveReady ||
+		tamperedResonanceGraftBoundary.BodyTarget != "none" ||
+		tamperedResonanceGraftBoundary.WriteAllowed ||
+		tamperedResonanceGraftBoundary.MutatesState ||
+		tamperedResonanceGraftBoundary.Reason != "candidate_admission_resonance_observation_id_mismatch" {
+		t.Fatalf("tampered resonance observation id should fail closed before graft boundary: %+v", tamperedResonanceGraftBoundary)
+	}
 	tamperedResonanceObservationReceiver := resonanceReceiver
 	tamperedResonanceObservationReceiver.AdmissionResonanceReceiverID = "resonance-receiver-tampered"
 	tamperedResonanceObservation := admissionLiveRouteTurnCandidateAdmissionResonanceObservationForReceiver(tamperedResonanceObservationReceiver)

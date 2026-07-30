@@ -8,41 +8,42 @@ import (
 )
 
 const (
-	admissionLiveRoutePlanSchema                                       = "arianna.live_route_plan.v1"
-	admissionLiveRouteChoiceSchema                                     = "arianna.live_route_choice.v1"
-	admissionLiveRouteTurnObservationSchema                            = "arianna.live_route_turn_observation.v1"
-	admissionLiveRouteTurnChoiceSchema                                 = "arianna.live_route_turn_choice.v1"
-	admissionLiveRouteTurnRequestSchema                                = "arianna.live_route_turn_request.v1"
-	admissionLiveRouteTurnGenerationJobSchema                          = "arianna.live_route_turn_generation_job.v1"
-	admissionLiveRouteTurnCandidateShellSchema                         = "arianna.live_route_turn_candidate_shell.v1"
-	admissionLiveRouteTurnCandidateExecutionSchema                     = "arianna.live_route_turn_candidate_execution.v1"
-	admissionLiveRouteTurnGeneratorAdapterSchema                       = "arianna.live_route_turn_generator_adapter.v1"
-	admissionLiveRouteTurnCandidateDraftSchema                         = "arianna.live_route_turn_candidate_draft.v1"
-	admissionLiveRouteTurnReviewSchema                                 = "arianna.live_route_turn_candidate_review.v1"
-	admissionLiveRouteTurnCandidateAdmissionSchema                     = "arianna.live_route_turn_candidate_admission.v1"
-	admissionLiveRouteTurnCandidateAdmissionAdapterSchema              = "arianna.live_route_turn_candidate_admission_adapter.v1"
-	admissionLiveRouteTurnCandidateAdmissionDecisionSchema             = "arianna.live_route_turn_candidate_admission_decision.v1"
-	admissionLiveRouteTurnCandidateAdmissionPromotionSchema            = "arianna.live_route_turn_candidate_admission_promotion.v1"
-	admissionLiveRouteTurnCandidateAdmissionSwitchSchema               = "arianna.live_route_turn_candidate_admission_switch.v1"
-	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema           = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
-	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema            = "arianna.live_route_turn_candidate_admission_live_stage.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema      = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema      = "arianna.live_route_turn_candidate_admission_writer_inventory.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema       = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerSchema               = "arianna.live_route_turn_candidate_admission_ledger.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema           = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
-	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema        = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
-	admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema         = "arianna.live_route_turn_candidate_admission_rollback_implementation.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema           = "arianna.live_route_turn_candidate_admission_ledger_implementation.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema    = "arianna.live_route_turn_candidate_admission_ledger_persistence.v1"
-	admissionLiveRouteTurnCandidateAdmissionLedgerVerificationSchema   = "arianna.live_route_turn_candidate_admission_ledger_verification.v1"
-	admissionLiveRouteTurnCandidateAdmissionReadinessSchema            = "arianna.live_route_turn_candidate_admission_readiness.v1"
-	admissionLiveRouteTurnCandidateAdmissionPermitSchema               = "arianna.live_route_turn_candidate_admission_permit.v1"
-	admissionLiveRouteTurnCandidateAdmissionSealSchema                 = "arianna.live_route_turn_candidate_admission_seal.v1"
-	admissionLiveRouteTurnCandidateAdmissionFinalGateSchema            = "arianna.live_route_turn_candidate_admission_final_gate.v1"
-	admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema      = "arianna.live_route_turn_candidate_admission_resonance_intent.v1"
-	admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema    = "arianna.live_route_turn_candidate_admission_resonance_receiver.v1"
-	admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema = "arianna.live_route_turn_candidate_admission_resonance_observation.v1"
+	admissionLiveRoutePlanSchema                                         = "arianna.live_route_plan.v1"
+	admissionLiveRouteChoiceSchema                                       = "arianna.live_route_choice.v1"
+	admissionLiveRouteTurnObservationSchema                              = "arianna.live_route_turn_observation.v1"
+	admissionLiveRouteTurnChoiceSchema                                   = "arianna.live_route_turn_choice.v1"
+	admissionLiveRouteTurnRequestSchema                                  = "arianna.live_route_turn_request.v1"
+	admissionLiveRouteTurnGenerationJobSchema                            = "arianna.live_route_turn_generation_job.v1"
+	admissionLiveRouteTurnCandidateShellSchema                           = "arianna.live_route_turn_candidate_shell.v1"
+	admissionLiveRouteTurnCandidateExecutionSchema                       = "arianna.live_route_turn_candidate_execution.v1"
+	admissionLiveRouteTurnGeneratorAdapterSchema                         = "arianna.live_route_turn_generator_adapter.v1"
+	admissionLiveRouteTurnCandidateDraftSchema                           = "arianna.live_route_turn_candidate_draft.v1"
+	admissionLiveRouteTurnReviewSchema                                   = "arianna.live_route_turn_candidate_review.v1"
+	admissionLiveRouteTurnCandidateAdmissionSchema                       = "arianna.live_route_turn_candidate_admission.v1"
+	admissionLiveRouteTurnCandidateAdmissionAdapterSchema                = "arianna.live_route_turn_candidate_admission_adapter.v1"
+	admissionLiveRouteTurnCandidateAdmissionDecisionSchema               = "arianna.live_route_turn_candidate_admission_decision.v1"
+	admissionLiveRouteTurnCandidateAdmissionPromotionSchema              = "arianna.live_route_turn_candidate_admission_promotion.v1"
+	admissionLiveRouteTurnCandidateAdmissionSwitchSchema                 = "arianna.live_route_turn_candidate_admission_switch.v1"
+	admissionLiveRouteTurnCandidateAdmissionEnableGateSchema             = "arianna.live_route_turn_candidate_admission_enable_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionLiveStageSchema              = "arianna.live_route_turn_candidate_admission_live_stage.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema        = "arianna.live_route_turn_candidate_admission_writer_preflight.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema        = "arianna.live_route_turn_candidate_admission_writer_inventory.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterContractSchema         = "arianna.live_route_turn_candidate_admission_writer_contract.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerSchema                 = "arianna.live_route_turn_candidate_admission_ledger.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterImplSchema             = "arianna.live_route_turn_candidate_admission_writer_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema          = "arianna.live_route_turn_candidate_admission_writer_receipt.v1"
+	admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema           = "arianna.live_route_turn_candidate_admission_rollback_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerImplSchema             = "arianna.live_route_turn_candidate_admission_ledger_implementation.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceSchema      = "arianna.live_route_turn_candidate_admission_ledger_persistence.v1"
+	admissionLiveRouteTurnCandidateAdmissionLedgerVerificationSchema     = "arianna.live_route_turn_candidate_admission_ledger_verification.v1"
+	admissionLiveRouteTurnCandidateAdmissionReadinessSchema              = "arianna.live_route_turn_candidate_admission_readiness.v1"
+	admissionLiveRouteTurnCandidateAdmissionPermitSchema                 = "arianna.live_route_turn_candidate_admission_permit.v1"
+	admissionLiveRouteTurnCandidateAdmissionSealSchema                   = "arianna.live_route_turn_candidate_admission_seal.v1"
+	admissionLiveRouteTurnCandidateAdmissionFinalGateSchema              = "arianna.live_route_turn_candidate_admission_final_gate.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema        = "arianna.live_route_turn_candidate_admission_resonance_intent.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema      = "arianna.live_route_turn_candidate_admission_resonance_receiver.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema   = "arianna.live_route_turn_candidate_admission_resonance_observation.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema = "arianna.live_route_turn_candidate_admission_resonance_graft_boundary.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -1331,6 +1332,65 @@ type admissionLiveRouteTurnCandidateAdmissionResonanceObservation struct {
 	SourceRollbackImplementationIDForResonanceObservation string `json:"source_rollback_implementation_id_for_resonance_observation,omitempty"`
 	SourceWriterReceiptIDForResonanceObservation          string `json:"source_writer_receipt_id_for_resonance_observation,omitempty"`
 	AdmissionResonanceObservationID                       string `json:"admission_resonance_observation_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary struct {
+	admissionLiveRouteTurnCandidateAdmissionResonanceObservation
+
+	AdmissionResonanceGraftBoundaryState               string `json:"admission_resonance_graft_boundary_state,omitempty"`
+	AdmissionResonanceGraftBoundaryAction              string `json:"admission_resonance_graft_boundary_action,omitempty"`
+	AdmissionResonanceGraftBoundaryTarget              string `json:"admission_resonance_graft_boundary_target,omitempty"`
+	AdmissionResonanceGraftBoundaryTargetKind          string `json:"admission_resonance_graft_boundary_target_kind,omitempty"`
+	AdmissionResonanceGraftBoundaryTargetMode          string `json:"admission_resonance_graft_boundary_target_mode,omitempty"`
+	AdmissionResonanceGraftBoundaryReceiptShape        string `json:"admission_resonance_graft_boundary_receipt_shape,omitempty"`
+	AdmissionResonanceGraftBoundaryDryRunOnly          bool   `json:"admission_resonance_graft_boundary_dry_run_only"`
+	AdmissionResonanceGraftBoundaryObservationVerified bool   `json:"admission_resonance_graft_boundary_observation_verified"`
+	AdmissionResonanceGraftBoundaryReceiverVerified    bool   `json:"admission_resonance_graft_boundary_receiver_verified"`
+	AdmissionResonanceGraftBoundaryIntentVerified      bool   `json:"admission_resonance_graft_boundary_intent_verified"`
+	AdmissionResonanceGraftBoundaryFinalGateVerified   bool   `json:"admission_resonance_graft_boundary_final_gate_verified"`
+	AdmissionResonanceGraftBoundarySealVerified        bool   `json:"admission_resonance_graft_boundary_seal_verified"`
+	AdmissionResonanceGraftBoundaryPermitVerified      bool   `json:"admission_resonance_graft_boundary_permit_verified"`
+	AdmissionResonanceGraftBoundaryReadinessVerified   bool   `json:"admission_resonance_graft_boundary_readiness_verified"`
+	AdmissionResonanceGraftBoundaryLedgerVerified      bool   `json:"admission_resonance_graft_boundary_ledger_verified"`
+	AdmissionResonanceGraftBoundaryWriterReady         bool   `json:"admission_resonance_graft_boundary_writer_ready"`
+	AdmissionResonanceGraftBoundaryRollbackReady       bool   `json:"admission_resonance_graft_boundary_rollback_ready"`
+	AdmissionResonanceGraftBoundaryLedgerReady         bool   `json:"admission_resonance_graft_boundary_ledger_ready"`
+	AdmissionResonanceGraftBoundaryKind                string `json:"admission_resonance_graft_boundary_kind,omitempty"`
+	AdmissionResonanceGraftBoundaryMode                string `json:"admission_resonance_graft_boundary_mode,omitempty"`
+	AdmissionResonanceGraftBoundaryStage               string `json:"admission_resonance_graft_boundary_stage,omitempty"`
+	AdmissionResonanceGraftBoundaryCausalID            string `json:"admission_resonance_graft_boundary_causal_id,omitempty"`
+	AdmissionResonanceGraftBoundaryHash                string `json:"admission_resonance_graft_boundary_hash,omitempty"`
+	AdmissionResonanceGraftBoundaryReadBackHash        string `json:"admission_resonance_graft_boundary_read_back_hash,omitempty"`
+	AdmissionResonanceGraftBoundaryShadowOnly          bool   `json:"admission_resonance_graft_boundary_shadow_only"`
+	AdmissionResonanceGraftBoundaryGraftAllowed        bool   `json:"admission_resonance_graft_boundary_graft_allowed"`
+	AdmissionResonanceGraftBoundaryRawDreamTextAllowed bool   `json:"admission_resonance_graft_boundary_raw_dream_text_allowed"`
+	AdmissionResonanceGraftBoundaryJanusSurfaceAllowed bool   `json:"admission_resonance_graft_boundary_janus_surface_allowed"`
+	AdmissionResonanceGraftBoundaryCoocLearningAllowed bool   `json:"admission_resonance_graft_boundary_cooc_learning_allowed"`
+	AdmissionResonanceGraftBoundaryDeltaHarvestAllowed bool   `json:"admission_resonance_graft_boundary_delta_harvest_allowed"`
+	AdmissionResonanceGraftBoundaryBodyMutationAllowed bool   `json:"admission_resonance_graft_boundary_body_mutation_allowed"`
+	AdmissionResonanceGraftBoundaryRollbackRequired    bool   `json:"admission_resonance_graft_boundary_rollback_required"`
+	AdmissionResonanceGraftBoundaryReady               bool   `json:"admission_resonance_graft_boundary_ready"`
+	SourceAdmissionResonanceObservationSchema          string `json:"source_admission_resonance_observation_schema,omitempty"`
+	SourceAdmissionResonanceObservationPassed          bool   `json:"source_admission_resonance_observation_passed"`
+	SourceAdmissionResonanceObservationID              string `json:"source_admission_resonance_observation_id,omitempty"`
+	SourceAdmissionResonanceObservationAction          string `json:"source_admission_resonance_observation_action,omitempty"`
+	SourceAdmissionResonanceObservationReady           bool   `json:"source_admission_resonance_observation_ready"`
+	SourceAdmissionResonanceObservationCausalID        string `json:"source_admission_resonance_observation_causal_id,omitempty"`
+	SourceAdmissionResonanceObservationAppendHash      string `json:"source_admission_resonance_observation_append_hash,omitempty"`
+	SourceAdmissionResonanceObservationReadBackHash    string `json:"source_admission_resonance_observation_read_back_hash,omitempty"`
+	SourceAdmissionResonanceReceiverIDForGraftBoundary string `json:"source_admission_resonance_receiver_id_for_graft_boundary,omitempty"`
+	SourceAdmissionResonanceIntentIDForGraftBoundary   string `json:"source_admission_resonance_intent_id_for_graft_boundary,omitempty"`
+	SourceAdmissionFinalGateIDForGraftBoundary         string `json:"source_admission_final_gate_id_for_graft_boundary,omitempty"`
+	SourceAdmissionSealIDForGraftBoundary              string `json:"source_admission_seal_id_for_graft_boundary,omitempty"`
+	SourceAdmissionPermitIDForGraftBoundary            string `json:"source_admission_permit_id_for_graft_boundary,omitempty"`
+	SourceAdmissionReadinessIDForGraftBoundary         string `json:"source_admission_readiness_id_for_graft_boundary,omitempty"`
+	SourceLedgerVerificationIDForGraftBoundary         string `json:"source_ledger_verification_id_for_graft_boundary,omitempty"`
+	SourceLedgerPersistenceIDForGraftBoundary          string `json:"source_ledger_persistence_id_for_graft_boundary,omitempty"`
+	SourceLedgerImplementationIDForGraftBoundary       string `json:"source_ledger_implementation_id_for_graft_boundary,omitempty"`
+	SourceAdmissionLedgerIDForGraftBoundary            string `json:"source_admission_ledger_id_for_graft_boundary,omitempty"`
+	SourceRollbackImplementationIDForGraftBoundary     string `json:"source_rollback_implementation_id_for_graft_boundary,omitempty"`
+	SourceWriterReceiptIDForGraftBoundary              string `json:"source_writer_receipt_id_for_graft_boundary,omitempty"`
+	AdmissionResonanceGraftBoundaryID                  string `json:"admission_resonance_graft_boundary_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -3137,6 +3197,10 @@ func admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_OBSERVATION_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -9549,6 +9613,421 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceObservation(observat
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(observation)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryForObservation(observation admissionLiveRouteTurnCandidateAdmissionResonanceObservation) admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary {
+	sourceSchema := observation.Schema
+	boundary := admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary{
+		admissionLiveRouteTurnCandidateAdmissionResonanceObservation: observation,
+		AdmissionResonanceGraftBoundaryState:                         "blocked",
+		AdmissionResonanceGraftBoundaryAction:                        "reject",
+		AdmissionResonanceGraftBoundaryDryRunOnly:                    true,
+		SourceAdmissionResonanceObservationSchema:                    sourceSchema,
+		SourceAdmissionResonanceObservationPassed:                    observation.Passed,
+		SourceAdmissionResonanceObservationID:                        observation.AdmissionResonanceObservationID,
+		SourceAdmissionResonanceObservationAction:                    observation.AdmissionResonanceObservationAction,
+		SourceAdmissionResonanceObservationReady:                     observation.AdmissionResonanceObservationReady,
+		SourceAdmissionResonanceObservationCausalID:                  observation.AdmissionResonanceObservationCausalID,
+		SourceAdmissionResonanceObservationAppendHash:                observation.AdmissionResonanceObservationAppendHash,
+		SourceAdmissionResonanceObservationReadBackHash:              observation.AdmissionResonanceObservationReadBackHash,
+		SourceAdmissionResonanceReceiverIDForGraftBoundary:           observation.AdmissionResonanceReceiverID,
+		SourceAdmissionResonanceIntentIDForGraftBoundary:             observation.AdmissionResonanceIntentID,
+		SourceAdmissionFinalGateIDForGraftBoundary:                   observation.AdmissionFinalGateID,
+		SourceAdmissionSealIDForGraftBoundary:                        observation.AdmissionSealID,
+		SourceAdmissionPermitIDForGraftBoundary:                      observation.AdmissionPermitID,
+		SourceAdmissionReadinessIDForGraftBoundary:                   observation.AdmissionReadinessID,
+		SourceLedgerVerificationIDForGraftBoundary:                   observation.LedgerVerificationID,
+		SourceLedgerPersistenceIDForGraftBoundary:                    observation.LedgerPersistenceID,
+		SourceLedgerImplementationIDForGraftBoundary:                 observation.LedgerImplementationID,
+		SourceAdmissionLedgerIDForGraftBoundary:                      observation.AdmissionLedgerID,
+		SourceRollbackImplementationIDForGraftBoundary:               observation.RollbackImplementationID,
+		SourceWriterReceiptIDForGraftBoundary:                        observation.WriterReceiptID,
+	}
+	boundary.Schema = admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema
+	boundary.Timing = "live_admission_resonance_graft_boundary"
+	boundary.Passed = false
+	boundary.AdmissionResonanceGraftBoundaryID = ""
+	boundary.AdmissionResonanceGraftBoundaryReady = false
+	boundary.LiveReady = false
+	boundary.BodyTarget = "none"
+	boundary.ContractsReady = false
+	boundary.WriteAllowed = false
+	boundary.AdmissionAllowed = false
+	boundary.LiveAdmissionEnabled = false
+	boundary.MutatesState = false
+
+	if sourceSchema == "" {
+		boundary.Reason = "missing_candidate_admission_resonance_observation"
+		return boundary
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema {
+		boundary.Reason = "unexpected_candidate_admission_resonance_observation_schema " + sourceSchema
+		return boundary
+	}
+	if !observation.Passed {
+		boundary.Reason = "candidate_admission_resonance_observation_failed"
+		if observation.Reason != "" {
+			boundary.Reason += ": " + observation.Reason
+		}
+		return boundary
+	}
+	if observation.AdmissionResonanceObservationID == "" {
+		boundary.Reason = "missing_candidate_admission_resonance_observation_id"
+		return boundary
+	}
+	if wantObservationID := admissionLiveRouteTurnCandidateAdmissionResonanceObservationID(observation); wantObservationID == "" || observation.AdmissionResonanceObservationID != wantObservationID {
+		boundary.Reason = "candidate_admission_resonance_observation_id_mismatch"
+		return boundary
+	}
+	if observation.AdmissionResonanceObservationState != "observation_recorded_dry_run" ||
+		observation.AdmissionResonanceObservationAction != "record_resonance_receiver_observation_dry_run" ||
+		observation.AdmissionResonanceObservationTarget != "resonance" ||
+		observation.AdmissionResonanceObservationTargetKind != "internal_world_observation" ||
+		observation.AdmissionResonanceObservationTargetMode != "append_only_read_back_dry_run" ||
+		observation.AdmissionResonanceObservationReceiptShape != "resonance_receiver_state_proof_ledger" {
+		boundary.Reason = "candidate_admission_resonance_observation_shape_mismatch"
+		return boundary
+	}
+	if !observation.AdmissionResonanceObservationDryRunOnly ||
+		!observation.AdmissionResonanceObservationReceiverVerified ||
+		!observation.AdmissionResonanceObservationIntentVerified ||
+		!observation.AdmissionResonanceObservationFinalGateVerified ||
+		!observation.AdmissionResonanceObservationSealVerified ||
+		!observation.AdmissionResonanceObservationPermitVerified ||
+		!observation.AdmissionResonanceObservationReadinessVerified ||
+		!observation.AdmissionResonanceObservationLedgerVerified ||
+		!observation.AdmissionResonanceObservationWriterReady ||
+		!observation.AdmissionResonanceObservationRollbackReady ||
+		!observation.AdmissionResonanceObservationLedgerReady ||
+		!observation.AdmissionResonanceObservationReady {
+		boundary.Reason = "candidate_admission_resonance_observation_not_verified_dry_run"
+		return boundary
+	}
+	if observation.AdmissionResonanceObservationObserver != "resonance" ||
+		observation.AdmissionResonanceObservationObserverKind != "internal_world" ||
+		observation.AdmissionResonanceObservationKind != "receiver_state_proof" ||
+		observation.AdmissionResonanceObservationMode != "sealed_metadata_observation" ||
+		observation.AdmissionResonanceObservationCausalID == "" ||
+		observation.AdmissionResonanceObservationAppendHash == "" ||
+		observation.AdmissionResonanceObservationReadBackHash == "" {
+		boundary.Reason = "candidate_admission_resonance_observation_target_mismatch"
+		return boundary
+	}
+	if wantCausalID := admissionLiveRouteTurnCandidateAdmissionResonanceObservationCausalID(observation); wantCausalID == "" || observation.AdmissionResonanceObservationCausalID != wantCausalID {
+		boundary.Reason = "candidate_admission_resonance_observation_causal_id_mismatch"
+		return boundary
+	}
+	if wantAppendHash := admissionLiveRouteTurnCandidateAdmissionResonanceObservationAppendHash(observation); wantAppendHash == "" || observation.AdmissionResonanceObservationAppendHash != wantAppendHash {
+		boundary.Reason = "candidate_admission_resonance_observation_append_hash_mismatch"
+		return boundary
+	}
+	if wantReadBackHash := admissionLiveRouteTurnCandidateAdmissionResonanceObservationReadBackHash(observation); wantReadBackHash == "" || observation.AdmissionResonanceObservationReadBackHash != wantReadBackHash {
+		boundary.Reason = "candidate_admission_resonance_observation_read_back_hash_mismatch"
+		return boundary
+	}
+	if !observation.AdmissionResonanceObservationAppendOnly ||
+		!observation.AdmissionResonanceObservationReadBack ||
+		!observation.AdmissionResonanceObservationReceiptVerified ||
+		observation.AdmissionResonanceObservationRawDreamTextObserved ||
+		observation.AdmissionResonanceObservationRawDreamTextForwarded ||
+		observation.AdmissionResonanceObservationJanusSurfaceAllowed ||
+		observation.AdmissionResonanceObservationCoocLearningAllowed ||
+		observation.AdmissionResonanceObservationDeltaHarvestAllowed ||
+		observation.AdmissionResonanceObservationBodyMutationAllowed ||
+		!observation.AdmissionResonanceObservationRollbackRequired {
+		boundary.Reason = "candidate_admission_resonance_observation_guard_mismatch"
+		return boundary
+	}
+	if observation.ContractsReady || observation.WriteAllowed || observation.MutatesState || observation.LiveAdmissionEnabled || observation.AdmissionAllowed {
+		boundary.Reason = "candidate_admission_resonance_observation_already_open"
+		return boundary
+	}
+	if observation.BodyTarget != "none" {
+		boundary.Reason = "candidate_admission_resonance_observation_body_target_mismatch"
+		return boundary
+	}
+	if !observation.LiveReady {
+		boundary.Reason = "candidate_admission_resonance_observation_not_live_ready"
+		return boundary
+	}
+	if observation.SourceAdmissionResonanceReceiverSchema != admissionLiveRouteTurnCandidateAdmissionResonanceReceiverSchema ||
+		!observation.SourceAdmissionResonanceReceiverPassed ||
+		observation.SourceAdmissionResonanceReceiverID != observation.AdmissionResonanceReceiverID ||
+		observation.SourceAdmissionResonanceReceiverAction != "preview_resonance_receive_dry_run" ||
+		!observation.SourceAdmissionResonanceReceiverReady ||
+		observation.SourceAdmissionResonanceReceiverCausalID != observation.AdmissionResonanceReceiverCausalID ||
+		observation.SourceAdmissionResonanceReceiverStateDeltaHash != observation.AdmissionResonanceReceiverStateDeltaHash {
+		boundary.Reason = "candidate_admission_resonance_observation_source_receiver_mismatch"
+		return boundary
+	}
+	if observation.SourceAdmissionResonanceIntentIDForObservation != observation.AdmissionResonanceIntentID ||
+		observation.SourceAdmissionFinalGateIDForResonanceObservation != observation.AdmissionFinalGateID ||
+		observation.SourceAdmissionSealIDForResonanceObservation != observation.AdmissionSealID ||
+		observation.SourceAdmissionPermitIDForResonanceObservation != observation.AdmissionPermitID ||
+		observation.SourceAdmissionReadinessIDForResonanceObservation != observation.AdmissionReadinessID ||
+		observation.SourceLedgerVerificationIDForResonanceObservation != observation.LedgerVerificationID ||
+		observation.SourceLedgerPersistenceIDForResonanceObservation != observation.LedgerPersistenceID ||
+		observation.SourceLedgerImplementationIDForResonanceObservation != observation.LedgerImplementationID ||
+		observation.SourceAdmissionLedgerIDForResonanceObservation != observation.AdmissionLedgerID ||
+		observation.SourceRollbackImplementationIDForResonanceObservation != observation.RollbackImplementationID ||
+		observation.SourceWriterReceiptIDForResonanceObservation != observation.WriterReceiptID {
+		boundary.Reason = "candidate_admission_resonance_observation_source_id_mismatch"
+		return boundary
+	}
+	if observation.AdmissionResonanceObservationID == "" ||
+		observation.AdmissionResonanceReceiverID == "" ||
+		observation.AdmissionResonanceIntentID == "" ||
+		observation.AdmissionFinalGateID == "" ||
+		observation.AdmissionSealID == "" ||
+		observation.AdmissionPermitID == "" ||
+		observation.AdmissionReadinessID == "" ||
+		observation.LedgerVerificationID == "" ||
+		observation.LedgerPersistenceID == "" ||
+		observation.LedgerImplementationID == "" ||
+		observation.RollbackImplementationID == "" ||
+		observation.WriterReceiptID == "" ||
+		observation.WriterImplementationID == "" ||
+		observation.AdmissionLedgerID == "" ||
+		observation.AdmissionWriterContractID == "" ||
+		observation.AdmissionWriterInventoryID == "" ||
+		observation.AdmissionWriterPreflightID == "" ||
+		observation.AdmissionLiveStageID == "" ||
+		observation.AdmissionEnableGateID == "" ||
+		observation.AdmissionSwitchID == "" ||
+		observation.AdmissionPromotionID == "" ||
+		observation.AdmissionDecisionID == "" ||
+		observation.AdmissionAdapterID == "" ||
+		observation.CandidateRunID == "" ||
+		observation.CandidateDraftID == "" ||
+		observation.CandidateExecutionID == "" ||
+		observation.GeneratorAdapterID == "" ||
+		observation.HandoffID == "" ||
+		observation.DreamCandidateRunID == "" ||
+		observation.CandidateTextHash == "" ||
+		observation.TurnTextHash == "" {
+		boundary.Reason = "candidate_admission_resonance_observation_missing_provenance"
+		return boundary
+	}
+
+	boundary.AdmissionResonanceGraftBoundaryState = "shadow_graft_boundary_declared_dry_run"
+	boundary.AdmissionResonanceGraftBoundaryAction = "declare_resonance_shadow_graft_boundary_dry_run"
+	boundary.AdmissionResonanceGraftBoundaryTarget = "resonance"
+	boundary.AdmissionResonanceGraftBoundaryTargetKind = "internal_world_shadow_graft"
+	boundary.AdmissionResonanceGraftBoundaryTargetMode = "receipt_only_closed_dry_run"
+	boundary.AdmissionResonanceGraftBoundaryReceiptShape = "resonance_observation_shadow_graft_boundary"
+	boundary.AdmissionResonanceGraftBoundaryDryRunOnly = true
+	boundary.AdmissionResonanceGraftBoundaryObservationVerified = true
+	boundary.AdmissionResonanceGraftBoundaryReceiverVerified = observation.AdmissionResonanceObservationReceiverVerified
+	boundary.AdmissionResonanceGraftBoundaryIntentVerified = observation.AdmissionResonanceObservationIntentVerified
+	boundary.AdmissionResonanceGraftBoundaryFinalGateVerified = observation.AdmissionResonanceObservationFinalGateVerified
+	boundary.AdmissionResonanceGraftBoundarySealVerified = observation.AdmissionResonanceObservationSealVerified
+	boundary.AdmissionResonanceGraftBoundaryPermitVerified = observation.AdmissionResonanceObservationPermitVerified
+	boundary.AdmissionResonanceGraftBoundaryReadinessVerified = observation.AdmissionResonanceObservationReadinessVerified
+	boundary.AdmissionResonanceGraftBoundaryLedgerVerified = observation.AdmissionResonanceObservationLedgerVerified
+	boundary.AdmissionResonanceGraftBoundaryWriterReady = observation.AdmissionResonanceObservationWriterReady
+	boundary.AdmissionResonanceGraftBoundaryRollbackReady = observation.AdmissionResonanceObservationRollbackReady
+	boundary.AdmissionResonanceGraftBoundaryLedgerReady = observation.AdmissionResonanceObservationLedgerReady
+	boundary.AdmissionResonanceGraftBoundaryKind = "shadow_graft_boundary"
+	boundary.AdmissionResonanceGraftBoundaryMode = "no_mutation_receipt"
+	boundary.AdmissionResonanceGraftBoundaryStage = "pre_live_graft"
+	boundary.AdmissionResonanceGraftBoundaryShadowOnly = true
+	boundary.AdmissionResonanceGraftBoundaryGraftAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryRawDreamTextAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryJanusSurfaceAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryCoocLearningAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryDeltaHarvestAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed = false
+	boundary.AdmissionResonanceGraftBoundaryRollbackRequired = true
+	boundary.AdmissionResonanceGraftBoundaryReady = true
+	boundary.LiveReady = true
+	boundary.BodyTarget = "none"
+	boundary.ContractsReady = false
+	boundary.WriteAllowed = false
+	boundary.AdmissionAllowed = false
+	boundary.LiveAdmissionEnabled = false
+	boundary.MutatesState = false
+	boundary.AdmissionResonanceGraftBoundaryCausalID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryCausalID(boundary)
+	if boundary.AdmissionResonanceGraftBoundaryCausalID == "" {
+		boundary.Reason = "missing_candidate_admission_resonance_graft_boundary_causal_id"
+		return boundary
+	}
+	boundary.AdmissionResonanceGraftBoundaryHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryHash(boundary)
+	boundary.AdmissionResonanceGraftBoundaryReadBackHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryReadBackHash(boundary)
+	if boundary.AdmissionResonanceGraftBoundaryHash == "" ||
+		boundary.AdmissionResonanceGraftBoundaryReadBackHash == "" ||
+		boundary.AdmissionResonanceGraftBoundaryHash == boundary.AdmissionResonanceGraftBoundaryReadBackHash {
+		boundary.Reason = "candidate_admission_resonance_graft_boundary_read_back_missing"
+		return boundary
+	}
+	boundary.AdmissionResonanceGraftBoundaryID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryID(boundary)
+	if boundary.AdmissionResonanceGraftBoundaryID == "" {
+		boundary.Reason = "missing_candidate_admission_resonance_graft_boundary_id"
+		return boundary
+	}
+	boundary.Passed = true
+	boundary.Reason = "resonance shadow graft boundary declared without body mutation"
+	return boundary
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryCausalID(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) string {
+	h := hashJSON(struct {
+		AdmissionResonanceObservationID           string `json:"admission_resonance_observation_id"`
+		AdmissionResonanceObservationReadBackHash string `json:"admission_resonance_observation_read_back_hash"`
+		AdmissionResonanceReceiverID              string `json:"admission_resonance_receiver_id"`
+		CandidateRunID                            string `json:"candidate_run_id"`
+		CandidateTextHash                         string `json:"candidate_text_hash"`
+		TurnTextHash                              string `json:"turn_text_hash"`
+		BoundaryKind                              string `json:"boundary_kind"`
+		BoundaryStage                             string `json:"boundary_stage"`
+	}{
+		AdmissionResonanceObservationID:           boundary.AdmissionResonanceObservationID,
+		AdmissionResonanceObservationReadBackHash: boundary.AdmissionResonanceObservationReadBackHash,
+		AdmissionResonanceReceiverID:              boundary.AdmissionResonanceReceiverID,
+		CandidateRunID:                            boundary.CandidateRunID,
+		CandidateTextHash:                         boundary.CandidateTextHash,
+		TurnTextHash:                              boundary.TurnTextHash,
+		BoundaryKind:                              boundary.AdmissionResonanceGraftBoundaryKind,
+		BoundaryStage:                             boundary.AdmissionResonanceGraftBoundaryStage,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-boundary-causal-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryHash(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) string {
+	h := hashJSON(struct {
+		AdmissionResonanceGraftBoundaryCausalID string `json:"admission_resonance_graft_boundary_causal_id"`
+		AdmissionResonanceObservationID         string `json:"admission_resonance_observation_id"`
+		ObservationAppendHash                   string `json:"observation_append_hash"`
+		ObservationReadBackHash                 string `json:"observation_read_back_hash"`
+		BoundaryMode                            string `json:"boundary_mode"`
+		ShadowOnly                              bool   `json:"shadow_only"`
+		DryRunOnly                              bool   `json:"dry_run_only"`
+		GraftAllowed                            bool   `json:"graft_allowed"`
+	}{
+		AdmissionResonanceGraftBoundaryCausalID: boundary.AdmissionResonanceGraftBoundaryCausalID,
+		AdmissionResonanceObservationID:         boundary.AdmissionResonanceObservationID,
+		ObservationAppendHash:                   boundary.AdmissionResonanceObservationAppendHash,
+		ObservationReadBackHash:                 boundary.AdmissionResonanceObservationReadBackHash,
+		BoundaryMode:                            boundary.AdmissionResonanceGraftBoundaryMode,
+		ShadowOnly:                              boundary.AdmissionResonanceGraftBoundaryShadowOnly,
+		DryRunOnly:                              boundary.AdmissionResonanceGraftBoundaryDryRunOnly,
+		GraftAllowed:                            boundary.AdmissionResonanceGraftBoundaryGraftAllowed,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-boundary-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryReadBackHash(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) string {
+	h := hashJSON(struct {
+		BoundaryHash    string `json:"boundary_hash"`
+		ObservationID   string `json:"observation_id"`
+		BoundaryKind    string `json:"boundary_kind"`
+		BoundaryReady   bool   `json:"boundary_ready"`
+		BodyMutation    bool   `json:"body_mutation"`
+		AdmissionOpened bool   `json:"admission_opened"`
+	}{
+		BoundaryHash:    boundary.AdmissionResonanceGraftBoundaryHash,
+		ObservationID:   boundary.AdmissionResonanceObservationID,
+		BoundaryKind:    boundary.AdmissionResonanceGraftBoundaryKind,
+		BoundaryReady:   boundary.AdmissionResonanceGraftBoundaryReady,
+		BodyMutation:    boundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed,
+		AdmissionOpened: boundary.LiveAdmissionEnabled,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-boundary-read-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryID(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) string {
+	h := hashJSON(struct {
+		AdmissionResonanceGraftBoundaryCausalID     string `json:"admission_resonance_graft_boundary_causal_id"`
+		AdmissionResonanceGraftBoundaryHash         string `json:"admission_resonance_graft_boundary_hash"`
+		AdmissionResonanceGraftBoundaryReadBackHash string `json:"admission_resonance_graft_boundary_read_back_hash"`
+		AdmissionResonanceObservationID             string `json:"admission_resonance_observation_id"`
+		AdmissionResonanceReceiverID                string `json:"admission_resonance_receiver_id"`
+		AdmissionFinalGateID                        string `json:"admission_final_gate_id"`
+		LedgerVerificationID                        string `json:"ledger_verification_id"`
+		BoundaryState                               string `json:"boundary_state"`
+		BoundaryAction                              string `json:"boundary_action"`
+		BoundaryTarget                              string `json:"boundary_target"`
+		BoundaryTargetKind                          string `json:"boundary_target_kind"`
+		BoundaryTargetMode                          string `json:"boundary_target_mode"`
+		BoundaryReceiptShape                        string `json:"boundary_receipt_shape"`
+		BoundaryDryRunOnly                          bool   `json:"boundary_dry_run_only"`
+		ObservationVerified                         bool   `json:"observation_verified"`
+		ShadowOnly                                  bool   `json:"shadow_only"`
+		GraftAllowed                                bool   `json:"graft_allowed"`
+		RawTextAllowed                              bool   `json:"raw_text_allowed"`
+		JanusSurfaceAllowed                         bool   `json:"janus_surface_allowed"`
+		CoocLearningAllowed                         bool   `json:"cooc_learning_allowed"`
+		DeltaHarvestAllowed                         bool   `json:"delta_harvest_allowed"`
+		BodyMutationAllowed                         bool   `json:"body_mutation_allowed"`
+		RollbackRequired                            bool   `json:"rollback_required"`
+		BoundaryReady                               bool   `json:"boundary_ready"`
+		ContractsReady                              bool   `json:"contracts_ready"`
+		BodyTarget                                  string `json:"body_target"`
+		WriteAllowed                                bool   `json:"write_allowed"`
+		AdmissionAllowed                            bool   `json:"admission_allowed"`
+		LiveAdmissionEnabled                        bool   `json:"live_admission_enabled"`
+		MutatesState                                bool   `json:"mutates_state"`
+	}{
+		AdmissionResonanceGraftBoundaryCausalID:     boundary.AdmissionResonanceGraftBoundaryCausalID,
+		AdmissionResonanceGraftBoundaryHash:         boundary.AdmissionResonanceGraftBoundaryHash,
+		AdmissionResonanceGraftBoundaryReadBackHash: boundary.AdmissionResonanceGraftBoundaryReadBackHash,
+		AdmissionResonanceObservationID:             boundary.AdmissionResonanceObservationID,
+		AdmissionResonanceReceiverID:                boundary.AdmissionResonanceReceiverID,
+		AdmissionFinalGateID:                        boundary.AdmissionFinalGateID,
+		LedgerVerificationID:                        boundary.LedgerVerificationID,
+		BoundaryState:                               boundary.AdmissionResonanceGraftBoundaryState,
+		BoundaryAction:                              boundary.AdmissionResonanceGraftBoundaryAction,
+		BoundaryTarget:                              boundary.AdmissionResonanceGraftBoundaryTarget,
+		BoundaryTargetKind:                          boundary.AdmissionResonanceGraftBoundaryTargetKind,
+		BoundaryTargetMode:                          boundary.AdmissionResonanceGraftBoundaryTargetMode,
+		BoundaryReceiptShape:                        boundary.AdmissionResonanceGraftBoundaryReceiptShape,
+		BoundaryDryRunOnly:                          boundary.AdmissionResonanceGraftBoundaryDryRunOnly,
+		ObservationVerified:                         boundary.AdmissionResonanceGraftBoundaryObservationVerified,
+		ShadowOnly:                                  boundary.AdmissionResonanceGraftBoundaryShadowOnly,
+		GraftAllowed:                                boundary.AdmissionResonanceGraftBoundaryGraftAllowed,
+		RawTextAllowed:                              boundary.AdmissionResonanceGraftBoundaryRawDreamTextAllowed,
+		JanusSurfaceAllowed:                         boundary.AdmissionResonanceGraftBoundaryJanusSurfaceAllowed,
+		CoocLearningAllowed:                         boundary.AdmissionResonanceGraftBoundaryCoocLearningAllowed,
+		DeltaHarvestAllowed:                         boundary.AdmissionResonanceGraftBoundaryDeltaHarvestAllowed,
+		BodyMutationAllowed:                         boundary.AdmissionResonanceGraftBoundaryBodyMutationAllowed,
+		RollbackRequired:                            boundary.AdmissionResonanceGraftBoundaryRollbackRequired,
+		BoundaryReady:                               boundary.AdmissionResonanceGraftBoundaryReady,
+		ContractsReady:                              boundary.ContractsReady,
+		BodyTarget:                                  boundary.BodyTarget,
+		WriteAllowed:                                boundary.WriteAllowed,
+		AdmissionAllowed:                            boundary.AdmissionAllowed,
+		LiveAdmissionEnabled:                        boundary.LiveAdmissionEnabled,
+		MutatesState:                                boundary.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-boundary-id-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary(boundary admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundary) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_BOUNDARY_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(boundary)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
