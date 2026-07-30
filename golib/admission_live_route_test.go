@@ -3212,6 +3212,132 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		resonanceGraftPreflight.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission resonance graft preflight lost provenance: preflight=%+v boundary=%+v", resonanceGraftPreflight, resonanceGraftBoundary)
 	}
+	resonanceGraftGate := admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateForPreflight(resonanceGraftPreflight)
+	if resonanceGraftGate.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateSchema ||
+		resonanceGraftGate.Timing != "live_admission_resonance_graft_gate" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateState != "shadow_graft_gate_ready_dry_run" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateAction != "gate_resonance_shadow_graft_dry_run" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateTarget != "resonance" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateTargetKind != "internal_world_shadow_graft_gate" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateTargetMode != "receipt_only_closed_gate_dry_run" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateReceiptShape != "resonance_shadow_graft_gate_contract" ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateDryRunOnly ||
+		!resonanceGraftGate.AdmissionResonanceGraftGatePreflightVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateBoundaryVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateObservationVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateReceiverVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateIntentVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateFinalGateVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateSealVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGatePermitVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateReadinessVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateLedgerVerified ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateWriterReady ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateRollbackReady ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateLedgerReady ||
+		resonanceGraftGate.AdmissionResonanceGraftGateKind != "shadow_graft_gate" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateMode != "no_mutation_gate" ||
+		resonanceGraftGate.AdmissionResonanceGraftGateStage != "pre_live_graft_gate" ||
+		!strings.HasPrefix(resonanceGraftGate.AdmissionResonanceGraftGateCausalID, "resonance-graft-gate-causal-") ||
+		resonanceGraftGate.AdmissionResonanceGraftGateCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateCausalID(resonanceGraftGate) ||
+		!strings.HasPrefix(resonanceGraftGate.AdmissionResonanceGraftGateHash, "resonance-graft-gate-") ||
+		resonanceGraftGate.AdmissionResonanceGraftGateHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateHash(resonanceGraftGate) ||
+		!strings.HasPrefix(resonanceGraftGate.AdmissionResonanceGraftGateReadBackHash, "resonance-graft-gate-read-") ||
+		resonanceGraftGate.AdmissionResonanceGraftGateReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateReadBackHash(resonanceGraftGate) ||
+		resonanceGraftGate.AdmissionResonanceGraftGateHash == resonanceGraftGate.AdmissionResonanceGraftGateReadBackHash ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateAdmissionRequired ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateShadowOnly ||
+		resonanceGraftGate.AdmissionResonanceGraftGateGraftAllowed ||
+		resonanceGraftGate.AdmissionResonanceGraftGateRawDreamTextAllowed ||
+		resonanceGraftGate.AdmissionResonanceGraftGateJanusSurfaceAllowed ||
+		resonanceGraftGate.AdmissionResonanceGraftGateCoocLearningAllowed ||
+		resonanceGraftGate.AdmissionResonanceGraftGateDeltaHarvestAllowed ||
+		resonanceGraftGate.AdmissionResonanceGraftGateBodyMutationAllowed ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateRollbackRequired ||
+		!resonanceGraftGate.AdmissionResonanceGraftGateReady ||
+		resonanceGraftGate.ContractsReady ||
+		resonanceGraftGate.WriteAllowed ||
+		resonanceGraftGate.AdmissionAllowed ||
+		resonanceGraftGate.LiveAdmissionEnabled ||
+		resonanceGraftGate.MutatesState ||
+		resonanceGraftGate.BodyTarget != "none" ||
+		!strings.HasPrefix(resonanceGraftGate.AdmissionResonanceGraftGateID, "resonance-graft-gate-id-") ||
+		resonanceGraftGate.AdmissionResonanceGraftGateID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateID(resonanceGraftGate) ||
+		!resonanceGraftGate.Passed ||
+		!resonanceGraftGate.LiveReady ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightSchema ||
+		!resonanceGraftGate.SourceAdmissionResonanceGraftPreflightPassed ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightID != resonanceGraftPreflight.AdmissionResonanceGraftPreflightID ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightAction != "prepare_resonance_shadow_graft_preflight_dry_run" ||
+		!resonanceGraftGate.SourceAdmissionResonanceGraftPreflightReady ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightCausalID != resonanceGraftPreflight.AdmissionResonanceGraftPreflightCausalID ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightHash != resonanceGraftPreflight.AdmissionResonanceGraftPreflightHash ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftPreflightReadBackHash != resonanceGraftPreflight.AdmissionResonanceGraftPreflightReadBackHash ||
+		resonanceGraftGate.SourceAdmissionResonanceGraftBoundaryIDForGraftGate != resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID ||
+		resonanceGraftGate.SourceAdmissionResonanceObservationIDForGraftGate != resonanceObservation.AdmissionResonanceObservationID ||
+		resonanceGraftGate.SourceAdmissionResonanceReceiverIDForGraftGate != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceGraftGate.SourceAdmissionResonanceIntentIDForGraftGate != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceGraftGate.SourceAdmissionFinalGateIDForGraftGate != finalGate.AdmissionFinalGateID ||
+		resonanceGraftGate.SourceAdmissionSealIDForGraftGate != seal.AdmissionSealID ||
+		resonanceGraftGate.SourceAdmissionPermitIDForGraftGate != permit.AdmissionPermitID ||
+		resonanceGraftGate.SourceAdmissionReadinessIDForGraftGate != readiness.AdmissionReadinessID ||
+		resonanceGraftGate.SourceLedgerVerificationIDForGraftGate != ledgerVerification.LedgerVerificationID ||
+		resonanceGraftGate.SourceLedgerPersistenceIDForGraftGate != ledgerPersistence.LedgerPersistenceID ||
+		resonanceGraftGate.SourceLedgerImplementationIDForGraftGate != ledgerImpl.LedgerImplementationID ||
+		resonanceGraftGate.SourceAdmissionLedgerIDForGraftGate != ledger.AdmissionLedgerID ||
+		resonanceGraftGate.SourceRollbackImplementationIDForGraftGate != rollbackImpl.RollbackImplementationID ||
+		resonanceGraftGate.SourceWriterReceiptIDForGraftGate != writerReceipt.WriterReceiptID ||
+		resonanceGraftGate.Reason != "resonance shadow graft gate prepared without body mutation" {
+		t.Fatalf("resonance graft gate should prepare only a closed shadow graft gate contract: %+v", resonanceGraftGate)
+	}
+	if resonanceGraftGate.AdmissionResonanceGraftPreflightID != resonanceGraftPreflight.AdmissionResonanceGraftPreflightID ||
+		resonanceGraftGate.AdmissionResonanceGraftBoundaryID != resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID ||
+		resonanceGraftGate.AdmissionResonanceObservationID != resonanceObservation.AdmissionResonanceObservationID ||
+		resonanceGraftGate.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceGraftGate.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceGraftGate.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceGraftGate.AdmissionSealID != seal.AdmissionSealID ||
+		resonanceGraftGate.AdmissionPermitID != permit.AdmissionPermitID ||
+		resonanceGraftGate.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		resonanceGraftGate.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		resonanceGraftGate.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		resonanceGraftGate.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		resonanceGraftGate.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		resonanceGraftGate.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		resonanceGraftGate.WriterImplementationID != writerImpl.WriterImplementationID ||
+		resonanceGraftGate.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		resonanceGraftGate.AdmissionWriterContractID != writerContract.WriterContractID ||
+		resonanceGraftGate.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		resonanceGraftGate.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		resonanceGraftGate.AdmissionLiveStageID != liveStage.LiveStageID ||
+		resonanceGraftGate.AdmissionEnableGateID != armedGate.EnableGateID ||
+		resonanceGraftGate.AdmissionSwitchID != sw.SwitchID ||
+		resonanceGraftGate.AdmissionPromotionID != promotion.PromotionID ||
+		resonanceGraftGate.AdmissionDecisionID != decision.DecisionID ||
+		resonanceGraftGate.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		resonanceGraftGate.CandidateExecutionID != execution.ExecutionID ||
+		resonanceGraftGate.CandidateDraftID != draft.DraftID ||
+		resonanceGraftGate.CandidateRunID != candidate.RunID ||
+		resonanceGraftGate.CandidateTextHash != hashJSON(text) ||
+		resonanceGraftGate.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission resonance graft gate lost provenance: gate=%+v preflight=%+v", resonanceGraftGate, resonanceGraftPreflight)
+	}
+	tamperedResonanceGraftGatePreflight := resonanceGraftPreflight
+	tamperedResonanceGraftGatePreflight.AdmissionResonanceGraftPreflightID = "resonance-graft-preflight-id-tampered"
+	tamperedResonanceGraftGate := admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateForPreflight(tamperedResonanceGraftGatePreflight)
+	if tamperedResonanceGraftGate.Passed ||
+		tamperedResonanceGraftGate.AdmissionResonanceGraftGateID != "" ||
+		tamperedResonanceGraftGate.AdmissionResonanceGraftGateState != "blocked" ||
+		tamperedResonanceGraftGate.AdmissionResonanceGraftGateAction != "reject" ||
+		!tamperedResonanceGraftGate.AdmissionResonanceGraftGateDryRunOnly ||
+		tamperedResonanceGraftGate.AdmissionResonanceGraftGateReady ||
+		tamperedResonanceGraftGate.LiveReady ||
+		tamperedResonanceGraftGate.BodyTarget != "none" ||
+		tamperedResonanceGraftGate.WriteAllowed ||
+		tamperedResonanceGraftGate.MutatesState ||
+		tamperedResonanceGraftGate.Reason != "candidate_admission_resonance_graft_preflight_id_mismatch" {
+		t.Fatalf("tampered resonance graft preflight id should fail closed before graft gate: %+v", tamperedResonanceGraftGate)
+	}
 	tamperedResonanceGraftPreflightBoundary := resonanceGraftBoundary
 	tamperedResonanceGraftPreflightBoundary.AdmissionResonanceGraftBoundaryID = "resonance-graft-boundary-id-tampered"
 	tamperedResonanceGraftPreflight := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightForBoundary(tamperedResonanceGraftPreflightBoundary)

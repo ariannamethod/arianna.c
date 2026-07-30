@@ -45,6 +45,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionResonanceObservationSchema    = "arianna.live_route_turn_candidate_admission_resonance_observation.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema  = "arianna.live_route_turn_candidate_admission_resonance_graft_boundary.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightSchema = "arianna.live_route_turn_candidate_admission_resonance_graft_preflight.v1"
+	admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateSchema      = "arianna.live_route_turn_candidate_admission_resonance_graft_gate.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -1454,6 +1455,70 @@ type admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight struct {
 	SourceRollbackImplementationIDForGraftPreflight        string `json:"source_rollback_implementation_id_for_graft_preflight,omitempty"`
 	SourceWriterReceiptIDForGraftPreflight                 string `json:"source_writer_receipt_id_for_graft_preflight,omitempty"`
 	AdmissionResonanceGraftPreflightID                     string `json:"admission_resonance_graft_preflight_id,omitempty"`
+}
+
+type admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate struct {
+	admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight
+
+	AdmissionResonanceGraftGateState                    string `json:"admission_resonance_graft_gate_state,omitempty"`
+	AdmissionResonanceGraftGateAction                   string `json:"admission_resonance_graft_gate_action,omitempty"`
+	AdmissionResonanceGraftGateTarget                   string `json:"admission_resonance_graft_gate_target,omitempty"`
+	AdmissionResonanceGraftGateTargetKind               string `json:"admission_resonance_graft_gate_target_kind,omitempty"`
+	AdmissionResonanceGraftGateTargetMode               string `json:"admission_resonance_graft_gate_target_mode,omitempty"`
+	AdmissionResonanceGraftGateReceiptShape             string `json:"admission_resonance_graft_gate_receipt_shape,omitempty"`
+	AdmissionResonanceGraftGateDryRunOnly               bool   `json:"admission_resonance_graft_gate_dry_run_only"`
+	AdmissionResonanceGraftGatePreflightVerified        bool   `json:"admission_resonance_graft_gate_preflight_verified"`
+	AdmissionResonanceGraftGateBoundaryVerified         bool   `json:"admission_resonance_graft_gate_boundary_verified"`
+	AdmissionResonanceGraftGateObservationVerified      bool   `json:"admission_resonance_graft_gate_observation_verified"`
+	AdmissionResonanceGraftGateReceiverVerified         bool   `json:"admission_resonance_graft_gate_receiver_verified"`
+	AdmissionResonanceGraftGateIntentVerified           bool   `json:"admission_resonance_graft_gate_intent_verified"`
+	AdmissionResonanceGraftGateFinalGateVerified        bool   `json:"admission_resonance_graft_gate_final_gate_verified"`
+	AdmissionResonanceGraftGateSealVerified             bool   `json:"admission_resonance_graft_gate_seal_verified"`
+	AdmissionResonanceGraftGatePermitVerified           bool   `json:"admission_resonance_graft_gate_permit_verified"`
+	AdmissionResonanceGraftGateReadinessVerified        bool   `json:"admission_resonance_graft_gate_readiness_verified"`
+	AdmissionResonanceGraftGateLedgerVerified           bool   `json:"admission_resonance_graft_gate_ledger_verified"`
+	AdmissionResonanceGraftGateWriterReady              bool   `json:"admission_resonance_graft_gate_writer_ready"`
+	AdmissionResonanceGraftGateRollbackReady            bool   `json:"admission_resonance_graft_gate_rollback_ready"`
+	AdmissionResonanceGraftGateLedgerReady              bool   `json:"admission_resonance_graft_gate_ledger_ready"`
+	AdmissionResonanceGraftGateKind                     string `json:"admission_resonance_graft_gate_kind,omitempty"`
+	AdmissionResonanceGraftGateMode                     string `json:"admission_resonance_graft_gate_mode,omitempty"`
+	AdmissionResonanceGraftGateStage                    string `json:"admission_resonance_graft_gate_stage,omitempty"`
+	AdmissionResonanceGraftGateCausalID                 string `json:"admission_resonance_graft_gate_causal_id,omitempty"`
+	AdmissionResonanceGraftGateHash                     string `json:"admission_resonance_graft_gate_hash,omitempty"`
+	AdmissionResonanceGraftGateReadBackHash             string `json:"admission_resonance_graft_gate_read_back_hash,omitempty"`
+	AdmissionResonanceGraftGateAdmissionRequired        bool   `json:"admission_resonance_graft_gate_admission_required"`
+	AdmissionResonanceGraftGateShadowOnly               bool   `json:"admission_resonance_graft_gate_shadow_only"`
+	AdmissionResonanceGraftGateGraftAllowed             bool   `json:"admission_resonance_graft_gate_graft_allowed"`
+	AdmissionResonanceGraftGateRawDreamTextAllowed      bool   `json:"admission_resonance_graft_gate_raw_dream_text_allowed"`
+	AdmissionResonanceGraftGateJanusSurfaceAllowed      bool   `json:"admission_resonance_graft_gate_janus_surface_allowed"`
+	AdmissionResonanceGraftGateCoocLearningAllowed      bool   `json:"admission_resonance_graft_gate_cooc_learning_allowed"`
+	AdmissionResonanceGraftGateDeltaHarvestAllowed      bool   `json:"admission_resonance_graft_gate_delta_harvest_allowed"`
+	AdmissionResonanceGraftGateBodyMutationAllowed      bool   `json:"admission_resonance_graft_gate_body_mutation_allowed"`
+	AdmissionResonanceGraftGateRollbackRequired         bool   `json:"admission_resonance_graft_gate_rollback_required"`
+	AdmissionResonanceGraftGateReady                    bool   `json:"admission_resonance_graft_gate_ready"`
+	SourceAdmissionResonanceGraftPreflightSchema        string `json:"source_admission_resonance_graft_preflight_schema,omitempty"`
+	SourceAdmissionResonanceGraftPreflightPassed        bool   `json:"source_admission_resonance_graft_preflight_passed"`
+	SourceAdmissionResonanceGraftPreflightID            string `json:"source_admission_resonance_graft_preflight_id,omitempty"`
+	SourceAdmissionResonanceGraftPreflightAction        string `json:"source_admission_resonance_graft_preflight_action,omitempty"`
+	SourceAdmissionResonanceGraftPreflightReady         bool   `json:"source_admission_resonance_graft_preflight_ready"`
+	SourceAdmissionResonanceGraftPreflightCausalID      string `json:"source_admission_resonance_graft_preflight_causal_id,omitempty"`
+	SourceAdmissionResonanceGraftPreflightHash          string `json:"source_admission_resonance_graft_preflight_hash,omitempty"`
+	SourceAdmissionResonanceGraftPreflightReadBackHash  string `json:"source_admission_resonance_graft_preflight_read_back_hash,omitempty"`
+	SourceAdmissionResonanceGraftBoundaryIDForGraftGate string `json:"source_admission_resonance_graft_boundary_id_for_graft_gate,omitempty"`
+	SourceAdmissionResonanceObservationIDForGraftGate   string `json:"source_admission_resonance_observation_id_for_graft_gate,omitempty"`
+	SourceAdmissionResonanceReceiverIDForGraftGate      string `json:"source_admission_resonance_receiver_id_for_graft_gate,omitempty"`
+	SourceAdmissionResonanceIntentIDForGraftGate        string `json:"source_admission_resonance_intent_id_for_graft_gate,omitempty"`
+	SourceAdmissionFinalGateIDForGraftGate              string `json:"source_admission_final_gate_id_for_graft_gate,omitempty"`
+	SourceAdmissionSealIDForGraftGate                   string `json:"source_admission_seal_id_for_graft_gate,omitempty"`
+	SourceAdmissionPermitIDForGraftGate                 string `json:"source_admission_permit_id_for_graft_gate,omitempty"`
+	SourceAdmissionReadinessIDForGraftGate              string `json:"source_admission_readiness_id_for_graft_gate,omitempty"`
+	SourceLedgerVerificationIDForGraftGate              string `json:"source_ledger_verification_id_for_graft_gate,omitempty"`
+	SourceLedgerPersistenceIDForGraftGate               string `json:"source_ledger_persistence_id_for_graft_gate,omitempty"`
+	SourceLedgerImplementationIDForGraftGate            string `json:"source_ledger_implementation_id_for_graft_gate,omitempty"`
+	SourceAdmissionLedgerIDForGraftGate                 string `json:"source_admission_ledger_id_for_graft_gate,omitempty"`
+	SourceRollbackImplementationIDForGraftGate          string `json:"source_rollback_implementation_id_for_graft_gate,omitempty"`
+	SourceWriterReceiptIDForGraftGate                   string `json:"source_writer_receipt_id_for_graft_gate,omitempty"`
+	AdmissionResonanceGraftGateID                       string `json:"admission_resonance_graft_gate_id,omitempty"`
 }
 
 func admissionLiveRoutePlanForPromptClass(promptClass string) admissionLiveRoutePlan {
@@ -3268,6 +3333,10 @@ func admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun() bool
 
 func admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_PREFLIGHT_DRY_RUN")
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() bool {
+	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_GATE_DRY_RUN")
 }
 
 func admissionLiveRouteTurnCandidateAdmissionEnableGateKey() string {
@@ -10526,6 +10595,447 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight(prefl
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(preflight)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateForPreflight(preflight admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight) admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate {
+	sourceSchema := preflight.Schema
+	gate := admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate{
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflight: preflight,
+		AdmissionResonanceGraftGateState:                                "blocked",
+		AdmissionResonanceGraftGateAction:                               "reject",
+		AdmissionResonanceGraftGateDryRunOnly:                           true,
+		SourceAdmissionResonanceGraftPreflightSchema:                    sourceSchema,
+		SourceAdmissionResonanceGraftPreflightPassed:                    preflight.Passed,
+		SourceAdmissionResonanceGraftPreflightID:                        preflight.AdmissionResonanceGraftPreflightID,
+		SourceAdmissionResonanceGraftPreflightAction:                    preflight.AdmissionResonanceGraftPreflightAction,
+		SourceAdmissionResonanceGraftPreflightReady:                     preflight.AdmissionResonanceGraftPreflightReady,
+		SourceAdmissionResonanceGraftPreflightCausalID:                  preflight.AdmissionResonanceGraftPreflightCausalID,
+		SourceAdmissionResonanceGraftPreflightHash:                      preflight.AdmissionResonanceGraftPreflightHash,
+		SourceAdmissionResonanceGraftPreflightReadBackHash:              preflight.AdmissionResonanceGraftPreflightReadBackHash,
+		SourceAdmissionResonanceGraftBoundaryIDForGraftGate:             preflight.AdmissionResonanceGraftBoundaryID,
+		SourceAdmissionResonanceObservationIDForGraftGate:               preflight.AdmissionResonanceObservationID,
+		SourceAdmissionResonanceReceiverIDForGraftGate:                  preflight.AdmissionResonanceReceiverID,
+		SourceAdmissionResonanceIntentIDForGraftGate:                    preflight.AdmissionResonanceIntentID,
+		SourceAdmissionFinalGateIDForGraftGate:                          preflight.AdmissionFinalGateID,
+		SourceAdmissionSealIDForGraftGate:                               preflight.AdmissionSealID,
+		SourceAdmissionPermitIDForGraftGate:                             preflight.AdmissionPermitID,
+		SourceAdmissionReadinessIDForGraftGate:                          preflight.AdmissionReadinessID,
+		SourceLedgerVerificationIDForGraftGate:                          preflight.LedgerVerificationID,
+		SourceLedgerPersistenceIDForGraftGate:                           preflight.LedgerPersistenceID,
+		SourceLedgerImplementationIDForGraftGate:                        preflight.LedgerImplementationID,
+		SourceAdmissionLedgerIDForGraftGate:                             preflight.AdmissionLedgerID,
+		SourceRollbackImplementationIDForGraftGate:                      preflight.RollbackImplementationID,
+		SourceWriterReceiptIDForGraftGate:                               preflight.WriterReceiptID,
+	}
+	gate.Schema = admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateSchema
+	gate.Timing = "live_admission_resonance_graft_gate"
+	gate.Passed = false
+	gate.AdmissionResonanceGraftGateID = ""
+	gate.AdmissionResonanceGraftGateReady = false
+	gate.LiveReady = false
+	gate.BodyTarget = "none"
+	gate.ContractsReady = false
+	gate.WriteAllowed = false
+	gate.AdmissionAllowed = false
+	gate.LiveAdmissionEnabled = false
+	gate.MutatesState = false
+
+	if sourceSchema == "" {
+		gate.Reason = "missing_candidate_admission_resonance_graft_preflight"
+		return gate
+	}
+	if sourceSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightSchema {
+		gate.Reason = "unexpected_candidate_admission_resonance_graft_preflight_schema " + sourceSchema
+		return gate
+	}
+	if !preflight.Passed {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_failed"
+		if preflight.Reason != "" {
+			gate.Reason += ": " + preflight.Reason
+		}
+		return gate
+	}
+	if preflight.AdmissionResonanceGraftPreflightID == "" {
+		gate.Reason = "missing_candidate_admission_resonance_graft_preflight_id"
+		return gate
+	}
+	if wantPreflightID := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightID(preflight); wantPreflightID == "" || preflight.AdmissionResonanceGraftPreflightID != wantPreflightID {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_id_mismatch"
+		return gate
+	}
+	if preflight.AdmissionResonanceGraftPreflightState != "shadow_graft_preflight_ready_dry_run" ||
+		preflight.AdmissionResonanceGraftPreflightAction != "prepare_resonance_shadow_graft_preflight_dry_run" ||
+		preflight.AdmissionResonanceGraftPreflightTarget != "resonance" ||
+		preflight.AdmissionResonanceGraftPreflightTargetKind != "internal_world_shadow_graft_preflight" ||
+		preflight.AdmissionResonanceGraftPreflightTargetMode != "receipt_only_closed_preflight_dry_run" ||
+		preflight.AdmissionResonanceGraftPreflightReceiptShape != "resonance_shadow_graft_preflight_contract" {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_shape_mismatch"
+		return gate
+	}
+	if !preflight.AdmissionResonanceGraftPreflightDryRunOnly ||
+		!preflight.AdmissionResonanceGraftPreflightBoundaryVerified ||
+		!preflight.AdmissionResonanceGraftPreflightObservationVerified ||
+		!preflight.AdmissionResonanceGraftPreflightReceiverVerified ||
+		!preflight.AdmissionResonanceGraftPreflightIntentVerified ||
+		!preflight.AdmissionResonanceGraftPreflightFinalGateVerified ||
+		!preflight.AdmissionResonanceGraftPreflightSealVerified ||
+		!preflight.AdmissionResonanceGraftPreflightPermitVerified ||
+		!preflight.AdmissionResonanceGraftPreflightReadinessVerified ||
+		!preflight.AdmissionResonanceGraftPreflightLedgerVerified ||
+		!preflight.AdmissionResonanceGraftPreflightWriterReady ||
+		!preflight.AdmissionResonanceGraftPreflightRollbackReady ||
+		!preflight.AdmissionResonanceGraftPreflightLedgerReady ||
+		!preflight.AdmissionResonanceGraftPreflightReady {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_not_verified_dry_run"
+		return gate
+	}
+	if preflight.AdmissionResonanceGraftPreflightKind != "shadow_graft_preflight" ||
+		preflight.AdmissionResonanceGraftPreflightMode != "no_mutation_preflight" ||
+		preflight.AdmissionResonanceGraftPreflightStage != "pre_live_graft_admission" ||
+		preflight.AdmissionResonanceGraftPreflightCausalID == "" ||
+		preflight.AdmissionResonanceGraftPreflightHash == "" ||
+		preflight.AdmissionResonanceGraftPreflightReadBackHash == "" {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_target_mismatch"
+		return gate
+	}
+	if wantCausalID := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightCausalID(preflight); wantCausalID == "" || preflight.AdmissionResonanceGraftPreflightCausalID != wantCausalID {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_causal_id_mismatch"
+		return gate
+	}
+	if wantHash := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightHash(preflight); wantHash == "" || preflight.AdmissionResonanceGraftPreflightHash != wantHash {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_hash_mismatch"
+		return gate
+	}
+	if wantReadBackHash := admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightReadBackHash(preflight); wantReadBackHash == "" || preflight.AdmissionResonanceGraftPreflightReadBackHash != wantReadBackHash {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_read_back_hash_mismatch"
+		return gate
+	}
+	if preflight.AdmissionResonanceGraftPreflightHash == preflight.AdmissionResonanceGraftPreflightReadBackHash {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_read_back_missing"
+		return gate
+	}
+	if !preflight.AdmissionResonanceGraftPreflightAdmissionRequired ||
+		!preflight.AdmissionResonanceGraftPreflightShadowOnly ||
+		preflight.AdmissionResonanceGraftPreflightGraftAllowed ||
+		preflight.AdmissionResonanceGraftPreflightRawDreamTextAllowed ||
+		preflight.AdmissionResonanceGraftPreflightJanusSurfaceAllowed ||
+		preflight.AdmissionResonanceGraftPreflightCoocLearningAllowed ||
+		preflight.AdmissionResonanceGraftPreflightDeltaHarvestAllowed ||
+		preflight.AdmissionResonanceGraftPreflightBodyMutationAllowed ||
+		!preflight.AdmissionResonanceGraftPreflightRollbackRequired {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_guard_mismatch"
+		return gate
+	}
+	if preflight.ContractsReady || preflight.WriteAllowed || preflight.MutatesState || preflight.LiveAdmissionEnabled || preflight.AdmissionAllowed {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_already_open"
+		return gate
+	}
+	if preflight.BodyTarget != "none" {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_body_target_mismatch"
+		return gate
+	}
+	if !preflight.LiveReady {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_not_live_ready"
+		return gate
+	}
+	if preflight.SourceAdmissionResonanceGraftBoundarySchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundarySchema ||
+		!preflight.SourceAdmissionResonanceGraftBoundaryPassed ||
+		preflight.SourceAdmissionResonanceGraftBoundaryID != preflight.AdmissionResonanceGraftBoundaryID ||
+		preflight.SourceAdmissionResonanceGraftBoundaryAction != "declare_resonance_shadow_graft_boundary_dry_run" ||
+		!preflight.SourceAdmissionResonanceGraftBoundaryReady ||
+		preflight.SourceAdmissionResonanceGraftBoundaryCausalID != preflight.AdmissionResonanceGraftBoundaryCausalID ||
+		preflight.SourceAdmissionResonanceGraftBoundaryHash != preflight.AdmissionResonanceGraftBoundaryHash ||
+		preflight.SourceAdmissionResonanceGraftBoundaryReadBackHash != preflight.AdmissionResonanceGraftBoundaryReadBackHash {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_source_boundary_mismatch"
+		return gate
+	}
+	if preflight.SourceAdmissionResonanceObservationIDForGraftPreflight != preflight.AdmissionResonanceObservationID ||
+		preflight.SourceAdmissionResonanceReceiverIDForGraftPreflight != preflight.AdmissionResonanceReceiverID ||
+		preflight.SourceAdmissionResonanceIntentIDForGraftPreflight != preflight.AdmissionResonanceIntentID ||
+		preflight.SourceAdmissionFinalGateIDForGraftPreflight != preflight.AdmissionFinalGateID ||
+		preflight.SourceAdmissionSealIDForGraftPreflight != preflight.AdmissionSealID ||
+		preflight.SourceAdmissionPermitIDForGraftPreflight != preflight.AdmissionPermitID ||
+		preflight.SourceAdmissionReadinessIDForGraftPreflight != preflight.AdmissionReadinessID ||
+		preflight.SourceLedgerVerificationIDForGraftPreflight != preflight.LedgerVerificationID ||
+		preflight.SourceLedgerPersistenceIDForGraftPreflight != preflight.LedgerPersistenceID ||
+		preflight.SourceLedgerImplementationIDForGraftPreflight != preflight.LedgerImplementationID ||
+		preflight.SourceAdmissionLedgerIDForGraftPreflight != preflight.AdmissionLedgerID ||
+		preflight.SourceRollbackImplementationIDForGraftPreflight != preflight.RollbackImplementationID ||
+		preflight.SourceWriterReceiptIDForGraftPreflight != preflight.WriterReceiptID {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_source_id_mismatch"
+		return gate
+	}
+	if preflight.AdmissionResonanceGraftPreflightID == "" ||
+		preflight.AdmissionResonanceGraftBoundaryID == "" ||
+		preflight.AdmissionResonanceObservationID == "" ||
+		preflight.AdmissionResonanceReceiverID == "" ||
+		preflight.AdmissionResonanceIntentID == "" ||
+		preflight.AdmissionFinalGateID == "" ||
+		preflight.AdmissionSealID == "" ||
+		preflight.AdmissionPermitID == "" ||
+		preflight.AdmissionReadinessID == "" ||
+		preflight.LedgerVerificationID == "" ||
+		preflight.LedgerPersistenceID == "" ||
+		preflight.LedgerImplementationID == "" ||
+		preflight.RollbackImplementationID == "" ||
+		preflight.WriterReceiptID == "" ||
+		preflight.WriterImplementationID == "" ||
+		preflight.AdmissionLedgerID == "" ||
+		preflight.AdmissionWriterContractID == "" ||
+		preflight.AdmissionWriterInventoryID == "" ||
+		preflight.AdmissionWriterPreflightID == "" ||
+		preflight.AdmissionLiveStageID == "" ||
+		preflight.AdmissionEnableGateID == "" ||
+		preflight.AdmissionSwitchID == "" ||
+		preflight.AdmissionPromotionID == "" ||
+		preflight.AdmissionDecisionID == "" ||
+		preflight.AdmissionAdapterID == "" ||
+		preflight.CandidateRunID == "" ||
+		preflight.CandidateDraftID == "" ||
+		preflight.CandidateExecutionID == "" ||
+		preflight.GeneratorAdapterID == "" ||
+		preflight.HandoffID == "" ||
+		preflight.DreamCandidateRunID == "" ||
+		preflight.CandidateTextHash == "" ||
+		preflight.TurnTextHash == "" {
+		gate.Reason = "candidate_admission_resonance_graft_preflight_missing_provenance"
+		return gate
+	}
+
+	gate.AdmissionResonanceGraftGateState = "shadow_graft_gate_ready_dry_run"
+	gate.AdmissionResonanceGraftGateAction = "gate_resonance_shadow_graft_dry_run"
+	gate.AdmissionResonanceGraftGateTarget = "resonance"
+	gate.AdmissionResonanceGraftGateTargetKind = "internal_world_shadow_graft_gate"
+	gate.AdmissionResonanceGraftGateTargetMode = "receipt_only_closed_gate_dry_run"
+	gate.AdmissionResonanceGraftGateReceiptShape = "resonance_shadow_graft_gate_contract"
+	gate.AdmissionResonanceGraftGateDryRunOnly = true
+	gate.AdmissionResonanceGraftGatePreflightVerified = true
+	gate.AdmissionResonanceGraftGateBoundaryVerified = preflight.AdmissionResonanceGraftPreflightBoundaryVerified
+	gate.AdmissionResonanceGraftGateObservationVerified = preflight.AdmissionResonanceGraftPreflightObservationVerified
+	gate.AdmissionResonanceGraftGateReceiverVerified = preflight.AdmissionResonanceGraftPreflightReceiverVerified
+	gate.AdmissionResonanceGraftGateIntentVerified = preflight.AdmissionResonanceGraftPreflightIntentVerified
+	gate.AdmissionResonanceGraftGateFinalGateVerified = preflight.AdmissionResonanceGraftPreflightFinalGateVerified
+	gate.AdmissionResonanceGraftGateSealVerified = preflight.AdmissionResonanceGraftPreflightSealVerified
+	gate.AdmissionResonanceGraftGatePermitVerified = preflight.AdmissionResonanceGraftPreflightPermitVerified
+	gate.AdmissionResonanceGraftGateReadinessVerified = preflight.AdmissionResonanceGraftPreflightReadinessVerified
+	gate.AdmissionResonanceGraftGateLedgerVerified = preflight.AdmissionResonanceGraftPreflightLedgerVerified
+	gate.AdmissionResonanceGraftGateWriterReady = preflight.AdmissionResonanceGraftPreflightWriterReady
+	gate.AdmissionResonanceGraftGateRollbackReady = preflight.AdmissionResonanceGraftPreflightRollbackReady
+	gate.AdmissionResonanceGraftGateLedgerReady = preflight.AdmissionResonanceGraftPreflightLedgerReady
+	gate.AdmissionResonanceGraftGateKind = "shadow_graft_gate"
+	gate.AdmissionResonanceGraftGateMode = "no_mutation_gate"
+	gate.AdmissionResonanceGraftGateStage = "pre_live_graft_gate"
+	gate.AdmissionResonanceGraftGateAdmissionRequired = true
+	gate.AdmissionResonanceGraftGateShadowOnly = true
+	gate.AdmissionResonanceGraftGateGraftAllowed = false
+	gate.AdmissionResonanceGraftGateRawDreamTextAllowed = false
+	gate.AdmissionResonanceGraftGateJanusSurfaceAllowed = false
+	gate.AdmissionResonanceGraftGateCoocLearningAllowed = false
+	gate.AdmissionResonanceGraftGateDeltaHarvestAllowed = false
+	gate.AdmissionResonanceGraftGateBodyMutationAllowed = false
+	gate.AdmissionResonanceGraftGateRollbackRequired = true
+	gate.AdmissionResonanceGraftGateReady = true
+	gate.LiveReady = true
+	gate.BodyTarget = "none"
+	gate.ContractsReady = false
+	gate.WriteAllowed = false
+	gate.AdmissionAllowed = false
+	gate.LiveAdmissionEnabled = false
+	gate.MutatesState = false
+	gate.AdmissionResonanceGraftGateCausalID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateCausalID(gate)
+	if gate.AdmissionResonanceGraftGateCausalID == "" {
+		gate.Reason = "missing_candidate_admission_resonance_graft_gate_causal_id"
+		return gate
+	}
+	gate.AdmissionResonanceGraftGateHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateHash(gate)
+	gate.AdmissionResonanceGraftGateReadBackHash = admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateReadBackHash(gate)
+	if gate.AdmissionResonanceGraftGateHash == "" ||
+		gate.AdmissionResonanceGraftGateReadBackHash == "" ||
+		gate.AdmissionResonanceGraftGateHash == gate.AdmissionResonanceGraftGateReadBackHash {
+		gate.Reason = "candidate_admission_resonance_graft_gate_read_back_missing"
+		return gate
+	}
+	gate.AdmissionResonanceGraftGateID = admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateID(gate)
+	if gate.AdmissionResonanceGraftGateID == "" {
+		gate.Reason = "missing_candidate_admission_resonance_graft_gate_id"
+		return gate
+	}
+	gate.Passed = true
+	gate.Reason = "resonance shadow graft gate prepared without body mutation"
+	return gate
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateCausalID(gate admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate) string {
+	h := hashJSON(struct {
+		AdmissionResonanceGraftPreflightID           string `json:"admission_resonance_graft_preflight_id"`
+		AdmissionResonanceGraftPreflightReadBackHash string `json:"admission_resonance_graft_preflight_read_back_hash"`
+		AdmissionResonanceGraftBoundaryID            string `json:"admission_resonance_graft_boundary_id"`
+		AdmissionResonanceObservationID              string `json:"admission_resonance_observation_id"`
+		AdmissionResonanceReceiverID                 string `json:"admission_resonance_receiver_id"`
+		CandidateRunID                               string `json:"candidate_run_id"`
+		CandidateTextHash                            string `json:"candidate_text_hash"`
+		TurnTextHash                                 string `json:"turn_text_hash"`
+		GateKind                                     string `json:"gate_kind"`
+		GateStage                                    string `json:"gate_stage"`
+	}{
+		AdmissionResonanceGraftPreflightID:           gate.AdmissionResonanceGraftPreflightID,
+		AdmissionResonanceGraftPreflightReadBackHash: gate.AdmissionResonanceGraftPreflightReadBackHash,
+		AdmissionResonanceGraftBoundaryID:            gate.AdmissionResonanceGraftBoundaryID,
+		AdmissionResonanceObservationID:              gate.AdmissionResonanceObservationID,
+		AdmissionResonanceReceiverID:                 gate.AdmissionResonanceReceiverID,
+		CandidateRunID:                               gate.CandidateRunID,
+		CandidateTextHash:                            gate.CandidateTextHash,
+		TurnTextHash:                                 gate.TurnTextHash,
+		GateKind:                                     gate.AdmissionResonanceGraftGateKind,
+		GateStage:                                    gate.AdmissionResonanceGraftGateStage,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-gate-causal-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateHash(gate admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate) string {
+	h := hashJSON(struct {
+		AdmissionResonanceGraftGateCausalID string `json:"admission_resonance_graft_gate_causal_id"`
+		AdmissionResonanceGraftPreflightID  string `json:"admission_resonance_graft_preflight_id"`
+		PreflightHash                       string `json:"preflight_hash"`
+		PreflightReadBackHash               string `json:"preflight_read_back_hash"`
+		GateMode                            string `json:"gate_mode"`
+		AdmissionRequired                   bool   `json:"admission_required"`
+		ShadowOnly                          bool   `json:"shadow_only"`
+		GraftAllowed                        bool   `json:"graft_allowed"`
+		DryRunOnly                          bool   `json:"dry_run_only"`
+	}{
+		AdmissionResonanceGraftGateCausalID: gate.AdmissionResonanceGraftGateCausalID,
+		AdmissionResonanceGraftPreflightID:  gate.AdmissionResonanceGraftPreflightID,
+		PreflightHash:                       gate.AdmissionResonanceGraftPreflightHash,
+		PreflightReadBackHash:               gate.AdmissionResonanceGraftPreflightReadBackHash,
+		GateMode:                            gate.AdmissionResonanceGraftGateMode,
+		AdmissionRequired:                   gate.AdmissionResonanceGraftGateAdmissionRequired,
+		ShadowOnly:                          gate.AdmissionResonanceGraftGateShadowOnly,
+		GraftAllowed:                        gate.AdmissionResonanceGraftGateGraftAllowed,
+		DryRunOnly:                          gate.AdmissionResonanceGraftGateDryRunOnly,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-gate-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateReadBackHash(gate admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate) string {
+	h := hashJSON(struct {
+		GateHash      string `json:"gate_hash"`
+		PreflightID   string `json:"preflight_id"`
+		GateKind      string `json:"gate_kind"`
+		GateReady     bool   `json:"gate_ready"`
+		BodyMutation  bool   `json:"body_mutation"`
+		AdmissionOpen bool   `json:"admission_open"`
+	}{
+		GateHash:      gate.AdmissionResonanceGraftGateHash,
+		PreflightID:   gate.AdmissionResonanceGraftPreflightID,
+		GateKind:      gate.AdmissionResonanceGraftGateKind,
+		GateReady:     gate.AdmissionResonanceGraftGateReady,
+		BodyMutation:  gate.AdmissionResonanceGraftGateBodyMutationAllowed,
+		AdmissionOpen: gate.LiveAdmissionEnabled,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-gate-read-" + h
+}
+
+func admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateID(gate admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate) string {
+	h := hashJSON(struct {
+		AdmissionResonanceGraftGateCausalID     string `json:"admission_resonance_graft_gate_causal_id"`
+		AdmissionResonanceGraftGateHash         string `json:"admission_resonance_graft_gate_hash"`
+		AdmissionResonanceGraftGateReadBackHash string `json:"admission_resonance_graft_gate_read_back_hash"`
+		AdmissionResonanceGraftPreflightID      string `json:"admission_resonance_graft_preflight_id"`
+		AdmissionResonanceGraftBoundaryID       string `json:"admission_resonance_graft_boundary_id"`
+		AdmissionResonanceObservationID         string `json:"admission_resonance_observation_id"`
+		AdmissionResonanceReceiverID            string `json:"admission_resonance_receiver_id"`
+		AdmissionFinalGateID                    string `json:"admission_final_gate_id"`
+		LedgerVerificationID                    string `json:"ledger_verification_id"`
+		GateState                               string `json:"gate_state"`
+		GateAction                              string `json:"gate_action"`
+		GateTarget                              string `json:"gate_target"`
+		GateTargetKind                          string `json:"gate_target_kind"`
+		GateTargetMode                          string `json:"gate_target_mode"`
+		GateReceiptShape                        string `json:"gate_receipt_shape"`
+		GateDryRunOnly                          bool   `json:"gate_dry_run_only"`
+		PreflightVerified                       bool   `json:"preflight_verified"`
+		AdmissionRequired                       bool   `json:"admission_required"`
+		ShadowOnly                              bool   `json:"shadow_only"`
+		GraftAllowed                            bool   `json:"graft_allowed"`
+		RawTextAllowed                          bool   `json:"raw_text_allowed"`
+		JanusSurfaceAllowed                     bool   `json:"janus_surface_allowed"`
+		CoocLearningAllowed                     bool   `json:"cooc_learning_allowed"`
+		DeltaHarvestAllowed                     bool   `json:"delta_harvest_allowed"`
+		BodyMutationAllowed                     bool   `json:"body_mutation_allowed"`
+		RollbackRequired                        bool   `json:"rollback_required"`
+		GateReady                               bool   `json:"gate_ready"`
+		ContractsReady                          bool   `json:"contracts_ready"`
+		BodyTarget                              string `json:"body_target"`
+		WriteAllowed                            bool   `json:"write_allowed"`
+		AdmissionAllowed                        bool   `json:"admission_allowed"`
+		LiveAdmissionEnabled                    bool   `json:"live_admission_enabled"`
+		MutatesState                            bool   `json:"mutates_state"`
+	}{
+		AdmissionResonanceGraftGateCausalID:     gate.AdmissionResonanceGraftGateCausalID,
+		AdmissionResonanceGraftGateHash:         gate.AdmissionResonanceGraftGateHash,
+		AdmissionResonanceGraftGateReadBackHash: gate.AdmissionResonanceGraftGateReadBackHash,
+		AdmissionResonanceGraftPreflightID:      gate.AdmissionResonanceGraftPreflightID,
+		AdmissionResonanceGraftBoundaryID:       gate.AdmissionResonanceGraftBoundaryID,
+		AdmissionResonanceObservationID:         gate.AdmissionResonanceObservationID,
+		AdmissionResonanceReceiverID:            gate.AdmissionResonanceReceiverID,
+		AdmissionFinalGateID:                    gate.AdmissionFinalGateID,
+		LedgerVerificationID:                    gate.LedgerVerificationID,
+		GateState:                               gate.AdmissionResonanceGraftGateState,
+		GateAction:                              gate.AdmissionResonanceGraftGateAction,
+		GateTarget:                              gate.AdmissionResonanceGraftGateTarget,
+		GateTargetKind:                          gate.AdmissionResonanceGraftGateTargetKind,
+		GateTargetMode:                          gate.AdmissionResonanceGraftGateTargetMode,
+		GateReceiptShape:                        gate.AdmissionResonanceGraftGateReceiptShape,
+		GateDryRunOnly:                          gate.AdmissionResonanceGraftGateDryRunOnly,
+		PreflightVerified:                       gate.AdmissionResonanceGraftGatePreflightVerified,
+		AdmissionRequired:                       gate.AdmissionResonanceGraftGateAdmissionRequired,
+		ShadowOnly:                              gate.AdmissionResonanceGraftGateShadowOnly,
+		GraftAllowed:                            gate.AdmissionResonanceGraftGateGraftAllowed,
+		RawTextAllowed:                          gate.AdmissionResonanceGraftGateRawDreamTextAllowed,
+		JanusSurfaceAllowed:                     gate.AdmissionResonanceGraftGateJanusSurfaceAllowed,
+		CoocLearningAllowed:                     gate.AdmissionResonanceGraftGateCoocLearningAllowed,
+		DeltaHarvestAllowed:                     gate.AdmissionResonanceGraftGateDeltaHarvestAllowed,
+		BodyMutationAllowed:                     gate.AdmissionResonanceGraftGateBodyMutationAllowed,
+		RollbackRequired:                        gate.AdmissionResonanceGraftGateRollbackRequired,
+		GateReady:                               gate.AdmissionResonanceGraftGateReady,
+		ContractsReady:                          gate.ContractsReady,
+		BodyTarget:                              gate.BodyTarget,
+		WriteAllowed:                            gate.WriteAllowed,
+		AdmissionAllowed:                        gate.AdmissionAllowed,
+		LiveAdmissionEnabled:                    gate.LiveAdmissionEnabled,
+		MutatesState:                            gate.MutatesState,
+	})
+	if h == "" {
+		return ""
+	}
+	return "resonance-graft-gate-id-" + h
+}
+
+func recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftGate(gate admissionLiveRouteTurnCandidateAdmissionResonanceGraftGate) error {
+	path := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_GATE_LOG"))
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(gate)
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
