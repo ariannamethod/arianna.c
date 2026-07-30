@@ -234,7 +234,8 @@ func admissionLiveRouteTurnObservationDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun()
 }
 
 type chatLiveRouteTurnCandidateChain struct {
@@ -287,7 +288,8 @@ func chatLiveRouteTurnCandidateChainDryRunNeeded() bool {
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun()
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun()
 }
 
 func chatLiveRouteTurnCandidateChainText() string {
@@ -331,7 +333,8 @@ func chatLiveRouteTurnCandidateChainText() string {
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun() ||
 		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun() ||
-		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() {
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun() ||
+		admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun() {
 		if text := os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT"); strings.TrimSpace(text) != "" {
 			return text
 		}
@@ -1116,6 +1119,54 @@ func chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreLine(store a
 		chatLiveRouteReasonSuffix(store.Reason))
 }
 
+func chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderLine(reader admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader) string {
+	return fmt.Sprintf("│  · live-route candidate admission resonance graft candidate store reader dry-run: class=%s route=%s source=%s store=%s candidate=%s gate=%s observation=%s final_gate=%s ledger_verification=%s reader_kind=%s reader_mode=%s reader_stage=%s causal_id=%s reader_hash=%s replay_hash=%s read_back_hash=%s source_store_causal_id=%s source_store_read_back_hash=%s read_only=%t replay_only=%t source_append_only=%t source_read_back=%t source_receipt_verified=%t graft_allowed=%t raw_text_allowed=%t janus_surface_allowed=%t cooc_learning_allowed=%t delta_harvest_allowed=%t body_mutation_allowed=%t reader_state=%s reader_action=%s reader_target=%s reader_target_kind=%s reader_target_mode=%s receipt_shape=%s dry_run_only=%t store_verified=%t candidate_verified=%t ledger_verified=%t hash_verified=%t reader_read_back_verified=%t reader_ready=%t contracts_ready=%t write_allowed=%t admission_allowed=%t live_ready=%t live_enabled=%t mutates=%t admission_resonance_graft_candidate_store_reader_id=%s passed=%t%s",
+		reader.PromptClass, reader.Route, reader.Source,
+		reader.AdmissionResonanceGraftCandidateStoreID,
+		reader.AdmissionResonanceGraftCandidateID,
+		reader.AdmissionResonanceGraftGateID,
+		reader.AdmissionResonanceObservationID,
+		reader.AdmissionFinalGateID,
+		reader.LedgerVerificationID,
+		reader.AdmissionResonanceGraftCandidateStoreReaderKind,
+		reader.AdmissionResonanceGraftCandidateStoreReaderMode,
+		reader.AdmissionResonanceGraftCandidateStoreReaderStage,
+		reader.AdmissionResonanceGraftCandidateStoreReaderCausalID,
+		reader.AdmissionResonanceGraftCandidateStoreReaderHash,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReplayHash,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash,
+		reader.SourceAdmissionResonanceGraftCandidateStoreCausalID,
+		reader.SourceAdmissionResonanceGraftCandidateStoreReadBackHash,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReadOnly,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReplayOnly,
+		reader.AdmissionResonanceGraftCandidateStoreReaderSourceAppendOnly,
+		reader.AdmissionResonanceGraftCandidateStoreReaderSourceReadBack,
+		reader.AdmissionResonanceGraftCandidateStoreReaderSourceReceiptVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderGraftAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderRawDreamTextAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderJanusSurfaceAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderCoocLearningAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderDeltaHarvestAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderBodyMutationAllowed,
+		reader.AdmissionResonanceGraftCandidateStoreReaderState,
+		reader.AdmissionResonanceGraftCandidateStoreReaderAction,
+		reader.AdmissionResonanceGraftCandidateStoreReaderTarget,
+		reader.AdmissionResonanceGraftCandidateStoreReaderTargetKind,
+		reader.AdmissionResonanceGraftCandidateStoreReaderTargetMode,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReceiptShape,
+		reader.AdmissionResonanceGraftCandidateStoreReaderDryRunOnly,
+		reader.AdmissionResonanceGraftCandidateStoreReaderStoreVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderCandidateVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderLedgerVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderHashVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReadBackVerified,
+		reader.AdmissionResonanceGraftCandidateStoreReaderReady,
+		reader.ContractsReady, reader.WriteAllowed, reader.AdmissionAllowed,
+		reader.LiveReady, reader.LiveAdmissionEnabled, reader.MutatesState,
+		reader.AdmissionResonanceGraftCandidateStoreReaderID, reader.Passed,
+		chatLiveRouteReasonSuffix(reader.Reason))
+}
+
 func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObservation) []string {
 	if !chatLiveRouteTurnCandidateChainDryRunNeeded() || obs.Schema == "" {
 		return nil
@@ -1129,7 +1180,9 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 	resonanceGraftGateDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun()
 	resonanceGraftCandidateDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun()
 	resonanceGraftCandidateStoreDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun()
-	resonanceGraftCandidateNeeded := resonanceGraftCandidateDryRun || resonanceGraftCandidateStoreDryRun
+	resonanceGraftCandidateStoreReaderDryRun := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun()
+	resonanceGraftCandidateStoreNeeded := resonanceGraftCandidateStoreDryRun || resonanceGraftCandidateStoreReaderDryRun
+	resonanceGraftCandidateNeeded := resonanceGraftCandidateDryRun || resonanceGraftCandidateStoreNeeded
 	resonanceGraftGateNeeded := resonanceGraftGateDryRun || resonanceGraftCandidateNeeded
 	resonanceGraftPreflightNeeded := resonanceGraftPreflightDryRun || resonanceGraftGateNeeded
 	resonanceGraftBoundaryNeeded := resonanceGraftBoundaryDryRun || resonanceGraftPreflightNeeded
@@ -1619,12 +1672,21 @@ func chatLiveRouteTurnCandidateChainDryRunLines(obs admissionLiveRouteTurnObserv
 													}
 													lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateLine(candidate))
 												}
-												if resonanceGraftCandidateStoreDryRun {
+												if resonanceGraftCandidateStoreNeeded {
 													store := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreForCandidate(candidate)
-													if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStore(store); err != nil {
-														return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft candidate store dry-run log failed: %v", err))
+													if resonanceGraftCandidateStoreDryRun {
+														if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStore(store); err != nil {
+															return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft candidate store dry-run log failed: %v", err))
+														}
+														lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreLine(store))
 													}
-													lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreLine(store))
+													if resonanceGraftCandidateStoreReaderDryRun {
+														reader := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderForStore(store)
+														if err := recordAdmissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReader(reader); err != nil {
+															return append(lines, fmt.Sprintf("│  · live-route candidate admission resonance graft candidate store reader dry-run log failed: %v", err))
+														}
+														lines = append(lines, chatLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderLine(reader))
+													}
 												}
 											}
 										}

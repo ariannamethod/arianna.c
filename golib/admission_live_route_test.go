@@ -3555,6 +3555,122 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		resonanceGraftCandidateStore.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission resonance graft candidate store lost provenance: store=%+v candidate=%+v", resonanceGraftCandidateStore, resonanceGraftCandidate)
 	}
+	resonanceGraftCandidateStoreReader := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderForStore(resonanceGraftCandidateStore)
+	if resonanceGraftCandidateStoreReader.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderSchema ||
+		resonanceGraftCandidateStoreReader.Timing != "live_admission_resonance_graft_candidate_store_reader" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderState != "shadow_graft_candidate_store_read_back_dry_run" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderAction != "read_resonance_shadow_graft_candidate_store_dry_run" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderTarget != "resonance" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderTargetKind != "internal_world_shadow_graft_candidate_store_reader" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderTargetMode != "read_only_replay_dry_run" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReceiptShape != "resonance_shadow_graft_candidate_store_reader_receipt" ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderDryRunOnly ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderStoreVerified ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderCandidateVerified ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderLedgerVerified ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReadBackVerified ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderHashVerified ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderKind != "shadow_graft_candidate_store_reader" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderMode != "read_only_replay" ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderStage != "pre_live_graft_candidate_store_reader" ||
+		!strings.HasPrefix(resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderCausalID, "resonance-graft-candidate-store-reader-causal-") ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderCausalID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderCausalID(resonanceGraftCandidateStoreReader) ||
+		!strings.HasPrefix(resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderHash, "resonance-graft-candidate-store-reader-") ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderHash(resonanceGraftCandidateStoreReader) ||
+		!strings.HasPrefix(resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReplayHash, "resonance-graft-candidate-store-reader-replay-") ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReplayHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderReplayHash(resonanceGraftCandidateStoreReader) ||
+		!strings.HasPrefix(resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash, "resonance-graft-candidate-store-reader-read-") ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderReadBackHash(resonanceGraftCandidateStoreReader) ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderHash == resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReadBackHash ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReadOnly ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReplayOnly ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderSourceAppendOnly ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderSourceReadBack ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderSourceReceiptVerified ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderGraftAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderRawDreamTextAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderJanusSurfaceAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderCoocLearningAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderDeltaHarvestAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderBodyMutationAllowed ||
+		!resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReady ||
+		resonanceGraftCandidateStoreReader.ContractsReady ||
+		resonanceGraftCandidateStoreReader.WriteAllowed ||
+		resonanceGraftCandidateStoreReader.AdmissionAllowed ||
+		resonanceGraftCandidateStoreReader.LiveAdmissionEnabled ||
+		resonanceGraftCandidateStoreReader.MutatesState ||
+		resonanceGraftCandidateStoreReader.BodyTarget != "none" ||
+		!strings.HasPrefix(resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderID, "resonance-graft-candidate-store-reader-id-") ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderID != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderID(resonanceGraftCandidateStoreReader) ||
+		!resonanceGraftCandidateStoreReader.Passed ||
+		!resonanceGraftCandidateStoreReader.LiveReady ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreSchema != admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreSchema ||
+		!resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStorePassed ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreID != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreID ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreAction != "store_resonance_shadow_graft_candidate_dry_run" ||
+		!resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreReady ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreCausalID != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreCausalID ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreHash != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreHash ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateStoreReadBackHash != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreReadBackHash ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftCandidateIDForStoreReader != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateID ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceGraftGateIDForStoreReader != resonanceGraftCandidateStore.AdmissionResonanceGraftGateID ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionResonanceObservationIDForStoreReader != resonanceGraftCandidateStore.AdmissionResonanceObservationID ||
+		resonanceGraftCandidateStoreReader.SourceAdmissionFinalGateIDForStoreReader != resonanceGraftCandidateStore.AdmissionFinalGateID ||
+		resonanceGraftCandidateStoreReader.SourceLedgerVerificationIDForStoreReader != resonanceGraftCandidateStore.LedgerVerificationID ||
+		resonanceGraftCandidateStoreReader.Reason != "resonance shadow graft candidate store read back without opening body" {
+		t.Fatalf("resonance graft candidate store reader should replay only a closed store receipt: %+v", resonanceGraftCandidateStoreReader)
+	}
+	if resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreID != resonanceGraftCandidateStore.AdmissionResonanceGraftCandidateStoreID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateID != resonanceGraftCandidate.AdmissionResonanceGraftCandidateID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftGateID != resonanceGraftGate.AdmissionResonanceGraftGateID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftPreflightID != resonanceGraftPreflight.AdmissionResonanceGraftPreflightID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceGraftBoundaryID != resonanceGraftBoundary.AdmissionResonanceGraftBoundaryID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceObservationID != resonanceObservation.AdmissionResonanceObservationID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceReceiverID != resonanceReceiver.AdmissionResonanceReceiverID ||
+		resonanceGraftCandidateStoreReader.AdmissionResonanceIntentID != resonanceIntent.AdmissionResonanceIntentID ||
+		resonanceGraftCandidateStoreReader.AdmissionFinalGateID != finalGate.AdmissionFinalGateID ||
+		resonanceGraftCandidateStoreReader.AdmissionSealID != seal.AdmissionSealID ||
+		resonanceGraftCandidateStoreReader.AdmissionPermitID != permit.AdmissionPermitID ||
+		resonanceGraftCandidateStoreReader.AdmissionReadinessID != readiness.AdmissionReadinessID ||
+		resonanceGraftCandidateStoreReader.LedgerVerificationID != ledgerVerification.LedgerVerificationID ||
+		resonanceGraftCandidateStoreReader.LedgerPersistenceID != ledgerPersistence.LedgerPersistenceID ||
+		resonanceGraftCandidateStoreReader.LedgerImplementationID != ledgerImpl.LedgerImplementationID ||
+		resonanceGraftCandidateStoreReader.RollbackImplementationID != rollbackImpl.RollbackImplementationID ||
+		resonanceGraftCandidateStoreReader.WriterReceiptID != writerReceipt.WriterReceiptID ||
+		resonanceGraftCandidateStoreReader.WriterImplementationID != writerImpl.WriterImplementationID ||
+		resonanceGraftCandidateStoreReader.AdmissionLedgerID != ledger.AdmissionLedgerID ||
+		resonanceGraftCandidateStoreReader.AdmissionWriterContractID != writerContract.WriterContractID ||
+		resonanceGraftCandidateStoreReader.AdmissionWriterInventoryID != writerInventory.WriterInventoryID ||
+		resonanceGraftCandidateStoreReader.AdmissionWriterPreflightID != writerPreflight.WriterPreflightID ||
+		resonanceGraftCandidateStoreReader.AdmissionLiveStageID != liveStage.LiveStageID ||
+		resonanceGraftCandidateStoreReader.AdmissionEnableGateID != armedGate.EnableGateID ||
+		resonanceGraftCandidateStoreReader.AdmissionSwitchID != sw.SwitchID ||
+		resonanceGraftCandidateStoreReader.AdmissionPromotionID != promotion.PromotionID ||
+		resonanceGraftCandidateStoreReader.AdmissionDecisionID != decision.DecisionID ||
+		resonanceGraftCandidateStoreReader.AdmissionAdapterID != adapter.AdmissionAdapterID ||
+		resonanceGraftCandidateStoreReader.CandidateExecutionID != execution.ExecutionID ||
+		resonanceGraftCandidateStoreReader.CandidateDraftID != draft.DraftID ||
+		resonanceGraftCandidateStoreReader.CandidateRunID != candidate.RunID ||
+		resonanceGraftCandidateStoreReader.CandidateTextHash != hashJSON(text) ||
+		resonanceGraftCandidateStoreReader.TurnTextHash != obs.TextHash {
+		t.Fatalf("admission resonance graft candidate store reader lost provenance: reader=%+v store=%+v", resonanceGraftCandidateStoreReader, resonanceGraftCandidateStore)
+	}
+	tamperedResonanceGraftCandidateStoreForReader := resonanceGraftCandidateStore
+	tamperedResonanceGraftCandidateStoreForReader.AdmissionResonanceGraftCandidateStoreID = "resonance-graft-candidate-store-id-tampered"
+	tamperedResonanceGraftCandidateStoreReader := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderForStore(tamperedResonanceGraftCandidateStoreForReader)
+	if tamperedResonanceGraftCandidateStoreReader.Passed ||
+		tamperedResonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderID != "" ||
+		tamperedResonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderState != "blocked" ||
+		tamperedResonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderAction != "reject" ||
+		!tamperedResonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderDryRunOnly ||
+		tamperedResonanceGraftCandidateStoreReader.AdmissionResonanceGraftCandidateStoreReaderReady ||
+		tamperedResonanceGraftCandidateStoreReader.LiveReady ||
+		tamperedResonanceGraftCandidateStoreReader.BodyTarget != "none" ||
+		tamperedResonanceGraftCandidateStoreReader.WriteAllowed ||
+		tamperedResonanceGraftCandidateStoreReader.MutatesState ||
+		tamperedResonanceGraftCandidateStoreReader.Reason != "candidate_admission_resonance_graft_candidate_store_id_mismatch" {
+		t.Fatalf("tampered resonance graft candidate store id should fail closed before graft candidate store reader: %+v", tamperedResonanceGraftCandidateStoreReader)
+	}
 	tamperedResonanceGraftCandidateForStore := resonanceGraftCandidate
 	tamperedResonanceGraftCandidateForStore.AdmissionResonanceGraftCandidateID = "resonance-graft-candidate-id-tampered"
 	tamperedResonanceGraftCandidateStore := admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreForCandidate(tamperedResonanceGraftCandidateForStore)
