@@ -368,6 +368,13 @@ func main() {
 		runChat()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--body-inventory-smoke" {
+		if err := runBodyInventorySmoke(); err != nil {
+			fmt.Println("body-inventory-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-smoke" {
 		if err := runAdmissionSmoke(); err != nil {
 			fmt.Println("admission-smoke:", err)

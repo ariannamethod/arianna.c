@@ -32,6 +32,11 @@ Oleg-provided local source.
 Read-only evaluation should run from a temporary state directory. `make
 body-smoke` does this for its runtime probes by symlinking GGUF files into a
 scratch `weights/` directory and letting generated state stay there.
+`make body-inventory-smoke` is the lighter preflight: it emits a non-mutating
+`arianna.body_inventory.v1` receipt with `ready`, `degraded`, or `blocked`
+status. Janus and Resonance are required for the current live trio; nano, DOE,
+chorus, KK, and future side organs degrade when absent instead of shutting down
+the inspection path.
 
 ## First Hybrid Target
 
