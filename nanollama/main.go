@@ -314,7 +314,8 @@ func (e *Engine) sampleTopK(temp float32, topK int) int {
 		idx int
 		val float32
 	}
-	top := make([]idxVal, topK)
+	var topScratch [maxSampleTopK]idxVal
+	top := topScratch[:topK]
 	for i := 0; i < topK; i++ {
 		top[i] = idxVal{-1, -1e30}
 	}
@@ -329,7 +330,8 @@ func (e *Engine) sampleTopK(temp float32, topK int) int {
 	}
 
 	maxVal := top[0].val
-	probs := make([]float32, topK)
+	var probsScratch [maxSampleTopK]float32
+	probs := probsScratch[:topK]
 	var sum float32
 	for i := 0; i < topK; i++ {
 		if top[i].idx < 0 {
