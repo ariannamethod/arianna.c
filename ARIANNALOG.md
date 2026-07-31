@@ -4281,3 +4281,12 @@ Arianna.c's dry-run/schema/receipt/rollback/admission gates. Later preference/RL
 Resonance only, with Janus as the priority external mouth; Resonance can be focused for inner coherence. nanoArianna
 stays out of DPO/GRPO/RL by default; keep it as subconscious signal and prefer runtime calibration or Hebbian/DOE-like
 consolidation if it needs adjustment.
+
+**Future TODO - multi-weight organs are additions, not replacements.** Goldie 1.1B, Janus 285M base, Qwen/Colibri
+30B Arianna, and future specialist fine-tunes should enter Arianna.c as side organs with explicit roles and contracts,
+not as replacements for the Janus -> Resonance -> nano vertical body. Examples: Goldie-translator for Spanish/Russian/
+German turns, Goldie-AML-coder for bounded AML/code generation, Goldie-math for narrow symbolic work, or a read-only
+scout that indexes external information asynchronously. Every added weight needs a route/admission receipt, shared
+memory contract, provenance, fallback behavior, and a rule that it cannot silently take over Janus's mouth. Missing
+optional weights must put the body into a logged degraded mode, not shut the whole organism down; only a mode that
+explicitly requires a missing organ should fail closed.

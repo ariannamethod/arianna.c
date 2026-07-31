@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdarg.h>
 
 #define MAX_BLOCKS    256
 #define MAX_LINKS     64
@@ -70,6 +71,18 @@ static const char *skip_ws(const char *p) {
 
 static int starts_with(const char *s, const char *prefix) {
     return strncmp(s, prefix, strlen(prefix)) == 0;
+}
+
+static int appendf(char *buf, size_t cap, int *pos, const char *fmt, ...) {
+    if (!buf || !pos || *pos < 0 || (size_t)*pos >= cap) return 0;
+    size_t left = cap - (size_t)*pos;
+    va_list ap;
+    va_start(ap, fmt);
+    int wrote = vsnprintf(buf + *pos, left, fmt, ap);
+    va_end(ap);
+    if (wrote < 0 || (size_t)wrote >= left) return 0;
+    *pos += wrote;
+    return 1;
 }
 
 static void rtrim(char *s) {
@@ -607,41 +620,47 @@ int main(int argc, char **argv) {
     int have_aml     = !no_accel && file_exists(libaml);
     int have_notorch = !no_accel && file_exists(libnotorch);
 
-    int n = snprintf(cmd, sizeof(cmd),
-                     "cc -O2 -Wall -Wno-unused-parameter -Wno-unused-variable "
-                     "-Wno-unused-function -Wno-comment -I'%s'",
-                     inc_dir);
+    int n = 0;
+    int cmd_ok = appendf(cmd, sizeof(cmd), &n,
+                         "cc -O2 -Wall -Wno-unused-parameter -Wno-unused-variable "
+                         "-Wno-unused-function -Wno-comment -I'%s'",
+                         inc_dir);
 
 #if defined(__APPLE__)
     if (!no_accel) {
-        n += snprintf(cmd + n, sizeof(cmd) - n,
-                      " -DUSE_BLAS -DACCELERATE -DACCELERATE_NEW_LAPACK");
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n,
+                                   " -DUSE_BLAS -DACCELERATE -DACCELERATE_NEW_LAPACK");
     }
 #elif defined(__linux__)
     if (!no_accel) {
-        n += snprintf(cmd + n, sizeof(cmd) - n, " -DUSE_BLAS");
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " -DUSE_BLAS");
     }
 #endif
 
-    n += snprintf(cmd + n, sizeof(cmd) - n, " '%s' -o '%s'", cpath, outfile);
+    cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " '%s' -o '%s'", cpath, outfile);
 
     if (have_notorch)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " '%s'", libnotorch);
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " '%s'", libnotorch);
     if (have_aml)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " '%s'", libaml);
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " '%s'", libaml);
 
-    n += snprintf(cmd + n, sizeof(cmd) - n, " -lm -lpthread");
+    cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " -lm -lpthread");
 
 #if defined(__APPLE__)
     if (!no_accel)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " -framework Accelerate");
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " -framework Accelerate");
 #elif defined(__linux__)
     if (!no_accel)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " -lopenblas");
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " -lopenblas");
 #endif
 
     for (int li = 0; li < p.n_links; li++)
-        n += snprintf(cmd + n, sizeof(cmd) - n, " %s", p.links[li]);
+        cmd_ok = cmd_ok && appendf(cmd, sizeof(cmd), &n, " %s", p.links[li]);
+
+    if (!cmd_ok) {
+        fprintf(stderr, "amlc: compiler command too long\n");
+        return 1;
+    }
 
     if (no_accel) {
         fprintf(stderr, "amlc: building with --no-accel (pure scalar C)\n");
@@ -674,8 +693,13 @@ int main(int argc, char **argv) {
             rn = snprintf(run_cmd, sizeof(run_cmd), "%s", outfile);
         else
             rn = snprintf(run_cmd, sizeof(run_cmd), "./%s", outfile);
+        int run_ok = (rn >= 0 && (size_t)rn < sizeof(run_cmd));
         for (int j = 0; j < prog_argc; j++)
-            rn += snprintf(run_cmd + rn, sizeof(run_cmd) - rn, " \"%s\"", prog_argv[j]);
+            run_ok = run_ok && appendf(run_cmd, sizeof(run_cmd), &rn, " \"%s\"", prog_argv[j]);
+        if (!run_ok) {
+            fprintf(stderr, "amlc: run command too long\n");
+            return 1;
+        }
         return system(run_cmd);
     }
 

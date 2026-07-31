@@ -138,6 +138,21 @@ static float rand_uniform(void) {
     return (float)xorshift32() / 4294967296.0f;
 }
 
+static int nt_count2(int a, int b, size_t* out) {
+    if (!out || a <= 0 || b <= 0) return 0;
+    size_t aa = (size_t)a;
+    size_t bb = (size_t)b;
+    if (aa > SIZE_MAX / bb) return 0;
+    *out = aa * bb;
+    return 1;
+}
+
+static float* nt_calloc2_float(int a, int b) {
+    size_t n = 0;
+    if (!nt_count2(a, b, &n)) return NULL;
+    return (float*)calloc(n, sizeof(float));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TENSOR
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -165,8 +180,9 @@ nt_tensor* nt_tensor_new(int len) {
 
 nt_tensor* nt_tensor_new2d(int rows, int cols) {
     if (rows <= 0 || cols <= 0) return NULL;
-    int total = rows * cols;
-    if (total > NT_MAX_ELEMENTS) return NULL;
+    size_t total_sz = 0;
+    if (!nt_count2(rows, cols, &total_sz) || total_sz > NT_MAX_ELEMENTS) return NULL;
+    int total = (int)total_sz;
     nt_tensor* t = nt_tensor_new(total);
     if (!t) return NULL;
     t->ndim = 2;
@@ -178,12 +194,14 @@ nt_tensor* nt_tensor_new2d(int rows, int cols) {
 
 nt_tensor* nt_tensor_new_shape(const int* shape, int ndim) {
     if (ndim <= 0 || ndim > NT_MAX_DIMS) return NULL;
-    int total = 1;
+    size_t total_sz = 1;
     for (int i = 0; i < ndim; i++) {
         if (shape[i] <= 0) return NULL;
-        total *= shape[i];
-        if (total > NT_MAX_ELEMENTS) return NULL;
+        if (total_sz > SIZE_MAX / (size_t)shape[i]) return NULL;
+        total_sz *= (size_t)shape[i];
+        if (total_sz > NT_MAX_ELEMENTS) return NULL;
     }
+    int total = (int)total_sz;
     nt_tensor* t = nt_tensor_new(total);
     if (!t) return NULL;
     t->ndim = ndim;
@@ -248,9 +266,12 @@ void nt_kaiming_uniform_init(nt_tensor* t, int fan_in) {
 
 int nt_tensor_reshape(nt_tensor* t, const int* new_shape, int new_ndim) {
     if (!t || new_ndim <= 0 || new_ndim > NT_MAX_DIMS) return -1;
-    int total = 1;
-    for (int i = 0; i < new_ndim; i++) total *= new_shape[i];
-    if (total != t->len) return -1;
+    size_t total_sz = 1;
+    for (int i = 0; i < new_ndim; i++) {
+        if (new_shape[i] <= 0 || total_sz > SIZE_MAX / (size_t)new_shape[i]) return -1;
+        total_sz *= (size_t)new_shape[i];
+    }
+    if (total_sz > NT_MAX_ELEMENTS || (int)total_sz != t->len) return -1;
     t->ndim = new_ndim;
     for (int i = 0; i < new_ndim; i++) t->shape[i] = new_shape[i];
     compute_strides(t);
@@ -664,7 +685,7 @@ void nt_tape_backward(int loss_idx) {
                 int rows = pw->output->shape[0];
                 int cols = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / rows;
                 if (rows > 0 && cols > 0) {
-                    float* dw = (float*)calloc(rows * cols, sizeof(float));
+                    float* dw = nt_calloc2_float(rows, cols);
                     if (dw) {
                         for (int i = 0; i < rows; i++)
                             for (int j = 0; j < cols; j++)
@@ -1070,7 +1091,7 @@ void nt_tape_backward(int loss_idx) {
                 float* gamma_data = NULL;
                 if (has_gamma) gamma_data = g_tape.entries[e->parent2].output->data;
 
-                float* gx = (float*)calloc(T * D, sizeof(float));
+                float* gx = nt_calloc2_float(T, D);
                 float* gg = has_gamma ? (float*)calloc(D, sizeof(float)) : NULL;
                 if (gx) {
                     float* Xrn = px->output->data;
@@ -1116,9 +1137,9 @@ void nt_tape_backward(int loss_idx) {
                 int T = (int)e->aux;
                 int D = (int)e->aux2;
                 float sc = 1.0f / sqrtf((float)D);
-                float* dq = (float*)calloc(T * D, sizeof(float));
-                float* dk = (float*)calloc(T * D, sizeof(float));
-                float* dv = (float*)calloc(T * D, sizeof(float));
+                float* dq = nt_calloc2_float(T, D);
+                float* dk = nt_calloc2_float(T, D);
+                float* dv = nt_calloc2_float(T, D);
                 if (dq && dk && dv) {
                     for (int i = 0; i < T; i++) {
                         float* qi = pq->output->data + i * D;
@@ -1179,9 +1200,9 @@ void nt_tape_backward(int loss_idx) {
                 int D = e->output->len / T;
                 int n_heads = D / head_dim;
                 float sc = 1.0f / sqrtf((float)head_dim);
-                float* dq = (float*)calloc(T * D, sizeof(float));
-                float* dk = (float*)calloc(T * D, sizeof(float));
-                float* dv = (float*)calloc(T * D, sizeof(float));
+                float* dq = nt_calloc2_float(T, D);
+                float* dk = nt_calloc2_float(T, D);
+                float* dv = nt_calloc2_float(T, D);
                 int mh_done_gpu = 0;
 #ifdef USE_CUDA
                 /* GPU backward: kernel needs softmaxed scores. Forward did not
@@ -1303,9 +1324,9 @@ void nt_tape_backward(int loss_idx) {
                 int KV_D = n_kv_heads * head_dim;
                 int gqa_ratio = n_heads / n_kv_heads;
                 float sc = 1.0f / sqrtf((float)head_dim);
-                float* dq = (float*)calloc(T * Q_D, sizeof(float));
-                float* dk = (float*)calloc(T * KV_D, sizeof(float));
-                float* dv = (float*)calloc(T * KV_D, sizeof(float));
+                float* dq = nt_calloc2_float(T, Q_D);
+                float* dk = nt_calloc2_float(T, KV_D);
+                float* dv = nt_calloc2_float(T, KV_D);
                 if (dq && dk && dv) {
                     for (int h = 0; h < n_heads; h++) {
                         int kv_h = h / gqa_ratio;
@@ -1386,8 +1407,8 @@ void nt_tape_backward(int loss_idx) {
                 long wra_total = (long)nr * n_embd * rank;
 
                 float* dwr = (float*)calloc(combined_len, sizeof(float));
-                float* dx  = (float*)calloc((long)T * n_embd, sizeof(float));
-                float* dv  = (float*)calloc((long)T * out_dim, sizeof(float));
+                float* dx  = nt_calloc2_float(T, n_embd);
+                float* dv  = nt_calloc2_float(T, out_dim);
 
                 int rrlr_bw_gpu = 0;
 #ifdef USE_CUDA
@@ -1533,8 +1554,8 @@ void nt_tape_backward(int loss_idx) {
                 int out_dim = nr * hd;
                 int ctx = pwr->output->len / (nr * n_embd);
                 float* dwr = (float*)calloc(pwr->output->len, sizeof(float));
-                float* dx  = (float*)calloc(T * n_embd, sizeof(float));
-                float* dv  = (float*)calloc(T * out_dim, sizeof(float));
+                float* dx  = nt_calloc2_float(T, n_embd);
+                float* dv  = nt_calloc2_float(T, out_dim);
                 if (dwr && dx && dv) {
                     for (int h = 0; h < nr; h++) {
                         int wr_base = h * n_embd * ctx; int v_off = h * hd;
@@ -1592,8 +1613,8 @@ void nt_tape_backward(int loss_idx) {
                 nt_tape_entry* pb = &g_tape.entries[e->parent2];
                 int T = (int)e->aux;
                 int Da = pa->output->len / T; int Db = pb->output->len / T; int Dc = Da + Db;
-                float* da = (float*)calloc(T * Da, sizeof(float));
-                float* db = (float*)calloc(T * Db, sizeof(float));
+                float* da = nt_calloc2_float(T, Da);
+                float* db = nt_calloc2_float(T, Db);
                 if (da && db) {
                     for (int t = 0; t < T; t++) {
                         for (int d = 0; d < Da; d++) da[t * Da + d] = dout[t * Dc + d];
@@ -1710,7 +1731,7 @@ void nt_tape_backward(int loss_idx) {
                     }
                 }
 #endif
-                float* dl = ce_done_gpu ? NULL : (float*)calloc(T * V, sizeof(float));
+                float* dl = ce_done_gpu ? NULL : nt_calloc2_float(T, V);
                 if (!ce_done_gpu && dl && pt) {
                     for (int t = 0; t < T; t++) {
                         float* logits_t = pl->output->data + t * V;
@@ -1760,7 +1781,7 @@ void nt_tape_backward(int loss_idx) {
                 float n_active = 0;
                 for (int t = 0; t < T; t++) n_active += pm->output->data[t];
                 if (n_active <= 0) break;
-                float* dl = (float*)calloc(T * V, sizeof(float));
+                float* dl = nt_calloc2_float(T, V);
                 if (dl) {
                     for (int t = 0; t < T; t++) {
                         float m = pm->output->data[t];
@@ -1802,9 +1823,9 @@ void nt_tape_backward(int loss_idx) {
                 int T = px->output->len / D_in;
 
                 // Recompute gate and value
-                float* gate = (float*)calloc(T * D_out, sizeof(float));
-                float* val = (float*)calloc(T * D_out, sizeof(float));
-                float* gelu_gate = (float*)calloc(T * D_out, sizeof(float));
+                float* gate = nt_calloc2_float(T, D_out);
+                float* val = nt_calloc2_float(T, D_out);
+                float* gelu_gate = nt_calloc2_float(T, D_out);
                 float* dx = (float*)calloc(px->output->len, sizeof(float));
                 float* dw1 = (float*)calloc(pw1->output->len, sizeof(float));
                 float* dw2 = (float*)calloc(pw2->output->len, sizeof(float));
@@ -1985,7 +2006,7 @@ void nt_tape_backward(int loss_idx) {
                 int has_beta = (e->parent3 >= 0 && e->parent3 < g_tape.count);
                 float* gamma_data = has_gamma ? g_tape.entries[e->parent2].output->data : NULL;
 
-                float* gx = (float*)calloc(T * D, sizeof(float));
+                float* gx = nt_calloc2_float(T, D);
                 float* gg = has_gamma ? (float*)calloc(D, sizeof(float)) : NULL;
                 float* gb = has_beta ? (float*)calloc(D, sizeof(float)) : NULL;
 
@@ -2155,7 +2176,7 @@ void nt_tape_backward(int loss_idx) {
                 int rows = pw->output->shape[0];
                 int cols = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / rows;
                 if (rows > 0 && cols > 0) {
-                    float* dw = (float*)calloc(rows * cols, sizeof(float));
+                    float* dw = nt_calloc2_float(rows, cols);
                     if (dw) {
                         for (int i = 0; i < rows; i++)
                             for (int j = 0; j < cols; j++)
@@ -2188,7 +2209,7 @@ void nt_tape_backward(int loss_idx) {
                 int rows = pw->output->shape[0];
                 int cols = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / rows;
                 if (rows > 0 && cols > 0 && T > 0) {
-                    float* dw = (float*)calloc(rows * cols, sizeof(float));
+                    float* dw = nt_calloc2_float(rows, cols);
                     if (dw) {
                         for (int t = 0; t < T; t++) {
                             const float* dout_t = dout + t * rows;
@@ -2203,7 +2224,7 @@ void nt_tape_backward(int loss_idx) {
                         tape_acc_grad(e->parent1, dw, rows * cols);
                     }
                     free(dw);
-                    float* dx = (float*)calloc(T * cols, sizeof(float));
+                    float* dx = nt_calloc2_float(T, cols);
                     if (dx) {
                         for (int t = 0; t < T; t++) {
                             const float* dout_t = dout + t * rows;
@@ -5059,7 +5080,7 @@ int nt_conv2d(float *out, const float *in, const float *weight, const float *bia
     if (Hout <= 0 || Wout <= 0) return -1;
     int K = Cin * kH * kW;
     int N = Hout * Wout;
-    float *col = (float *)malloc((size_t)K * N * sizeof(float));
+    float *col = nt_calloc2_float(K, N);
     if (!col) return -1;
     nt_im2col(col, in, Cin, Hin, Win, kH, kW, stride, padding);
     nt_blas_mm(out, weight, col, Cout, K, N);   /* [Cout,K] @ [K,N] -> [Cout,N] */
@@ -5125,7 +5146,7 @@ void nt_upsample_nearest(float *out, const float *in, int C, int H, int W, int s
 // tokens) — the conditioning path of a diffusion UNet. -1 on bad args / alloc failure.
 int nt_attention(float *out, const float *Q, const float *K, const float *V, int T, int S, int d) {
     if (T <= 0 || S <= 0 || d <= 0) return -1;
-    float *scores = (float *)malloc((size_t)T * S * sizeof(float));
+    float *scores = nt_calloc2_float(T, S);
     if (!scores) return -1;
     nt_blas_mmT(scores, Q, K, T, d, S);          /* scores[T,S] = Q[T,d] @ K[S,d]^T */
     float scale = 1.0f / sqrtf((float)d);
@@ -5369,7 +5390,7 @@ void nt_lora_merge_into(float* W_dst, const float* W_frozen,
     // W_dst[i,j] = W_frozen[i,j] + scale * sum_k B[i,k] * A[k,j]
     // Compute Δ = B @ A first (out × in), then add to W_frozen → W_dst.
     // Use existing nt_blas_mm: C[m,n] = A[m,k] @ B[k,n].
-    float* delta = (float*)malloc((size_t)out_dim * in_dim * sizeof(float));
+    float* delta = nt_calloc2_float(out_dim, in_dim);
     if (!delta) return;
     nt_blas_mm(delta, lora->B->data, lora->A->data, out_dim, rank, in_dim);
     for (int i = 0; i < out_dim; i++) {

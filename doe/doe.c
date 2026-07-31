@@ -58,6 +58,46 @@
   #include <sys/sysctl.h>
 #endif
 
+static int doe_count2(int a, int b, size_t *out) {
+    if (!out || a <= 0 || b <= 0) return 0;
+    size_t aa = (size_t)a;
+    size_t bb = (size_t)b;
+    if (aa > SIZE_MAX / bb) return 0;
+    *out = aa * bb;
+    return 1;
+}
+
+static int doe_count3(int a, int b, int c, size_t *out) {
+    size_t ab = 0;
+    if (!doe_count2(a, b, &ab) || c <= 0) return 0;
+    size_t cc = (size_t)c;
+    if (ab > SIZE_MAX / cc) return 0;
+    *out = ab * cc;
+    return 1;
+}
+
+static int doe_bytes(size_t count, size_t elem_size, size_t *out) {
+    if (!out || elem_size == 0 || count > SIZE_MAX / elem_size) return 0;
+    *out = count * elem_size;
+    return 1;
+}
+
+static float *doe_calloc_float_count(size_t count) {
+    if (count == 0) return NULL;
+    return (float*)calloc(count, sizeof(float));
+}
+
+static float *doe_calloc_float_int(int count) {
+    if (count <= 0) return NULL;
+    return doe_calloc_float_count((size_t)count);
+}
+
+static float *doe_calloc2_float(int a, int b) {
+    size_t n = 0;
+    if (!doe_count2(a, b, &n)) return NULL;
+    return doe_calloc_float_count(n);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
  * BLAS / cuBLAS — optional acceleration
  * ═══════════════════════════════════════════════════════════════════════════════ */
@@ -1734,11 +1774,26 @@ static void env_scan(Environment *env, const char *self_src) {
  * the weights are substrate. DOE is the architecture.
  * ═══════════════════════════════════════════════════════════════════════════════ */
 static void init_lora_expert(LoraExpert *e, int dim, int rank, float freq) {
-    e->lora_A = calloc(dim * rank, sizeof(float));
-    e->lora_B = calloc(rank * dim, sizeof(float));
+    size_t lora_elems = 0;
+    if (!doe_count2(dim, rank, &lora_elems)) {
+        e->lora_A = NULL;
+        e->lora_B = NULL;
+        e->alive = 0;
+        return;
+    }
+    e->lora_A = doe_calloc_float_count(lora_elems);
+    e->lora_B = doe_calloc_float_count(lora_elems);
+    if (!e->lora_A || !e->lora_B) {
+        free(e->lora_A);
+        free(e->lora_B);
+        e->lora_A = NULL;
+        e->lora_B = NULL;
+        e->alive = 0;
+        return;
+    }
     float scale = 0.02f / sqrtf((float)rank);
-    for (int i = 0; i < dim*rank; i++) e->lora_A[i] = rand_normal() * scale;
-    for (int i = 0; i < rank*dim; i++) e->lora_B[i] = rand_normal() * scale;
+    for (size_t i = 0; i < lora_elems; i++) e->lora_A[i] = rand_normal() * scale;
+    for (size_t i = 0; i < lora_elems; i++) e->lora_B[i] = rand_normal() * scale;
     e->frequency = freq;
     e->vitality = 0.7f;
     e->alive = 1;
@@ -2156,9 +2211,12 @@ static int index_load(GGUFIndex *ps, const char *path) {
         FieldLayer *fl = &ps->field_layers[l];
         fl->host_layer_idx = l;
         fl->n_alive = initial_experts;
-        fl->parliament.w_vote = calloc(MAX_EXPERTS * ps->host_dim, sizeof(float));
+        size_t vote_elems = 0;
+        if (!doe_count2(MAX_EXPERTS, ps->host_dim, &vote_elems)) goto bail;
+        fl->parliament.w_vote = doe_calloc_float_count(vote_elems);
+        if (!fl->parliament.w_vote) goto bail;
         float vote_std = 0.01f;
-        for (int i = 0; i < MAX_EXPERTS * ps->host_dim; i++)
+        for (size_t i = 0; i < vote_elems; i++)
             fl->parliament.w_vote[i] = rand_normal() * vote_std;
         fl->parliament.consensus = 0.5f;
         /* Initialize experts with harmonic spacing — health-aware */
@@ -2373,9 +2431,10 @@ typedef struct {
 
 static void nt_accum_init(NotorchTurnAccum *a, int dim, int n_layers) {
     a->dim = dim; a->n = 0; a->signal = 0.0f; a->n_layers = n_layers;
-    a->x    = calloc(dim, sizeof(float));
-    a->dy   = calloc(dim, sizeof(float));
-    a->seen = calloc((size_t)n_layers * MAX_EXPERTS, 1);
+    size_t seen_count = 0;
+    a->x    = doe_calloc_float_int(dim);
+    a->dy   = doe_calloc_float_int(dim);
+    a->seen = doe_count2(n_layers, MAX_EXPERTS, &seen_count) ? calloc(seen_count, 1) : NULL;
 }
 
 static void nt_accum_free(NotorchTurnAccum *a) {
@@ -2633,13 +2692,18 @@ static void mycelium_save(GGUFIndex *ps, int step, float fitness) {
     fwrite(&step, 4, 1, f);
     fwrite(&fitness, 4, 1, f);
     int nl = ps->n_field_layers, dim = ps->host_dim, rank = ps->lora_rank;
+    size_t vote_elems = 0, lora_elems = 0;
+    if (!doe_count2(MAX_EXPERTS, dim, &vote_elems) || !doe_count2(dim, rank, &lora_elems)) {
+        fclose(f);
+        return;
+    }
     fwrite(&nl, 4, 1, f); fwrite(&dim, 4, 1, f); fwrite(&rank, 4, 1, f);
     /* per layer: n_alive, then per expert: alive, vitality, frequency, A, B */
     for (int l = 0; l < nl; l++) {
         FieldLayer *fl = &ps->field_layers[l];
         fwrite(&fl->n_alive, 4, 1, f);
         /* parliament vote weights */
-        fwrite(fl->parliament.w_vote, sizeof(float), MAX_EXPERTS * dim, f);
+        fwrite(fl->parliament.w_vote, sizeof(float), vote_elems, f);
         fwrite(&fl->parliament.consensus, 4, 1, f);
         for (int e = 0; e < MAX_EXPERTS; e++) {
             LoraExpert *ex = &fl->experts[e];
@@ -2647,8 +2711,8 @@ static void mycelium_save(GGUFIndex *ps, int step, float fitness) {
             if (ex->alive) {
                 fwrite(&ex->vitality, 4, 1, f);
                 fwrite(&ex->frequency, 4, 1, f);
-                fwrite(ex->lora_A, sizeof(float), dim * rank, f);
-                fwrite(ex->lora_B, sizeof(float), rank * dim, f);
+                fwrite(ex->lora_A, sizeof(float), lora_elems, f);
+                fwrite(ex->lora_B, sizeof(float), lora_elems, f);
             }
         }
     }
@@ -2697,24 +2761,36 @@ static int mycelium_load(GGUFIndex *ps, uint64_t target_fp) {
                nl, ps->n_field_layers, dim, ps->host_dim, rank, ps->lora_rank);
         fclose(f); return 0;
     }
+    size_t vote_elems = 0, lora_elems = 0;
+    if (!doe_count2(MAX_EXPERTS, dim, &vote_elems) || !doe_count2(dim, rank, &lora_elems)) {
+        fclose(f);
+        return 0;
+    }
     for (int l = 0; l < nl; l++) {
         FieldLayer *fl = &ps->field_layers[l];
         if (fread(&fl->n_alive, 4, 1, f) != 1 ||
-            fread(fl->parliament.w_vote, sizeof(float), MAX_EXPERTS * dim, f) != (size_t)(MAX_EXPERTS * dim) ||
+            fread(fl->parliament.w_vote, sizeof(float), vote_elems, f) != vote_elems ||
             fread(&fl->parliament.consensus, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
         for (int e = 0; e < MAX_EXPERTS; e++) {
             LoraExpert *ex = &fl->experts[e];
             int alive; if (fread(&alive, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
             if (alive) {
                 if (!ex->alive) {
-                    ex->lora_A = calloc(dim * rank, sizeof(float));
-                    ex->lora_B = calloc(rank * dim, sizeof(float));
-                    if (!ex->lora_A || !ex->lora_B) { fclose(f); return 0; }   /* C-2/F-1: OOM */
+                    ex->lora_A = doe_calloc_float_count(lora_elems);
+                    ex->lora_B = doe_calloc_float_count(lora_elems);
+                    if (!ex->lora_A || !ex->lora_B) {
+                        free(ex->lora_A);
+                        free(ex->lora_B);
+                        ex->lora_A = NULL;
+                        ex->lora_B = NULL;
+                        fclose(f);
+                        return 0;
+                    }   /* C-2/F-1: OOM */
                 }
                 ex->alive = 1;
                 if (fread(&ex->vitality, 4, 1, f) != 1 || fread(&ex->frequency, 4, 1, f) != 1) { fclose(f); return 0; }   /* C-2 */
-                if (fread(ex->lora_A, sizeof(float), dim * rank, f) != (size_t)(dim * rank) ||
-                    fread(ex->lora_B, sizeof(float), rank * dim, f) != (size_t)(rank * dim)) {
+                if (fread(ex->lora_A, sizeof(float), lora_elems, f) != lora_elems ||
+                    fread(ex->lora_B, sizeof(float), lora_elems, f) != lora_elems) {
                     fclose(f); return 0; /* D-L3: truncated spore — bail, don't load garbage experts */
                 }
             } else if (ex->alive) {
@@ -2758,23 +2834,32 @@ static InferState alloc_infer(GGUFIndex *ps, int max_seq) {
     int D = ps->host_dim, kd = ps->host_kv_heads * ps->host_head_dim;
     int H = ps->host_hidden;
     s.max_seq = max_seq;
-    s.x = calloc(D, 4); s.xb = calloc(D, 4); s.xb2 = calloc(D, 4);
-    s.q = calloc(ps->host_heads * ps->host_head_dim, 4);
-    s.k = calloc(kd, 4); s.v = calloc(kd, 4);
-    s.att = calloc(ps->host_heads * max_seq, 4);
-    s.logits = calloc(ps->host_vocab, 4);
-    s.hb = calloc(H, 4); s.hb2 = calloc(H * 2, 4); /* *2 for fused gate_up */
-    s.expert_out = calloc(D, 4);
+    s.x = doe_calloc_float_int(D);
+    s.xb = doe_calloc_float_int(D);
+    s.xb2 = doe_calloc_float_int(D);
+    s.q = doe_calloc2_float(ps->host_heads, ps->host_head_dim);
+    s.k = doe_calloc_float_int(kd);
+    s.v = doe_calloc_float_int(kd);
+    s.att = doe_calloc2_float(ps->host_heads, max_seq);
+    s.logits = doe_calloc_float_int(ps->host_vocab);
+    s.hb = doe_calloc_float_int(H);
+    s.hb2 = doe_calloc2_float(H, 2); /* *2 for fused gate_up */
+    s.expert_out = doe_calloc_float_int(D);
     /* M4 stage (a): KV-cache on a page-aligned region so the GPU attn_decode
      * kernel can later resolve it by offset (nt_metal_register_region). Apple
      * Silicon page = 16384 (getpagesize()), not 4096. CPU attention still reads
      * it exactly as before — this stage only changes alloc + registration. */
-    size_t kv_bytes = (size_t)ps->host_n_layers * max_seq * kd * 4;
-    if (posix_memalign((void**)&s.key_cache,   (size_t)getpagesize(), kv_bytes) ||
-        posix_memalign((void**)&s.value_cache, (size_t)getpagesize(), kv_bytes)) {
+    size_t kv_elems = 0, kv_bytes = 0;
+    int kv_sized = doe_count3(ps->host_n_layers, max_seq, kd, &kv_elems) &&
+                   doe_bytes(kv_elems, sizeof(float), &kv_bytes);
+    int key_aligned = kv_sized ? posix_memalign((void**)&s.key_cache, (size_t)getpagesize(), kv_bytes) : 1;
+    int value_aligned = kv_sized ? posix_memalign((void**)&s.value_cache, (size_t)getpagesize(), kv_bytes) : 1;
+    if (!kv_sized || key_aligned || value_aligned) {
+        free(s.key_cache);
+        free(s.value_cache);
         fprintf(stderr, "[doe] KV posix_memalign failed — falling back to calloc\n");
-        s.key_cache = calloc(ps->host_n_layers * max_seq * kd, 4);
-        s.value_cache = calloc(ps->host_n_layers * max_seq * kd, 4);
+        s.key_cache = doe_calloc_float_count(kv_elems);
+        s.value_cache = doe_calloc_float_count(kv_elems);
     } else {
         memset(s.key_cache, 0, kv_bytes);
         memset(s.value_cache, 0, kv_bytes);
@@ -2786,8 +2871,8 @@ static InferState alloc_infer(GGUFIndex *ps, int max_seq) {
 #endif
     }
     int half = ps->host_head_dim / 2;
-    s.cos_cache = calloc(max_seq * half, 4);
-    s.sin_cache = calloc(max_seq * half, 4);
+    s.cos_cache = doe_calloc2_float(max_seq, half);
+    s.sin_cache = doe_calloc2_float(max_seq, half);
     float rope_theta = ps->rope_theta;
     for (int p = 0; p < max_seq; p++)
         for (int i = 0; i < half; i++) {
@@ -3619,8 +3704,15 @@ static void chat(GGUFIndex *ps) {
 
         /* Reset KV cache */
         int kd = ps->host_kv_heads * ps->host_head_dim;
-        memset(is.key_cache, 0, ps->host_n_layers * max_seq * kd * 4);
-        memset(is.value_cache, 0, ps->host_n_layers * max_seq * kd * 4);
+        size_t kv_elems = 0, kv_bytes = 0;
+        if (!is.key_cache || !is.value_cache ||
+            !doe_count3(ps->host_n_layers, max_seq, kd, &kv_elems) ||
+            !doe_bytes(kv_elems, sizeof(float), &kv_bytes)) {
+            fprintf(stderr, "[doe] invalid KV cache size\n");
+            continue;
+        }
+        memset(is.key_cache, 0, kv_bytes);
+        memset(is.value_cache, 0, kv_bytes);
 
         /* Wrap input in chat template (auto-detected from GGUF chat_template) */
         char wrapped[8192];  /* F-12: match input[8192] so the chat template's closing tags are never silently truncated */
@@ -3988,8 +4080,17 @@ static void http_stream_inference(int fd, GGUFIndex *ps, const char *user_msg, f
 
     /* Reset KV cache */
     int kd = ps->host_kv_heads * ps->host_head_dim;
-    memset(is.key_cache, 0, (size_t)ps->host_n_layers * max_seq * kd * 4);
-    memset(is.value_cache, 0, (size_t)ps->host_n_layers * max_seq * kd * 4);
+    size_t kv_elems = 0, kv_bytes = 0;
+    if (!is.key_cache || !is.value_cache ||
+        !doe_count3(ps->host_n_layers, max_seq, kd, &kv_elems) ||
+        !doe_bytes(kv_elems, sizeof(float), &kv_bytes)) {
+        const char *err = "event: error\ndata: invalid KV cache size\n\n";
+        http_send(fd, err, (int)strlen(err));
+        free_infer(&is);
+        return;
+    }
+    memset(is.key_cache, 0, kv_bytes);
+    memset(is.value_cache, 0, kv_bytes);
 
     /* Wrap input in chat template */
     char wrapped[8192];  /* F-12: match input[8192] so the chat template's closing tags are never silently truncated */

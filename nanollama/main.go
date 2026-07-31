@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+const maxSampleTopK = 4096
+
 func main() {
 	modelPath := flag.String("model", "", "Path to GGUF model file (required)")
 	gammaPath := flag.String("gamma", "", "Path to gamma NPZ file (optional, personality)")
@@ -295,11 +297,17 @@ func (e *Engine) sampleTopK(temp float32, topK int) int {
 	logits := e.model.State.Logits
 	vocab := e.model.Config.VocabSize
 
-	if temp <= 0 {
+	if vocab <= 0 {
+		return 0
+	}
+	if temp <= 0 || topK <= 0 {
 		return argmax(logits, vocab)
 	}
 	if topK > vocab {
 		topK = vocab
+	}
+	if topK > maxSampleTopK {
+		topK = maxSampleTopK
 	}
 
 	type idxVal struct {
