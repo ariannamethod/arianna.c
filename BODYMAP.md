@@ -38,7 +38,9 @@ status. Janus and Resonance are required for the current live trio; nano, DOE,
 chorus, KK, and future side organs degrade when absent instead of shutting down
 the inspection path. `startTrio` uses the same receipt before it opens daemons:
 missing required organs block live startup, while missing optional organs only
-remove their route from the current body.
+remove their route from the current body. `make body-inventory-start-smoke`
+executes that startup gate from an empty scratch body and proves the block
+happens before Janus, Resonance, or the inner-world high brain starts.
 
 ## First Hybrid Target
 

@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-07-31 — Body inventory blocks startup before first daemon
+
+`make body-inventory-start-smoke` now runs the built metabolism from an empty
+scratch body, persists `arianna.body_inventory.v1`, and verifies that missing
+Janus/Resonance required organs stop `startTrio` before the high brain or voice
+daemons open. `make body-smoke` includes this gate immediately after the
+read-only inventory receipt, so the startup boundary is executable, not only
+documented.
+
 ## 2026-07-31 — Runtime consumes body inventory before live trio
 
 `startTrio` now consumes the same `arianna.body_inventory.v1` receipt that the
