@@ -55,7 +55,9 @@ binary plus the nano weight. This is an audit contract first: routes can be
 removed from the available body without promoting optional organs to hard
 startup requirements. `AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE=1`
 turns that audit contract into a dry-run generation-job gate: unavailable
-routes do not receive a runnable `job-<hash>` id.
+routes do not receive a runnable `job-<hash>` id, and candidate shell,
+execution, and generator-adapter receipts preserve the same typed route
+availability fields.
 
 ## Mutable Runtime State
 

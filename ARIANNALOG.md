@@ -4335,3 +4335,11 @@ gate enabled, a selected but unavailable route fails as `route <name> unavailabl
 candidate shell/execution dry-runs inherit that failure through the existing job boundary. The old generation-job smoke
 still proves pure dispatch geometry; `make admission-live-route-turn-generation-job-inventory-gate-smoke` and
 `make body-smoke` prove the inventory-gated refusal from an empty scratch body without mutating organism state.
+
+**Follow-up, 2026-07-31 - route-unavailable is now a typed downstream boundary.**
+Candidate shell, candidate execution, and generator adapter receipts now preserve the same inventory fields emitted by
+the failed generation job: `body_inventory_status`, `route_availability_status`, `route_availability_reason`, and
+`route_missing_organs`. This means an unavailable route stays machine-readable through the whole dry-run generation lane,
+with no `job-<hash>`, `shell-<hash>`, `execution-<hash>`, or `adapter-<hash>` minted for an absent body. The
+`admission-live-route-turn-route-boundary-smoke` target proves the boundary across all four receipts from an empty
+scratch body; `make body-smoke` includes that proof in the main body harness.
