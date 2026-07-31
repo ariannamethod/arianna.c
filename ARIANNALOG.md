@@ -4326,3 +4326,12 @@ physically available before admission starts choosing among them. The map is int
 contract where `user_bridge` is a `chorus-arianna/repl_user_bridge` route, not a free prompt-only path. Missing optional
 organs still put the body in degraded mode instead of blocking Janus/Resonance startup; the route map is the substrate
 for the next admission layer to stop selecting absent side organs silently.
+
+**Follow-up, 2026-07-31 - generation jobs can fail closed on route inventory.**
+`AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE=1` makes the generation-job dry-run consume
+`arianna.body_inventory.v1.route_availability` before assigning a runnable `job-<hash>` id. The job receipt now records
+`body_inventory_status`, `route_availability_status`, `route_availability_reason`, and `route_missing_organs`. With the
+gate enabled, a selected but unavailable route fails as `route <name> unavailable in body inventory: ...`, and downstream
+candidate shell/execution dry-runs inherit that failure through the existing job boundary. The old generation-job smoke
+still proves pure dispatch geometry; `make admission-live-route-turn-generation-job-inventory-gate-smoke` and
+`make body-smoke` prove the inventory-gated refusal from an empty scratch body without mutating organism state.

@@ -348,7 +348,7 @@ func chatLiveRouteTurnCandidateChainText() string {
 func chatLiveRouteTurnCandidateChainForText(obs admissionLiveRouteTurnObservation, text string) chatLiveRouteTurnCandidateChain {
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job := admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	chain := chatLiveRouteTurnCandidateChain{}
 	if admissionLiveRouteTurnCandidateExecutionDryRun() {
@@ -1829,7 +1829,7 @@ func chatLiveRouteTurnGenerationJobDryRunLine(obs admissionLiveRouteTurnObservat
 	}
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job := admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request)
 	if err := recordAdmissionLiveRouteTurnGenerationJob(job); err != nil {
 		return fmt.Sprintf("│  · live-route generation job dry-run log failed: %v", err)
 	}
@@ -1847,7 +1847,7 @@ func chatLiveRouteTurnCandidateShellDryRunLine(obs admissionLiveRouteTurnObserva
 	}
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job := admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	if err := recordAdmissionLiveRouteTurnCandidateShell(shell); err != nil {
 		return fmt.Sprintf("│  · live-route candidate shell dry-run log failed: %v", err)
@@ -1867,7 +1867,7 @@ func chatLiveRouteTurnCandidateExecutionDryRunLine(obs admissionLiveRouteTurnObs
 func chatLiveRouteTurnCandidateExecutionForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnCandidateExecution {
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job := admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	if admissionLiveRouteTurnCandidateExecutionRunnerDryRun() {
 		return admissionLiveRouteTurnCandidateExecutionForShellViaRunner(shell, text)
@@ -1904,7 +1904,7 @@ func chatLiveRouteTurnGeneratorAdapterDryRunLine(obs admissionLiveRouteTurnObser
 func chatLiveRouteTurnGeneratorAdapterForText(obs admissionLiveRouteTurnObservation, text string) admissionLiveRouteTurnGeneratorAdapter {
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
-	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job := admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request)
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	if admissionLiveRouteTurnCandidateExecutionDryRun() {
 		execution := chatLiveRouteTurnCandidateExecutionForText(obs, text)

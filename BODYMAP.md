@@ -41,6 +41,9 @@ the inspection path. The same receipt carries `route_availability` for
 `user_bridge`, naming the organs each route needs before route selection is
 widened. `direct` can run through either `nano-arianna` or DOE over the nano
 weight; chorus/qloop/user-bridge routes need the chorus binary and nano weight.
+When `AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE=1` is enabled, the
+generation-job dry-run consumes that route map and fails closed before assigning
+a runnable `job-<hash>` id if the selected route is unavailable.
 `startTrio` uses the receipt before it opens daemons: missing required organs
 block live startup, while missing optional organs only remove their route from
 the current body. `make body-inventory-start-smoke` executes that startup gate

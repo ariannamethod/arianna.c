@@ -53,7 +53,9 @@ The same receipt includes route availability for live route entrypoints.
 `qloop`, `qloop_hint_qa`, `qloop_target`, and `user_bridge` need the chorus
 binary plus the nano weight. This is an audit contract first: routes can be
 removed from the available body without promoting optional organs to hard
-startup requirements.
+startup requirements. `AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE=1`
+turns that audit contract into a dry-run generation-job gate: unavailable
+routes do not receive a runnable `job-<hash>` id.
 
 ## Mutable Runtime State
 
