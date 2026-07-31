@@ -163,6 +163,7 @@ type trioCtx struct {
 	subDone        chan struct{} // closed by runSubconscious on exit (F-3 join)
 	chorusBin      string        // ./chorus-arianna, if present — the subconscious as a polyphony
 	chorusGGUF     string        // the nano GGUF the chorus runs over
+	bodyInventory  bodyInventoryReceipt
 	iw             *InnerWorld
 	tickerDone     chan struct{}
 	lastMoved      float32 // being-moved: core-affect displacement of the last turn (telemetry, no feedback)
@@ -172,6 +173,14 @@ type trioCtx struct {
 // clock), both voices hot as --daemon processes, and the subconscious as a
 // background dreamer (absent binary/GGUF => the duet runs without it).
 func startTrio() (*trioCtx, error) {
+	inventory := inspectBodyInventory(bodyInventoryRoot())
+	if err := writeBodyInventoryReceipt(os.Getenv("AM_BODY_INVENTORY_LOG"), inventory); err != nil {
+		return nil, fmt.Errorf("body inventory receipt: %w", err)
+	}
+	if err := requireBodyInventoryLiveTrio(inventory); err != nil {
+		return nil, err
+	}
+
 	iw := Global()
 	iw.Start(false) // sync: the metabolism's ticker is the only clock (no per-process self-tick)
 	// Warm the High brain (boot libjulia + JIT once) up front, so the first conversational
@@ -208,20 +217,18 @@ func startTrio() (*trioCtx, error) {
 		return nil, fmt.Errorf("resonance daemon: %w", err)
 	}
 
-	tc := &trioCtx{janusD: janusD, resonD: resonD, iw: iw, tickerDone: tickerDone}
+	tc := &trioCtx{janusD: janusD, resonD: resonD, bodyInventory: inventory, iw: iw, tickerDone: tickerDone}
 	// The subconscious body is the nano GGUF; it runs through the vendored doe engine
 	// (the LoRA parliament, #3) and/or the nanollama one-shot. It is present if the
 	// GGUF + at least one engine exists — so doe alone (no nanollama) still dreams.
 	const nanoGGUF = "weights/nano_arianna_f16.gguf"
-	doePresent := false
-	if _, err := os.Stat("./doe_field"); err == nil {
-		doePresent = true
+	doePresent := inventory.organPresent("doe-binary")
+	nanoWeightPresent := inventory.organPresent("nano-weight")
+	if inventory.organPresent("nano-binary") && nanoWeightPresent {
+		tc.nan = newNano("./nano-arianna", nanoGGUF) // nanollama path (nil if its binary is absent)
 	}
-	tc.nan = newNano("./nano-arianna", nanoGGUF) // nanollama path (nil if its binary is absent)
-	if tc.nan == nil && doePresent {
-		if _, err := os.Stat(nanoGGUF); err == nil { // doe-only: dream through doe without nanollama
-			tc.nan = &nano{gguf: nanoGGUF, maxTok: "32", temp: "0.9", topP: "0.92"}
-		}
+	if tc.nan == nil && doePresent && nanoWeightPresent {
+		tc.nan = &nano{gguf: nanoGGUF, maxTok: "32", temp: "0.9", topP: "0.92"} // doe-only: dream through doe without nanollama
 	}
 	if tc.nan != nil {
 		// #3: doe is the parliament engine over the SAME body. Step-2: the parliament
@@ -261,7 +268,7 @@ func startTrio() (*trioCtx, error) {
 	}
 	// The subconscious can dream as a POLYPHONY (the chorus over the same nano body)
 	// when ./chorus-arianna is built — used by the autonomous breathing.
-	if _, err := os.Stat("./chorus-arianna"); err == nil {
+	if inventory.organPresent("chorus-binary") && nanoWeightPresent {
 		tc.chorusBin = "./chorus-arianna"
 		tc.chorusGGUF = "weights/nano_arianna_f16.gguf"
 	}

@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-07-31 — Runtime consumes body inventory before live trio
+
+`startTrio` now consumes the same `arianna.body_inventory.v1` receipt that the
+smoke path emits. Missing Janus/Resonance required organs block live startup
+before daemons open; missing nano/DOE/chorus/KK optional organs leave the body in
+degraded mode and simply remove those routes from the current run. The receipt
+can be persisted with `AM_BODY_INVENTORY_LOG`, keeping missing future weights
+visible without turning them into process death.
+
 ## 2026-07-31 — Body inventory contract for missing organs
 
 Added a read-only `arianna.body_inventory.v1` receipt path to the Go metabolism:

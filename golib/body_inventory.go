@@ -171,6 +171,25 @@ func inspectBodyInventory(root string) bodyInventoryReceipt {
 	return receipt
 }
 
+func (receipt bodyInventoryReceipt) organPresent(name string) bool {
+	for _, organ := range receipt.Organs {
+		if organ.Name == name {
+			return organ.Present
+		}
+	}
+	return false
+}
+
+func requireBodyInventoryLiveTrio(receipt bodyInventoryReceipt) error {
+	if receipt.LiveTrioAllowed {
+		return nil
+	}
+	if len(receipt.RequiredMissing) == 0 {
+		return fmt.Errorf("body inventory blocked: live trio not allowed")
+	}
+	return fmt.Errorf("body inventory blocked: required organs missing: %s", strings.Join(receipt.RequiredMissing, ","))
+}
+
 func writeBodyInventoryReceipt(path string, receipt bodyInventoryReceipt) error {
 	if strings.TrimSpace(path) == "" {
 		return nil
