@@ -76,6 +76,10 @@ echo "[body-smoke] body inventory"
 A2A_BODY_INVENTORY_WORKDIR="$WORKDIR/body-inventory" \
     bash "$ROOT/tools/body_inventory_smoke.sh"
 
+echo "[body-smoke] body inventory start gate"
+A2A_BODY_INVENTORY_START_WORKDIR="$WORKDIR/body-inventory-start" \
+    bash "$ROOT/tools/body_inventory_start_smoke.sh"
+
 echo "[body-smoke] admission shadow receipt"
 A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
     bash "$ROOT/tools/admission_shadow_smoke.sh"
