@@ -307,6 +307,36 @@ func TestAdmissionLiveRouteTurnGenerationJobSmokeWritesJobs(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnGenerationJobInventoryGateSmokeFailsClosed(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN", "1")
+	t.Setenv(admissionLiveRouteTurnGenerationJobInventoryGateEnv, "1")
+	t.Setenv("AM_BODY_INVENTORY_ROOT", t.TempDir())
+	logPath := filepath.Join(t.TempDir(), "live-route-generation-job-inventory-gate.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG", logPath)
+
+	if err := runAdmissionLiveRouteTurnGenerationJobInventoryGateSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got admissionLiveRouteTurnGenerationJob
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Passed ||
+		got.JobID != "" ||
+		got.BodyInventoryStatus != "blocked" ||
+		got.RouteAvailabilityStatus != "unavailable" ||
+		!strings.Contains(got.Reason, "route chorus unavailable in body inventory") ||
+		!sameStrings(got.RouteMissingOrgans, []string{"chorus-binary", "nano-weight"}) {
+		t.Fatalf("inventory-gated job should fail closed before runnable id: %+v", got)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateShellSmokeWritesShells(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-candidate-shell.jsonl")

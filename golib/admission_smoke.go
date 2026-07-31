@@ -663,6 +663,58 @@ func runAdmissionLiveRouteTurnGenerationJobSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnGenerationJobInventoryGateSmoke() error {
+	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG"))
+	if logPath == "" {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG is required")
+	}
+	if !admissionLiveRouteTurnGenerationJobDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnGenerationJobInventoryGate() {
+		return fmt.Errorf("%s is required", admissionLiveRouteTurnGenerationJobInventoryGateEnv)
+	}
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	line := chatLiveRouteTurnGenerationJobDryRunLine(obs)
+	if !strings.Contains(line, "live-route generation job dry-run: class=identity route=chorus backend=chorus-arianna entry=field") ||
+		!strings.Contains(line, "passed=false") ||
+		!strings.Contains(line, "route chorus unavailable in body inventory") {
+		return fmt.Errorf("inventory gate did not fail closed: %q", line)
+	}
+	fmt.Println(line)
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 1 {
+		return fmt.Errorf("expected 1 inventory-gated generation job, got %d", len(lines))
+	}
+	var got admissionLiveRouteTurnGenerationJob
+	if err := json.Unmarshal([]byte(lines[0]), &got); err != nil {
+		return err
+	}
+	if got.Schema != admissionLiveRouteTurnGenerationJobSchema ||
+		got.PromptClass != "identity" ||
+		got.Route != "chorus" ||
+		got.Source != "chorus" ||
+		got.Backend != "chorus-arianna" ||
+		got.Entrypoint != "field" ||
+		got.PromptFrame != "q_a" ||
+		got.Passed ||
+		got.JobID != "" ||
+		got.RouteAvailabilityStatus != "unavailable" ||
+		!strings.Contains(got.Reason, "route chorus unavailable in body inventory") ||
+		strings.Join(got.RouteMissingOrgans, ",") != "chorus-binary,nano-weight" {
+		return fmt.Errorf("bad inventory-gated generation job: %+v", got)
+	}
+
+	fmt.Printf("[admission-live-route-turn-generation-job-inventory-gate-smoke] pass: log=%s\n", logPath)
+	return nil
+}
+
 func runAdmissionLiveRouteTurnCandidateShellSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG"))
 	if logPath == "" {

@@ -66,6 +66,8 @@ const (
 	admissionLiveRouteTurnCandidateExecutionStatusSucceeded = "succeeded"
 	admissionLiveRouteTurnCandidateExecutionStatusFailed    = "failed"
 	admissionLiveRouteTurnCandidateExecutionStatusTimedOut  = "timed_out"
+
+	admissionLiveRouteTurnGenerationJobInventoryGateEnv = "AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE"
 )
 
 type admissionLiveRoutePlan struct {
@@ -131,20 +133,24 @@ type admissionLiveRouteTurnRequest struct {
 }
 
 type admissionLiveRouteTurnGenerationJob struct {
-	Schema           string `json:"schema"`
-	PromptClass      string `json:"prompt_class"`
-	Route            string `json:"route,omitempty"`
-	Source           string `json:"source,omitempty"`
-	ExpectedSource   string `json:"expected_source,omitempty"`
-	Backend          string `json:"backend,omitempty"`
-	Entrypoint       string `json:"entrypoint,omitempty"`
-	PromptFrame      string `json:"prompt_frame,omitempty"`
-	CandidateTrigger string `json:"candidate_trigger,omitempty"`
-	CandidateSeed    string `json:"candidate_seed,omitempty"`
-	JobID            string `json:"job_id,omitempty"`
-	Passed           bool   `json:"passed"`
-	Reason           string `json:"reason,omitempty"`
-	TurnTextHash     string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	Backend                 string   `json:"backend,omitempty"`
+	Entrypoint              string   `json:"entrypoint,omitempty"`
+	PromptFrame             string   `json:"prompt_frame,omitempty"`
+	CandidateTrigger        string   `json:"candidate_trigger,omitempty"`
+	CandidateSeed           string   `json:"candidate_seed,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	JobID                   string   `json:"job_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateShell struct {
@@ -2090,6 +2096,10 @@ func admissionLiveRouteTurnGenerationJobDryRun() bool {
 	return dreamAdmissionBoolEnv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN")
 }
 
+func admissionLiveRouteTurnGenerationJobInventoryGate() bool {
+	return dreamAdmissionBoolEnv(admissionLiveRouteTurnGenerationJobInventoryGateEnv)
+}
+
 type admissionLiveRouteGenerationRoute struct {
 	Backend     string
 	Entrypoint  string
@@ -2116,6 +2126,17 @@ func admissionLiveRouteGenerationRouteFor(route string) (admissionLiveRouteGener
 }
 
 func admissionLiveRouteTurnGenerationJobForRequest(request admissionLiveRouteTurnRequest) admissionLiveRouteTurnGenerationJob {
+	return admissionLiveRouteTurnGenerationJobForRequestWithInventory(request, bodyInventoryReceipt{}, false)
+}
+
+func admissionLiveRouteTurnGenerationJobForRequestWithCurrentInventory(request admissionLiveRouteTurnRequest) admissionLiveRouteTurnGenerationJob {
+	if !admissionLiveRouteTurnGenerationJobInventoryGate() {
+		return admissionLiveRouteTurnGenerationJobForRequest(request)
+	}
+	return admissionLiveRouteTurnGenerationJobForRequestWithInventory(request, inspectBodyInventory(bodyInventoryRoot()), true)
+}
+
+func admissionLiveRouteTurnGenerationJobForRequestWithInventory(request admissionLiveRouteTurnRequest, inventory bodyInventoryReceipt, requireInventory bool) admissionLiveRouteTurnGenerationJob {
 	job := admissionLiveRouteTurnGenerationJob{
 		Schema:           admissionLiveRouteTurnGenerationJobSchema,
 		PromptClass:      request.PromptClass,
@@ -2167,6 +2188,9 @@ func admissionLiveRouteTurnGenerationJobForRequest(request admissionLiveRouteTur
 		job.Reason = "missing candidate seed for generation route " + job.Route + " prompt class " + job.PromptClass
 		return job
 	}
+	if requireInventory && !admissionLiveRouteTurnGenerationJobApplyInventoryGate(&job, inventory) {
+		return job
+	}
 	job.JobID = admissionLiveRouteTurnGenerationJobID(job)
 	if job.JobID == "" {
 		job.Reason = "missing generation job id for route " + job.Route + " prompt class " + job.PromptClass
@@ -2174,6 +2198,33 @@ func admissionLiveRouteTurnGenerationJobForRequest(request admissionLiveRouteTur
 	}
 	job.Passed = true
 	return job
+}
+
+func admissionLiveRouteTurnGenerationJobApplyInventoryGate(job *admissionLiveRouteTurnGenerationJob, inventory bodyInventoryReceipt) bool {
+	job.BodyInventoryStatus = strings.TrimSpace(inventory.Status)
+	if inventory.Schema != bodyInventorySchema {
+		job.RouteAvailabilityStatus = "missing_body_inventory"
+		job.Reason = "body inventory missing for generation route " + job.Route + " prompt class " + job.PromptClass
+		return false
+	}
+	availability, ok := inventory.routeAvailability(job.Route)
+	if !ok {
+		job.RouteAvailabilityStatus = "missing_route"
+		job.Reason = "body inventory has no route availability for " + job.Route + " prompt class " + job.PromptClass
+		return false
+	}
+	if availability.Available {
+		job.RouteAvailabilityStatus = "available"
+		return true
+	}
+	job.RouteAvailabilityStatus = "unavailable"
+	job.RouteAvailabilityReason = availability.Reason
+	job.RouteMissingOrgans = append([]string(nil), availability.MissingOrgans...)
+	job.Reason = "route " + job.Route + " unavailable in body inventory"
+	if availability.Reason != "" {
+		job.Reason += ": " + availability.Reason
+	}
+	return false
 }
 
 func admissionLiveRouteTurnGenerationJobID(job admissionLiveRouteTurnGenerationJob) string {

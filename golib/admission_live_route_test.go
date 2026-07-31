@@ -458,6 +458,49 @@ func TestAdmissionLiveRouteTurnGenerationJobForRequest(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnGenerationJobInventoryGate(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	requestFor := func(human string) admissionLiveRouteTurnRequest {
+		obs := admissionLiveRouteTurnObservationForHuman(human)
+		choice := admissionLiveRouteTurnChoiceForObservation(obs)
+		return admissionLiveRouteTurnRequestForChoice(choice)
+	}
+
+	readyRoot := t.TempDir()
+	writeRequiredBodyInventoryFiles(t, readyRoot)
+	writeOptionalBodyInventoryFiles(t, readyRoot)
+	ready := inspectBodyInventory(readyRoot)
+	readyJob := admissionLiveRouteTurnGenerationJobForRequestWithInventory(requestFor("Who are you?"), ready, true)
+	if !readyJob.Passed ||
+		readyJob.RouteAvailabilityStatus != "available" ||
+		readyJob.BodyInventoryStatus != "ready" ||
+		readyJob.RouteAvailabilityReason != "" ||
+		len(readyJob.RouteMissingOrgans) != 0 ||
+		!strings.HasPrefix(readyJob.JobID, "job-") {
+		t.Fatalf("ready inventory should allow generation job: %+v", readyJob)
+	}
+
+	emptyRoot := t.TempDir()
+	blocked := inspectBodyInventory(emptyRoot)
+	blockedJob := admissionLiveRouteTurnGenerationJobForRequestWithInventory(requestFor("Who are you?"), blocked, true)
+	if blockedJob.Passed ||
+		blockedJob.JobID != "" ||
+		blockedJob.BodyInventoryStatus != "blocked" ||
+		blockedJob.RouteAvailabilityStatus != "unavailable" ||
+		!strings.Contains(blockedJob.Reason, "route chorus unavailable in body inventory") ||
+		!sameStrings(blockedJob.RouteMissingOrgans, []string{"chorus-binary", "nano-weight"}) {
+		t.Fatalf("blocked inventory should deny chorus generation job: %+v", blockedJob)
+	}
+
+	missingInventoryJob := admissionLiveRouteTurnGenerationJobForRequestWithInventory(requestFor("Who are you?"), bodyInventoryReceipt{}, true)
+	if missingInventoryJob.Passed ||
+		missingInventoryJob.JobID != "" ||
+		missingInventoryJob.RouteAvailabilityStatus != "missing_body_inventory" ||
+		!strings.Contains(missingInventoryJob.Reason, "body inventory missing") {
+		t.Fatalf("missing inventory should fail closed: %+v", missingInventoryJob)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	jobFor := func(human string) admissionLiveRouteTurnGenerationJob {
 		obs := admissionLiveRouteTurnObservationForHuman(human)

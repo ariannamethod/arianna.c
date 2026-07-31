@@ -431,6 +431,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-generation-job-inventory-gate-smoke" {
+		if err := runAdmissionLiveRouteTurnGenerationJobInventoryGateSmoke(); err != nil {
+			fmt.Println("admission-live-route-turn-generation-job-inventory-gate-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-shell-smoke" {
 		if err := runAdmissionLiveRouteTurnCandidateShellSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-candidate-shell-smoke:", err)
