@@ -42,7 +42,9 @@ The receipt status is:
 
 Missing optional weights are not a shutdown condition. This is the foundation
 rule for future multi-weight Arianna organs: absence is named in the receipt and
-the available body keeps working.
+the available body keeps working. The Go metabolism writes this receipt at
+`startTrio` when `AM_BODY_INVENTORY_LOG` is set, and it refuses live startup
+only when required Janus/Resonance organs are absent.
 
 ## Mutable Runtime State
 

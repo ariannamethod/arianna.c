@@ -100,6 +100,20 @@ func TestInspectBodyInventoryDegradedOnOptionalMissing(t *testing.T) {
 	}
 }
 
+func TestRequireBodyInventoryLiveTrioAllowsDegradedOptionalMissing(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	root := t.TempDir()
+	writeRequiredBodyInventoryFiles(t, root)
+
+	receipt := inspectBodyInventory(root)
+	if err := requireBodyInventoryLiveTrio(receipt); err != nil {
+		t.Fatalf("degraded optional inventory should still allow live trio: %v", err)
+	}
+	if !receipt.organPresent("janus-binary") || receipt.organPresent("nano-binary") {
+		t.Fatalf("organ presence lookup wrong: %+v", receipt.Organs)
+	}
+}
+
 func TestInspectBodyInventoryBlockedOnRequiredMissing(t *testing.T) {
 	setBodyInventoryDefaultEnv(t)
 	root := t.TempDir()
@@ -116,6 +130,19 @@ func TestInspectBodyInventoryBlockedOnRequiredMissing(t *testing.T) {
 		if !missing[name] {
 			t.Fatalf("required missing does not include %s: %v", name, receipt.RequiredMissing)
 		}
+	}
+}
+
+func TestRequireBodyInventoryLiveTrioBlocksRequiredMissing(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	receipt := inspectBodyInventory(t.TempDir())
+
+	err := requireBodyInventoryLiveTrio(receipt)
+	if err == nil {
+		t.Fatalf("required-missing inventory should block live trio")
+	}
+	if !strings.Contains(err.Error(), "janus-binary") || !strings.Contains(err.Error(), "resonance-weight") {
+		t.Fatalf("blocked inventory error lost required organs: %v", err)
 	}
 }
 
