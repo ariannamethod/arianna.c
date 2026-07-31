@@ -30,21 +30,41 @@ type bodyInventoryOrgan struct {
 	Reason   string `json:"reason,omitempty"`
 }
 
+type bodyInventoryRouteSpec struct {
+	Route          string
+	Backend        string
+	Entrypoint     string
+	RequiredOrgans []string
+	AnyOfOrgans    []string
+}
+
+type bodyInventoryRouteAvailability struct {
+	Route          string   `json:"route"`
+	Backend        string   `json:"backend,omitempty"`
+	Entrypoint     string   `json:"entrypoint,omitempty"`
+	RequiredOrgans []string `json:"required_organs,omitempty"`
+	AnyOfOrgans    []string `json:"any_of_organs,omitempty"`
+	MissingOrgans  []string `json:"missing_organs,omitempty"`
+	Available      bool     `json:"available"`
+	Reason         string   `json:"reason,omitempty"`
+}
+
 type bodyInventoryReceipt struct {
-	Schema          string               `json:"schema"`
-	Mode            string               `json:"mode"`
-	Root            string               `json:"root"`
-	Status          string               `json:"status"`
-	CoreReady       bool                 `json:"core_ready"`
-	OptionalReady   bool                 `json:"optional_ready"`
-	LiveTrioAllowed bool                 `json:"live_trio_allowed"`
-	ContinueAllowed bool                 `json:"continue_allowed"`
-	DegradedMode    bool                 `json:"degraded_mode"`
-	MutatesState    bool                 `json:"mutates_state"`
-	RequiredMissing []string             `json:"required_missing,omitempty"`
-	OptionalMissing []string             `json:"optional_missing,omitempty"`
-	Organs          []bodyInventoryOrgan `json:"organs"`
-	Reason          string               `json:"reason"`
+	Schema            string                           `json:"schema"`
+	Mode              string                           `json:"mode"`
+	Root              string                           `json:"root"`
+	Status            string                           `json:"status"`
+	CoreReady         bool                             `json:"core_ready"`
+	OptionalReady     bool                             `json:"optional_ready"`
+	LiveTrioAllowed   bool                             `json:"live_trio_allowed"`
+	ContinueAllowed   bool                             `json:"continue_allowed"`
+	DegradedMode      bool                             `json:"degraded_mode"`
+	MutatesState      bool                             `json:"mutates_state"`
+	RequiredMissing   []string                         `json:"required_missing,omitempty"`
+	OptionalMissing   []string                         `json:"optional_missing,omitempty"`
+	Organs            []bodyInventoryOrgan             `json:"organs"`
+	RouteAvailability []bodyInventoryRouteAvailability `json:"route_availability"`
+	Reason            string                           `json:"reason"`
 }
 
 func bodyInventorySpecs() []bodyInventoryOrganSpec {
@@ -62,6 +82,48 @@ func bodyInventorySpecs() []bodyInventoryOrganSpec {
 		{Name: "chorus-binary", Role: "polyphonic nano substrate", Kind: "binary", Path: "./chorus-arianna", Required: false},
 		{Name: "kk-binary", Role: "Knowledge Kernel retriever", Kind: "binary", Path: "./kk-cli", Required: false},
 		{Name: "kk-db", Role: "Knowledge Kernel dream memory", Kind: "state", Path: "weights/nano.kk.db", Required: false},
+	}
+}
+
+func bodyInventoryRouteSpecs() []bodyInventoryRouteSpec {
+	return []bodyInventoryRouteSpec{
+		{
+			Route:          "direct",
+			Backend:        "nano",
+			Entrypoint:     "direct",
+			RequiredOrgans: []string{"nano-weight"},
+			AnyOfOrgans:    []string{"nano-binary", "doe-binary"},
+		},
+		{
+			Route:          "chorus",
+			Backend:        "chorus-arianna",
+			Entrypoint:     "field",
+			RequiredOrgans: []string{"chorus-binary", "nano-weight"},
+		},
+		{
+			Route:          "qloop",
+			Backend:        "chorus-arianna",
+			Entrypoint:     "qloop",
+			RequiredOrgans: []string{"chorus-binary", "nano-weight"},
+		},
+		{
+			Route:          "qloop_hint_qa",
+			Backend:        "chorus-arianna",
+			Entrypoint:     "qloop_hint_qa",
+			RequiredOrgans: []string{"chorus-binary", "nano-weight"},
+		},
+		{
+			Route:          "qloop_target",
+			Backend:        "chorus-arianna",
+			Entrypoint:     "qloop_target",
+			RequiredOrgans: []string{"chorus-binary", "nano-weight"},
+		},
+		{
+			Route:          "user_bridge",
+			Backend:        "chorus-arianna",
+			Entrypoint:     "repl_user_bridge",
+			RequiredOrgans: []string{"chorus-binary", "nano-weight"},
+		},
 	}
 }
 
@@ -155,6 +217,7 @@ func inspectBodyInventory(root string) bodyInventoryReceipt {
 	}
 	sort.Strings(receipt.RequiredMissing)
 	sort.Strings(receipt.OptionalMissing)
+	receipt.RouteAvailability = inspectBodyRouteAvailability(receipt)
 	receipt.LiveTrioAllowed = receipt.CoreReady
 	receipt.DegradedMode = !receipt.CoreReady || !receipt.OptionalReady
 	switch {
@@ -171,6 +234,46 @@ func inspectBodyInventory(root string) bodyInventoryReceipt {
 	return receipt
 }
 
+func inspectBodyRouteAvailability(receipt bodyInventoryReceipt) []bodyInventoryRouteAvailability {
+	routes := make([]bodyInventoryRouteAvailability, 0, len(bodyInventoryRouteSpecs()))
+	for _, spec := range bodyInventoryRouteSpecs() {
+		route := bodyInventoryRouteAvailability{
+			Route:          spec.Route,
+			Backend:        spec.Backend,
+			Entrypoint:     spec.Entrypoint,
+			RequiredOrgans: append([]string(nil), spec.RequiredOrgans...),
+			AnyOfOrgans:    append([]string(nil), spec.AnyOfOrgans...),
+			Available:      true,
+		}
+		missing := make([]string, 0, len(spec.RequiredOrgans)+len(spec.AnyOfOrgans))
+		for _, organ := range spec.RequiredOrgans {
+			if !receipt.organPresent(organ) {
+				missing = append(missing, organ)
+			}
+		}
+		if len(spec.AnyOfOrgans) > 0 {
+			anyPresent := false
+			for _, organ := range spec.AnyOfOrgans {
+				if receipt.organPresent(organ) {
+					anyPresent = true
+					break
+				}
+			}
+			if !anyPresent {
+				missing = append(missing, spec.AnyOfOrgans...)
+			}
+		}
+		if len(missing) > 0 {
+			sort.Strings(missing)
+			route.Available = false
+			route.MissingOrgans = missing
+			route.Reason = "missing_route_organs:" + strings.Join(missing, ",")
+		}
+		routes = append(routes, route)
+	}
+	return routes
+}
+
 func (receipt bodyInventoryReceipt) organPresent(name string) bool {
 	for _, organ := range receipt.Organs {
 		if organ.Name == name {
@@ -178,6 +281,20 @@ func (receipt bodyInventoryReceipt) organPresent(name string) bool {
 		}
 	}
 	return false
+}
+
+func (receipt bodyInventoryReceipt) routeAvailability(route string) (bodyInventoryRouteAvailability, bool) {
+	for _, availability := range receipt.RouteAvailability {
+		if availability.Route == route {
+			return availability, true
+		}
+	}
+	return bodyInventoryRouteAvailability{}, false
+}
+
+func (receipt bodyInventoryReceipt) routeAvailable(route string) bool {
+	availability, ok := receipt.routeAvailability(route)
+	return ok && availability.Available
 }
 
 func requireBodyInventoryLiveTrio(receipt bodyInventoryReceipt) error {

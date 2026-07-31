@@ -48,6 +48,13 @@ only when required Janus/Resonance organs are absent. `make
 body-inventory-start-smoke` verifies that refusal at the real startup boundary
 from a scratch body with no required binaries or GGUFs.
 
+The same receipt includes route availability for live route entrypoints.
+`direct` needs the nano weight plus either `nano-arianna` or DOE. `chorus`,
+`qloop`, `qloop_hint_qa`, `qloop_target`, and `user_bridge` need the chorus
+binary plus the nano weight. This is an audit contract first: routes can be
+removed from the available body without promoting optional organs to hard
+startup requirements.
+
 ## Mutable Runtime State
 
 These files are mutable organs, not stable artifacts:

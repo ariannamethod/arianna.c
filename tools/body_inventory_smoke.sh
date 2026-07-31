@@ -30,10 +30,15 @@ fi
 grep -q '"schema":"arianna.body_inventory.v1"' "$LOG" || die "receipt schema missing"
 grep -q '"mutates_state":false' "$LOG" || die "receipt must be non-mutating"
 grep -q '"continue_allowed":true' "$LOG" || die "receipt must keep inspection alive"
+grep -q '"route_availability":' "$LOG" || die "route availability missing"
 grep -q 'body-inventory: status=' "$RUN_LOG" || die "summary line missing"
 
 for organ in janus-binary janus-weight resonance-binary resonance-weight nano-binary nano-weight; do
     grep -q "\"name\":\"$organ\"" "$LOG" || die "organ missing from receipt: $organ"
+done
+
+for route in direct chorus qloop qloop_hint_qa qloop_target user_bridge; do
+    grep -q "\"route\":\"$route\"" "$LOG" || die "route missing from availability receipt: $route"
 done
 
 if grep -q '"status":"ready"' "$LOG"; then
