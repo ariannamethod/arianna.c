@@ -258,104 +258,120 @@ type admissionLiveRouteTurnGeneratorAdapter struct {
 }
 
 type admissionLiveRouteTurnCandidateDraft struct {
-	Schema               string `json:"schema"`
-	PromptClass          string `json:"prompt_class"`
-	Route                string `json:"route,omitempty"`
-	Source               string `json:"source,omitempty"`
-	ExpectedSource       string `json:"expected_source,omitempty"`
-	Backend              string `json:"backend,omitempty"`
-	Entrypoint           string `json:"entrypoint,omitempty"`
-	PromptFrame          string `json:"prompt_frame,omitempty"`
-	CandidateSchema      string `json:"candidate_schema,omitempty"`
-	CandidateKind        string `json:"candidate_kind,omitempty"`
-	CandidateTrigger     string `json:"candidate_trigger,omitempty"`
-	CandidateSeed        string `json:"candidate_seed,omitempty"`
-	CandidateTextStatus  string `json:"candidate_text_status,omitempty"`
-	CandidateText        string `json:"candidate_text,omitempty"`
-	CandidateTextHash    string `json:"candidate_text_hash,omitempty"`
-	CandidateRunID       string `json:"candidate_run_id,omitempty"`
-	JobID                string `json:"job_id,omitempty"`
-	ShellID              string `json:"shell_id,omitempty"`
-	CandidateExecutionID string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID   string `json:"generator_adapter_id,omitempty"`
-	DraftID              string `json:"draft_id,omitempty"`
-	Passed               bool   `json:"passed"`
-	Reason               string `json:"reason,omitempty"`
-	TurnTextHash         string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	Backend                 string   `json:"backend,omitempty"`
+	Entrypoint              string   `json:"entrypoint,omitempty"`
+	PromptFrame             string   `json:"prompt_frame,omitempty"`
+	CandidateSchema         string   `json:"candidate_schema,omitempty"`
+	CandidateKind           string   `json:"candidate_kind,omitempty"`
+	CandidateTrigger        string   `json:"candidate_trigger,omitempty"`
+	CandidateSeed           string   `json:"candidate_seed,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateText           string   `json:"candidate_text,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	JobID                   string   `json:"job_id,omitempty"`
+	ShellID                 string   `json:"shell_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	DraftID                 string   `json:"draft_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateReview struct {
-	Schema                  string `json:"schema"`
-	Timing                  string `json:"timing"`
-	TurnPromptClass         string `json:"turn_prompt_class"`
-	TurnRoute               string `json:"turn_route,omitempty"`
-	TurnExpectedSource      string `json:"turn_expected_source,omitempty"`
-	TurnPassed              bool   `json:"turn_passed"`
-	CandidateRunID          string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID        string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID    string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID      string `json:"generator_adapter_id,omitempty"`
-	CandidateTextStatus     string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash       string `json:"candidate_text_hash,omitempty"`
-	CandidateSource         string `json:"candidate_source,omitempty"`
-	CandidateTrigger        string `json:"candidate_trigger,omitempty"`
-	CandidateBridgeApplied  bool   `json:"candidate_bridge_applied"`
-	CandidateBridgeTrigger  string `json:"candidate_bridge_trigger,omitempty"`
-	CandidatePromptClass    string `json:"candidate_prompt_class,omitempty"`
-	CandidateRoute          string `json:"candidate_route,omitempty"`
-	CandidateExpectedSource string `json:"candidate_expected_source,omitempty"`
-	CandidateChoicePassed   bool   `json:"candidate_choice_passed"`
-	Matched                 bool   `json:"matched"`
-	Reason                  string `json:"reason,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	TurnPromptClass         string   `json:"turn_prompt_class"`
+	TurnRoute               string   `json:"turn_route,omitempty"`
+	TurnExpectedSource      string   `json:"turn_expected_source,omitempty"`
+	TurnPassed              bool     `json:"turn_passed"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	CandidateSource         string   `json:"candidate_source,omitempty"`
+	CandidateTrigger        string   `json:"candidate_trigger,omitempty"`
+	CandidateBridgeApplied  bool     `json:"candidate_bridge_applied"`
+	CandidateBridgeTrigger  string   `json:"candidate_bridge_trigger,omitempty"`
+	CandidatePromptClass    string   `json:"candidate_prompt_class,omitempty"`
+	CandidateRoute          string   `json:"candidate_route,omitempty"`
+	CandidateExpectedSource string   `json:"candidate_expected_source,omitempty"`
+	CandidateChoicePassed   bool     `json:"candidate_choice_passed"`
+	Matched                 bool     `json:"matched"`
+	Reason                  string   `json:"reason,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmission struct {
-	Schema               string `json:"schema"`
-	Timing               string `json:"timing"`
-	PromptClass          string `json:"prompt_class"`
-	Route                string `json:"route,omitempty"`
-	Source               string `json:"source,omitempty"`
-	ExpectedSource       string `json:"expected_source,omitempty"`
-	CandidateSchema      string `json:"candidate_schema,omitempty"`
-	CandidateKind        string `json:"candidate_kind,omitempty"`
-	CandidateTrigger     string `json:"candidate_trigger,omitempty"`
-	CandidateSeed        string `json:"candidate_seed,omitempty"`
-	CandidateRunID       string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID     string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID   string `json:"generator_adapter_id,omitempty"`
-	CandidateTextStatus  string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash    string `json:"candidate_text_hash,omitempty"`
-	ReviewMatched        bool   `json:"review_matched"`
-	HandoffID            string `json:"handoff_id,omitempty"`
-	Passed               bool   `json:"passed"`
-	Reason               string `json:"reason,omitempty"`
-	TurnTextHash         string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateSchema         string   `json:"candidate_schema,omitempty"`
+	CandidateKind           string   `json:"candidate_kind,omitempty"`
+	CandidateTrigger        string   `json:"candidate_trigger,omitempty"`
+	CandidateSeed           string   `json:"candidate_seed,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	ReviewMatched           bool     `json:"review_matched"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionAdapter struct {
-	Schema               string `json:"schema"`
-	Timing               string `json:"timing"`
-	PromptClass          string `json:"prompt_class"`
-	Route                string `json:"route,omitempty"`
-	Source               string `json:"source,omitempty"`
-	ExpectedSource       string `json:"expected_source,omitempty"`
-	CandidateSchema      string `json:"candidate_schema,omitempty"`
-	CandidateKind        string `json:"candidate_kind,omitempty"`
-	CandidateTrigger     string `json:"candidate_trigger,omitempty"`
-	CandidateSeed        string `json:"candidate_seed,omitempty"`
-	CandidateRunID       string `json:"candidate_run_id,omitempty"`
-	DreamCandidateRunID  string `json:"dream_candidate_run_id,omitempty"`
-	CandidateDraftID     string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID   string `json:"generator_adapter_id,omitempty"`
-	HandoffID            string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID   string `json:"admission_adapter_id,omitempty"`
-	CandidateTextStatus  string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash    string `json:"candidate_text_hash,omitempty"`
-	Passed               bool   `json:"passed"`
-	Reason               string `json:"reason,omitempty"`
-	TurnTextHash         string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateSchema         string   `json:"candidate_schema,omitempty"`
+	CandidateKind           string   `json:"candidate_kind,omitempty"`
+	CandidateTrigger        string   `json:"candidate_trigger,omitempty"`
+	CandidateSeed           string   `json:"candidate_seed,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionDecision struct {
@@ -2936,22 +2952,26 @@ func admissionLiveRouteTurnCandidateDraftDryRun() bool {
 
 func admissionLiveRouteTurnCandidateDraftForShell(shell admissionLiveRouteTurnCandidateShell, text string) admissionLiveRouteTurnCandidateDraft {
 	draft := admissionLiveRouteTurnCandidateDraft{
-		Schema:              admissionLiveRouteTurnCandidateDraftSchema,
-		PromptClass:         shell.PromptClass,
-		Route:               shell.Route,
-		Source:              shell.Source,
-		ExpectedSource:      shell.ExpectedSource,
-		Backend:             shell.Backend,
-		Entrypoint:          shell.Entrypoint,
-		PromptFrame:         shell.PromptFrame,
-		CandidateSchema:     shell.CandidateSchema,
-		CandidateKind:       shell.CandidateKind,
-		CandidateTrigger:    shell.CandidateTrigger,
-		CandidateSeed:       shell.CandidateSeed,
-		CandidateTextStatus: shell.CandidateTextStatus,
-		JobID:               shell.JobID,
-		ShellID:             shell.ShellID,
-		TurnTextHash:        shell.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateDraftSchema,
+		PromptClass:             shell.PromptClass,
+		Route:                   shell.Route,
+		Source:                  shell.Source,
+		ExpectedSource:          shell.ExpectedSource,
+		Backend:                 shell.Backend,
+		Entrypoint:              shell.Entrypoint,
+		PromptFrame:             shell.PromptFrame,
+		CandidateSchema:         shell.CandidateSchema,
+		CandidateKind:           shell.CandidateKind,
+		CandidateTrigger:        shell.CandidateTrigger,
+		CandidateSeed:           shell.CandidateSeed,
+		CandidateTextStatus:     shell.CandidateTextStatus,
+		BodyInventoryStatus:     shell.BodyInventoryStatus,
+		RouteAvailabilityStatus: shell.RouteAvailabilityStatus,
+		RouteAvailabilityReason: shell.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(shell.RouteMissingOrgans),
+		JobID:                   shell.JobID,
+		ShellID:                 shell.ShellID,
+		TurnTextHash:            shell.TurnTextHash,
 	}
 	if shell.Schema == "" {
 		draft.Reason = "missing_candidate_shell"
@@ -3035,26 +3055,30 @@ func admissionLiveRouteTurnCandidateDraftForShell(shell admissionLiveRouteTurnCa
 
 func admissionLiveRouteTurnCandidateDraftForAdapter(adapter admissionLiveRouteTurnGeneratorAdapter) admissionLiveRouteTurnCandidateDraft {
 	draft := admissionLiveRouteTurnCandidateDraft{
-		Schema:               admissionLiveRouteTurnCandidateDraftSchema,
-		PromptClass:          adapter.PromptClass,
-		Route:                adapter.Route,
-		Source:               adapter.Source,
-		ExpectedSource:       adapter.ExpectedSource,
-		Backend:              adapter.Backend,
-		Entrypoint:           adapter.Entrypoint,
-		PromptFrame:          adapter.PromptFrame,
-		CandidateSchema:      adapter.CandidateSchema,
-		CandidateKind:        adapter.CandidateKind,
-		CandidateTrigger:     adapter.CandidateTrigger,
-		CandidateSeed:        adapter.CandidateSeed,
-		CandidateTextStatus:  adapter.GeneratedTextStatus,
-		CandidateText:        strings.TrimSpace(adapter.GeneratedText),
-		CandidateTextHash:    adapter.GeneratedTextHash,
-		JobID:                adapter.JobID,
-		ShellID:              adapter.ShellID,
-		CandidateExecutionID: adapter.CandidateExecutionID,
-		GeneratorAdapterID:   adapter.AdapterID,
-		TurnTextHash:         adapter.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateDraftSchema,
+		PromptClass:             adapter.PromptClass,
+		Route:                   adapter.Route,
+		Source:                  adapter.Source,
+		ExpectedSource:          adapter.ExpectedSource,
+		Backend:                 adapter.Backend,
+		Entrypoint:              adapter.Entrypoint,
+		PromptFrame:             adapter.PromptFrame,
+		CandidateSchema:         adapter.CandidateSchema,
+		CandidateKind:           adapter.CandidateKind,
+		CandidateTrigger:        adapter.CandidateTrigger,
+		CandidateSeed:           adapter.CandidateSeed,
+		CandidateTextStatus:     adapter.GeneratedTextStatus,
+		CandidateText:           strings.TrimSpace(adapter.GeneratedText),
+		CandidateTextHash:       adapter.GeneratedTextHash,
+		BodyInventoryStatus:     adapter.BodyInventoryStatus,
+		RouteAvailabilityStatus: adapter.RouteAvailabilityStatus,
+		RouteAvailabilityReason: adapter.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(adapter.RouteMissingOrgans),
+		JobID:                   adapter.JobID,
+		ShellID:                 adapter.ShellID,
+		CandidateExecutionID:    adapter.CandidateExecutionID,
+		GeneratorAdapterID:      adapter.AdapterID,
+		TurnTextHash:            adapter.TurnTextHash,
 	}
 	if adapter.Schema == "" {
 		draft.Reason = "missing_generator_adapter"
@@ -3102,23 +3126,27 @@ func admissionLiveRouteTurnCandidateDraftForAdapter(adapter admissionLiveRouteTu
 		return draft
 	}
 	shell := admissionLiveRouteTurnCandidateShell{
-		Schema:              admissionLiveRouteTurnCandidateShellSchema,
-		PromptClass:         adapter.PromptClass,
-		Route:               adapter.Route,
-		Source:              adapter.Source,
-		ExpectedSource:      adapter.ExpectedSource,
-		Backend:             adapter.Backend,
-		Entrypoint:          adapter.Entrypoint,
-		PromptFrame:         adapter.PromptFrame,
-		CandidateSchema:     adapter.CandidateSchema,
-		CandidateKind:       adapter.CandidateKind,
-		CandidateTrigger:    adapter.CandidateTrigger,
-		CandidateSeed:       adapter.CandidateSeed,
-		CandidateTextStatus: adapter.CandidateTextStatus,
-		JobID:               adapter.JobID,
-		ShellID:             adapter.ShellID,
-		Passed:              true,
-		TurnTextHash:        adapter.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateShellSchema,
+		PromptClass:             adapter.PromptClass,
+		Route:                   adapter.Route,
+		Source:                  adapter.Source,
+		ExpectedSource:          adapter.ExpectedSource,
+		Backend:                 adapter.Backend,
+		Entrypoint:              adapter.Entrypoint,
+		PromptFrame:             adapter.PromptFrame,
+		CandidateSchema:         adapter.CandidateSchema,
+		CandidateKind:           adapter.CandidateKind,
+		CandidateTrigger:        adapter.CandidateTrigger,
+		CandidateSeed:           adapter.CandidateSeed,
+		CandidateTextStatus:     adapter.CandidateTextStatus,
+		BodyInventoryStatus:     adapter.BodyInventoryStatus,
+		RouteAvailabilityStatus: adapter.RouteAvailabilityStatus,
+		RouteAvailabilityReason: adapter.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(adapter.RouteMissingOrgans),
+		JobID:                   adapter.JobID,
+		ShellID:                 adapter.ShellID,
+		Passed:                  true,
+		TurnTextHash:            adapter.TurnTextHash,
 	}
 	if wantShellID := admissionLiveRouteTurnCandidateShellID(shell); wantShellID == "" || adapter.ShellID != wantShellID {
 		draft.Reason = "generator adapter shell id mismatch"
@@ -3172,20 +3200,24 @@ func recordAdmissionLiveRouteTurnCandidateDraft(draft admissionLiveRouteTurnCand
 
 func admissionLiveRouteTurnCandidateReviewForDraft(obs admissionLiveRouteTurnObservation, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateReview {
 	review := admissionLiveRouteTurnCandidateReview{
-		Schema:               admissionLiveRouteTurnReviewSchema,
-		Timing:               "async_subconscious",
-		TurnPromptClass:      obs.PromptClass,
-		TurnRoute:            obs.Route,
-		TurnExpectedSource:   obs.ExpectedSource,
-		TurnPassed:           obs.Passed,
-		CandidateRunID:       draft.CandidateRunID,
-		CandidateDraftID:     draft.DraftID,
-		CandidateExecutionID: draft.CandidateExecutionID,
-		GeneratorAdapterID:   draft.GeneratorAdapterID,
-		CandidateTextStatus:  draft.CandidateTextStatus,
-		CandidateTextHash:    draft.CandidateTextHash,
-		CandidateSource:      normalizeDreamAdmissionSource(draft.Source),
-		CandidateTrigger:     draft.CandidateTrigger,
+		Schema:                  admissionLiveRouteTurnReviewSchema,
+		Timing:                  "async_subconscious",
+		TurnPromptClass:         obs.PromptClass,
+		TurnRoute:               obs.Route,
+		TurnExpectedSource:      obs.ExpectedSource,
+		TurnPassed:              obs.Passed,
+		CandidateRunID:          draft.CandidateRunID,
+		CandidateDraftID:        draft.DraftID,
+		CandidateExecutionID:    draft.CandidateExecutionID,
+		GeneratorAdapterID:      draft.GeneratorAdapterID,
+		CandidateTextStatus:     draft.CandidateTextStatus,
+		CandidateTextHash:       draft.CandidateTextHash,
+		BodyInventoryStatus:     draft.BodyInventoryStatus,
+		RouteAvailabilityStatus: draft.RouteAvailabilityStatus,
+		RouteAvailabilityReason: draft.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(draft.RouteMissingOrgans),
+		CandidateSource:         normalizeDreamAdmissionSource(draft.Source),
+		CandidateTrigger:        draft.CandidateTrigger,
 	}
 	if obs.Schema == "" {
 		review.Reason = "missing_turn_observation"
@@ -3389,24 +3421,28 @@ func admissionLiveRouteTurnCandidateAdmissionDryRun() bool {
 
 func admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs admissionLiveRouteTurnObservation, draft admissionLiveRouteTurnCandidateDraft, review admissionLiveRouteTurnCandidateReview) admissionLiveRouteTurnCandidateAdmission {
 	admission := admissionLiveRouteTurnCandidateAdmission{
-		Schema:               admissionLiveRouteTurnCandidateAdmissionSchema,
-		Timing:               "pre_admission_handoff",
-		PromptClass:          draft.PromptClass,
-		Route:                draft.Route,
-		Source:               normalizeDreamAdmissionSource(draft.Source),
-		ExpectedSource:       draft.ExpectedSource,
-		CandidateSchema:      draft.CandidateSchema,
-		CandidateKind:        draft.CandidateKind,
-		CandidateTrigger:     draft.CandidateTrigger,
-		CandidateSeed:        draft.CandidateSeed,
-		CandidateRunID:       draft.CandidateRunID,
-		CandidateDraftID:     draft.DraftID,
-		CandidateExecutionID: draft.CandidateExecutionID,
-		GeneratorAdapterID:   draft.GeneratorAdapterID,
-		CandidateTextStatus:  draft.CandidateTextStatus,
-		CandidateTextHash:    draft.CandidateTextHash,
-		ReviewMatched:        review.Matched,
-		TurnTextHash:         draft.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionSchema,
+		Timing:                  "pre_admission_handoff",
+		PromptClass:             draft.PromptClass,
+		Route:                   draft.Route,
+		Source:                  normalizeDreamAdmissionSource(draft.Source),
+		ExpectedSource:          draft.ExpectedSource,
+		CandidateSchema:         draft.CandidateSchema,
+		CandidateKind:           draft.CandidateKind,
+		CandidateTrigger:        draft.CandidateTrigger,
+		CandidateSeed:           draft.CandidateSeed,
+		CandidateRunID:          draft.CandidateRunID,
+		CandidateDraftID:        draft.DraftID,
+		CandidateExecutionID:    draft.CandidateExecutionID,
+		GeneratorAdapterID:      draft.GeneratorAdapterID,
+		CandidateTextStatus:     draft.CandidateTextStatus,
+		CandidateTextHash:       draft.CandidateTextHash,
+		BodyInventoryStatus:     draft.BodyInventoryStatus,
+		RouteAvailabilityStatus: draft.RouteAvailabilityStatus,
+		RouteAvailabilityReason: draft.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(draft.RouteMissingOrgans),
+		ReviewMatched:           review.Matched,
+		TurnTextHash:            draft.TurnTextHash,
 	}
 	if obs.Schema == "" {
 		admission.Reason = "missing_turn_observation"
@@ -3695,24 +3731,28 @@ func admissionLiveRouteTurnCandidateAdmissionPermitKey() string {
 
 func admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission admissionLiveRouteTurnCandidateAdmission, draft admissionLiveRouteTurnCandidateDraft) admissionLiveRouteTurnCandidateAdmissionAdapter {
 	adapter := admissionLiveRouteTurnCandidateAdmissionAdapter{
-		Schema:               admissionLiveRouteTurnCandidateAdmissionAdapterSchema,
-		Timing:               "admission_candidate_adapter",
-		PromptClass:          admission.PromptClass,
-		Route:                admission.Route,
-		Source:               admission.Source,
-		ExpectedSource:       admission.ExpectedSource,
-		CandidateSchema:      admission.CandidateSchema,
-		CandidateKind:        admission.CandidateKind,
-		CandidateTrigger:     admission.CandidateTrigger,
-		CandidateSeed:        admission.CandidateSeed,
-		CandidateRunID:       admission.CandidateRunID,
-		CandidateDraftID:     admission.CandidateDraftID,
-		CandidateExecutionID: admission.CandidateExecutionID,
-		GeneratorAdapterID:   admission.GeneratorAdapterID,
-		HandoffID:            admission.HandoffID,
-		CandidateTextStatus:  admission.CandidateTextStatus,
-		CandidateTextHash:    admission.CandidateTextHash,
-		TurnTextHash:         admission.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionAdapterSchema,
+		Timing:                  "admission_candidate_adapter",
+		PromptClass:             admission.PromptClass,
+		Route:                   admission.Route,
+		Source:                  admission.Source,
+		ExpectedSource:          admission.ExpectedSource,
+		CandidateSchema:         admission.CandidateSchema,
+		CandidateKind:           admission.CandidateKind,
+		CandidateTrigger:        admission.CandidateTrigger,
+		CandidateSeed:           admission.CandidateSeed,
+		CandidateRunID:          admission.CandidateRunID,
+		CandidateDraftID:        admission.CandidateDraftID,
+		CandidateExecutionID:    admission.CandidateExecutionID,
+		GeneratorAdapterID:      admission.GeneratorAdapterID,
+		HandoffID:               admission.HandoffID,
+		CandidateTextStatus:     admission.CandidateTextStatus,
+		CandidateTextHash:       admission.CandidateTextHash,
+		BodyInventoryStatus:     admission.BodyInventoryStatus,
+		RouteAvailabilityStatus: admission.RouteAvailabilityStatus,
+		RouteAvailabilityReason: admission.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(admission.RouteMissingOrgans),
+		TurnTextHash:            admission.TurnTextHash,
 	}
 	if admission.Schema == "" {
 		adapter.Reason = "missing_candidate_admission_handoff"

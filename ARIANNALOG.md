@@ -13,6 +13,18 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-07-31 — Route boundary reaches admission receipts
+
+`arianna.live_route_turn_candidate_draft.v1`,
+`arianna.live_route_turn_candidate_review.v1`,
+`arianna.live_route_turn_candidate_admission.v1`, and
+`arianna.live_route_turn_candidate_admission_adapter.v1` now preserve the typed
+body-inventory refusal fields emitted upstream by generation job/shell/execution
+and generator adapter receipts. `make admission-live-route-turn-route-boundary-smoke`
+now drives an empty-body `chorus` route all the way through draft, review,
+handoff, and admission adapter dry-runs, proving the same unavailable-route
+diagnosis survives without minting runnable ids.
+
 ## 2026-07-31 — Body inventory blocks startup before first daemon
 
 `make body-inventory-start-smoke` now runs the built metabolism from an empty
