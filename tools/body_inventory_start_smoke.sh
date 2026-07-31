@@ -42,10 +42,15 @@ grep -q '"status":"blocked"' "$LOG" || die "receipt status must be blocked"
 grep -q '"live_trio_allowed":false' "$LOG" || die "blocked receipt must deny live trio"
 grep -q '"continue_allowed":true' "$LOG" || die "blocked receipt must keep inspection alive"
 grep -q '"mutates_state":false' "$LOG" || die "receipt must be non-mutating"
+grep -q '"route_availability":' "$LOG" || die "route availability missing"
 
 for organ in janus-binary janus-weight resonance-binary resonance-weight; do
     grep -q "\"name\":\"$organ\"" "$LOG" || die "organ missing from receipt: $organ"
     grep -q "$organ" "$RUN_LOG" || die "required missing organ not named in startup block: $organ"
+done
+
+for route in direct chorus qloop qloop_hint_qa qloop_target user_bridge; do
+    grep -q "\"route\":\"$route\"" "$LOG" || die "route missing from availability receipt: $route"
 done
 
 if grep -Eq 'janus daemon:|resonance daemon:|\[high\]|arianna-metabolism' "$RUN_LOG"; then

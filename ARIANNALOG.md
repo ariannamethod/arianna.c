@@ -4317,3 +4317,12 @@ scout that indexes external information asynchronously. Every added weight needs
 memory contract, provenance, fallback behavior, and a rule that it cannot silently take over Janus's mouth. Missing
 optional weights must put the body into a logged degraded mode, not shut the whole organism down; only a mode that
 explicitly requires a missing organ should fail closed.
+
+**Follow-up, 2026-07-31 - body inventory now names route availability.**
+`arianna.body_inventory.v1` gained `route_availability` so the organism can say which live-route entrypoints are
+physically available before admission starts choosing among them. The map is intentionally observational in this layer:
+`direct` requires the nano weight plus either `nano-arianna` or DOE, while `chorus`, `qloop`, `qloop_hint_qa`,
+`qloop_target`, and `user_bridge` require `chorus-arianna` plus the nano weight. This matches the current generation
+contract where `user_bridge` is a `chorus-arianna/repl_user_bridge` route, not a free prompt-only path. Missing optional
+organs still put the body in degraded mode instead of blocking Janus/Resonance startup; the route map is the substrate
+for the next admission layer to stop selecting absent side organs silently.

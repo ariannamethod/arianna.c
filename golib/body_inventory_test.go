@@ -56,6 +56,27 @@ func inventoryMissingSet(values []string) map[string]bool {
 	return set
 }
 
+func sameStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func mustRouteAvailability(t *testing.T, receipt bodyInventoryReceipt, route string) bodyInventoryRouteAvailability {
+	t.Helper()
+	availability, ok := receipt.routeAvailability(route)
+	if !ok {
+		t.Fatalf("route availability missing for %s: %+v", route, receipt.RouteAvailability)
+	}
+	return availability
+}
+
 func TestInspectBodyInventoryReady(t *testing.T) {
 	setBodyInventoryDefaultEnv(t)
 	root := t.TempDir()
@@ -74,6 +95,16 @@ func TestInspectBodyInventoryReady(t *testing.T) {
 	}
 	if len(receipt.RequiredMissing) != 0 || len(receipt.OptionalMissing) != 0 {
 		t.Fatalf("unexpected missing required=%v optional=%v", receipt.RequiredMissing, receipt.OptionalMissing)
+	}
+	for _, route := range []string{"direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"} {
+		if !receipt.routeAvailable(route) {
+			t.Fatalf("route %s should be available in full inventory: %+v", route, mustRouteAvailability(t, receipt, route))
+		}
+	}
+	direct := mustRouteAvailability(t, receipt, "direct")
+	if !sameStrings(direct.RequiredOrgans, []string{"nano-weight"}) ||
+		!sameStrings(direct.AnyOfOrgans, []string{"nano-binary", "doe-binary"}) {
+		t.Fatalf("direct route organ contract changed: %+v", direct)
 	}
 }
 
@@ -96,6 +127,36 @@ func TestInspectBodyInventoryDegradedOnOptionalMissing(t *testing.T) {
 	for _, name := range []string{"nano-binary", "nano-weight", "doe-binary", "chorus-binary", "kk-binary", "kk-db"} {
 		if !missing[name] {
 			t.Fatalf("optional missing does not include %s: %v", name, receipt.OptionalMissing)
+		}
+	}
+	for _, route := range []string{"direct", "chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"} {
+		availability := mustRouteAvailability(t, receipt, route)
+		if availability.Available {
+			t.Fatalf("route %s should not be available without optional organs: %+v", route, availability)
+		}
+		if !strings.Contains(availability.Reason, "missing_route_organs:") {
+			t.Fatalf("route %s missing route reason: %+v", route, availability)
+		}
+	}
+}
+
+func TestInspectBodyInventoryDoeCanCarryDirectRoute(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	root := t.TempDir()
+	writeRequiredBodyInventoryFiles(t, root)
+	writeInventoryFile(t, root, "weights/nano_arianna_f16.gguf", 0644)
+	writeInventoryFile(t, root, "doe_field", 0755)
+
+	receipt := inspectBodyInventory(root)
+	if receipt.Status != "degraded" {
+		t.Fatalf("status = %q, want degraded", receipt.Status)
+	}
+	if !receipt.routeAvailable("direct") {
+		t.Fatalf("direct route should be available through DOE + nano weight: %+v", mustRouteAvailability(t, receipt, "direct"))
+	}
+	for _, route := range []string{"chorus", "qloop", "qloop_hint_qa", "qloop_target", "user_bridge"} {
+		if receipt.routeAvailable(route) {
+			t.Fatalf("route %s should need chorus-binary: %+v", route, mustRouteAvailability(t, receipt, route))
 		}
 	}
 }
