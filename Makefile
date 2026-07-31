@@ -8,6 +8,7 @@
 #   make nano           — nano-Arianna 88M subconscious (vendored nanollama/, self-contained)
 #   make harvest_delta  — Phase 2 (A): the δ-harvest the organism runs at chat exit
 #   make body-smoke     — build the body surfaces + run non-mutating smoke checks
+#   make body-inventory-smoke — read-only organ/weight availability receipt
 #   make weights        — fetch GGUF weights from HF (TODO: HF repo)
 #   make clean          — remove all build artifacts
 #
@@ -69,7 +70,7 @@ LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
 VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
 
 # ── Default target ─────────────────────────────────────────────────────────
-.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke admission_live_route_gate_smoke admission-live-route-gate-smoke admission_live_route_chat_smoke admission-live-route-chat-smoke admission_live_route_turn_smoke admission-live-route-turn-smoke admission_live_route_turn_choice_smoke admission-live-route-turn-choice-smoke admission_live_route_turn_request_smoke admission-live-route-turn-request-smoke admission_live_route_turn_generation_job_smoke admission-live-route-turn-generation-job-smoke admission_live_route_turn_candidate_shell_smoke admission-live-route-turn-candidate-shell-smoke admission_live_route_turn_candidate_execution_smoke admission-live-route-turn-candidate-execution-smoke admission_live_route_turn_candidate_runner_smoke admission-live-route-turn-candidate-runner-smoke admission_live_route_turn_candidate_nano_direct_runner_smoke admission-live-route-turn-candidate-nano-direct-runner-smoke admission_live_route_turn_candidate_nano_direct_chat_shadow_smoke admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke admission_live_route_turn_generator_adapter_smoke admission-live-route-turn-generator-adapter-smoke admission_live_route_turn_candidate_draft_smoke admission-live-route-turn-candidate-draft-smoke admission_live_route_turn_review_smoke admission-live-route-turn-review-smoke admission_live_route_turn_bridge_smoke admission-live-route-turn-bridge-smoke admission_live_route_turn_bridge_admission_smoke admission-live-route-turn-bridge-admission-smoke admission_shadow_sample admission-shadow-sample admission_shadow_sample_broad admission-shadow-sample-broad admission_route_compare admission-route-compare admission_route_plan_gate admission-route-plan-gate admission_qloop_sweep admission-qloop-sweep admission_qloop_sweep_broad admission-qloop-sweep-broad body_smoke body-smoke clean weights distclean
+.PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta admission_shadow_smoke admission-shadow-smoke admission_live_route_gate_smoke admission-live-route-gate-smoke admission_live_route_chat_smoke admission-live-route-chat-smoke admission_live_route_turn_smoke admission-live-route-turn-smoke admission_live_route_turn_choice_smoke admission-live-route-turn-choice-smoke admission_live_route_turn_request_smoke admission-live-route-turn-request-smoke admission_live_route_turn_generation_job_smoke admission-live-route-turn-generation-job-smoke admission_live_route_turn_candidate_shell_smoke admission-live-route-turn-candidate-shell-smoke admission_live_route_turn_candidate_execution_smoke admission-live-route-turn-candidate-execution-smoke admission_live_route_turn_candidate_runner_smoke admission-live-route-turn-candidate-runner-smoke admission_live_route_turn_candidate_nano_direct_runner_smoke admission-live-route-turn-candidate-nano-direct-runner-smoke admission_live_route_turn_candidate_nano_direct_chat_shadow_smoke admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke admission_live_route_turn_generator_adapter_smoke admission-live-route-turn-generator-adapter-smoke admission_live_route_turn_candidate_draft_smoke admission-live-route-turn-candidate-draft-smoke admission_live_route_turn_review_smoke admission-live-route-turn-review-smoke admission_live_route_turn_bridge_smoke admission-live-route-turn-bridge-smoke admission_live_route_turn_bridge_admission_smoke admission-live-route-turn-bridge-admission-smoke admission_shadow_sample admission-shadow-sample admission_shadow_sample_broad admission-shadow-sample-broad admission_route_compare admission-route-compare admission_route_plan_gate admission-route-plan-gate admission_qloop_sweep admission-qloop-sweep admission_qloop_sweep_broad admission-qloop-sweep-broad body_inventory_smoke body-inventory-smoke body_smoke body-smoke clean weights distclean
 .PHONY: admission_live_route_turn_candidate_draft_review_smoke admission-live-route-turn-candidate-draft-review-smoke
 .PHONY: admission_live_route_turn_candidate_admission_smoke admission-live-route-turn-candidate-admission-smoke
 .PHONY: admission_live_route_turn_candidate_admission_adapter_smoke admission-live-route-turn-candidate-admission-adapter-smoke
@@ -281,6 +282,11 @@ doe_field:
 # body surface, runs Go tests, then runs tiny runtime probes from an isolated
 # scratch directory when GGUF weights are present. The live weights/ state is not
 # mutated by the runtime smoke.
+body-inventory-smoke: body_inventory_smoke
+
+body_inventory_smoke: metabolism
+	bash tools/body_inventory_smoke.sh
+
 admission-shadow-smoke: admission_shadow_smoke
 
 admission_shadow_smoke: metabolism

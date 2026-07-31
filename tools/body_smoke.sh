@@ -72,6 +72,10 @@ require_source 'strcmp\(arch, "nlama"\)' chorus/arianna2arianna.c "nano nlama NE
 echo "[body-smoke] Go tests"
 (cd "$ROOT/golib" && go test ./...)
 
+echo "[body-smoke] body inventory"
+A2A_BODY_INVENTORY_WORKDIR="$WORKDIR/body-inventory" \
+    bash "$ROOT/tools/body_inventory_smoke.sh"
+
 echo "[body-smoke] admission shadow receipt"
 A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
     bash "$ROOT/tools/admission_shadow_smoke.sh"

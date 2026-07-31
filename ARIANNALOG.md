@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-07-31 — Body inventory contract for missing organs
+
+Added a read-only `arianna.body_inventory.v1` receipt path to the Go metabolism:
+Janus and Resonance binaries/weights gate the current live trio, while nano,
+DOE, chorus, KK, and future side organs degrade when absent instead of shutting
+the body down. `make body-inventory-smoke` validates the contract without
+mutating soma, field, KK, DOE, cooc, delta, or GGUF artifacts; `make body-smoke`
+now runs this preflight before deeper admission checks.
+
 ## Step 1 — foundation: new folder + working Janus (PASS, 2026-05-22)
 
 Scaffold: working Janus from `arianna-foundation` (`arianna.aml` 20997 B, `tools/`,

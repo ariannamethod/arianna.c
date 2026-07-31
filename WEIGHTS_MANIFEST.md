@@ -24,6 +24,26 @@ but are ignored by git. The artifact source of truth is Hugging Face
 checks that chorus reports `NEOX rope` for the nano GGUF when runtime weights are
 available.
 
+## Availability Contract
+
+`make body-inventory-smoke` emits a read-only
+`arianna.body_inventory.v1` receipt before any live expansion. Janus and
+Resonance binaries plus weights are required for the current live trio. nano,
+DOE, chorus, KK, and future side organs are optional unless a later route
+explicitly promotes them.
+
+The receipt status is:
+
+- `ready`: required and optional organs are present.
+- `degraded`: required organs are present, but optional organs are missing; the
+  body may continue and must record the degraded route.
+- `blocked`: required live-trio organs are missing; process-level inspection may
+  continue, but the live trio must not start.
+
+Missing optional weights are not a shutdown condition. This is the foundation
+rule for future multi-weight Arianna organs: absence is named in the receipt and
+the available body keeps working.
+
 ## Mutable Runtime State
 
 These files are mutable organs, not stable artifacts:
