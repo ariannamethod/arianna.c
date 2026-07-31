@@ -337,6 +337,66 @@ func TestAdmissionLiveRouteTurnGenerationJobInventoryGateSmokeFailsClosed(t *tes
 	}
 }
 
+func TestAdmissionLiveRouteTurnRouteBoundarySmokeWritesTypedReceipts(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN", "1")
+	t.Setenv(admissionLiveRouteTurnGenerationJobInventoryGateEnv, "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_BODY_INVENTORY_ROOT", t.TempDir())
+	logRoot := t.TempDir()
+	jobLogPath := filepath.Join(logRoot, "live-route-generation-job.jsonl")
+	shellLogPath := filepath.Join(logRoot, "live-route-candidate-shell.jsonl")
+	executionLogPath := filepath.Join(logRoot, "live-route-candidate-execution.jsonl")
+	adapterLogPath := filepath.Join(logRoot, "live-route-generator-adapter.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG", jobLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG", shellLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG", executionLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG", adapterLogPath)
+
+	if err := runAdmissionLiveRouteTurnRouteBoundarySmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	type routeBoundaryReceipt struct {
+		BodyInventoryStatus     string   `json:"body_inventory_status"`
+		RouteAvailabilityStatus string   `json:"route_availability_status"`
+		RouteAvailabilityReason string   `json:"route_availability_reason"`
+		RouteMissingOrgans      []string `json:"route_missing_organs"`
+		JobID                   string   `json:"job_id"`
+		ShellID                 string   `json:"shell_id"`
+		ExecutionID             string   `json:"execution_id"`
+		CandidateExecutionID    string   `json:"candidate_execution_id"`
+		AdapterID               string   `json:"adapter_id"`
+		Passed                  bool     `json:"passed"`
+		Reason                  string   `json:"reason"`
+	}
+	for _, path := range []string{jobLogPath, shellLogPath, executionLogPath, adapterLogPath} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got routeBoundaryReceipt
+		if err := json.Unmarshal([]byte(strings.TrimSpace(string(raw))), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Passed ||
+			got.JobID != "" ||
+			got.ShellID != "" ||
+			got.ExecutionID != "" ||
+			got.CandidateExecutionID != "" ||
+			got.AdapterID != "" ||
+			got.BodyInventoryStatus != "blocked" ||
+			got.RouteAvailabilityStatus != "unavailable" ||
+			got.RouteAvailabilityReason != "missing_route_organs:chorus-binary,nano-weight" ||
+			!sameStrings(got.RouteMissingOrgans, []string{"chorus-binary", "nano-weight"}) ||
+			!strings.Contains(got.Reason, "route chorus unavailable in body inventory") {
+			t.Fatalf("receipt should carry typed route boundary from %s: %+v", path, got)
+		}
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateShellSmokeWritesShells(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-candidate-shell.jsonl")

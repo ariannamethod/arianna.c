@@ -501,6 +501,64 @@ func TestAdmissionLiveRouteTurnGenerationJobInventoryGate(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteTurnRouteBoundaryReceipts(t *testing.T) {
+	setBodyInventoryDefaultEnv(t)
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	inventory := inspectBodyInventory(t.TempDir())
+	job := admissionLiveRouteTurnGenerationJobForRequestWithInventory(request, inventory, true)
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, "This text must not run without the route body.")
+	adapterFromShell := admissionLiveRouteTurnGeneratorAdapterForShell(shell, "This text must not adapt without the route body.")
+	adapterFromExecution := admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
+
+	if job.Passed || job.JobID != "" {
+		t.Fatalf("job should fail closed before runnable id: %+v", job)
+	}
+	if !sameStrings(job.RouteMissingOrgans, []string{"chorus-binary", "nano-weight"}) {
+		t.Fatalf("job should name missing organs: %+v", job)
+	}
+	if shell.Passed ||
+		shell.JobID != "" ||
+		shell.ShellID != "" ||
+		shell.BodyInventoryStatus != "blocked" ||
+		shell.RouteAvailabilityStatus != "unavailable" ||
+		shell.RouteAvailabilityReason != "missing_route_organs:chorus-binary,nano-weight" ||
+		!sameStrings(shell.RouteMissingOrgans, job.RouteMissingOrgans) ||
+		!strings.Contains(shell.Reason, "route chorus unavailable in body inventory") {
+		t.Fatalf("shell should carry the unavailable route boundary: %+v", shell)
+	}
+	if execution.Passed ||
+		execution.JobID != "" ||
+		execution.ShellID != "" ||
+		execution.ExecutionID != "" ||
+		execution.BodyInventoryStatus != shell.BodyInventoryStatus ||
+		execution.RouteAvailabilityStatus != shell.RouteAvailabilityStatus ||
+		execution.RouteAvailabilityReason != shell.RouteAvailabilityReason ||
+		!sameStrings(execution.RouteMissingOrgans, shell.RouteMissingOrgans) ||
+		!strings.Contains(execution.Reason, "route chorus unavailable in body inventory") {
+		t.Fatalf("execution should carry the unavailable route boundary: %+v", execution)
+	}
+	for name, adapter := range map[string]admissionLiveRouteTurnGeneratorAdapter{
+		"from shell":     adapterFromShell,
+		"from execution": adapterFromExecution,
+	} {
+		if adapter.Passed ||
+			adapter.JobID != "" ||
+			adapter.ShellID != "" ||
+			adapter.CandidateExecutionID != "" ||
+			adapter.AdapterID != "" ||
+			adapter.BodyInventoryStatus != shell.BodyInventoryStatus ||
+			adapter.RouteAvailabilityStatus != shell.RouteAvailabilityStatus ||
+			adapter.RouteAvailabilityReason != shell.RouteAvailabilityReason ||
+			!sameStrings(adapter.RouteMissingOrgans, shell.RouteMissingOrgans) ||
+			!strings.Contains(adapter.Reason, "route chorus unavailable in body inventory") {
+			t.Fatalf("adapter %s should carry the unavailable route boundary: %+v", name, adapter)
+		}
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	jobFor := func(human string) admissionLiveRouteTurnGenerationJob {
 		obs := admissionLiveRouteTurnObservationForHuman(human)

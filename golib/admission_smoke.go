@@ -715,6 +715,138 @@ func runAdmissionLiveRouteTurnGenerationJobInventoryGateSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteTurnRouteBoundarySmoke() error {
+	jobLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG"))
+	shellLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG"))
+	executionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG"))
+	adapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
+	for name, path := range map[string]string{
+		"AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG":      jobLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG":     shellLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG": executionLogPath,
+		"AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG":   adapterLogPath,
+	} {
+		if path == "" {
+			return fmt.Errorf("%s is required", name)
+		}
+	}
+	if !admissionLiveRouteTurnGenerationJobDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnGenerationJobInventoryGate() {
+		return fmt.Errorf("%s is required", admissionLiveRouteTurnGenerationJobInventoryGateEnv)
+	}
+	if !admissionLiveRouteTurnCandidateShellDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateExecutionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnGeneratorAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN is required")
+	}
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
+	lines := []string{
+		chatLiveRouteTurnGenerationJobDryRunLine(obs),
+		chatLiveRouteTurnCandidateShellDryRunLine(obs),
+		chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs, "This text must not execute without the route body."),
+		chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, "This text must not adapt without the route body."),
+	}
+	for i, line := range lines {
+		if !strings.Contains(line, "route=chorus") ||
+			!strings.Contains(line, "passed=false") ||
+			!strings.Contains(line, "route chorus unavailable in body inventory") {
+			return fmt.Errorf("route boundary line %d did not fail closed: %q", i+1, line)
+		}
+		fmt.Println(line)
+	}
+
+	readOne := func(path string) (string, error) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+		if len(lines) != 1 {
+			return "", fmt.Errorf("expected 1 JSONL receipt in %s, got %d", path, len(lines))
+		}
+		return lines[0], nil
+	}
+	boundaryOK := func(status, availability, reason string, missing []string) bool {
+		return status == "blocked" &&
+			availability == "unavailable" &&
+			reason == "missing_route_organs:chorus-binary,nano-weight" &&
+			strings.Join(missing, ",") == "chorus-binary,nano-weight"
+	}
+
+	var job admissionLiveRouteTurnGenerationJob
+	raw, err := readOne(jobLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &job); err != nil {
+		return err
+	}
+	if job.Passed ||
+		job.JobID != "" ||
+		!boundaryOK(job.BodyInventoryStatus, job.RouteAvailabilityStatus, job.RouteAvailabilityReason, job.RouteMissingOrgans) {
+		return fmt.Errorf("job did not carry unavailable route boundary: %+v", job)
+	}
+
+	var shell admissionLiveRouteTurnCandidateShell
+	raw, err = readOne(shellLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &shell); err != nil {
+		return err
+	}
+	if shell.Passed ||
+		shell.JobID != "" ||
+		shell.ShellID != "" ||
+		!boundaryOK(shell.BodyInventoryStatus, shell.RouteAvailabilityStatus, shell.RouteAvailabilityReason, shell.RouteMissingOrgans) {
+		return fmt.Errorf("shell did not carry unavailable route boundary: %+v", shell)
+	}
+
+	var execution admissionLiveRouteTurnCandidateExecution
+	raw, err = readOne(executionLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &execution); err != nil {
+		return err
+	}
+	if execution.Passed ||
+		execution.JobID != "" ||
+		execution.ShellID != "" ||
+		execution.ExecutionID != "" ||
+		!boundaryOK(execution.BodyInventoryStatus, execution.RouteAvailabilityStatus, execution.RouteAvailabilityReason, execution.RouteMissingOrgans) {
+		return fmt.Errorf("execution did not carry unavailable route boundary: %+v", execution)
+	}
+
+	var adapter admissionLiveRouteTurnGeneratorAdapter
+	raw, err = readOne(adapterLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &adapter); err != nil {
+		return err
+	}
+	if adapter.Passed ||
+		adapter.JobID != "" ||
+		adapter.ShellID != "" ||
+		adapter.CandidateExecutionID != "" ||
+		adapter.AdapterID != "" ||
+		!boundaryOK(adapter.BodyInventoryStatus, adapter.RouteAvailabilityStatus, adapter.RouteAvailabilityReason, adapter.RouteMissingOrgans) {
+		return fmt.Errorf("adapter did not carry unavailable route boundary: %+v", adapter)
+	}
+
+	fmt.Printf("[admission-live-route-turn-route-boundary-smoke] pass: job=%s shell=%s execution=%s adapter=%s\n",
+		jobLogPath, shellLogPath, executionLogPath, adapterLogPath)
+	return nil
+}
+
 func runAdmissionLiveRouteTurnCandidateShellSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG"))
 	if logPath == "" {

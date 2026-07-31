@@ -112,6 +112,10 @@ echo "[body-smoke] admission live route generation job inventory gate"
 A2A_ADMISSION_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE_WORKDIR="$WORKDIR/admission-live-route-generation-job-inventory-gate" \
     bash "$ROOT/tools/admission_live_route_turn_generation_job_inventory_gate_smoke.sh"
 
+echo "[body-smoke] admission live route boundary receipts"
+A2A_ADMISSION_LIVE_ROUTE_TURN_ROUTE_BOUNDARY_WORKDIR="$WORKDIR/admission-live-route-boundary" \
+    bash "$ROOT/tools/admission_live_route_turn_route_boundary_smoke.sh"
+
 echo "[body-smoke] admission live route candidate shell"
 A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_SHELL_WORKDIR="$WORKDIR/admission-live-route-candidate-shell" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_shell_smoke.sh"
