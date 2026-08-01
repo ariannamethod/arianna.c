@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-01 — Route boundary reaches admission decision
+
+`arianna.live_route_turn_candidate_admission_decision.v1` now carries the typed
+body-inventory route boundary from the admission adapter and refuses to mint a
+decision id when execution, generator adapter, draft, handoff, adapter, or the
+embedded shadow candidate disagree on boundary fields. The nano-direct decision
+smoke now verifies that the final pre-live receipt did not forget missing organs.
+
 ## 2026-08-01 — Route boundary parity blocks admission drift
 
 Admission handoff and admission-adapter construction now recheck the typed

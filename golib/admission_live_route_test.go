@@ -1712,6 +1712,116 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterForDraft(t *testing.T) {
 	}
 }
 
+func admissionLiveRouteTurnCandidateAdmissionDecisionChainForTest(t *testing.T) (
+	admissionLiveRouteTurnCandidateExecution,
+	admissionLiveRouteTurnGeneratorAdapter,
+	admissionLiveRouteTurnCandidateDraft,
+	admissionLiveRouteTurnCandidateAdmission,
+	admissionLiveRouteTurnCandidateAdmissionAdapter,
+	dreamCandidate,
+) {
+	t.Helper()
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+
+	text := "The dream remembers the field and keeps one admission chain."
+	obs := admissionLiveRouteTurnObservationForHuman("Tell me what the dream should remember.")
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job.BodyInventoryStatus = "degraded"
+	job.RouteAvailabilityStatus = "available"
+	job.RouteAvailabilityReason = "optional_route_organs_missing:goldie-weight"
+	job.RouteMissingOrgans = []string{"goldie-weight"}
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	execution := admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, admissionLiveRouteTurnCandidateExecutionRuntime{
+		Runner:     admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect,
+		Status:     admissionLiveRouteTurnCandidateExecutionStatusSucceeded,
+		StdoutHash: hashJSON(text),
+	})
+	generatorAdapter := admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
+	draft := admissionLiveRouteTurnCandidateDraftForAdapter(generatorAdapter)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission, draft)
+	candidate := admissionLiveRouteTurnCandidateForAdmissionAdapter(draft, adapter)
+	candidate = prepareDreamCandidateForAdmissionWithTurnObservation(NewInnerWorld(), candidate, obs)
+
+	if !obs.Passed || !choice.Passed || !request.Passed || !job.Passed || !shell.Passed || !execution.Passed ||
+		!generatorAdapter.Passed || !draft.Passed || !review.Matched || !admission.Passed || !adapter.Passed ||
+		candidate.Schema != "arianna.dream_candidate.v1" || candidate.Admission == nil ||
+		!candidate.Admission.Passed || candidate.Admission.LiveRouteChoice == nil || !candidate.Admission.LiveRouteChoice.Passed {
+		t.Fatalf("test setup failed: obs=%+v choice=%+v request=%+v job=%+v shell=%+v execution=%+v generatorAdapter=%+v draft=%+v review=%+v admission=%+v adapter=%+v candidate=%+v",
+			obs, choice, request, job, shell, execution, generatorAdapter, draft, review, admission, adapter, candidate)
+	}
+	return execution, generatorAdapter, draft, admission, adapter, candidate
+}
+
+func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionCarriesBoundary(t *testing.T) {
+	execution, generatorAdapter, draft, admission, adapter, candidate := admissionLiveRouteTurnCandidateAdmissionDecisionChainForTest(t)
+
+	decision := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+		execution,
+		generatorAdapter,
+		draft,
+		admission,
+		adapter,
+		candidate,
+	)
+
+	if !decision.Passed ||
+		decision.DecisionID == "" ||
+		decision.BodyInventoryStatus != "degraded" ||
+		decision.RouteAvailabilityStatus != "available" ||
+		decision.RouteAvailabilityReason != "optional_route_organs_missing:goldie-weight" ||
+		!reflect.DeepEqual(decision.RouteMissingOrgans, []string{"goldie-weight"}) {
+		t.Fatalf("decision should carry route boundary: %+v", decision)
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionRejectsAdapterBoundaryDrift(t *testing.T) {
+	execution, generatorAdapter, draft, admission, adapter, candidate := admissionLiveRouteTurnCandidateAdmissionDecisionChainForTest(t)
+	adapter.RouteAvailabilityReason = "tampered-decision-boundary"
+
+	decision := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+		execution,
+		generatorAdapter,
+		draft,
+		admission,
+		adapter,
+		candidate,
+	)
+
+	if decision.Passed ||
+		decision.DecisionID != "" ||
+		!strings.Contains(decision.Reason, "candidate_execution_route_boundary_mismatch") {
+		t.Fatalf("adapter boundary drift should fail closed before decision id: %+v", decision)
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionRejectsCandidateBoundaryDrift(t *testing.T) {
+	execution, generatorAdapter, draft, admission, adapter, candidate := admissionLiveRouteTurnCandidateAdmissionDecisionChainForTest(t)
+	candidate.LiveRouteCandidateAdmission.RouteMissingOrgans = append(
+		admissionLiveRouteMissingOrgansCopy(candidate.LiveRouteCandidateAdmission.RouteMissingOrgans),
+		"doe-bridge",
+	)
+
+	decision := admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
+		execution,
+		generatorAdapter,
+		draft,
+		admission,
+		adapter,
+		candidate,
+	)
+
+	if decision.Passed ||
+		decision.DecisionID != "" ||
+		!strings.Contains(decision.Reason, "shadow_dream_candidate_route_boundary_mismatch") {
+		t.Fatalf("candidate boundary drift should fail closed before decision id: %+v", decision)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
@@ -1721,6 +1831,10 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 	choice := admissionLiveRouteTurnChoiceForObservation(obs)
 	request := admissionLiveRouteTurnRequestForChoice(choice)
 	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job.BodyInventoryStatus = "degraded"
+	job.RouteAvailabilityStatus = "available"
+	job.RouteAvailabilityReason = "optional_route_organs_missing:goldie-weight"
+	job.RouteMissingOrgans = []string{"goldie-weight"}
 	shell := admissionLiveRouteTurnCandidateShellForJob(job)
 	execution := admissionLiveRouteTurnCandidateExecutionForShellWithRuntime(shell, text, admissionLiveRouteTurnCandidateExecutionRuntime{
 		Runner:     admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect,
@@ -1763,6 +1877,10 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		decision.AdmissionAdapterID != adapter.AdmissionAdapterID ||
 		decision.DreamCandidateRunID != candidate.RunID ||
 		decision.CandidateTextHash != hashJSON(text) ||
+		decision.BodyInventoryStatus != "degraded" ||
+		decision.RouteAvailabilityStatus != "available" ||
+		decision.RouteAvailabilityReason != "optional_route_organs_missing:goldie-weight" ||
+		!reflect.DeepEqual(decision.RouteMissingOrgans, []string{"goldie-weight"}) ||
 		decision.TurnTextHash != obs.TextHash {
 		t.Fatalf("decision lost provenance: decision=%+v execution=%+v adapter=%+v draft=%+v admission=%+v candidate=%+v",
 			decision, execution, generatorAdapter, draft, admission, candidate)

@@ -4142,6 +4142,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			decision.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
 			decision.DreamCandidateRunID != candidate.RunID ||
 			decision.CandidateTextHash != execution.GeneratedTextHash ||
+			!admissionLiveRouteBoundaryFieldsEqual(
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+				admissionAdapter.BodyInventoryStatus,
+				admissionAdapter.RouteAvailabilityStatus,
+				admissionAdapter.RouteAvailabilityReason,
+				admissionAdapter.RouteMissingOrgans,
+			) ||
 			decision.DreamAccepted ||
 			!decision.AdmissionPolicyPassed ||
 			!decision.LiveRouteChoicePassed {

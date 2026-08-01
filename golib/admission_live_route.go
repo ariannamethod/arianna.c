@@ -375,34 +375,38 @@ type admissionLiveRouteTurnCandidateAdmissionAdapter struct {
 }
 
 type admissionLiveRouteTurnCandidateAdmissionDecision struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	Decision              string `json:"decision,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	DreamCandidateSchema  string `json:"dream_candidate_schema,omitempty"`
-	DreamCandidateMode    string `json:"dream_candidate_mode,omitempty"`
-	DreamAccepted         bool   `json:"dream_accepted"`
-	DreamReason           string `json:"dream_reason,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	MutatesState          bool   `json:"mutates_state"`
-	DecisionID            string `json:"decision_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	Decision                string   `json:"decision,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	DreamCandidateSchema    string   `json:"dream_candidate_schema,omitempty"`
+	DreamCandidateMode      string   `json:"dream_candidate_mode,omitempty"`
+	DreamAccepted           bool     `json:"dream_accepted"`
+	DreamReason             string   `json:"dream_reason,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	MutatesState            bool     `json:"mutates_state"`
+	DecisionID              string   `json:"decision_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionPromotion struct {
@@ -3940,30 +3944,34 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 	candidate dreamCandidate,
 ) admissionLiveRouteTurnCandidateAdmissionDecision {
 	decision := admissionLiveRouteTurnCandidateAdmissionDecision{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionDecisionSchema,
-		Timing:                "shadow_candidate_live_preflight",
-		Decision:              "reject",
-		PromptClass:           adapter.PromptClass,
-		Route:                 adapter.Route,
-		Source:                adapter.Source,
-		ExpectedSource:        adapter.ExpectedSource,
-		CandidateRunID:        adapter.CandidateRunID,
-		CandidateDraftID:      adapter.CandidateDraftID,
-		CandidateExecutionID:  adapter.CandidateExecutionID,
-		GeneratorAdapterID:    adapter.GeneratorAdapterID,
-		HandoffID:             adapter.HandoffID,
-		AdmissionAdapterID:    adapter.AdmissionAdapterID,
-		DreamCandidateRunID:   adapter.DreamCandidateRunID,
-		CandidateTextStatus:   adapter.CandidateTextStatus,
-		CandidateTextHash:     adapter.CandidateTextHash,
-		DreamCandidateSchema:  candidate.Schema,
-		DreamCandidateMode:    candidate.Mode,
-		DreamAccepted:         candidate.Accepted,
-		DreamReason:           candidate.Reason,
-		AdmissionPolicyPassed: candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed,
-		LiveRouteChoicePassed: candidate.Admission != nil && candidate.Admission.LiveRouteChoice != nil && candidate.Admission.LiveRouteChoice.Passed,
-		MutatesState:          false,
-		TurnTextHash:          adapter.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionDecisionSchema,
+		Timing:                  "shadow_candidate_live_preflight",
+		Decision:                "reject",
+		PromptClass:             adapter.PromptClass,
+		Route:                   adapter.Route,
+		Source:                  adapter.Source,
+		ExpectedSource:          adapter.ExpectedSource,
+		CandidateRunID:          adapter.CandidateRunID,
+		CandidateDraftID:        adapter.CandidateDraftID,
+		CandidateExecutionID:    adapter.CandidateExecutionID,
+		GeneratorAdapterID:      adapter.GeneratorAdapterID,
+		HandoffID:               adapter.HandoffID,
+		AdmissionAdapterID:      adapter.AdmissionAdapterID,
+		DreamCandidateRunID:     adapter.DreamCandidateRunID,
+		CandidateTextStatus:     adapter.CandidateTextStatus,
+		CandidateTextHash:       adapter.CandidateTextHash,
+		BodyInventoryStatus:     adapter.BodyInventoryStatus,
+		RouteAvailabilityStatus: adapter.RouteAvailabilityStatus,
+		RouteAvailabilityReason: adapter.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(adapter.RouteMissingOrgans),
+		DreamCandidateSchema:    candidate.Schema,
+		DreamCandidateMode:      candidate.Mode,
+		DreamAccepted:           candidate.Accepted,
+		DreamReason:             candidate.Reason,
+		AdmissionPolicyPassed:   candidate.Admission != nil && candidate.Admission.Checked && candidate.Admission.Passed,
+		LiveRouteChoicePassed:   candidate.Admission != nil && candidate.Admission.LiveRouteChoice != nil && candidate.Admission.LiveRouteChoice.Passed,
+		MutatesState:            false,
+		TurnTextHash:            adapter.TurnTextHash,
 	}
 	if adapter.Schema == "" {
 		decision.Reason = "missing_candidate_admission_adapter"
@@ -3999,6 +4007,13 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 		decision.Reason = "candidate_execution_id_mismatch"
 		return decision
 	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		execution.BodyInventoryStatus, execution.RouteAvailabilityStatus, execution.RouteAvailabilityReason, execution.RouteMissingOrgans,
+		adapter.BodyInventoryStatus, adapter.RouteAvailabilityStatus, adapter.RouteAvailabilityReason, adapter.RouteMissingOrgans,
+	) {
+		decision.Reason = "candidate_execution_route_boundary_mismatch"
+		return decision
+	}
 	if generatorAdapter.Schema == "" || !generatorAdapter.Passed {
 		decision.Reason = "generator_adapter_not_passed"
 		if generatorAdapter.Reason != "" {
@@ -4010,6 +4025,13 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 		generatorAdapter.CandidateExecutionID != adapter.CandidateExecutionID ||
 		generatorAdapter.GeneratedTextHash != adapter.CandidateTextHash {
 		decision.Reason = "generator_adapter_provenance_mismatch"
+		return decision
+	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		generatorAdapter.BodyInventoryStatus, generatorAdapter.RouteAvailabilityStatus, generatorAdapter.RouteAvailabilityReason, generatorAdapter.RouteMissingOrgans,
+		adapter.BodyInventoryStatus, adapter.RouteAvailabilityStatus, adapter.RouteAvailabilityReason, adapter.RouteMissingOrgans,
+	) {
+		decision.Reason = "generator_adapter_route_boundary_mismatch"
 		return decision
 	}
 	if draft.Schema == "" || !draft.Passed {
@@ -4027,6 +4049,13 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 		decision.Reason = "candidate_draft_provenance_mismatch"
 		return decision
 	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		draft.BodyInventoryStatus, draft.RouteAvailabilityStatus, draft.RouteAvailabilityReason, draft.RouteMissingOrgans,
+		adapter.BodyInventoryStatus, adapter.RouteAvailabilityStatus, adapter.RouteAvailabilityReason, adapter.RouteMissingOrgans,
+	) {
+		decision.Reason = "candidate_draft_route_boundary_mismatch"
+		return decision
+	}
 	if admission.Schema == "" || !admission.Passed {
 		decision.Reason = "candidate_admission_handoff_not_passed"
 		if admission.Reason != "" {
@@ -4041,6 +4070,13 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 		admission.CandidateRunID != adapter.CandidateRunID ||
 		admission.CandidateTextHash != adapter.CandidateTextHash {
 		decision.Reason = "candidate_admission_handoff_provenance_mismatch"
+		return decision
+	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		admission.BodyInventoryStatus, admission.RouteAvailabilityStatus, admission.RouteAvailabilityReason, admission.RouteMissingOrgans,
+		adapter.BodyInventoryStatus, adapter.RouteAvailabilityStatus, adapter.RouteAvailabilityReason, adapter.RouteMissingOrgans,
+	) {
+		decision.Reason = "candidate_admission_handoff_route_boundary_mismatch"
 		return decision
 	}
 	if candidate.Schema == "" {
@@ -4061,6 +4097,19 @@ func admissionLiveRouteTurnCandidateAdmissionDecisionForShadow(
 		candidate.LiveRouteCandidateAdmission.CandidateExecutionID != adapter.CandidateExecutionID ||
 		candidate.LiveRouteCandidateAdmission.GeneratorAdapterID != adapter.GeneratorAdapterID {
 		decision.Reason = "shadow_dream_candidate_adapter_mismatch"
+		return decision
+	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		candidate.LiveRouteCandidateAdmission.BodyInventoryStatus,
+		candidate.LiveRouteCandidateAdmission.RouteAvailabilityStatus,
+		candidate.LiveRouteCandidateAdmission.RouteAvailabilityReason,
+		candidate.LiveRouteCandidateAdmission.RouteMissingOrgans,
+		adapter.BodyInventoryStatus,
+		adapter.RouteAvailabilityStatus,
+		adapter.RouteAvailabilityReason,
+		adapter.RouteMissingOrgans,
+	) {
+		decision.Reason = "shadow_dream_candidate_route_boundary_mismatch"
 		return decision
 	}
 	if candidate.RunID != adapter.DreamCandidateRunID || candidate.RunID != adapter.CandidateRunID {
