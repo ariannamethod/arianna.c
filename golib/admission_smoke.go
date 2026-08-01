@@ -720,11 +720,19 @@ func runAdmissionLiveRouteTurnRouteBoundarySmoke() error {
 	shellLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG"))
 	executionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG"))
 	adapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG"))
+	draftLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG"))
+	reviewLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG"))
+	admissionLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG"))
+	admissionAdapterLogPath := strings.TrimSpace(os.Getenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG"))
 	for name, path := range map[string]string{
-		"AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG":      jobLogPath,
-		"AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG":     shellLogPath,
-		"AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG": executionLogPath,
-		"AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG":   adapterLogPath,
+		"AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG":              jobLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG":             shellLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG":         executionLogPath,
+		"AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG":           adapterLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG":             draftLogPath,
+		"AM_LIVE_ROUTE_TURN_REVIEW_LOG":                      reviewLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG":         admissionLogPath,
+		"AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG": admissionAdapterLogPath,
 	} {
 		if path == "" {
 			return fmt.Errorf("%s is required", name)
@@ -745,6 +753,15 @@ func runAdmissionLiveRouteTurnRouteBoundarySmoke() error {
 	if !admissionLiveRouteTurnGeneratorAdapterDryRun() {
 		return fmt.Errorf("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN is required")
 	}
+	if !admissionLiveRouteTurnCandidateDraftDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN is required")
+	}
+	if !admissionLiveRouteTurnCandidateAdmissionAdapterDryRun() {
+		return fmt.Errorf("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN is required")
+	}
 
 	obs := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	lines := []string{
@@ -752,6 +769,9 @@ func runAdmissionLiveRouteTurnRouteBoundarySmoke() error {
 		chatLiveRouteTurnCandidateShellDryRunLine(obs),
 		chatLiveRouteTurnCandidateExecutionDryRunLineForText(obs, "This text must not execute without the route body."),
 		chatLiveRouteTurnGeneratorAdapterDryRunLineForText(obs, "This text must not adapt without the route body."),
+		chatLiveRouteTurnCandidateDraftDryRunLineForText(obs, "This text must not draft without the route body."),
+		chatLiveRouteTurnCandidateAdmissionDryRunLineForText(obs, "This text must not hand off without the route body."),
+		chatLiveRouteTurnCandidateAdmissionAdapterDryRunLineForText(obs, "This text must not enter admission without the route body."),
 	}
 	for i, line := range lines {
 		if !strings.Contains(line, "route=chorus") ||
@@ -842,8 +862,78 @@ func runAdmissionLiveRouteTurnRouteBoundarySmoke() error {
 		return fmt.Errorf("adapter did not carry unavailable route boundary: %+v", adapter)
 	}
 
-	fmt.Printf("[admission-live-route-turn-route-boundary-smoke] pass: job=%s shell=%s execution=%s adapter=%s\n",
-		jobLogPath, shellLogPath, executionLogPath, adapterLogPath)
+	var draft admissionLiveRouteTurnCandidateDraft
+	raw, err = readOne(draftLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &draft); err != nil {
+		return err
+	}
+	if draft.Passed ||
+		draft.JobID != "" ||
+		draft.ShellID != "" ||
+		draft.CandidateExecutionID != "" ||
+		draft.GeneratorAdapterID != "" ||
+		draft.DraftID != "" ||
+		!boundaryOK(draft.BodyInventoryStatus, draft.RouteAvailabilityStatus, draft.RouteAvailabilityReason, draft.RouteMissingOrgans) {
+		return fmt.Errorf("draft did not carry unavailable route boundary: %+v", draft)
+	}
+
+	var review admissionLiveRouteTurnCandidateReview
+	raw, err = readOne(reviewLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &review); err != nil {
+		return err
+	}
+	if review.Matched ||
+		review.CandidateDraftID != "" ||
+		review.CandidateExecutionID != "" ||
+		review.GeneratorAdapterID != "" ||
+		!boundaryOK(review.BodyInventoryStatus, review.RouteAvailabilityStatus, review.RouteAvailabilityReason, review.RouteMissingOrgans) {
+		return fmt.Errorf("review did not carry unavailable route boundary: %+v", review)
+	}
+
+	var admission admissionLiveRouteTurnCandidateAdmission
+	raw, err = readOne(admissionLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &admission); err != nil {
+		return err
+	}
+	if admission.Passed ||
+		admission.CandidateDraftID != "" ||
+		admission.CandidateExecutionID != "" ||
+		admission.GeneratorAdapterID != "" ||
+		admission.HandoffID != "" ||
+		!boundaryOK(admission.BodyInventoryStatus, admission.RouteAvailabilityStatus, admission.RouteAvailabilityReason, admission.RouteMissingOrgans) {
+		return fmt.Errorf("admission did not carry unavailable route boundary: %+v", admission)
+	}
+
+	var admissionAdapter admissionLiveRouteTurnCandidateAdmissionAdapter
+	raw, err = readOne(admissionAdapterLogPath)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(raw), &admissionAdapter); err != nil {
+		return err
+	}
+	if admissionAdapter.Passed ||
+		admissionAdapter.CandidateDraftID != "" ||
+		admissionAdapter.CandidateExecutionID != "" ||
+		admissionAdapter.GeneratorAdapterID != "" ||
+		admissionAdapter.HandoffID != "" ||
+		admissionAdapter.AdmissionAdapterID != "" ||
+		admissionAdapter.DreamCandidateRunID != "" ||
+		!boundaryOK(admissionAdapter.BodyInventoryStatus, admissionAdapter.RouteAvailabilityStatus, admissionAdapter.RouteAvailabilityReason, admissionAdapter.RouteMissingOrgans) {
+		return fmt.Errorf("admission adapter did not carry unavailable route boundary: %+v", admissionAdapter)
+	}
+
+	fmt.Printf("[admission-live-route-turn-route-boundary-smoke] pass: job=%s shell=%s execution=%s adapter=%s draft=%s review=%s admission=%s admission_adapter=%s\n",
+		jobLogPath, shellLogPath, executionLogPath, adapterLogPath, draftLogPath, reviewLogPath, admissionLogPath, admissionAdapterLogPath)
 	return nil
 }
 

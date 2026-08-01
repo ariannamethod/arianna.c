@@ -344,16 +344,27 @@ func TestAdmissionLiveRouteTurnRouteBoundarySmokeWritesTypedReceipts(t *testing.
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
 	t.Setenv("AM_BODY_INVENTORY_ROOT", t.TempDir())
 	logRoot := t.TempDir()
 	jobLogPath := filepath.Join(logRoot, "live-route-generation-job.jsonl")
 	shellLogPath := filepath.Join(logRoot, "live-route-candidate-shell.jsonl")
 	executionLogPath := filepath.Join(logRoot, "live-route-candidate-execution.jsonl")
 	adapterLogPath := filepath.Join(logRoot, "live-route-generator-adapter.jsonl")
+	draftLogPath := filepath.Join(logRoot, "live-route-candidate-draft.jsonl")
+	reviewLogPath := filepath.Join(logRoot, "live-route-candidate-review.jsonl")
+	admissionLogPath := filepath.Join(logRoot, "live-route-candidate-admission.jsonl")
+	admissionAdapterLogPath := filepath.Join(logRoot, "live-route-candidate-admission-adapter.jsonl")
 	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATION_JOB_LOG", jobLogPath)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_LOG", shellLogPath)
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG", executionLogPath)
 	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG", adapterLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG", draftLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", reviewLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG", admissionLogPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG", admissionAdapterLogPath)
 
 	if err := runAdmissionLiveRouteTurnRouteBoundarySmoke(); err != nil {
 		t.Fatal(err)
@@ -369,10 +380,25 @@ func TestAdmissionLiveRouteTurnRouteBoundarySmokeWritesTypedReceipts(t *testing.
 		ExecutionID             string   `json:"execution_id"`
 		CandidateExecutionID    string   `json:"candidate_execution_id"`
 		AdapterID               string   `json:"adapter_id"`
+		GeneratorAdapterID      string   `json:"generator_adapter_id"`
+		DraftID                 string   `json:"draft_id"`
+		CandidateDraftID        string   `json:"candidate_draft_id"`
+		HandoffID               string   `json:"handoff_id"`
+		AdmissionAdapterID      string   `json:"admission_adapter_id"`
+		DreamCandidateRunID     string   `json:"dream_candidate_run_id"`
 		Passed                  bool     `json:"passed"`
 		Reason                  string   `json:"reason"`
 	}
-	for _, path := range []string{jobLogPath, shellLogPath, executionLogPath, adapterLogPath} {
+	for _, path := range []string{
+		jobLogPath,
+		shellLogPath,
+		executionLogPath,
+		adapterLogPath,
+		draftLogPath,
+		reviewLogPath,
+		admissionLogPath,
+		admissionAdapterLogPath,
+	} {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -387,6 +413,12 @@ func TestAdmissionLiveRouteTurnRouteBoundarySmokeWritesTypedReceipts(t *testing.
 			got.ExecutionID != "" ||
 			got.CandidateExecutionID != "" ||
 			got.AdapterID != "" ||
+			got.GeneratorAdapterID != "" ||
+			got.DraftID != "" ||
+			got.CandidateDraftID != "" ||
+			got.HandoffID != "" ||
+			got.AdmissionAdapterID != "" ||
+			got.DreamCandidateRunID != "" ||
 			got.BodyInventoryStatus != "blocked" ||
 			got.RouteAvailabilityStatus != "unavailable" ||
 			got.RouteAvailabilityReason != "missing_route_organs:chorus-binary,nano-weight" ||
