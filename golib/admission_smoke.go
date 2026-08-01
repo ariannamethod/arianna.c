@@ -6602,6 +6602,158 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission resonance graft admission proof receipt: resonance_graft_admission_proof=%+v resonance_graft_candidate_store_reader=%+v resonance_graft_candidate_store=%+v resonance_graft_candidate=%+v resonance_graft_gate=%+v resonance_graft_preflight=%+v resonance_graft_boundary=%+v resonance_observation=%+v resonance_receiver=%+v resonance_intent=%+v final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", resonanceGraftAdmissionProof, resonanceGraftCandidateStoreReader, resonanceGraftCandidateStore, resonanceGraftCandidate, resonanceGraftGate, resonanceGraftPreflight, resonanceGraftBoundary, resonanceObservation, resonanceReceiver, resonanceIntent, finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	for _, receipt := range []struct {
+		enabled            bool
+		name               string
+		bodyStatus         string
+		availabilityStatus string
+		availabilityReason string
+		missingOrgans      []string
+	}{
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun(),
+			name:               "rollback implementation",
+			bodyStatus:         rollbackImpl.BodyInventoryStatus,
+			availabilityStatus: rollbackImpl.RouteAvailabilityStatus,
+			availabilityReason: rollbackImpl.RouteAvailabilityReason,
+			missingOrgans:      rollbackImpl.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionLedgerImplementationDryRun(),
+			name:               "ledger implementation",
+			bodyStatus:         ledgerImpl.BodyInventoryStatus,
+			availabilityStatus: ledgerImpl.RouteAvailabilityStatus,
+			availabilityReason: ledgerImpl.RouteAvailabilityReason,
+			missingOrgans:      ledgerImpl.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionLedgerPersistenceDryRun(),
+			name:               "ledger persistence",
+			bodyStatus:         ledgerPersistence.BodyInventoryStatus,
+			availabilityStatus: ledgerPersistence.RouteAvailabilityStatus,
+			availabilityReason: ledgerPersistence.RouteAvailabilityReason,
+			missingOrgans:      ledgerPersistence.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionLedgerVerificationDryRun(),
+			name:               "ledger verification",
+			bodyStatus:         ledgerVerification.BodyInventoryStatus,
+			availabilityStatus: ledgerVerification.RouteAvailabilityStatus,
+			availabilityReason: ledgerVerification.RouteAvailabilityReason,
+			missingOrgans:      ledgerVerification.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionReadinessDryRun(),
+			name:               "admission readiness",
+			bodyStatus:         readiness.BodyInventoryStatus,
+			availabilityStatus: readiness.RouteAvailabilityStatus,
+			availabilityReason: readiness.RouteAvailabilityReason,
+			missingOrgans:      readiness.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionPermitDryRun(),
+			name:               "admission permit",
+			bodyStatus:         permit.BodyInventoryStatus,
+			availabilityStatus: permit.RouteAvailabilityStatus,
+			availabilityReason: permit.RouteAvailabilityReason,
+			missingOrgans:      permit.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionSealDryRun(),
+			name:               "admission seal",
+			bodyStatus:         seal.BodyInventoryStatus,
+			availabilityStatus: seal.RouteAvailabilityStatus,
+			availabilityReason: seal.RouteAvailabilityReason,
+			missingOrgans:      seal.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun(),
+			name:               "resonance intent",
+			bodyStatus:         resonanceIntent.BodyInventoryStatus,
+			availabilityStatus: resonanceIntent.RouteAvailabilityStatus,
+			availabilityReason: resonanceIntent.RouteAvailabilityReason,
+			missingOrgans:      resonanceIntent.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceReceiverDryRun(),
+			name:               "resonance receiver",
+			bodyStatus:         resonanceReceiver.BodyInventoryStatus,
+			availabilityStatus: resonanceReceiver.RouteAvailabilityStatus,
+			availabilityReason: resonanceReceiver.RouteAvailabilityReason,
+			missingOrgans:      resonanceReceiver.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceObservationDryRun(),
+			name:               "resonance observation",
+			bodyStatus:         resonanceObservation.BodyInventoryStatus,
+			availabilityStatus: resonanceObservation.RouteAvailabilityStatus,
+			availabilityReason: resonanceObservation.RouteAvailabilityReason,
+			missingOrgans:      resonanceObservation.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftBoundaryDryRun(),
+			name:               "resonance graft boundary",
+			bodyStatus:         resonanceGraftBoundary.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftBoundary.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftBoundary.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftBoundary.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftPreflightDryRun(),
+			name:               "resonance graft preflight",
+			bodyStatus:         resonanceGraftPreflight.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftPreflight.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftPreflight.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftPreflight.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftGateDryRun(),
+			name:               "resonance graft gate",
+			bodyStatus:         resonanceGraftGate.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftGate.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftGate.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftGate.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateDryRun(),
+			name:               "resonance graft candidate",
+			bodyStatus:         resonanceGraftCandidate.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftCandidate.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftCandidate.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftCandidate.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreDryRun(),
+			name:               "resonance graft candidate store",
+			bodyStatus:         resonanceGraftCandidateStore.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftCandidateStore.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftCandidateStore.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftCandidateStore.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderDryRun(),
+			name:               "resonance graft candidate store reader",
+			bodyStatus:         resonanceGraftCandidateStoreReader.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftCandidateStoreReader.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftCandidateStoreReader.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftCandidateStoreReader.RouteMissingOrgans,
+		},
+		{
+			enabled:            admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofDryRun(),
+			name:               "resonance graft admission proof",
+			bodyStatus:         resonanceGraftAdmissionProof.BodyInventoryStatus,
+			availabilityStatus: resonanceGraftAdmissionProof.RouteAvailabilityStatus,
+			availabilityReason: resonanceGraftAdmissionProof.RouteAvailabilityReason,
+			missingOrgans:      resonanceGraftAdmissionProof.RouteMissingOrgans,
+		},
+	} {
+		if !receipt.enabled {
+			continue
+		}
+		if err := assertRouteBoundary(receipt.name, receipt.bodyStatus, receipt.availabilityStatus, receipt.availabilityReason, receipt.missingOrgans); err != nil {
+			return err
+		}
+	}
 
 	if admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofDryRun() {
 		fmt.Printf("[admission-live-route-turn-candidate-nano-direct-chat-shadow-smoke] pass: execution=%s adapter=%s drafts=%s reviews=%s handoffs=%s admission_adapters=%s admission=%s decision=%s promotion=%s switch=%s enable_gate=%s live_stage=%s writer_preflight=%s writer_inventory=%s writer_contract=%s ledger=%s writer_implementation=%s writer_receipt=%s rollback_implementation=%s ledger_implementation=%s ledger_persistence=%s ledger_verification=%s readiness=%s permit=%s seal=%s final_gate=%s resonance_intent=%s resonance_receiver=%s resonance_observation=%s resonance_graft_boundary=%s resonance_graft_preflight=%s resonance_graft_gate=%s resonance_graft_candidate=%s resonance_graft_candidate_store=%s resonance_graft_candidate_store_reader=%s resonance_graft_admission_proof=%s\n",

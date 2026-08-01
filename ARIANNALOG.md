@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 — Route boundary is proved across resonance graft tail
+
+The admission test and nano-direct smoke now assert that the typed body-inventory
+route boundary survives the embedded writer receipt through rollback, ledger
+verification, readiness, permit, seal, resonance intent/receiver/observation, and
+the full shadow graft admission proof. This is a proof-only layer: receipt ID
+hashes stay unchanged while the late tail can no longer silently lose
+missing-organ facts.
+
 ## 2026-08-02 — Route boundary reaches writer and ledger tail
 
 Writer preflight, inventory, contract, ledger, and writer-implementation receipts
