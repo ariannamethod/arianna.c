@@ -1904,6 +1904,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		promotion.CandidateDraftID != draft.DraftID ||
 		promotion.CandidateRunID != candidate.RunID ||
 		promotion.CandidateTextHash != hashJSON(text) ||
+		!admissionLiveRouteBoundaryFieldsEqual(
+			promotion.BodyInventoryStatus,
+			promotion.RouteAvailabilityStatus,
+			promotion.RouteAvailabilityReason,
+			promotion.RouteMissingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) ||
 		promotion.TurnTextHash != obs.TextHash {
 		t.Fatalf("promotion lost provenance: promotion=%+v decision=%+v", promotion, decision)
 	}
@@ -1930,6 +1940,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		sw.CandidateDraftID != draft.DraftID ||
 		sw.CandidateRunID != candidate.RunID ||
 		sw.CandidateTextHash != hashJSON(text) ||
+		!admissionLiveRouteBoundaryFieldsEqual(
+			sw.BodyInventoryStatus,
+			sw.RouteAvailabilityStatus,
+			sw.RouteAvailabilityReason,
+			sw.RouteMissingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) ||
 		sw.TurnTextHash != obs.TextHash {
 		t.Fatalf("switch lost provenance: switch=%+v promotion=%+v", sw, promotion)
 	}
@@ -1961,6 +1981,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		gate.CandidateDraftID != draft.DraftID ||
 		gate.CandidateRunID != candidate.RunID ||
 		gate.CandidateTextHash != hashJSON(text) ||
+		!admissionLiveRouteBoundaryFieldsEqual(
+			gate.BodyInventoryStatus,
+			gate.RouteAvailabilityStatus,
+			gate.RouteAvailabilityReason,
+			gate.RouteMissingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) ||
 		gate.TurnTextHash != obs.TextHash {
 		t.Fatalf("enable gate lost provenance: gate=%+v switch=%+v", gate, sw)
 	}
@@ -1986,6 +2016,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		armedGate.LiveAdmissionEnabled ||
 		armedGate.AdmissionAllowed ||
 		armedGate.MutatesState ||
+		!admissionLiveRouteBoundaryFieldsEqual(
+			armedGate.BodyInventoryStatus,
+			armedGate.RouteAvailabilityStatus,
+			armedGate.RouteAvailabilityReason,
+			armedGate.RouteMissingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) ||
 		armedGate.Reason != "live admission enable key matched; dry-run still refuses mutation" {
 		t.Fatalf("armed enable gate should remain dry-run and non-mutating: %+v", armedGate)
 	}
@@ -2022,6 +2062,16 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		liveStage.CandidateDraftID != draft.DraftID ||
 		liveStage.CandidateRunID != candidate.RunID ||
 		liveStage.CandidateTextHash != hashJSON(text) ||
+		!admissionLiveRouteBoundaryFieldsEqual(
+			liveStage.BodyInventoryStatus,
+			liveStage.RouteAvailabilityStatus,
+			liveStage.RouteAvailabilityReason,
+			liveStage.RouteMissingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) ||
 		liveStage.TurnTextHash != obs.TextHash {
 		t.Fatalf("live stage lost provenance: stage=%+v gate=%+v", liveStage, armedGate)
 	}

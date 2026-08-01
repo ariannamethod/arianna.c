@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 — Route boundary crosses live admission gates
+
+Promotion, switch, enable-gate, and live-stage receipts now carry the same typed
+body-inventory route boundary emitted by the decision receipt. The nano-direct
+promotion/switch/enable/live-stage smoke validators now compare each gate back
+to the decision boundary, keeping missing-organ facts visible before writer and
+rollback contracts enter the live admission path.
+
 ## 2026-08-01 — Route boundary reaches admission decision
 
 `arianna.live_route_turn_candidate_admission_decision.v1` now carries the typed

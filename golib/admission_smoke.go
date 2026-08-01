@@ -4176,6 +4176,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			promotion.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
 			promotion.DreamCandidateRunID != candidate.RunID ||
 			promotion.CandidateTextHash != execution.GeneratedTextHash ||
+			!admissionLiveRouteBoundaryFieldsEqual(
+				promotion.BodyInventoryStatus,
+				promotion.RouteAvailabilityStatus,
+				promotion.RouteAvailabilityReason,
+				promotion.RouteMissingOrgans,
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+			) ||
 			!promotion.AdmissionPolicyPassed ||
 			!promotion.LiveRouteChoicePassed ||
 			!promotion.SourceDecisionPassed {
@@ -4205,6 +4215,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			sw.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
 			sw.DreamCandidateRunID != candidate.RunID ||
 			sw.CandidateTextHash != execution.GeneratedTextHash ||
+			!admissionLiveRouteBoundaryFieldsEqual(
+				sw.BodyInventoryStatus,
+				sw.RouteAvailabilityStatus,
+				sw.RouteAvailabilityReason,
+				sw.RouteMissingOrgans,
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+			) ||
 			!sw.AdmissionPolicyPassed ||
 			!sw.LiveRouteChoicePassed ||
 			!sw.SourceDecisionPassed ||
@@ -4233,6 +4253,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			gate.AdmissionAdapterID != admissionAdapter.AdmissionAdapterID ||
 			gate.DreamCandidateRunID != candidate.RunID ||
 			gate.CandidateTextHash != execution.GeneratedTextHash ||
+			!admissionLiveRouteBoundaryFieldsEqual(
+				gate.BodyInventoryStatus,
+				gate.RouteAvailabilityStatus,
+				gate.RouteAvailabilityReason,
+				gate.RouteMissingOrgans,
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+			) ||
 			!gate.AdmissionPolicyPassed ||
 			!gate.LiveRouteChoicePassed ||
 			!gate.SourceDecisionPassed ||
@@ -4283,6 +4313,16 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			liveStage.CandidateRunID != draft.CandidateRunID ||
 			liveStage.CandidateTextHash != execution.GeneratedTextHash ||
 			liveStage.TurnTextHash != execution.TurnTextHash ||
+			!admissionLiveRouteBoundaryFieldsEqual(
+				liveStage.BodyInventoryStatus,
+				liveStage.RouteAvailabilityStatus,
+				liveStage.RouteAvailabilityReason,
+				liveStage.RouteMissingOrgans,
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+			) ||
 			!liveStage.AdmissionPolicyPassed ||
 			!liveStage.LiveRouteChoicePassed ||
 			!liveStage.SourceDecisionPassed ||
