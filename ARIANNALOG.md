@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-01 — Route boundary parity blocks admission drift
+
+Admission handoff and admission-adapter construction now recheck the typed
+body-inventory route boundary against the candidate draft before minting
+downstream ids. A review or handoff can no longer preserve the right
+source/class/route while silently changing `body_inventory_status`,
+`route_availability_status`, `route_availability_reason`, or
+`route_missing_organs`; the path fails closed with an explicit boundary mismatch.
+
 ## 2026-07-31 — Route boundary reaches admission receipts
 
 `arianna.live_route_turn_candidate_draft.v1`,

@@ -735,6 +735,42 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionSmokeWritesHandoffs(t *testing.
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateAdmissionRejectsReviewBoundaryDrift(t *testing.T) {
+	obs, draft, review := admissionLiveRouteMatchedBoundaryDraftForTest(t)
+	review.RouteAvailabilityReason = "tampered-route-boundary"
+
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	if admission.Passed ||
+		admission.HandoffID != "" ||
+		!strings.Contains(admission.Reason, "candidate_review_route_boundary_mismatch") {
+		t.Fatalf("review boundary drift should fail closed before handoff: %+v", admission)
+	}
+}
+
+func admissionLiveRouteMatchedBoundaryDraftForTest(t *testing.T) (admissionLiveRouteTurnObservation, admissionLiveRouteTurnCandidateDraft, admissionLiveRouteTurnCandidateReview) {
+	t.Helper()
+
+	obs := admissionLiveRouteTurnObservationForHuman("Who are you? What is your identity?")
+	choice := admissionLiveRouteTurnChoiceForObservation(obs)
+	request := admissionLiveRouteTurnRequestForChoice(choice)
+	job := admissionLiveRouteTurnGenerationJobForRequest(request)
+	job.BodyInventoryStatus = "degraded"
+	job.RouteAvailabilityStatus = "available"
+	job.RouteAvailabilityReason = "optional_route_organs_missing:goldie-weight"
+	job.RouteMissingOrgans = []string{"goldie-weight"}
+	shell := admissionLiveRouteTurnCandidateShellForJob(job)
+	execution := admissionLiveRouteTurnCandidateExecutionForShell(shell, "I am Arianna, and the chorus keeps the route boundary named.")
+	adapter := admissionLiveRouteTurnGeneratorAdapterForExecution(execution)
+	draft := admissionLiveRouteTurnCandidateDraftForAdapter(adapter)
+	review := admissionLiveRouteTurnCandidateReviewForDraft(obs, draft)
+
+	if !obs.Passed || !choice.Passed || !request.Passed || !job.Passed || !shell.Passed || !execution.Passed || !adapter.Passed || !draft.Passed || !review.Matched {
+		t.Fatalf("test setup failed: obs=%+v choice=%+v request=%+v job=%+v shell=%+v execution=%+v adapter=%+v draft=%+v review=%+v",
+			obs, choice, request, job, shell, execution, adapter, draft, review)
+	}
+	return obs, draft, review
+}
+
 func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterSmokeWritesAdaptersAndAdmissionReceipts(t *testing.T) {
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
 	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
@@ -802,6 +838,22 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterSmokeWritesAdaptersAndAd
 		got.Admission.LiveRouteChoice == nil ||
 		!got.Admission.LiveRouteChoice.Passed {
 		t.Fatalf("bad shadow admission receipt from adapter: %+v", got)
+	}
+}
+
+func TestAdmissionLiveRouteTurnCandidateAdmissionAdapterRejectsAdmissionBoundaryDrift(t *testing.T) {
+	obs, draft, review := admissionLiveRouteMatchedBoundaryDraftForTest(t)
+	admission := admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs, draft, review)
+	if !admission.Passed {
+		t.Fatalf("test setup admission failed: %+v", admission)
+	}
+	admission.RouteMissingOrgans = append(admissionLiveRouteMissingOrgansCopy(admission.RouteMissingOrgans), "doe-bridge")
+
+	adapter := admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission, draft)
+	if adapter.Passed ||
+		adapter.AdmissionAdapterID != "" ||
+		!strings.Contains(adapter.Reason, "candidate_admission_route_boundary_mismatch") {
+		t.Fatalf("admission boundary drift should fail closed before adapter id: %+v", adapter)
 	}
 }
 

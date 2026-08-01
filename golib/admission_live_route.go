@@ -2262,6 +2262,30 @@ func admissionLiveRouteMissingOrgansCopy(missing []string) []string {
 	return append([]string(nil), missing...)
 }
 
+func admissionLiveRouteMissingOrgansEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func admissionLiveRouteBoundaryFieldsEqual(
+	bodyStatusA, availabilityStatusA, availabilityReasonA string,
+	missingOrgansA []string,
+	bodyStatusB, availabilityStatusB, availabilityReasonB string,
+	missingOrgansB []string,
+) bool {
+	return bodyStatusA == bodyStatusB &&
+		availabilityStatusA == availabilityStatusB &&
+		availabilityReasonA == availabilityReasonB &&
+		admissionLiveRouteMissingOrgansEqual(missingOrgansA, missingOrgansB)
+}
+
 func admissionLiveRouteTurnGenerationJobID(job admissionLiveRouteTurnGenerationJob) string {
 	h := hashJSON(struct {
 		PromptClass      string `json:"prompt_class"`
@@ -3500,6 +3524,13 @@ func admissionLiveRouteTurnCandidateAdmissionForDraftReview(obs admissionLiveRou
 		admission.Reason = "candidate_review_text_mismatch"
 		return admission
 	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		review.BodyInventoryStatus, review.RouteAvailabilityStatus, review.RouteAvailabilityReason, review.RouteMissingOrgans,
+		draft.BodyInventoryStatus, draft.RouteAvailabilityStatus, draft.RouteAvailabilityReason, draft.RouteMissingOrgans,
+	) {
+		admission.Reason = "candidate_review_route_boundary_mismatch"
+		return admission
+	}
 	if review.TurnPromptClass != obs.PromptClass || review.TurnRoute != obs.Route || review.TurnExpectedSource != obs.ExpectedSource {
 		admission.Reason = "candidate_review_turn_mismatch"
 		return admission
@@ -3813,6 +3844,13 @@ func admissionLiveRouteTurnCandidateAdmissionAdapterForDraft(admission admission
 		admission.ExpectedSource != draft.ExpectedSource ||
 		admission.TurnTextHash != draft.TurnTextHash {
 		adapter.Reason = "candidate_admission_route_mismatch"
+		return adapter
+	}
+	if !admissionLiveRouteBoundaryFieldsEqual(
+		admission.BodyInventoryStatus, admission.RouteAvailabilityStatus, admission.RouteAvailabilityReason, admission.RouteMissingOrgans,
+		draft.BodyInventoryStatus, draft.RouteAvailabilityStatus, draft.RouteAvailabilityReason, draft.RouteMissingOrgans,
+	) {
+		adapter.Reason = "candidate_admission_route_boundary_mismatch"
 		return adapter
 	}
 	candidate := admissionLiveRouteTurnCandidateForDraft(draft)
