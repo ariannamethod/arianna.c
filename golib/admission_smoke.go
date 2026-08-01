@@ -4332,6 +4332,22 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			return fmt.Errorf("bad nano-direct admission live stage receipt: stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", liveStage, gate, sw, promotion, decision, execution)
 		}
 	}
+	assertRouteBoundary := func(name, bodyStatus, availabilityStatus, availabilityReason string, missingOrgans []string) error {
+		if admissionLiveRouteBoundaryFieldsEqual(
+			bodyStatus,
+			availabilityStatus,
+			availabilityReason,
+			missingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) {
+			return nil
+		}
+		return fmt.Errorf("%s receipt lost route boundary: body=%q availability=%q reason=%q missing=%v decision=%+v",
+			name, bodyStatus, availabilityStatus, availabilityReason, missingOrgans, decision)
+	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterPreflightDryRun() {
 		if writerPreflight.Schema != admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema ||
 			!writerPreflight.Passed ||
@@ -4375,6 +4391,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!writerPreflight.SourceEnablePassed ||
 			!writerPreflight.SourceStagePassed {
 			return fmt.Errorf("bad nano-direct admission writer preflight receipt: writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"writer preflight",
+			writerPreflight.BodyInventoryStatus,
+			writerPreflight.RouteAvailabilityStatus,
+			writerPreflight.RouteAvailabilityReason,
+			writerPreflight.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterInventoryDryRun() {
@@ -4431,6 +4456,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!writerInventory.SourceStagePassed ||
 			!writerInventory.SourceWriterPreflightPassed {
 			return fmt.Errorf("bad nano-direct admission writer inventory receipt: writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"writer inventory",
+			writerInventory.BodyInventoryStatus,
+			writerInventory.RouteAvailabilityStatus,
+			writerInventory.RouteAvailabilityReason,
+			writerInventory.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterContractDryRun() {
@@ -4501,6 +4535,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!writerContract.SourceWriterPreflightPassed ||
 			!writerContract.SourceWriterInventoryPassed {
 			return fmt.Errorf("bad nano-direct admission writer contract receipt: writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"writer contract",
+			writerContract.BodyInventoryStatus,
+			writerContract.RouteAvailabilityStatus,
+			writerContract.RouteAvailabilityReason,
+			writerContract.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionLedgerDryRun() {
@@ -4581,6 +4624,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!ledger.SourceWriterInventoryPassed ||
 			!ledger.SourceWriterContractPassed {
 			return fmt.Errorf("bad nano-direct admission ledger receipt: ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"admission ledger",
+			ledger.BodyInventoryStatus,
+			ledger.RouteAvailabilityStatus,
+			ledger.RouteAvailabilityReason,
+			ledger.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterImplementationDryRun() {
@@ -4673,6 +4725,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!writerImpl.SourceWriterContractPassed ||
 			!writerImpl.SourceLedgerPassed {
 			return fmt.Errorf("bad nano-direct admission writer implementation receipt: writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"writer implementation",
+			writerImpl.BodyInventoryStatus,
+			writerImpl.RouteAvailabilityStatus,
+			writerImpl.RouteAvailabilityReason,
+			writerImpl.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionWriterReceiptDryRun() {
@@ -4780,6 +4841,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			!writerReceipt.SourceLedgerPassed ||
 			writerReceipt.Reason != "shadow writer receipt appended as dry-run; body write remains disabled" {
 			return fmt.Errorf("bad nano-direct admission writer receipt: writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"writer receipt",
+			writerReceipt.BodyInventoryStatus,
+			writerReceipt.RouteAvailabilityStatus,
+			writerReceipt.RouteAvailabilityReason,
+			writerReceipt.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionRollbackImplementationDryRun() {
@@ -5474,6 +5544,15 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			finalGate.TurnTextHash != execution.TurnTextHash ||
 			finalGate.Reason != "sealed admission provenance cleared final gate; live admission remains disabled" {
 			return fmt.Errorf("bad nano-direct admission final gate receipt: final_gate=%+v seal=%+v permit=%+v readiness=%+v ledger_verification=%+v ledger_persistence=%+v ledger_implementation=%+v rollback_implementation=%+v writer_receipt=%+v writer_implementation=%+v ledger=%+v writer_contract=%+v writer_inventory=%+v writer_preflight=%+v stage=%+v gate=%+v switch=%+v promotion=%+v decision=%+v execution=%+v", finalGate, seal, permit, readiness, ledgerVerification, ledgerPersistence, ledgerImpl, rollbackImpl, writerReceipt, writerImpl, ledger, writerContract, writerInventory, writerPreflight, liveStage, gate, sw, promotion, decision, execution)
+		}
+		if err := assertRouteBoundary(
+			"admission final gate",
+			finalGate.BodyInventoryStatus,
+			finalGate.RouteAvailabilityStatus,
+			finalGate.RouteAvailabilityReason,
+			finalGate.RouteMissingOrgans,
+		); err != nil {
+			return err
 		}
 	}
 	if admissionLiveRouteTurnCandidateAdmissionResonanceIntentDryRun() {

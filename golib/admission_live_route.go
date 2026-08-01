@@ -585,406 +585,426 @@ type admissionLiveRouteTurnCandidateAdmissionLiveStage struct {
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterPreflight struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	WriterState           string `json:"writer_state,omitempty"`
-	WriterAction          string `json:"writer_action,omitempty"`
-	RollbackState         string `json:"rollback_state,omitempty"`
-	RollbackAction        string `json:"rollback_action,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID     string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionLiveStageID  string `json:"admission_live_stage_id,omitempty"`
-	AdmissionDecision     string `json:"admission_decision,omitempty"`
-	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
-	SwitchState           string `json:"switch_state,omitempty"`
-	SwitchAction          string `json:"switch_action,omitempty"`
-	EnableState           string `json:"enable_state,omitempty"`
-	EnableAction          string `json:"enable_action,omitempty"`
-	StageState            string `json:"stage_state,omitempty"`
-	StageAction           string `json:"stage_action,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed  bool   `json:"source_decision_passed"`
-	SourcePromotionPassed bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed    bool   `json:"source_switch_passed"`
-	SourceEnablePassed    bool   `json:"source_enable_passed"`
-	SourceStagePassed     bool   `json:"source_stage_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
-	AdmissionAllowed      bool   `json:"admission_allowed"`
-	ManualEnableRequested bool   `json:"manual_enable_requested"`
-	EnableKeyMatched      bool   `json:"enable_key_matched"`
-	RequiresWriter        bool   `json:"requires_writer"`
-	WriterReady           bool   `json:"writer_ready"`
-	RequiresRollback      bool   `json:"requires_rollback"`
-	RollbackReady         bool   `json:"rollback_ready"`
-	WriteAllowed          bool   `json:"write_allowed"`
-	MutatesState          bool   `json:"mutates_state"`
-	WriterPreflightID     string `json:"writer_preflight_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	WriterState             string   `json:"writer_state,omitempty"`
+	WriterAction            string   `json:"writer_action,omitempty"`
+	RollbackState           string   `json:"rollback_state,omitempty"`
+	RollbackAction          string   `json:"rollback_action,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID     string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID    string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID       string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID   string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID    string   `json:"admission_live_stage_id,omitempty"`
+	AdmissionDecision       string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion      string   `json:"admission_promotion,omitempty"`
+	SwitchState             string   `json:"switch_state,omitempty"`
+	SwitchAction            string   `json:"switch_action,omitempty"`
+	EnableState             string   `json:"enable_state,omitempty"`
+	EnableAction            string   `json:"enable_action,omitempty"`
+	StageState              string   `json:"stage_state,omitempty"`
+	StageAction             string   `json:"stage_action,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed    bool     `json:"source_decision_passed"`
+	SourcePromotionPassed   bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed      bool     `json:"source_switch_passed"`
+	SourceEnablePassed      bool     `json:"source_enable_passed"`
+	SourceStagePassed       bool     `json:"source_stage_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	LiveAdmissionEnabled    bool     `json:"live_admission_enabled"`
+	AdmissionAllowed        bool     `json:"admission_allowed"`
+	ManualEnableRequested   bool     `json:"manual_enable_requested"`
+	EnableKeyMatched        bool     `json:"enable_key_matched"`
+	RequiresWriter          bool     `json:"requires_writer"`
+	WriterReady             bool     `json:"writer_ready"`
+	RequiresRollback        bool     `json:"requires_rollback"`
+	RollbackReady           bool     `json:"rollback_ready"`
+	WriteAllowed            bool     `json:"write_allowed"`
+	MutatesState            bool     `json:"mutates_state"`
+	WriterPreflightID       string   `json:"writer_preflight_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterInventory struct {
-	Schema                      string `json:"schema"`
-	Timing                      string `json:"timing"`
-	InventoryState              string `json:"inventory_state,omitempty"`
-	InventoryAction             string `json:"inventory_action,omitempty"`
-	WriterContract              string `json:"writer_contract,omitempty"`
-	RollbackContract            string `json:"rollback_contract,omitempty"`
-	AdmissionLedgerContract     string `json:"admission_ledger_contract,omitempty"`
-	WriterContractPresent       bool   `json:"writer_contract_present"`
-	RollbackContractPresent     bool   `json:"rollback_contract_present"`
-	LedgerContractPresent       bool   `json:"ledger_contract_present"`
-	ContractsReady              bool   `json:"contracts_ready"`
-	WriterState                 string `json:"writer_state,omitempty"`
-	WriterAction                string `json:"writer_action,omitempty"`
-	RollbackState               string `json:"rollback_state,omitempty"`
-	RollbackAction              string `json:"rollback_action,omitempty"`
-	PromptClass                 string `json:"prompt_class"`
-	Route                       string `json:"route,omitempty"`
-	Source                      string `json:"source,omitempty"`
-	ExpectedSource              string `json:"expected_source,omitempty"`
-	CandidateRunID              string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID            string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID        string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID          string `json:"generator_adapter_id,omitempty"`
-	HandoffID                   string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID          string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID         string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID        string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID           string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID       string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionLiveStageID        string `json:"admission_live_stage_id,omitempty"`
-	AdmissionWriterPreflightID  string `json:"admission_writer_preflight_id,omitempty"`
-	AdmissionDecision           string `json:"admission_decision,omitempty"`
-	AdmissionPromotion          string `json:"admission_promotion,omitempty"`
-	SwitchState                 string `json:"switch_state,omitempty"`
-	SwitchAction                string `json:"switch_action,omitempty"`
-	EnableState                 string `json:"enable_state,omitempty"`
-	EnableAction                string `json:"enable_action,omitempty"`
-	StageState                  string `json:"stage_state,omitempty"`
-	StageAction                 string `json:"stage_action,omitempty"`
-	DreamCandidateRunID         string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus         string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash           string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed       bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed       bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed        bool   `json:"source_decision_passed"`
-	SourcePromotionPassed       bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed          bool   `json:"source_switch_passed"`
-	SourceEnablePassed          bool   `json:"source_enable_passed"`
-	SourceStagePassed           bool   `json:"source_stage_passed"`
-	SourceWriterPreflightPassed bool   `json:"source_writer_preflight_passed"`
-	LiveReady                   bool   `json:"live_ready"`
-	LiveAdmissionEnabled        bool   `json:"live_admission_enabled"`
-	AdmissionAllowed            bool   `json:"admission_allowed"`
-	ManualEnableRequested       bool   `json:"manual_enable_requested"`
-	EnableKeyMatched            bool   `json:"enable_key_matched"`
-	RequiresWriter              bool   `json:"requires_writer"`
-	WriterReady                 bool   `json:"writer_ready"`
-	RequiresRollback            bool   `json:"requires_rollback"`
-	RollbackReady               bool   `json:"rollback_ready"`
-	WriteAllowed                bool   `json:"write_allowed"`
-	MutatesState                bool   `json:"mutates_state"`
-	WriterInventoryID           string `json:"writer_inventory_id,omitempty"`
-	Passed                      bool   `json:"passed"`
-	Reason                      string `json:"reason,omitempty"`
-	TurnTextHash                string `json:"turn_text_hash,omitempty"`
+	Schema                      string   `json:"schema"`
+	Timing                      string   `json:"timing"`
+	InventoryState              string   `json:"inventory_state,omitempty"`
+	InventoryAction             string   `json:"inventory_action,omitempty"`
+	WriterContract              string   `json:"writer_contract,omitempty"`
+	RollbackContract            string   `json:"rollback_contract,omitempty"`
+	AdmissionLedgerContract     string   `json:"admission_ledger_contract,omitempty"`
+	WriterContractPresent       bool     `json:"writer_contract_present"`
+	RollbackContractPresent     bool     `json:"rollback_contract_present"`
+	LedgerContractPresent       bool     `json:"ledger_contract_present"`
+	ContractsReady              bool     `json:"contracts_ready"`
+	WriterState                 string   `json:"writer_state,omitempty"`
+	WriterAction                string   `json:"writer_action,omitempty"`
+	RollbackState               string   `json:"rollback_state,omitempty"`
+	RollbackAction              string   `json:"rollback_action,omitempty"`
+	PromptClass                 string   `json:"prompt_class"`
+	Route                       string   `json:"route,omitempty"`
+	Source                      string   `json:"source,omitempty"`
+	ExpectedSource              string   `json:"expected_source,omitempty"`
+	CandidateRunID              string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID            string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID        string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID          string   `json:"generator_adapter_id,omitempty"`
+	HandoffID                   string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID          string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID         string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID        string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID           string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID       string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID        string   `json:"admission_live_stage_id,omitempty"`
+	AdmissionWriterPreflightID  string   `json:"admission_writer_preflight_id,omitempty"`
+	AdmissionDecision           string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion          string   `json:"admission_promotion,omitempty"`
+	SwitchState                 string   `json:"switch_state,omitempty"`
+	SwitchAction                string   `json:"switch_action,omitempty"`
+	EnableState                 string   `json:"enable_state,omitempty"`
+	EnableAction                string   `json:"enable_action,omitempty"`
+	StageState                  string   `json:"stage_state,omitempty"`
+	StageAction                 string   `json:"stage_action,omitempty"`
+	DreamCandidateRunID         string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus         string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash           string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus         string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus     string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason     string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans          []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed       bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed       bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed        bool     `json:"source_decision_passed"`
+	SourcePromotionPassed       bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed          bool     `json:"source_switch_passed"`
+	SourceEnablePassed          bool     `json:"source_enable_passed"`
+	SourceStagePassed           bool     `json:"source_stage_passed"`
+	SourceWriterPreflightPassed bool     `json:"source_writer_preflight_passed"`
+	LiveReady                   bool     `json:"live_ready"`
+	LiveAdmissionEnabled        bool     `json:"live_admission_enabled"`
+	AdmissionAllowed            bool     `json:"admission_allowed"`
+	ManualEnableRequested       bool     `json:"manual_enable_requested"`
+	EnableKeyMatched            bool     `json:"enable_key_matched"`
+	RequiresWriter              bool     `json:"requires_writer"`
+	WriterReady                 bool     `json:"writer_ready"`
+	RequiresRollback            bool     `json:"requires_rollback"`
+	RollbackReady               bool     `json:"rollback_ready"`
+	WriteAllowed                bool     `json:"write_allowed"`
+	MutatesState                bool     `json:"mutates_state"`
+	WriterInventoryID           string   `json:"writer_inventory_id,omitempty"`
+	Passed                      bool     `json:"passed"`
+	Reason                      string   `json:"reason,omitempty"`
+	TurnTextHash                string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterContract struct {
-	Schema                        string `json:"schema"`
-	Timing                        string `json:"timing"`
-	ContractState                 string `json:"contract_state,omitempty"`
-	ContractAction                string `json:"contract_action,omitempty"`
-	WriterContract                string `json:"writer_contract,omitempty"`
-	RollbackContract              string `json:"rollback_contract,omitempty"`
-	AdmissionLedgerContract       string `json:"admission_ledger_contract,omitempty"`
-	WriterContractShape           string `json:"writer_contract_shape,omitempty"`
-	RollbackContractShape         string `json:"rollback_contract_shape,omitempty"`
-	LedgerContractShape           string `json:"ledger_contract_shape,omitempty"`
-	WriteScope                    string `json:"write_scope,omitempty"`
-	RollbackScope                 string `json:"rollback_scope,omitempty"`
-	LedgerMode                    string `json:"ledger_mode,omitempty"`
-	ContractShapeReady            bool   `json:"contract_shape_ready"`
-	SourceWriterContractPresent   bool   `json:"source_writer_contract_present"`
-	SourceRollbackContractPresent bool   `json:"source_rollback_contract_present"`
-	SourceLedgerContractPresent   bool   `json:"source_ledger_contract_present"`
-	WriterImplementationReady     bool   `json:"writer_implementation_ready"`
-	RollbackImplementationReady   bool   `json:"rollback_implementation_ready"`
-	LedgerImplementationReady     bool   `json:"ledger_implementation_ready"`
-	ContractsReady                bool   `json:"contracts_ready"`
-	WriterState                   string `json:"writer_state,omitempty"`
-	WriterAction                  string `json:"writer_action,omitempty"`
-	RollbackState                 string `json:"rollback_state,omitempty"`
-	RollbackAction                string `json:"rollback_action,omitempty"`
-	PromptClass                   string `json:"prompt_class"`
-	Route                         string `json:"route,omitempty"`
-	Source                        string `json:"source,omitempty"`
-	ExpectedSource                string `json:"expected_source,omitempty"`
-	CandidateRunID                string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID              string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID          string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID            string `json:"generator_adapter_id,omitempty"`
-	HandoffID                     string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID            string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID           string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID          string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID             string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID         string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionLiveStageID          string `json:"admission_live_stage_id,omitempty"`
-	AdmissionWriterPreflightID    string `json:"admission_writer_preflight_id,omitempty"`
-	AdmissionWriterInventoryID    string `json:"admission_writer_inventory_id,omitempty"`
-	AdmissionDecision             string `json:"admission_decision,omitempty"`
-	AdmissionPromotion            string `json:"admission_promotion,omitempty"`
-	SwitchState                   string `json:"switch_state,omitempty"`
-	SwitchAction                  string `json:"switch_action,omitempty"`
-	EnableState                   string `json:"enable_state,omitempty"`
-	EnableAction                  string `json:"enable_action,omitempty"`
-	StageState                    string `json:"stage_state,omitempty"`
-	StageAction                   string `json:"stage_action,omitempty"`
-	InventoryState                string `json:"inventory_state,omitempty"`
-	InventoryAction               string `json:"inventory_action,omitempty"`
-	DreamCandidateRunID           string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus           string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash             string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed         bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed         bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed          bool   `json:"source_decision_passed"`
-	SourcePromotionPassed         bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed            bool   `json:"source_switch_passed"`
-	SourceEnablePassed            bool   `json:"source_enable_passed"`
-	SourceStagePassed             bool   `json:"source_stage_passed"`
-	SourceWriterPreflightPassed   bool   `json:"source_writer_preflight_passed"`
-	SourceWriterInventoryPassed   bool   `json:"source_writer_inventory_passed"`
-	LiveReady                     bool   `json:"live_ready"`
-	LiveAdmissionEnabled          bool   `json:"live_admission_enabled"`
-	AdmissionAllowed              bool   `json:"admission_allowed"`
-	ManualEnableRequested         bool   `json:"manual_enable_requested"`
-	EnableKeyMatched              bool   `json:"enable_key_matched"`
-	RequiresWriter                bool   `json:"requires_writer"`
-	WriterReady                   bool   `json:"writer_ready"`
-	RequiresRollback              bool   `json:"requires_rollback"`
-	RollbackReady                 bool   `json:"rollback_ready"`
-	WriteAllowed                  bool   `json:"write_allowed"`
-	MutatesState                  bool   `json:"mutates_state"`
-	WriterContractID              string `json:"writer_contract_id,omitempty"`
-	Passed                        bool   `json:"passed"`
-	Reason                        string `json:"reason,omitempty"`
-	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
+	Schema                        string   `json:"schema"`
+	Timing                        string   `json:"timing"`
+	ContractState                 string   `json:"contract_state,omitempty"`
+	ContractAction                string   `json:"contract_action,omitempty"`
+	WriterContract                string   `json:"writer_contract,omitempty"`
+	RollbackContract              string   `json:"rollback_contract,omitempty"`
+	AdmissionLedgerContract       string   `json:"admission_ledger_contract,omitempty"`
+	WriterContractShape           string   `json:"writer_contract_shape,omitempty"`
+	RollbackContractShape         string   `json:"rollback_contract_shape,omitempty"`
+	LedgerContractShape           string   `json:"ledger_contract_shape,omitempty"`
+	WriteScope                    string   `json:"write_scope,omitempty"`
+	RollbackScope                 string   `json:"rollback_scope,omitempty"`
+	LedgerMode                    string   `json:"ledger_mode,omitempty"`
+	ContractShapeReady            bool     `json:"contract_shape_ready"`
+	SourceWriterContractPresent   bool     `json:"source_writer_contract_present"`
+	SourceRollbackContractPresent bool     `json:"source_rollback_contract_present"`
+	SourceLedgerContractPresent   bool     `json:"source_ledger_contract_present"`
+	WriterImplementationReady     bool     `json:"writer_implementation_ready"`
+	RollbackImplementationReady   bool     `json:"rollback_implementation_ready"`
+	LedgerImplementationReady     bool     `json:"ledger_implementation_ready"`
+	ContractsReady                bool     `json:"contracts_ready"`
+	WriterState                   string   `json:"writer_state,omitempty"`
+	WriterAction                  string   `json:"writer_action,omitempty"`
+	RollbackState                 string   `json:"rollback_state,omitempty"`
+	RollbackAction                string   `json:"rollback_action,omitempty"`
+	PromptClass                   string   `json:"prompt_class"`
+	Route                         string   `json:"route,omitempty"`
+	Source                        string   `json:"source,omitempty"`
+	ExpectedSource                string   `json:"expected_source,omitempty"`
+	CandidateRunID                string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID              string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID          string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID            string   `json:"generator_adapter_id,omitempty"`
+	HandoffID                     string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID            string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID           string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID          string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID             string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID         string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID          string   `json:"admission_live_stage_id,omitempty"`
+	AdmissionWriterPreflightID    string   `json:"admission_writer_preflight_id,omitempty"`
+	AdmissionWriterInventoryID    string   `json:"admission_writer_inventory_id,omitempty"`
+	AdmissionDecision             string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion            string   `json:"admission_promotion,omitempty"`
+	SwitchState                   string   `json:"switch_state,omitempty"`
+	SwitchAction                  string   `json:"switch_action,omitempty"`
+	EnableState                   string   `json:"enable_state,omitempty"`
+	EnableAction                  string   `json:"enable_action,omitempty"`
+	StageState                    string   `json:"stage_state,omitempty"`
+	StageAction                   string   `json:"stage_action,omitempty"`
+	InventoryState                string   `json:"inventory_state,omitempty"`
+	InventoryAction               string   `json:"inventory_action,omitempty"`
+	DreamCandidateRunID           string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus           string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash             string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus           string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus       string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason       string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans            []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed         bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed         bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed          bool     `json:"source_decision_passed"`
+	SourcePromotionPassed         bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed            bool     `json:"source_switch_passed"`
+	SourceEnablePassed            bool     `json:"source_enable_passed"`
+	SourceStagePassed             bool     `json:"source_stage_passed"`
+	SourceWriterPreflightPassed   bool     `json:"source_writer_preflight_passed"`
+	SourceWriterInventoryPassed   bool     `json:"source_writer_inventory_passed"`
+	LiveReady                     bool     `json:"live_ready"`
+	LiveAdmissionEnabled          bool     `json:"live_admission_enabled"`
+	AdmissionAllowed              bool     `json:"admission_allowed"`
+	ManualEnableRequested         bool     `json:"manual_enable_requested"`
+	EnableKeyMatched              bool     `json:"enable_key_matched"`
+	RequiresWriter                bool     `json:"requires_writer"`
+	WriterReady                   bool     `json:"writer_ready"`
+	RequiresRollback              bool     `json:"requires_rollback"`
+	RollbackReady                 bool     `json:"rollback_ready"`
+	WriteAllowed                  bool     `json:"write_allowed"`
+	MutatesState                  bool     `json:"mutates_state"`
+	WriterContractID              string   `json:"writer_contract_id,omitempty"`
+	Passed                        bool     `json:"passed"`
+	Reason                        string   `json:"reason,omitempty"`
+	TurnTextHash                  string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionLedger struct {
-	Schema                        string `json:"schema"`
-	Timing                        string `json:"timing"`
-	LedgerState                   string `json:"ledger_state,omitempty"`
-	LedgerAction                  string `json:"ledger_action,omitempty"`
-	LedgerContract                string `json:"ledger_contract,omitempty"`
-	LedgerMode                    string `json:"ledger_mode,omitempty"`
-	LedgerEntryKind               string `json:"ledger_entry_kind,omitempty"`
-	LedgerEntryStatus             string `json:"ledger_entry_status,omitempty"`
-	LedgerReceiptShape            string `json:"ledger_receipt_shape,omitempty"`
-	LedgerAppendReady             bool   `json:"ledger_append_ready"`
-	LedgerReceiptPersisted        bool   `json:"ledger_receipt_persisted"`
-	LedgerImplementationReady     bool   `json:"ledger_implementation_ready"`
-	ContractState                 string `json:"contract_state,omitempty"`
-	ContractAction                string `json:"contract_action,omitempty"`
-	WriterContract                string `json:"writer_contract,omitempty"`
-	RollbackContract              string `json:"rollback_contract,omitempty"`
-	AdmissionLedgerContract       string `json:"admission_ledger_contract,omitempty"`
-	WriterContractShape           string `json:"writer_contract_shape,omitempty"`
-	RollbackContractShape         string `json:"rollback_contract_shape,omitempty"`
-	LedgerContractShape           string `json:"ledger_contract_shape,omitempty"`
-	WriteScope                    string `json:"write_scope,omitempty"`
-	RollbackScope                 string `json:"rollback_scope,omitempty"`
-	ContractShapeReady            bool   `json:"contract_shape_ready"`
-	SourceWriterContractPresent   bool   `json:"source_writer_contract_present"`
-	SourceRollbackContractPresent bool   `json:"source_rollback_contract_present"`
-	SourceLedgerContractPresent   bool   `json:"source_ledger_contract_present"`
-	WriterImplementationReady     bool   `json:"writer_implementation_ready"`
-	RollbackImplementationReady   bool   `json:"rollback_implementation_ready"`
-	ContractsReady                bool   `json:"contracts_ready"`
-	WriterState                   string `json:"writer_state,omitempty"`
-	WriterAction                  string `json:"writer_action,omitempty"`
-	RollbackState                 string `json:"rollback_state,omitempty"`
-	RollbackAction                string `json:"rollback_action,omitempty"`
-	PromptClass                   string `json:"prompt_class"`
-	Route                         string `json:"route,omitempty"`
-	Source                        string `json:"source,omitempty"`
-	ExpectedSource                string `json:"expected_source,omitempty"`
-	CandidateRunID                string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID              string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID          string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID            string `json:"generator_adapter_id,omitempty"`
-	HandoffID                     string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID            string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID           string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID          string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID             string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID         string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionLiveStageID          string `json:"admission_live_stage_id,omitempty"`
-	AdmissionWriterPreflightID    string `json:"admission_writer_preflight_id,omitempty"`
-	AdmissionWriterInventoryID    string `json:"admission_writer_inventory_id,omitempty"`
-	AdmissionWriterContractID     string `json:"admission_writer_contract_id,omitempty"`
-	AdmissionDecision             string `json:"admission_decision,omitempty"`
-	AdmissionPromotion            string `json:"admission_promotion,omitempty"`
-	SwitchState                   string `json:"switch_state,omitempty"`
-	SwitchAction                  string `json:"switch_action,omitempty"`
-	EnableState                   string `json:"enable_state,omitempty"`
-	EnableAction                  string `json:"enable_action,omitempty"`
-	StageState                    string `json:"stage_state,omitempty"`
-	StageAction                   string `json:"stage_action,omitempty"`
-	InventoryState                string `json:"inventory_state,omitempty"`
-	InventoryAction               string `json:"inventory_action,omitempty"`
-	DreamCandidateRunID           string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus           string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash             string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed         bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed         bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed          bool   `json:"source_decision_passed"`
-	SourcePromotionPassed         bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed            bool   `json:"source_switch_passed"`
-	SourceEnablePassed            bool   `json:"source_enable_passed"`
-	SourceStagePassed             bool   `json:"source_stage_passed"`
-	SourceWriterPreflightPassed   bool   `json:"source_writer_preflight_passed"`
-	SourceWriterInventoryPassed   bool   `json:"source_writer_inventory_passed"`
-	SourceWriterContractPassed    bool   `json:"source_writer_contract_passed"`
-	LiveReady                     bool   `json:"live_ready"`
-	LiveAdmissionEnabled          bool   `json:"live_admission_enabled"`
-	AdmissionAllowed              bool   `json:"admission_allowed"`
-	ManualEnableRequested         bool   `json:"manual_enable_requested"`
-	EnableKeyMatched              bool   `json:"enable_key_matched"`
-	RequiresWriter                bool   `json:"requires_writer"`
-	WriterReady                   bool   `json:"writer_ready"`
-	RequiresRollback              bool   `json:"requires_rollback"`
-	RollbackReady                 bool   `json:"rollback_ready"`
-	WriteAllowed                  bool   `json:"write_allowed"`
-	MutatesState                  bool   `json:"mutates_state"`
-	AdmissionLedgerID             string `json:"admission_ledger_id,omitempty"`
-	Passed                        bool   `json:"passed"`
-	Reason                        string `json:"reason,omitempty"`
-	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
+	Schema                        string   `json:"schema"`
+	Timing                        string   `json:"timing"`
+	LedgerState                   string   `json:"ledger_state,omitempty"`
+	LedgerAction                  string   `json:"ledger_action,omitempty"`
+	LedgerContract                string   `json:"ledger_contract,omitempty"`
+	LedgerMode                    string   `json:"ledger_mode,omitempty"`
+	LedgerEntryKind               string   `json:"ledger_entry_kind,omitempty"`
+	LedgerEntryStatus             string   `json:"ledger_entry_status,omitempty"`
+	LedgerReceiptShape            string   `json:"ledger_receipt_shape,omitempty"`
+	LedgerAppendReady             bool     `json:"ledger_append_ready"`
+	LedgerReceiptPersisted        bool     `json:"ledger_receipt_persisted"`
+	LedgerImplementationReady     bool     `json:"ledger_implementation_ready"`
+	ContractState                 string   `json:"contract_state,omitempty"`
+	ContractAction                string   `json:"contract_action,omitempty"`
+	WriterContract                string   `json:"writer_contract,omitempty"`
+	RollbackContract              string   `json:"rollback_contract,omitempty"`
+	AdmissionLedgerContract       string   `json:"admission_ledger_contract,omitempty"`
+	WriterContractShape           string   `json:"writer_contract_shape,omitempty"`
+	RollbackContractShape         string   `json:"rollback_contract_shape,omitempty"`
+	LedgerContractShape           string   `json:"ledger_contract_shape,omitempty"`
+	WriteScope                    string   `json:"write_scope,omitempty"`
+	RollbackScope                 string   `json:"rollback_scope,omitempty"`
+	ContractShapeReady            bool     `json:"contract_shape_ready"`
+	SourceWriterContractPresent   bool     `json:"source_writer_contract_present"`
+	SourceRollbackContractPresent bool     `json:"source_rollback_contract_present"`
+	SourceLedgerContractPresent   bool     `json:"source_ledger_contract_present"`
+	WriterImplementationReady     bool     `json:"writer_implementation_ready"`
+	RollbackImplementationReady   bool     `json:"rollback_implementation_ready"`
+	ContractsReady                bool     `json:"contracts_ready"`
+	WriterState                   string   `json:"writer_state,omitempty"`
+	WriterAction                  string   `json:"writer_action,omitempty"`
+	RollbackState                 string   `json:"rollback_state,omitempty"`
+	RollbackAction                string   `json:"rollback_action,omitempty"`
+	PromptClass                   string   `json:"prompt_class"`
+	Route                         string   `json:"route,omitempty"`
+	Source                        string   `json:"source,omitempty"`
+	ExpectedSource                string   `json:"expected_source,omitempty"`
+	CandidateRunID                string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID              string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID          string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID            string   `json:"generator_adapter_id,omitempty"`
+	HandoffID                     string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID            string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID           string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID          string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID             string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID         string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID          string   `json:"admission_live_stage_id,omitempty"`
+	AdmissionWriterPreflightID    string   `json:"admission_writer_preflight_id,omitempty"`
+	AdmissionWriterInventoryID    string   `json:"admission_writer_inventory_id,omitempty"`
+	AdmissionWriterContractID     string   `json:"admission_writer_contract_id,omitempty"`
+	AdmissionDecision             string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion            string   `json:"admission_promotion,omitempty"`
+	SwitchState                   string   `json:"switch_state,omitempty"`
+	SwitchAction                  string   `json:"switch_action,omitempty"`
+	EnableState                   string   `json:"enable_state,omitempty"`
+	EnableAction                  string   `json:"enable_action,omitempty"`
+	StageState                    string   `json:"stage_state,omitempty"`
+	StageAction                   string   `json:"stage_action,omitempty"`
+	InventoryState                string   `json:"inventory_state,omitempty"`
+	InventoryAction               string   `json:"inventory_action,omitempty"`
+	DreamCandidateRunID           string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus           string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash             string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus           string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus       string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason       string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans            []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed         bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed         bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed          bool     `json:"source_decision_passed"`
+	SourcePromotionPassed         bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed            bool     `json:"source_switch_passed"`
+	SourceEnablePassed            bool     `json:"source_enable_passed"`
+	SourceStagePassed             bool     `json:"source_stage_passed"`
+	SourceWriterPreflightPassed   bool     `json:"source_writer_preflight_passed"`
+	SourceWriterInventoryPassed   bool     `json:"source_writer_inventory_passed"`
+	SourceWriterContractPassed    bool     `json:"source_writer_contract_passed"`
+	LiveReady                     bool     `json:"live_ready"`
+	LiveAdmissionEnabled          bool     `json:"live_admission_enabled"`
+	AdmissionAllowed              bool     `json:"admission_allowed"`
+	ManualEnableRequested         bool     `json:"manual_enable_requested"`
+	EnableKeyMatched              bool     `json:"enable_key_matched"`
+	RequiresWriter                bool     `json:"requires_writer"`
+	WriterReady                   bool     `json:"writer_ready"`
+	RequiresRollback              bool     `json:"requires_rollback"`
+	RollbackReady                 bool     `json:"rollback_ready"`
+	WriteAllowed                  bool     `json:"write_allowed"`
+	MutatesState                  bool     `json:"mutates_state"`
+	AdmissionLedgerID             string   `json:"admission_ledger_id,omitempty"`
+	Passed                        bool     `json:"passed"`
+	Reason                        string   `json:"reason,omitempty"`
+	TurnTextHash                  string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterImplementation struct {
-	Schema                        string `json:"schema"`
-	Timing                        string `json:"timing"`
-	ImplementationState           string `json:"implementation_state,omitempty"`
-	ImplementationAction          string `json:"implementation_action,omitempty"`
-	WriterEntrypoint              string `json:"writer_entrypoint,omitempty"`
-	LedgerEntrypoint              string `json:"ledger_entrypoint,omitempty"`
-	RollbackEntrypoint            string `json:"rollback_entrypoint,omitempty"`
-	WriteTarget                   string `json:"write_target,omitempty"`
-	BodyTarget                    string `json:"body_target,omitempty"`
-	AppendOnly                    bool   `json:"append_only"`
-	RollbackRequired              bool   `json:"rollback_required"`
-	ImplementationContractReady   bool   `json:"implementation_contract_ready"`
-	LedgerState                   string `json:"ledger_state,omitempty"`
-	LedgerAction                  string `json:"ledger_action,omitempty"`
-	LedgerContract                string `json:"ledger_contract,omitempty"`
-	LedgerMode                    string `json:"ledger_mode,omitempty"`
-	LedgerEntryKind               string `json:"ledger_entry_kind,omitempty"`
-	LedgerEntryStatus             string `json:"ledger_entry_status,omitempty"`
-	LedgerReceiptShape            string `json:"ledger_receipt_shape,omitempty"`
-	LedgerAppendReady             bool   `json:"ledger_append_ready"`
-	LedgerReceiptPersisted        bool   `json:"ledger_receipt_persisted"`
-	LedgerImplementationReady     bool   `json:"ledger_implementation_ready"`
-	ContractState                 string `json:"contract_state,omitempty"`
-	ContractAction                string `json:"contract_action,omitempty"`
-	WriterContract                string `json:"writer_contract,omitempty"`
-	RollbackContract              string `json:"rollback_contract,omitempty"`
-	AdmissionLedgerContract       string `json:"admission_ledger_contract,omitempty"`
-	WriterContractShape           string `json:"writer_contract_shape,omitempty"`
-	RollbackContractShape         string `json:"rollback_contract_shape,omitempty"`
-	LedgerContractShape           string `json:"ledger_contract_shape,omitempty"`
-	WriteScope                    string `json:"write_scope,omitempty"`
-	RollbackScope                 string `json:"rollback_scope,omitempty"`
-	ContractShapeReady            bool   `json:"contract_shape_ready"`
-	SourceWriterContractPresent   bool   `json:"source_writer_contract_present"`
-	SourceRollbackContractPresent bool   `json:"source_rollback_contract_present"`
-	SourceLedgerContractPresent   bool   `json:"source_ledger_contract_present"`
-	WriterImplementationReady     bool   `json:"writer_implementation_ready"`
-	RollbackImplementationReady   bool   `json:"rollback_implementation_ready"`
-	ContractsReady                bool   `json:"contracts_ready"`
-	WriterState                   string `json:"writer_state,omitempty"`
-	WriterAction                  string `json:"writer_action,omitempty"`
-	RollbackState                 string `json:"rollback_state,omitempty"`
-	RollbackAction                string `json:"rollback_action,omitempty"`
-	PromptClass                   string `json:"prompt_class"`
-	Route                         string `json:"route,omitempty"`
-	Source                        string `json:"source,omitempty"`
-	ExpectedSource                string `json:"expected_source,omitempty"`
-	CandidateRunID                string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID              string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID          string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID            string `json:"generator_adapter_id,omitempty"`
-	HandoffID                     string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID            string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID           string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID          string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID             string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID         string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionLiveStageID          string `json:"admission_live_stage_id,omitempty"`
-	AdmissionWriterPreflightID    string `json:"admission_writer_preflight_id,omitempty"`
-	AdmissionWriterInventoryID    string `json:"admission_writer_inventory_id,omitempty"`
-	AdmissionWriterContractID     string `json:"admission_writer_contract_id,omitempty"`
-	AdmissionLedgerID             string `json:"admission_ledger_id,omitempty"`
-	AdmissionDecision             string `json:"admission_decision,omitempty"`
-	AdmissionPromotion            string `json:"admission_promotion,omitempty"`
-	SwitchState                   string `json:"switch_state,omitempty"`
-	SwitchAction                  string `json:"switch_action,omitempty"`
-	EnableState                   string `json:"enable_state,omitempty"`
-	EnableAction                  string `json:"enable_action,omitempty"`
-	StageState                    string `json:"stage_state,omitempty"`
-	StageAction                   string `json:"stage_action,omitempty"`
-	InventoryState                string `json:"inventory_state,omitempty"`
-	InventoryAction               string `json:"inventory_action,omitempty"`
-	DreamCandidateRunID           string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus           string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash             string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed         bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed         bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed          bool   `json:"source_decision_passed"`
-	SourcePromotionPassed         bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed            bool   `json:"source_switch_passed"`
-	SourceEnablePassed            bool   `json:"source_enable_passed"`
-	SourceStagePassed             bool   `json:"source_stage_passed"`
-	SourceWriterPreflightPassed   bool   `json:"source_writer_preflight_passed"`
-	SourceWriterInventoryPassed   bool   `json:"source_writer_inventory_passed"`
-	SourceWriterContractPassed    bool   `json:"source_writer_contract_passed"`
-	SourceLedgerPassed            bool   `json:"source_ledger_passed"`
-	LiveReady                     bool   `json:"live_ready"`
-	LiveAdmissionEnabled          bool   `json:"live_admission_enabled"`
-	AdmissionAllowed              bool   `json:"admission_allowed"`
-	ManualEnableRequested         bool   `json:"manual_enable_requested"`
-	EnableKeyMatched              bool   `json:"enable_key_matched"`
-	RequiresWriter                bool   `json:"requires_writer"`
-	WriterReady                   bool   `json:"writer_ready"`
-	RequiresRollback              bool   `json:"requires_rollback"`
-	RollbackReady                 bool   `json:"rollback_ready"`
-	WriteAllowed                  bool   `json:"write_allowed"`
-	MutatesState                  bool   `json:"mutates_state"`
-	WriterImplementationID        string `json:"writer_implementation_id,omitempty"`
-	Passed                        bool   `json:"passed"`
-	Reason                        string `json:"reason,omitempty"`
-	TurnTextHash                  string `json:"turn_text_hash,omitempty"`
+	Schema                        string   `json:"schema"`
+	Timing                        string   `json:"timing"`
+	ImplementationState           string   `json:"implementation_state,omitempty"`
+	ImplementationAction          string   `json:"implementation_action,omitempty"`
+	WriterEntrypoint              string   `json:"writer_entrypoint,omitempty"`
+	LedgerEntrypoint              string   `json:"ledger_entrypoint,omitempty"`
+	RollbackEntrypoint            string   `json:"rollback_entrypoint,omitempty"`
+	WriteTarget                   string   `json:"write_target,omitempty"`
+	BodyTarget                    string   `json:"body_target,omitempty"`
+	AppendOnly                    bool     `json:"append_only"`
+	RollbackRequired              bool     `json:"rollback_required"`
+	ImplementationContractReady   bool     `json:"implementation_contract_ready"`
+	LedgerState                   string   `json:"ledger_state,omitempty"`
+	LedgerAction                  string   `json:"ledger_action,omitempty"`
+	LedgerContract                string   `json:"ledger_contract,omitempty"`
+	LedgerMode                    string   `json:"ledger_mode,omitempty"`
+	LedgerEntryKind               string   `json:"ledger_entry_kind,omitempty"`
+	LedgerEntryStatus             string   `json:"ledger_entry_status,omitempty"`
+	LedgerReceiptShape            string   `json:"ledger_receipt_shape,omitempty"`
+	LedgerAppendReady             bool     `json:"ledger_append_ready"`
+	LedgerReceiptPersisted        bool     `json:"ledger_receipt_persisted"`
+	LedgerImplementationReady     bool     `json:"ledger_implementation_ready"`
+	ContractState                 string   `json:"contract_state,omitempty"`
+	ContractAction                string   `json:"contract_action,omitempty"`
+	WriterContract                string   `json:"writer_contract,omitempty"`
+	RollbackContract              string   `json:"rollback_contract,omitempty"`
+	AdmissionLedgerContract       string   `json:"admission_ledger_contract,omitempty"`
+	WriterContractShape           string   `json:"writer_contract_shape,omitempty"`
+	RollbackContractShape         string   `json:"rollback_contract_shape,omitempty"`
+	LedgerContractShape           string   `json:"ledger_contract_shape,omitempty"`
+	WriteScope                    string   `json:"write_scope,omitempty"`
+	RollbackScope                 string   `json:"rollback_scope,omitempty"`
+	ContractShapeReady            bool     `json:"contract_shape_ready"`
+	SourceWriterContractPresent   bool     `json:"source_writer_contract_present"`
+	SourceRollbackContractPresent bool     `json:"source_rollback_contract_present"`
+	SourceLedgerContractPresent   bool     `json:"source_ledger_contract_present"`
+	WriterImplementationReady     bool     `json:"writer_implementation_ready"`
+	RollbackImplementationReady   bool     `json:"rollback_implementation_ready"`
+	ContractsReady                bool     `json:"contracts_ready"`
+	WriterState                   string   `json:"writer_state,omitempty"`
+	WriterAction                  string   `json:"writer_action,omitempty"`
+	RollbackState                 string   `json:"rollback_state,omitempty"`
+	RollbackAction                string   `json:"rollback_action,omitempty"`
+	PromptClass                   string   `json:"prompt_class"`
+	Route                         string   `json:"route,omitempty"`
+	Source                        string   `json:"source,omitempty"`
+	ExpectedSource                string   `json:"expected_source,omitempty"`
+	CandidateRunID                string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID              string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID          string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID            string   `json:"generator_adapter_id,omitempty"`
+	HandoffID                     string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID            string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID           string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID          string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID             string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID         string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionLiveStageID          string   `json:"admission_live_stage_id,omitempty"`
+	AdmissionWriterPreflightID    string   `json:"admission_writer_preflight_id,omitempty"`
+	AdmissionWriterInventoryID    string   `json:"admission_writer_inventory_id,omitempty"`
+	AdmissionWriterContractID     string   `json:"admission_writer_contract_id,omitempty"`
+	AdmissionLedgerID             string   `json:"admission_ledger_id,omitempty"`
+	AdmissionDecision             string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion            string   `json:"admission_promotion,omitempty"`
+	SwitchState                   string   `json:"switch_state,omitempty"`
+	SwitchAction                  string   `json:"switch_action,omitempty"`
+	EnableState                   string   `json:"enable_state,omitempty"`
+	EnableAction                  string   `json:"enable_action,omitempty"`
+	StageState                    string   `json:"stage_state,omitempty"`
+	StageAction                   string   `json:"stage_action,omitempty"`
+	InventoryState                string   `json:"inventory_state,omitempty"`
+	InventoryAction               string   `json:"inventory_action,omitempty"`
+	DreamCandidateRunID           string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus           string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash             string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus           string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus       string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason       string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans            []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed         bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed         bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed          bool     `json:"source_decision_passed"`
+	SourcePromotionPassed         bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed            bool     `json:"source_switch_passed"`
+	SourceEnablePassed            bool     `json:"source_enable_passed"`
+	SourceStagePassed             bool     `json:"source_stage_passed"`
+	SourceWriterPreflightPassed   bool     `json:"source_writer_preflight_passed"`
+	SourceWriterInventoryPassed   bool     `json:"source_writer_inventory_passed"`
+	SourceWriterContractPassed    bool     `json:"source_writer_contract_passed"`
+	SourceLedgerPassed            bool     `json:"source_ledger_passed"`
+	LiveReady                     bool     `json:"live_ready"`
+	LiveAdmissionEnabled          bool     `json:"live_admission_enabled"`
+	AdmissionAllowed              bool     `json:"admission_allowed"`
+	ManualEnableRequested         bool     `json:"manual_enable_requested"`
+	EnableKeyMatched              bool     `json:"enable_key_matched"`
+	RequiresWriter                bool     `json:"requires_writer"`
+	WriterReady                   bool     `json:"writer_ready"`
+	RequiresRollback              bool     `json:"requires_rollback"`
+	RollbackReady                 bool     `json:"rollback_ready"`
+	WriteAllowed                  bool     `json:"write_allowed"`
+	MutatesState                  bool     `json:"mutates_state"`
+	WriterImplementationID        string   `json:"writer_implementation_id,omitempty"`
+	Passed                        bool     `json:"passed"`
+	Reason                        string   `json:"reason,omitempty"`
+	TurnTextHash                  string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterReceipt struct {
@@ -4898,57 +4918,61 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionLiveStage(stage admissionLive
 
 func admissionLiveRouteTurnCandidateAdmissionWriterPreflightForLiveStage(stage admissionLiveRouteTurnCandidateAdmissionLiveStage) admissionLiveRouteTurnCandidateAdmissionWriterPreflight {
 	preflight := admissionLiveRouteTurnCandidateAdmissionWriterPreflight{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema,
-		Timing:                "live_admission_writer_preflight",
-		WriterState:           "blocked",
-		WriterAction:          "reject",
-		RollbackState:         "blocked",
-		RollbackAction:        "reject",
-		PromptClass:           stage.PromptClass,
-		Route:                 stage.Route,
-		Source:                stage.Source,
-		ExpectedSource:        stage.ExpectedSource,
-		CandidateRunID:        stage.CandidateRunID,
-		CandidateDraftID:      stage.CandidateDraftID,
-		CandidateExecutionID:  stage.CandidateExecutionID,
-		GeneratorAdapterID:    stage.GeneratorAdapterID,
-		HandoffID:             stage.HandoffID,
-		AdmissionAdapterID:    stage.AdmissionAdapterID,
-		AdmissionDecisionID:   stage.AdmissionDecisionID,
-		AdmissionPromotionID:  stage.AdmissionPromotionID,
-		AdmissionSwitchID:     stage.AdmissionSwitchID,
-		AdmissionEnableGateID: stage.AdmissionEnableGateID,
-		AdmissionLiveStageID:  stage.LiveStageID,
-		AdmissionDecision:     stage.AdmissionDecision,
-		AdmissionPromotion:    stage.AdmissionPromotion,
-		SwitchState:           stage.SwitchState,
-		SwitchAction:          stage.SwitchAction,
-		EnableState:           stage.EnableState,
-		EnableAction:          stage.EnableAction,
-		StageState:            stage.StageState,
-		StageAction:           stage.StageAction,
-		DreamCandidateRunID:   stage.DreamCandidateRunID,
-		CandidateTextStatus:   stage.CandidateTextStatus,
-		CandidateTextHash:     stage.CandidateTextHash,
-		AdmissionPolicyPassed: stage.AdmissionPolicyPassed,
-		LiveRouteChoicePassed: stage.LiveRouteChoicePassed,
-		SourceDecisionPassed:  stage.SourceDecisionPassed,
-		SourcePromotionPassed: stage.SourcePromotionPassed,
-		SourceSwitchPassed:    stage.SourceSwitchPassed,
-		SourceEnablePassed:    stage.SourceEnablePassed,
-		SourceStagePassed:     stage.Passed,
-		LiveReady:             stage.LiveReady,
-		LiveAdmissionEnabled:  stage.LiveAdmissionEnabled,
-		AdmissionAllowed:      stage.AdmissionAllowed,
-		ManualEnableRequested: stage.ManualEnableRequested,
-		EnableKeyMatched:      stage.EnableKeyMatched,
-		RequiresWriter:        stage.RequiresWriter,
-		WriterReady:           stage.WriterReady,
-		RequiresRollback:      stage.RequiresRollback,
-		RollbackReady:         stage.RollbackReady,
-		WriteAllowed:          false,
-		MutatesState:          false,
-		TurnTextHash:          stage.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionWriterPreflightSchema,
+		Timing:                  "live_admission_writer_preflight",
+		WriterState:             "blocked",
+		WriterAction:            "reject",
+		RollbackState:           "blocked",
+		RollbackAction:          "reject",
+		PromptClass:             stage.PromptClass,
+		Route:                   stage.Route,
+		Source:                  stage.Source,
+		ExpectedSource:          stage.ExpectedSource,
+		CandidateRunID:          stage.CandidateRunID,
+		CandidateDraftID:        stage.CandidateDraftID,
+		CandidateExecutionID:    stage.CandidateExecutionID,
+		GeneratorAdapterID:      stage.GeneratorAdapterID,
+		HandoffID:               stage.HandoffID,
+		AdmissionAdapterID:      stage.AdmissionAdapterID,
+		AdmissionDecisionID:     stage.AdmissionDecisionID,
+		AdmissionPromotionID:    stage.AdmissionPromotionID,
+		AdmissionSwitchID:       stage.AdmissionSwitchID,
+		AdmissionEnableGateID:   stage.AdmissionEnableGateID,
+		AdmissionLiveStageID:    stage.LiveStageID,
+		AdmissionDecision:       stage.AdmissionDecision,
+		AdmissionPromotion:      stage.AdmissionPromotion,
+		SwitchState:             stage.SwitchState,
+		SwitchAction:            stage.SwitchAction,
+		EnableState:             stage.EnableState,
+		EnableAction:            stage.EnableAction,
+		StageState:              stage.StageState,
+		StageAction:             stage.StageAction,
+		DreamCandidateRunID:     stage.DreamCandidateRunID,
+		CandidateTextStatus:     stage.CandidateTextStatus,
+		CandidateTextHash:       stage.CandidateTextHash,
+		BodyInventoryStatus:     stage.BodyInventoryStatus,
+		RouteAvailabilityStatus: stage.RouteAvailabilityStatus,
+		RouteAvailabilityReason: stage.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(stage.RouteMissingOrgans),
+		AdmissionPolicyPassed:   stage.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:   stage.LiveRouteChoicePassed,
+		SourceDecisionPassed:    stage.SourceDecisionPassed,
+		SourcePromotionPassed:   stage.SourcePromotionPassed,
+		SourceSwitchPassed:      stage.SourceSwitchPassed,
+		SourceEnablePassed:      stage.SourceEnablePassed,
+		SourceStagePassed:       stage.Passed,
+		LiveReady:               stage.LiveReady,
+		LiveAdmissionEnabled:    stage.LiveAdmissionEnabled,
+		AdmissionAllowed:        stage.AdmissionAllowed,
+		ManualEnableRequested:   stage.ManualEnableRequested,
+		EnableKeyMatched:        stage.EnableKeyMatched,
+		RequiresWriter:          stage.RequiresWriter,
+		WriterReady:             stage.WriterReady,
+		RequiresRollback:        stage.RequiresRollback,
+		RollbackReady:           stage.RollbackReady,
+		WriteAllowed:            false,
+		MutatesState:            false,
+		TurnTextHash:            stage.TurnTextHash,
 	}
 	if stage.Schema == "" {
 		preflight.Reason = "missing_candidate_admission_live_stage"
@@ -5167,6 +5191,10 @@ func admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(preflig
 		DreamCandidateRunID:         preflight.DreamCandidateRunID,
 		CandidateTextStatus:         preflight.CandidateTextStatus,
 		CandidateTextHash:           preflight.CandidateTextHash,
+		BodyInventoryStatus:         preflight.BodyInventoryStatus,
+		RouteAvailabilityStatus:     preflight.RouteAvailabilityStatus,
+		RouteAvailabilityReason:     preflight.RouteAvailabilityReason,
+		RouteMissingOrgans:          admissionLiveRouteMissingOrgansCopy(preflight.RouteMissingOrgans),
 		AdmissionPolicyPassed:       preflight.AdmissionPolicyPassed,
 		LiveRouteChoicePassed:       preflight.LiveRouteChoicePassed,
 		SourceDecisionPassed:        preflight.SourceDecisionPassed,
@@ -5451,6 +5479,10 @@ func admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(inventor
 		DreamCandidateRunID:           inventory.DreamCandidateRunID,
 		CandidateTextStatus:           inventory.CandidateTextStatus,
 		CandidateTextHash:             inventory.CandidateTextHash,
+		BodyInventoryStatus:           inventory.BodyInventoryStatus,
+		RouteAvailabilityStatus:       inventory.RouteAvailabilityStatus,
+		RouteAvailabilityReason:       inventory.RouteAvailabilityReason,
+		RouteMissingOrgans:            admissionLiveRouteMissingOrgansCopy(inventory.RouteMissingOrgans),
 		AdmissionPolicyPassed:         inventory.AdmissionPolicyPassed,
 		LiveRouteChoicePassed:         inventory.LiveRouteChoicePassed,
 		SourceDecisionPassed:          inventory.SourceDecisionPassed,
@@ -5795,6 +5827,10 @@ func admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(contract ad
 		DreamCandidateRunID:           contract.DreamCandidateRunID,
 		CandidateTextStatus:           contract.CandidateTextStatus,
 		CandidateTextHash:             contract.CandidateTextHash,
+		BodyInventoryStatus:           contract.BodyInventoryStatus,
+		RouteAvailabilityStatus:       contract.RouteAvailabilityStatus,
+		RouteAvailabilityReason:       contract.RouteAvailabilityReason,
+		RouteMissingOrgans:            admissionLiveRouteMissingOrgansCopy(contract.RouteMissingOrgans),
 		AdmissionPolicyPassed:         contract.AdmissionPolicyPassed,
 		LiveRouteChoicePassed:         contract.LiveRouteChoicePassed,
 		SourceDecisionPassed:          contract.SourceDecisionPassed,
@@ -6189,6 +6225,10 @@ func admissionLiveRouteTurnCandidateAdmissionWriterImplementationForLedger(ledge
 		DreamCandidateRunID:           ledger.DreamCandidateRunID,
 		CandidateTextStatus:           ledger.CandidateTextStatus,
 		CandidateTextHash:             ledger.CandidateTextHash,
+		BodyInventoryStatus:           ledger.BodyInventoryStatus,
+		RouteAvailabilityStatus:       ledger.RouteAvailabilityStatus,
+		RouteAvailabilityReason:       ledger.RouteAvailabilityReason,
+		RouteMissingOrgans:            admissionLiveRouteMissingOrgansCopy(ledger.RouteMissingOrgans),
 		AdmissionPolicyPassed:         ledger.AdmissionPolicyPassed,
 		LiveRouteChoicePassed:         ledger.LiveRouteChoicePassed,
 		SourceDecisionPassed:          ledger.SourceDecisionPassed,
