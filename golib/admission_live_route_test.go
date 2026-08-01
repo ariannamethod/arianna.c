@@ -1885,6 +1885,22 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		t.Fatalf("decision lost provenance: decision=%+v execution=%+v adapter=%+v draft=%+v admission=%+v candidate=%+v",
 			decision, execution, generatorAdapter, draft, admission, candidate)
 	}
+	assertRouteBoundary := func(name, bodyStatus, availabilityStatus, availabilityReason string, missingOrgans []string) {
+		t.Helper()
+		if !admissionLiveRouteBoundaryFieldsEqual(
+			bodyStatus,
+			availabilityStatus,
+			availabilityReason,
+			missingOrgans,
+			decision.BodyInventoryStatus,
+			decision.RouteAvailabilityStatus,
+			decision.RouteAvailabilityReason,
+			decision.RouteMissingOrgans,
+		) {
+			t.Fatalf("%s lost route boundary: body=%q availability=%q reason=%q missing=%v decision=%+v",
+				name, bodyStatus, availabilityStatus, availabilityReason, missingOrgans, decision)
+		}
+	}
 	promotion := admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision)
 	if promotion.Schema != admissionLiveRouteTurnCandidateAdmissionPromotionSchema ||
 		promotion.Timing != "admission_decision_consumer" ||
@@ -2116,6 +2132,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerPreflight.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer preflight lost provenance: preflight=%+v stage=%+v", writerPreflight, liveStage)
 	}
+	assertRouteBoundary(
+		"writer preflight",
+		writerPreflight.BodyInventoryStatus,
+		writerPreflight.RouteAvailabilityStatus,
+		writerPreflight.RouteAvailabilityReason,
+		writerPreflight.RouteMissingOrgans,
+	)
 	writerInventory := admissionLiveRouteTurnCandidateAdmissionWriterInventoryForPreflight(writerPreflight)
 	if writerInventory.Schema != admissionLiveRouteTurnCandidateAdmissionWriterInventorySchema ||
 		writerInventory.Timing != "live_admission_writer_inventory" ||
@@ -2164,6 +2187,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerInventory.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer inventory lost provenance: inventory=%+v preflight=%+v", writerInventory, writerPreflight)
 	}
+	assertRouteBoundary(
+		"writer inventory",
+		writerInventory.BodyInventoryStatus,
+		writerInventory.RouteAvailabilityStatus,
+		writerInventory.RouteAvailabilityReason,
+		writerInventory.RouteMissingOrgans,
+	)
 	writerContract := admissionLiveRouteTurnCandidateAdmissionWriterContractForInventory(writerInventory)
 	if writerContract.Schema != admissionLiveRouteTurnCandidateAdmissionWriterContractSchema ||
 		writerContract.Timing != "live_admission_writer_contract" ||
@@ -2224,6 +2254,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerContract.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer contract lost provenance: contract=%+v inventory=%+v", writerContract, writerInventory)
 	}
+	assertRouteBoundary(
+		"writer contract",
+		writerContract.BodyInventoryStatus,
+		writerContract.RouteAvailabilityStatus,
+		writerContract.RouteAvailabilityReason,
+		writerContract.RouteMissingOrgans,
+	)
 	ledger := admissionLiveRouteTurnCandidateAdmissionLedgerForWriterContract(writerContract)
 	if ledger.Schema != admissionLiveRouteTurnCandidateAdmissionLedgerSchema ||
 		ledger.Timing != "live_admission_ledger" ||
@@ -2294,6 +2331,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		ledger.TurnTextHash != obs.TextHash {
 		t.Fatalf("ledger lost provenance: ledger=%+v contract=%+v", ledger, writerContract)
 	}
+	assertRouteBoundary(
+		"admission ledger",
+		ledger.BodyInventoryStatus,
+		ledger.RouteAvailabilityStatus,
+		ledger.RouteAvailabilityReason,
+		ledger.RouteMissingOrgans,
+	)
 	writerImpl := admissionLiveRouteTurnCandidateAdmissionWriterImplementationForLedger(ledger)
 	if writerImpl.Schema != admissionLiveRouteTurnCandidateAdmissionWriterImplSchema ||
 		writerImpl.Timing != "live_admission_writer_implementation" ||
@@ -2376,6 +2420,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerImpl.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer implementation lost provenance: impl=%+v ledger=%+v", writerImpl, ledger)
 	}
+	assertRouteBoundary(
+		"writer implementation",
+		writerImpl.BodyInventoryStatus,
+		writerImpl.RouteAvailabilityStatus,
+		writerImpl.RouteAvailabilityReason,
+		writerImpl.RouteMissingOrgans,
+	)
 	writerReceipt := admissionLiveRouteTurnCandidateAdmissionWriterReceiptForImplementation(writerImpl)
 	if writerReceipt.Schema != admissionLiveRouteTurnCandidateAdmissionWriterReceiptSchema ||
 		writerReceipt.Timing != "live_admission_writer_receipt" ||
@@ -2445,6 +2496,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		writerReceipt.TurnTextHash != obs.TextHash {
 		t.Fatalf("writer receipt lost provenance: receipt=%+v impl=%+v", writerReceipt, writerImpl)
 	}
+	assertRouteBoundary(
+		"writer receipt",
+		writerReceipt.BodyInventoryStatus,
+		writerReceipt.RouteAvailabilityStatus,
+		writerReceipt.RouteAvailabilityReason,
+		writerReceipt.RouteMissingOrgans,
+	)
 	rollbackImpl := admissionLiveRouteTurnCandidateAdmissionRollbackImplementationForWriterReceipt(writerReceipt)
 	if rollbackImpl.Schema != admissionLiveRouteTurnCandidateAdmissionRollbackImplSchema ||
 		rollbackImpl.Timing != "live_admission_rollback_implementation" ||
@@ -2983,6 +3041,13 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionDecisionForShadow(t *testing.T)
 		finalGate.TurnTextHash != obs.TextHash {
 		t.Fatalf("admission final gate lost provenance: final_gate=%+v seal=%+v", finalGate, seal)
 	}
+	assertRouteBoundary(
+		"admission final gate",
+		finalGate.BodyInventoryStatus,
+		finalGate.RouteAvailabilityStatus,
+		finalGate.RouteAvailabilityReason,
+		finalGate.RouteMissingOrgans,
+	)
 	resonanceIntent := admissionLiveRouteTurnCandidateAdmissionResonanceIntentForFinalGate(finalGate)
 	if resonanceIntent.Schema != admissionLiveRouteTurnCandidateAdmissionResonanceIntentSchema ||
 		resonanceIntent.Timing != "live_admission_resonance_intent" ||

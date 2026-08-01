@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 — Route boundary reaches writer and ledger tail
+
+Writer preflight, inventory, contract, ledger, and writer-implementation receipts
+now carry the typed body-inventory route boundary forward from live-stage. The
+nano-direct admission smoke checks the boundary through writer receipt and final
+gate via the embedded writer chain, so missing-organ facts remain visible across
+the dry-run writer/rollback/ledger tail before any future live admission opens.
+
 ## 2026-08-02 — Route boundary crosses live admission gates
 
 Promotion, switch, enable-gate, and live-stage receipts now carry the same typed
