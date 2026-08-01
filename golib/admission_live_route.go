@@ -410,162 +410,178 @@ type admissionLiveRouteTurnCandidateAdmissionDecision struct {
 }
 
 type admissionLiveRouteTurnCandidateAdmissionPromotion struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	Promotion             string `json:"promotion,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
-	AdmissionDecision     string `json:"admission_decision,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed  bool   `json:"source_decision_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
-	MutatesState          bool   `json:"mutates_state"`
-	PromotionID           string `json:"promotion_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	Promotion               string   `json:"promotion,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID     string   `json:"admission_decision_id,omitempty"`
+	AdmissionDecision       string   `json:"admission_decision,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed    bool     `json:"source_decision_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	LiveAdmissionEnabled    bool     `json:"live_admission_enabled"`
+	MutatesState            bool     `json:"mutates_state"`
+	PromotionID             string   `json:"promotion_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionSwitch struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	SwitchState           string `json:"switch_state,omitempty"`
-	SwitchAction          string `json:"switch_action,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
-	AdmissionDecision     string `json:"admission_decision,omitempty"`
-	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed  bool   `json:"source_decision_passed"`
-	SourcePromotionPassed bool   `json:"source_promotion_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
-	AdmissionAllowed      bool   `json:"admission_allowed"`
-	MutatesState          bool   `json:"mutates_state"`
-	SwitchID              string `json:"switch_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	SwitchState             string   `json:"switch_state,omitempty"`
+	SwitchAction            string   `json:"switch_action,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID     string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID    string   `json:"admission_promotion_id,omitempty"`
+	AdmissionDecision       string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion      string   `json:"admission_promotion,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed    bool     `json:"source_decision_passed"`
+	SourcePromotionPassed   bool     `json:"source_promotion_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	LiveAdmissionEnabled    bool     `json:"live_admission_enabled"`
+	AdmissionAllowed        bool     `json:"admission_allowed"`
+	MutatesState            bool     `json:"mutates_state"`
+	SwitchID                string   `json:"switch_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionEnableGate struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	EnableState           string `json:"enable_state,omitempty"`
-	EnableAction          string `json:"enable_action,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID     string `json:"admission_switch_id,omitempty"`
-	AdmissionDecision     string `json:"admission_decision,omitempty"`
-	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
-	SwitchState           string `json:"switch_state,omitempty"`
-	SwitchAction          string `json:"switch_action,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed  bool   `json:"source_decision_passed"`
-	SourcePromotionPassed bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed    bool   `json:"source_switch_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
-	AdmissionAllowed      bool   `json:"admission_allowed"`
-	ManualEnableRequested bool   `json:"manual_enable_requested"`
-	EnableKeyMatched      bool   `json:"enable_key_matched"`
-	MutatesState          bool   `json:"mutates_state"`
-	EnableGateID          string `json:"enable_gate_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	EnableState             string   `json:"enable_state,omitempty"`
+	EnableAction            string   `json:"enable_action,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID     string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID    string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID       string   `json:"admission_switch_id,omitempty"`
+	AdmissionDecision       string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion      string   `json:"admission_promotion,omitempty"`
+	SwitchState             string   `json:"switch_state,omitempty"`
+	SwitchAction            string   `json:"switch_action,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed    bool     `json:"source_decision_passed"`
+	SourcePromotionPassed   bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed      bool     `json:"source_switch_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	LiveAdmissionEnabled    bool     `json:"live_admission_enabled"`
+	AdmissionAllowed        bool     `json:"admission_allowed"`
+	ManualEnableRequested   bool     `json:"manual_enable_requested"`
+	EnableKeyMatched        bool     `json:"enable_key_matched"`
+	MutatesState            bool     `json:"mutates_state"`
+	EnableGateID            string   `json:"enable_gate_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionLiveStage struct {
-	Schema                string `json:"schema"`
-	Timing                string `json:"timing"`
-	StageState            string `json:"stage_state,omitempty"`
-	StageAction           string `json:"stage_action,omitempty"`
-	PromptClass           string `json:"prompt_class"`
-	Route                 string `json:"route,omitempty"`
-	Source                string `json:"source,omitempty"`
-	ExpectedSource        string `json:"expected_source,omitempty"`
-	CandidateRunID        string `json:"candidate_run_id,omitempty"`
-	CandidateDraftID      string `json:"candidate_draft_id,omitempty"`
-	CandidateExecutionID  string `json:"candidate_execution_id,omitempty"`
-	GeneratorAdapterID    string `json:"generator_adapter_id,omitempty"`
-	HandoffID             string `json:"handoff_id,omitempty"`
-	AdmissionAdapterID    string `json:"admission_adapter_id,omitempty"`
-	AdmissionDecisionID   string `json:"admission_decision_id,omitempty"`
-	AdmissionPromotionID  string `json:"admission_promotion_id,omitempty"`
-	AdmissionSwitchID     string `json:"admission_switch_id,omitempty"`
-	AdmissionEnableGateID string `json:"admission_enable_gate_id,omitempty"`
-	AdmissionDecision     string `json:"admission_decision,omitempty"`
-	AdmissionPromotion    string `json:"admission_promotion,omitempty"`
-	SwitchState           string `json:"switch_state,omitempty"`
-	SwitchAction          string `json:"switch_action,omitempty"`
-	EnableState           string `json:"enable_state,omitempty"`
-	EnableAction          string `json:"enable_action,omitempty"`
-	DreamCandidateRunID   string `json:"dream_candidate_run_id,omitempty"`
-	CandidateTextStatus   string `json:"candidate_text_status,omitempty"`
-	CandidateTextHash     string `json:"candidate_text_hash,omitempty"`
-	AdmissionPolicyPassed bool   `json:"admission_policy_passed"`
-	LiveRouteChoicePassed bool   `json:"live_route_choice_passed"`
-	SourceDecisionPassed  bool   `json:"source_decision_passed"`
-	SourcePromotionPassed bool   `json:"source_promotion_passed"`
-	SourceSwitchPassed    bool   `json:"source_switch_passed"`
-	SourceEnablePassed    bool   `json:"source_enable_passed"`
-	LiveReady             bool   `json:"live_ready"`
-	LiveAdmissionEnabled  bool   `json:"live_admission_enabled"`
-	AdmissionAllowed      bool   `json:"admission_allowed"`
-	ManualEnableRequested bool   `json:"manual_enable_requested"`
-	EnableKeyMatched      bool   `json:"enable_key_matched"`
-	RequiresWriter        bool   `json:"requires_writer"`
-	WriterReady           bool   `json:"writer_ready"`
-	RequiresRollback      bool   `json:"requires_rollback"`
-	RollbackReady         bool   `json:"rollback_ready"`
-	MutatesState          bool   `json:"mutates_state"`
-	LiveStageID           string `json:"live_stage_id,omitempty"`
-	Passed                bool   `json:"passed"`
-	Reason                string `json:"reason,omitempty"`
-	TurnTextHash          string `json:"turn_text_hash,omitempty"`
+	Schema                  string   `json:"schema"`
+	Timing                  string   `json:"timing"`
+	StageState              string   `json:"stage_state,omitempty"`
+	StageAction             string   `json:"stage_action,omitempty"`
+	PromptClass             string   `json:"prompt_class"`
+	Route                   string   `json:"route,omitempty"`
+	Source                  string   `json:"source,omitempty"`
+	ExpectedSource          string   `json:"expected_source,omitempty"`
+	CandidateRunID          string   `json:"candidate_run_id,omitempty"`
+	CandidateDraftID        string   `json:"candidate_draft_id,omitempty"`
+	CandidateExecutionID    string   `json:"candidate_execution_id,omitempty"`
+	GeneratorAdapterID      string   `json:"generator_adapter_id,omitempty"`
+	HandoffID               string   `json:"handoff_id,omitempty"`
+	AdmissionAdapterID      string   `json:"admission_adapter_id,omitempty"`
+	AdmissionDecisionID     string   `json:"admission_decision_id,omitempty"`
+	AdmissionPromotionID    string   `json:"admission_promotion_id,omitempty"`
+	AdmissionSwitchID       string   `json:"admission_switch_id,omitempty"`
+	AdmissionEnableGateID   string   `json:"admission_enable_gate_id,omitempty"`
+	AdmissionDecision       string   `json:"admission_decision,omitempty"`
+	AdmissionPromotion      string   `json:"admission_promotion,omitempty"`
+	SwitchState             string   `json:"switch_state,omitempty"`
+	SwitchAction            string   `json:"switch_action,omitempty"`
+	EnableState             string   `json:"enable_state,omitempty"`
+	EnableAction            string   `json:"enable_action,omitempty"`
+	DreamCandidateRunID     string   `json:"dream_candidate_run_id,omitempty"`
+	CandidateTextStatus     string   `json:"candidate_text_status,omitempty"`
+	CandidateTextHash       string   `json:"candidate_text_hash,omitempty"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+	AdmissionPolicyPassed   bool     `json:"admission_policy_passed"`
+	LiveRouteChoicePassed   bool     `json:"live_route_choice_passed"`
+	SourceDecisionPassed    bool     `json:"source_decision_passed"`
+	SourcePromotionPassed   bool     `json:"source_promotion_passed"`
+	SourceSwitchPassed      bool     `json:"source_switch_passed"`
+	SourceEnablePassed      bool     `json:"source_enable_passed"`
+	LiveReady               bool     `json:"live_ready"`
+	LiveAdmissionEnabled    bool     `json:"live_admission_enabled"`
+	AdmissionAllowed        bool     `json:"admission_allowed"`
+	ManualEnableRequested   bool     `json:"manual_enable_requested"`
+	EnableKeyMatched        bool     `json:"enable_key_matched"`
+	RequiresWriter          bool     `json:"requires_writer"`
+	WriterReady             bool     `json:"writer_ready"`
+	RequiresRollback        bool     `json:"requires_rollback"`
+	RollbackReady           bool     `json:"rollback_ready"`
+	MutatesState            bool     `json:"mutates_state"`
+	LiveStageID             string   `json:"live_stage_id,omitempty"`
+	Passed                  bool     `json:"passed"`
+	Reason                  string   `json:"reason,omitempty"`
+	TurnTextHash            string   `json:"turn_text_hash,omitempty"`
 }
 
 type admissionLiveRouteTurnCandidateAdmissionWriterPreflight struct {
@@ -4197,31 +4213,35 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionDecision(decision admissionLi
 
 func admissionLiveRouteTurnCandidateAdmissionPromotionForDecision(decision admissionLiveRouteTurnCandidateAdmissionDecision) admissionLiveRouteTurnCandidateAdmissionPromotion {
 	promotion := admissionLiveRouteTurnCandidateAdmissionPromotion{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionPromotionSchema,
-		Timing:                "admission_decision_consumer",
-		Promotion:             "blocked",
-		PromptClass:           decision.PromptClass,
-		Route:                 decision.Route,
-		Source:                decision.Source,
-		ExpectedSource:        decision.ExpectedSource,
-		CandidateRunID:        decision.CandidateRunID,
-		CandidateDraftID:      decision.CandidateDraftID,
-		CandidateExecutionID:  decision.CandidateExecutionID,
-		GeneratorAdapterID:    decision.GeneratorAdapterID,
-		HandoffID:             decision.HandoffID,
-		AdmissionAdapterID:    decision.AdmissionAdapterID,
-		AdmissionDecisionID:   decision.DecisionID,
-		AdmissionDecision:     decision.Decision,
-		DreamCandidateRunID:   decision.DreamCandidateRunID,
-		CandidateTextStatus:   decision.CandidateTextStatus,
-		CandidateTextHash:     decision.CandidateTextHash,
-		AdmissionPolicyPassed: decision.AdmissionPolicyPassed,
-		LiveRouteChoicePassed: decision.LiveRouteChoicePassed,
-		SourceDecisionPassed:  decision.Passed,
-		LiveReady:             decision.LiveReady,
-		LiveAdmissionEnabled:  false,
-		MutatesState:          false,
-		TurnTextHash:          decision.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionPromotionSchema,
+		Timing:                  "admission_decision_consumer",
+		Promotion:               "blocked",
+		PromptClass:             decision.PromptClass,
+		Route:                   decision.Route,
+		Source:                  decision.Source,
+		ExpectedSource:          decision.ExpectedSource,
+		CandidateRunID:          decision.CandidateRunID,
+		CandidateDraftID:        decision.CandidateDraftID,
+		CandidateExecutionID:    decision.CandidateExecutionID,
+		GeneratorAdapterID:      decision.GeneratorAdapterID,
+		HandoffID:               decision.HandoffID,
+		AdmissionAdapterID:      decision.AdmissionAdapterID,
+		AdmissionDecisionID:     decision.DecisionID,
+		AdmissionDecision:       decision.Decision,
+		DreamCandidateRunID:     decision.DreamCandidateRunID,
+		CandidateTextStatus:     decision.CandidateTextStatus,
+		CandidateTextHash:       decision.CandidateTextHash,
+		BodyInventoryStatus:     decision.BodyInventoryStatus,
+		RouteAvailabilityStatus: decision.RouteAvailabilityStatus,
+		RouteAvailabilityReason: decision.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(decision.RouteMissingOrgans),
+		AdmissionPolicyPassed:   decision.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:   decision.LiveRouteChoicePassed,
+		SourceDecisionPassed:    decision.Passed,
+		LiveReady:               decision.LiveReady,
+		LiveAdmissionEnabled:    false,
+		MutatesState:            false,
+		TurnTextHash:            decision.TurnTextHash,
 	}
 	if decision.Schema == "" {
 		promotion.Reason = "missing_candidate_admission_decision"
@@ -4328,36 +4348,40 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionPromotion(promotion admission
 
 func admissionLiveRouteTurnCandidateAdmissionSwitchForPromotion(promotion admissionLiveRouteTurnCandidateAdmissionPromotion) admissionLiveRouteTurnCandidateAdmissionSwitch {
 	sw := admissionLiveRouteTurnCandidateAdmissionSwitch{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionSwitchSchema,
-		Timing:                "live_admission_switch_guard",
-		SwitchState:           "blocked",
-		SwitchAction:          "reject",
-		PromptClass:           promotion.PromptClass,
-		Route:                 promotion.Route,
-		Source:                promotion.Source,
-		ExpectedSource:        promotion.ExpectedSource,
-		CandidateRunID:        promotion.CandidateRunID,
-		CandidateDraftID:      promotion.CandidateDraftID,
-		CandidateExecutionID:  promotion.CandidateExecutionID,
-		GeneratorAdapterID:    promotion.GeneratorAdapterID,
-		HandoffID:             promotion.HandoffID,
-		AdmissionAdapterID:    promotion.AdmissionAdapterID,
-		AdmissionDecisionID:   promotion.AdmissionDecisionID,
-		AdmissionPromotionID:  promotion.PromotionID,
-		AdmissionDecision:     promotion.AdmissionDecision,
-		AdmissionPromotion:    promotion.Promotion,
-		DreamCandidateRunID:   promotion.DreamCandidateRunID,
-		CandidateTextStatus:   promotion.CandidateTextStatus,
-		CandidateTextHash:     promotion.CandidateTextHash,
-		AdmissionPolicyPassed: promotion.AdmissionPolicyPassed,
-		LiveRouteChoicePassed: promotion.LiveRouteChoicePassed,
-		SourceDecisionPassed:  promotion.SourceDecisionPassed,
-		SourcePromotionPassed: promotion.Passed,
-		LiveReady:             promotion.LiveReady,
-		LiveAdmissionEnabled:  false,
-		AdmissionAllowed:      false,
-		MutatesState:          false,
-		TurnTextHash:          promotion.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionSwitchSchema,
+		Timing:                  "live_admission_switch_guard",
+		SwitchState:             "blocked",
+		SwitchAction:            "reject",
+		PromptClass:             promotion.PromptClass,
+		Route:                   promotion.Route,
+		Source:                  promotion.Source,
+		ExpectedSource:          promotion.ExpectedSource,
+		CandidateRunID:          promotion.CandidateRunID,
+		CandidateDraftID:        promotion.CandidateDraftID,
+		CandidateExecutionID:    promotion.CandidateExecutionID,
+		GeneratorAdapterID:      promotion.GeneratorAdapterID,
+		HandoffID:               promotion.HandoffID,
+		AdmissionAdapterID:      promotion.AdmissionAdapterID,
+		AdmissionDecisionID:     promotion.AdmissionDecisionID,
+		AdmissionPromotionID:    promotion.PromotionID,
+		AdmissionDecision:       promotion.AdmissionDecision,
+		AdmissionPromotion:      promotion.Promotion,
+		DreamCandidateRunID:     promotion.DreamCandidateRunID,
+		CandidateTextStatus:     promotion.CandidateTextStatus,
+		CandidateTextHash:       promotion.CandidateTextHash,
+		BodyInventoryStatus:     promotion.BodyInventoryStatus,
+		RouteAvailabilityStatus: promotion.RouteAvailabilityStatus,
+		RouteAvailabilityReason: promotion.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(promotion.RouteMissingOrgans),
+		AdmissionPolicyPassed:   promotion.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:   promotion.LiveRouteChoicePassed,
+		SourceDecisionPassed:    promotion.SourceDecisionPassed,
+		SourcePromotionPassed:   promotion.Passed,
+		LiveReady:               promotion.LiveReady,
+		LiveAdmissionEnabled:    false,
+		AdmissionAllowed:        false,
+		MutatesState:            false,
+		TurnTextHash:            promotion.TurnTextHash,
 	}
 	if promotion.Schema == "" {
 		sw.Reason = "missing_candidate_admission_promotion"
@@ -4477,42 +4501,46 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionSwitch(sw admissionLiveRouteT
 func admissionLiveRouteTurnCandidateAdmissionEnableGateForSwitch(sw admissionLiveRouteTurnCandidateAdmissionSwitch) admissionLiveRouteTurnCandidateAdmissionEnableGate {
 	key := admissionLiveRouteTurnCandidateAdmissionEnableGateKey()
 	gate := admissionLiveRouteTurnCandidateAdmissionEnableGate{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionEnableGateSchema,
-		Timing:                "live_admission_enable_gate",
-		EnableState:           "blocked",
-		EnableAction:          "reject",
-		PromptClass:           sw.PromptClass,
-		Route:                 sw.Route,
-		Source:                sw.Source,
-		ExpectedSource:        sw.ExpectedSource,
-		CandidateRunID:        sw.CandidateRunID,
-		CandidateDraftID:      sw.CandidateDraftID,
-		CandidateExecutionID:  sw.CandidateExecutionID,
-		GeneratorAdapterID:    sw.GeneratorAdapterID,
-		HandoffID:             sw.HandoffID,
-		AdmissionAdapterID:    sw.AdmissionAdapterID,
-		AdmissionDecisionID:   sw.AdmissionDecisionID,
-		AdmissionPromotionID:  sw.AdmissionPromotionID,
-		AdmissionSwitchID:     sw.SwitchID,
-		AdmissionDecision:     sw.AdmissionDecision,
-		AdmissionPromotion:    sw.AdmissionPromotion,
-		SwitchState:           sw.SwitchState,
-		SwitchAction:          sw.SwitchAction,
-		DreamCandidateRunID:   sw.DreamCandidateRunID,
-		CandidateTextStatus:   sw.CandidateTextStatus,
-		CandidateTextHash:     sw.CandidateTextHash,
-		AdmissionPolicyPassed: sw.AdmissionPolicyPassed,
-		LiveRouteChoicePassed: sw.LiveRouteChoicePassed,
-		SourceDecisionPassed:  sw.SourceDecisionPassed,
-		SourcePromotionPassed: sw.SourcePromotionPassed,
-		SourceSwitchPassed:    sw.Passed,
-		LiveReady:             sw.LiveReady,
-		LiveAdmissionEnabled:  false,
-		AdmissionAllowed:      false,
-		ManualEnableRequested: key != "",
-		EnableKeyMatched:      key == admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation,
-		MutatesState:          false,
-		TurnTextHash:          sw.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionEnableGateSchema,
+		Timing:                  "live_admission_enable_gate",
+		EnableState:             "blocked",
+		EnableAction:            "reject",
+		PromptClass:             sw.PromptClass,
+		Route:                   sw.Route,
+		Source:                  sw.Source,
+		ExpectedSource:          sw.ExpectedSource,
+		CandidateRunID:          sw.CandidateRunID,
+		CandidateDraftID:        sw.CandidateDraftID,
+		CandidateExecutionID:    sw.CandidateExecutionID,
+		GeneratorAdapterID:      sw.GeneratorAdapterID,
+		HandoffID:               sw.HandoffID,
+		AdmissionAdapterID:      sw.AdmissionAdapterID,
+		AdmissionDecisionID:     sw.AdmissionDecisionID,
+		AdmissionPromotionID:    sw.AdmissionPromotionID,
+		AdmissionSwitchID:       sw.SwitchID,
+		AdmissionDecision:       sw.AdmissionDecision,
+		AdmissionPromotion:      sw.AdmissionPromotion,
+		SwitchState:             sw.SwitchState,
+		SwitchAction:            sw.SwitchAction,
+		DreamCandidateRunID:     sw.DreamCandidateRunID,
+		CandidateTextStatus:     sw.CandidateTextStatus,
+		CandidateTextHash:       sw.CandidateTextHash,
+		BodyInventoryStatus:     sw.BodyInventoryStatus,
+		RouteAvailabilityStatus: sw.RouteAvailabilityStatus,
+		RouteAvailabilityReason: sw.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(sw.RouteMissingOrgans),
+		AdmissionPolicyPassed:   sw.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:   sw.LiveRouteChoicePassed,
+		SourceDecisionPassed:    sw.SourceDecisionPassed,
+		SourcePromotionPassed:   sw.SourcePromotionPassed,
+		SourceSwitchPassed:      sw.Passed,
+		LiveReady:               sw.LiveReady,
+		LiveAdmissionEnabled:    false,
+		AdmissionAllowed:        false,
+		ManualEnableRequested:   key != "",
+		EnableKeyMatched:        key == admissionLiveRouteTurnCandidateAdmissionEnableGateConfirmation,
+		MutatesState:            false,
+		TurnTextHash:            sw.TurnTextHash,
 	}
 	if sw.Schema == "" {
 		gate.Reason = "missing_candidate_admission_switch"
@@ -4670,50 +4698,54 @@ func recordAdmissionLiveRouteTurnCandidateAdmissionEnableGate(gate admissionLive
 
 func admissionLiveRouteTurnCandidateAdmissionLiveStageForEnableGate(gate admissionLiveRouteTurnCandidateAdmissionEnableGate) admissionLiveRouteTurnCandidateAdmissionLiveStage {
 	stage := admissionLiveRouteTurnCandidateAdmissionLiveStage{
-		Schema:                admissionLiveRouteTurnCandidateAdmissionLiveStageSchema,
-		Timing:                "live_admission_candidate_stage",
-		StageState:            "blocked",
-		StageAction:           "reject",
-		PromptClass:           gate.PromptClass,
-		Route:                 gate.Route,
-		Source:                gate.Source,
-		ExpectedSource:        gate.ExpectedSource,
-		CandidateRunID:        gate.CandidateRunID,
-		CandidateDraftID:      gate.CandidateDraftID,
-		CandidateExecutionID:  gate.CandidateExecutionID,
-		GeneratorAdapterID:    gate.GeneratorAdapterID,
-		HandoffID:             gate.HandoffID,
-		AdmissionAdapterID:    gate.AdmissionAdapterID,
-		AdmissionDecisionID:   gate.AdmissionDecisionID,
-		AdmissionPromotionID:  gate.AdmissionPromotionID,
-		AdmissionSwitchID:     gate.AdmissionSwitchID,
-		AdmissionEnableGateID: gate.EnableGateID,
-		AdmissionDecision:     gate.AdmissionDecision,
-		AdmissionPromotion:    gate.AdmissionPromotion,
-		SwitchState:           gate.SwitchState,
-		SwitchAction:          gate.SwitchAction,
-		EnableState:           gate.EnableState,
-		EnableAction:          gate.EnableAction,
-		DreamCandidateRunID:   gate.DreamCandidateRunID,
-		CandidateTextStatus:   gate.CandidateTextStatus,
-		CandidateTextHash:     gate.CandidateTextHash,
-		AdmissionPolicyPassed: gate.AdmissionPolicyPassed,
-		LiveRouteChoicePassed: gate.LiveRouteChoicePassed,
-		SourceDecisionPassed:  gate.SourceDecisionPassed,
-		SourcePromotionPassed: gate.SourcePromotionPassed,
-		SourceSwitchPassed:    gate.SourceSwitchPassed,
-		SourceEnablePassed:    gate.Passed,
-		LiveReady:             gate.LiveReady,
-		LiveAdmissionEnabled:  false,
-		AdmissionAllowed:      false,
-		ManualEnableRequested: gate.ManualEnableRequested,
-		EnableKeyMatched:      gate.EnableKeyMatched,
-		RequiresWriter:        true,
-		WriterReady:           false,
-		RequiresRollback:      true,
-		RollbackReady:         false,
-		MutatesState:          false,
-		TurnTextHash:          gate.TurnTextHash,
+		Schema:                  admissionLiveRouteTurnCandidateAdmissionLiveStageSchema,
+		Timing:                  "live_admission_candidate_stage",
+		StageState:              "blocked",
+		StageAction:             "reject",
+		PromptClass:             gate.PromptClass,
+		Route:                   gate.Route,
+		Source:                  gate.Source,
+		ExpectedSource:          gate.ExpectedSource,
+		CandidateRunID:          gate.CandidateRunID,
+		CandidateDraftID:        gate.CandidateDraftID,
+		CandidateExecutionID:    gate.CandidateExecutionID,
+		GeneratorAdapterID:      gate.GeneratorAdapterID,
+		HandoffID:               gate.HandoffID,
+		AdmissionAdapterID:      gate.AdmissionAdapterID,
+		AdmissionDecisionID:     gate.AdmissionDecisionID,
+		AdmissionPromotionID:    gate.AdmissionPromotionID,
+		AdmissionSwitchID:       gate.AdmissionSwitchID,
+		AdmissionEnableGateID:   gate.EnableGateID,
+		AdmissionDecision:       gate.AdmissionDecision,
+		AdmissionPromotion:      gate.AdmissionPromotion,
+		SwitchState:             gate.SwitchState,
+		SwitchAction:            gate.SwitchAction,
+		EnableState:             gate.EnableState,
+		EnableAction:            gate.EnableAction,
+		DreamCandidateRunID:     gate.DreamCandidateRunID,
+		CandidateTextStatus:     gate.CandidateTextStatus,
+		CandidateTextHash:       gate.CandidateTextHash,
+		BodyInventoryStatus:     gate.BodyInventoryStatus,
+		RouteAvailabilityStatus: gate.RouteAvailabilityStatus,
+		RouteAvailabilityReason: gate.RouteAvailabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(gate.RouteMissingOrgans),
+		AdmissionPolicyPassed:   gate.AdmissionPolicyPassed,
+		LiveRouteChoicePassed:   gate.LiveRouteChoicePassed,
+		SourceDecisionPassed:    gate.SourceDecisionPassed,
+		SourcePromotionPassed:   gate.SourcePromotionPassed,
+		SourceSwitchPassed:      gate.SourceSwitchPassed,
+		SourceEnablePassed:      gate.Passed,
+		LiveReady:               gate.LiveReady,
+		LiveAdmissionEnabled:    false,
+		AdmissionAllowed:        false,
+		ManualEnableRequested:   gate.ManualEnableRequested,
+		EnableKeyMatched:        gate.EnableKeyMatched,
+		RequiresWriter:          true,
+		WriterReady:             false,
+		RequiresRollback:        true,
+		RollbackReady:           false,
+		MutatesState:            false,
+		TurnTextHash:            gate.TurnTextHash,
 	}
 	if gate.Schema == "" {
 		stage.Reason = "missing_candidate_admission_enable_gate"
