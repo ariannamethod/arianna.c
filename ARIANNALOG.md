@@ -13,6 +13,13 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 - Route boundary report smoke anchors top-level pass
+
+The boundary report smoke now validates the compact report's top-level
+`schema`, `passed`, `receipts_checked`, and `boundary` fields with anchored
+two-space JSON lines. Stage-level `passed` fields can no longer mask a failed
+top-level report in the shell check.
+
 ## 2026-08-02 - Route boundary gets a compact report surface
 
 The deep nano-direct admission tail can now write

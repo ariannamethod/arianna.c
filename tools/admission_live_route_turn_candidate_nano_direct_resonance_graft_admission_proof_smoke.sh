@@ -50,10 +50,10 @@ fi
 [[ -s "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" ]] || die "candidate admission resonance graft admission proof JSONL log not written"
 [[ -s "$BOUNDARY_REPORT" ]] || die "live route boundary report not written"
 
-grep -q '"schema": "arianna.live_route_boundary_report.v1"' "$BOUNDARY_REPORT" || die "boundary report schema missing"
-grep -q '"passed": true' "$BOUNDARY_REPORT" || die "boundary report did not pass"
-grep -q '"receipts_checked": 18' "$BOUNDARY_REPORT" || die "boundary report receipt count mismatch"
-grep -q '"boundary": {' "$BOUNDARY_REPORT" || die "boundary report projection missing"
+grep -q '^  "schema": "arianna.live_route_boundary_report.v1",$' "$BOUNDARY_REPORT" || die "boundary report schema missing"
+grep -q '^  "passed": true,$' "$BOUNDARY_REPORT" || die "boundary report did not pass"
+grep -q '^  "receipts_checked": 18,$' "$BOUNDARY_REPORT" || die "boundary report receipt count mismatch"
+grep -q '^  "boundary": {' "$BOUNDARY_REPORT" || die "boundary report projection missing"
 grep -q '"name": "final_gate"' "$BOUNDARY_REPORT" || die "boundary report final gate stage missing"
 grep -q '"name": "resonance_graft_admission_proof"' "$BOUNDARY_REPORT" || die "boundary report admission proof stage missing"
 
