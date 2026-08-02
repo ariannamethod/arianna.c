@@ -559,6 +559,77 @@ func TestAdmissionLiveRouteTurnRouteBoundaryReceipts(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
+	missing := []string{"goldie-weight"}
+	boundary := admissionLiveRouteBoundaryProjection(
+		"degraded",
+		"available",
+		"optional_route_organs_missing:goldie-weight",
+		missing,
+	)
+	missing[0] = "mutated"
+	if !reflect.DeepEqual(boundary.RouteMissingOrgans, []string{"goldie-weight"}) {
+		t.Fatalf("boundary should copy missing organs: %+v", boundary)
+	}
+
+	passed := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "decision",
+			BodyInventoryStatus:     "degraded",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "optional_route_organs_missing:goldie-weight",
+			RouteMissingOrgans:      []string{"goldie-weight"},
+		},
+		{
+			Enabled:                 false,
+			Name:                    "disabled_bad",
+			BodyInventoryStatus:     "blocked",
+			RouteAvailabilityStatus: "unavailable",
+			RouteAvailabilityReason: "missing_route_organs:nano-weight",
+			RouteMissingOrgans:      []string{"nano-weight"},
+		},
+	})
+	if passed.Schema != admissionLiveRouteBoundaryReportSchema ||
+		!passed.Passed ||
+		passed.ReceiptsChecked != 1 ||
+		len(passed.Stages) != 1 ||
+		!passed.Stages[0].Passed ||
+		len(passed.Reasons) != 0 {
+		t.Fatalf("expected passing one-stage boundary report: %+v", passed)
+	}
+
+	path := filepath.Join(t.TempDir(), "boundary-report.json")
+	if err := writeAdmissionLiveRouteBoundaryReport(path, passed); err != nil {
+		t.Fatalf("write boundary report: %v", err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read boundary report: %v", err)
+	}
+	if !strings.Contains(string(raw), `"schema": "arianna.live_route_boundary_report.v1"`) ||
+		!strings.Contains(string(raw), `"name": "decision"`) {
+		t.Fatalf("boundary report JSON missing expected fields: %s", raw)
+	}
+
+	failed := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "resonance_graft_admission_proof",
+			BodyInventoryStatus:     "degraded",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "optional_route_organs_missing:goldie-weight",
+		},
+	})
+	if failed.Passed ||
+		failed.ReceiptsChecked != 1 ||
+		len(failed.Stages) != 1 ||
+		failed.Stages[0].Passed ||
+		!reflect.DeepEqual(failed.Reasons, []string{"boundary_mismatch:resonance_graft_admission_proof"}) {
+		t.Fatalf("expected report to catch missing-organ drift: %+v", failed)
+	}
+}
+
 func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {
 	jobFor := func(human string) admissionLiveRouteTurnGenerationJob {
 		obs := admissionLiveRouteTurnObservationForHuman(human)
