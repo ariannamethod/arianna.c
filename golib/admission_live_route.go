@@ -50,6 +50,7 @@ const (
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreSchema       = "arianna.live_route_turn_candidate_admission_resonance_graft_candidate_store.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftCandidateStoreReaderSchema = "arianna.live_route_turn_candidate_admission_resonance_graft_candidate_store_reader.v1"
 	admissionLiveRouteTurnCandidateAdmissionResonanceGraftAdmissionProofSchema       = "arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"
+	admissionLiveRouteBoundaryReportSchema                                           = "arianna.live_route_boundary_report.v1"
 
 	admissionLiveRouteTurnCandidateExecutionDefaultTimeoutMS       = 12000
 	admissionLiveRouteTurnCandidateExecutionMaxTimeoutMS           = 60000
@@ -68,6 +69,7 @@ const (
 	admissionLiveRouteTurnCandidateExecutionStatusTimedOut  = "timed_out"
 
 	admissionLiveRouteTurnGenerationJobInventoryGateEnv = "AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE"
+	admissionLiveRouteBoundaryReportEnv                 = "AM_LIVE_ROUTE_BOUNDARY_REPORT"
 )
 
 type admissionLiveRoutePlan struct {
@@ -2324,6 +2326,106 @@ func admissionLiveRouteBoundaryFieldsEqual(
 		availabilityStatusA == availabilityStatusB &&
 		availabilityReasonA == availabilityReasonB &&
 		admissionLiveRouteMissingOrgansEqual(missingOrgansA, missingOrgansB)
+}
+
+type admissionLiveRouteBoundary struct {
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+}
+
+type admissionLiveRouteBoundaryReportInput struct {
+	Enabled                 bool
+	Name                    string
+	BodyInventoryStatus     string
+	RouteAvailabilityStatus string
+	RouteAvailabilityReason string
+	RouteMissingOrgans      []string
+}
+
+type admissionLiveRouteBoundaryReportStage struct {
+	Name                    string   `json:"name"`
+	Passed                  bool     `json:"passed"`
+	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
+	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
+	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
+	RouteMissingOrgans      []string `json:"route_missing_organs,omitempty"`
+}
+
+type admissionLiveRouteBoundaryReport struct {
+	Schema          string                                  `json:"schema"`
+	Passed          bool                                    `json:"passed"`
+	ReceiptsChecked int                                     `json:"receipts_checked"`
+	Boundary        admissionLiveRouteBoundary              `json:"boundary"`
+	Stages          []admissionLiveRouteBoundaryReportStage `json:"stages,omitempty"`
+	Reasons         []string                                `json:"reasons,omitempty"`
+}
+
+func admissionLiveRouteBoundaryProjection(bodyStatus, availabilityStatus, availabilityReason string, missingOrgans []string) admissionLiveRouteBoundary {
+	return admissionLiveRouteBoundary{
+		BodyInventoryStatus:     bodyStatus,
+		RouteAvailabilityStatus: availabilityStatus,
+		RouteAvailabilityReason: availabilityReason,
+		RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(missingOrgans),
+	}
+}
+
+func buildAdmissionLiveRouteBoundaryReport(boundary admissionLiveRouteBoundary, inputs []admissionLiveRouteBoundaryReportInput) admissionLiveRouteBoundaryReport {
+	report := admissionLiveRouteBoundaryReport{
+		Schema:   admissionLiveRouteBoundaryReportSchema,
+		Boundary: boundary,
+	}
+	for _, input := range inputs {
+		if !input.Enabled {
+			continue
+		}
+		name := strings.TrimSpace(input.Name)
+		if name == "" {
+			name = "unknown"
+		}
+		stage := admissionLiveRouteBoundaryReportStage{
+			Name:                    name,
+			BodyInventoryStatus:     input.BodyInventoryStatus,
+			RouteAvailabilityStatus: input.RouteAvailabilityStatus,
+			RouteAvailabilityReason: input.RouteAvailabilityReason,
+			RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(input.RouteMissingOrgans),
+		}
+		stage.Passed = admissionLiveRouteBoundaryFieldsEqual(
+			stage.BodyInventoryStatus,
+			stage.RouteAvailabilityStatus,
+			stage.RouteAvailabilityReason,
+			stage.RouteMissingOrgans,
+			boundary.BodyInventoryStatus,
+			boundary.RouteAvailabilityStatus,
+			boundary.RouteAvailabilityReason,
+			boundary.RouteMissingOrgans,
+		)
+		if !stage.Passed {
+			report.Reasons = append(report.Reasons, "boundary_mismatch:"+name)
+		}
+		report.Stages = append(report.Stages, stage)
+	}
+	report.ReceiptsChecked = len(report.Stages)
+	if report.ReceiptsChecked == 0 {
+		report.Reasons = append(report.Reasons, "no_receipts_checked")
+	}
+	report.Passed = report.ReceiptsChecked > 0 && len(report.Reasons) == 0
+	return report
+}
+
+func writeAdmissionLiveRouteBoundaryReport(path string, report admissionLiveRouteBoundaryReport) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	err = enc.Encode(report)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func admissionLiveRouteTurnGenerationJobID(job admissionLiveRouteTurnGenerationJob) string {

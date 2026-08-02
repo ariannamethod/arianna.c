@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 - Route boundary gets a compact report surface
+
+The deep nano-direct admission tail can now write
+`arianna.live_route_boundary_report.v1` through `AM_LIVE_ROUTE_BOUNDARY_REPORT`.
+The report projects the decision boundary once and records per-stage pass/fail
+for rollback, ledger, readiness, permit, seal, final gate, resonance, and shadow
+graft receipts, so tooling can query one artifact instead of reconstructing
+missing-organ facts from every receipt file when that boundary is present.
+
 ## 2026-08-02 — Route boundary is proved across resonance graft tail
 
 The admission test and nano-direct smoke now assert that the typed body-inventory

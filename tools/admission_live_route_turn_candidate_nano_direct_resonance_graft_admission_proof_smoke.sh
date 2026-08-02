@@ -20,6 +20,7 @@ RESONANCE_GRAFT_CANDIDATE_LOG="$WORKDIR/live_route_candidate_admission_resonance
 RESONANCE_GRAFT_CANDIDATE_STORE_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_candidate_store_nano_direct.jsonl"
 RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_candidate_store_reader_nano_direct.jsonl"
 RESONANCE_GRAFT_ADMISSION_PROOF_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_admission_proof_nano_direct.jsonl"
+BOUNDARY_REPORT="$WORKDIR/live_route_boundary_report.json"
 RUN_LOG="$WORKDIR/admission_live_route_candidate_nano_direct_chat_shadow.log"
 
 die() {
@@ -35,6 +36,7 @@ mkdir -p "$WORKDIR"
 if ! A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RESONANCE_GRAFT_CANDIDATE_STORE_READER_WORKDIR="$WORKDIR" \
     AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_DRY_RUN=1 \
     AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_LOG="$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" \
+    AM_LIVE_ROUTE_BOUNDARY_REPORT="$BOUNDARY_REPORT" \
     bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_resonance_graft_candidate_store_reader_smoke.sh"; then
     die "nano-direct resonance graft candidate store reader smoke with admission proof failed"
 fi
@@ -46,6 +48,14 @@ fi
 [[ -s "$RESONANCE_GRAFT_CANDIDATE_STORE_LOG" ]] || die "candidate admission resonance graft candidate store JSONL log not written"
 [[ -s "$RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG" ]] || die "candidate admission resonance graft candidate store reader JSONL log not written"
 [[ -s "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" ]] || die "candidate admission resonance graft admission proof JSONL log not written"
+[[ -s "$BOUNDARY_REPORT" ]] || die "live route boundary report not written"
+
+grep -q '"schema": "arianna.live_route_boundary_report.v1"' "$BOUNDARY_REPORT" || die "boundary report schema missing"
+grep -q '"passed": true' "$BOUNDARY_REPORT" || die "boundary report did not pass"
+grep -q '"receipts_checked": 18' "$BOUNDARY_REPORT" || die "boundary report receipt count mismatch"
+grep -q '"boundary": {' "$BOUNDARY_REPORT" || die "boundary report projection missing"
+grep -q '"name": "final_gate"' "$BOUNDARY_REPORT" || die "boundary report final gate stage missing"
+grep -q '"name": "resonance_graft_admission_proof"' "$BOUNDARY_REPORT" || die "boundary report admission proof stage missing"
 
 grep -q '"schema":"arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof schema missing"
 grep -q '"timing":"live_admission_resonance_graft_admission_proof"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof timing missing"
@@ -117,4 +127,4 @@ grep -q 'dry_run_only=true reader_verified=true store_verified=true candidate_ve
 grep -q 'contracts_ready=false write_allowed=false admission_allowed=false live_ready=true live_enabled=false mutates=false admission_resonance_graft_admission_proof_id=resonance-graft-admission-proof-id-' "$RUN_LOG" || die "admission resonance graft admission proof verdict line missing"
 grep -q 'passed=true reason=resonance shadow graft admission proved from read-back store without opening body' "$RUN_LOG" || die "admission resonance graft admission proof reason missing"
 
-echo "[admission-live-route-turn-candidate-nano-direct-resonance-graft-admission-proof-smoke] pass: resonance_graft_boundary=$RESONANCE_GRAFT_BOUNDARY_LOG resonance_graft_preflight=$RESONANCE_GRAFT_PREFLIGHT_LOG resonance_graft_gate=$RESONANCE_GRAFT_GATE_LOG resonance_graft_candidate=$RESONANCE_GRAFT_CANDIDATE_LOG resonance_graft_candidate_store=$RESONANCE_GRAFT_CANDIDATE_STORE_LOG resonance_graft_candidate_store_reader=$RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG resonance_graft_admission_proof=$RESONANCE_GRAFT_ADMISSION_PROOF_LOG"
+echo "[admission-live-route-turn-candidate-nano-direct-resonance-graft-admission-proof-smoke] pass: resonance_graft_boundary=$RESONANCE_GRAFT_BOUNDARY_LOG resonance_graft_preflight=$RESONANCE_GRAFT_PREFLIGHT_LOG resonance_graft_gate=$RESONANCE_GRAFT_GATE_LOG resonance_graft_candidate=$RESONANCE_GRAFT_CANDIDATE_LOG resonance_graft_candidate_store=$RESONANCE_GRAFT_CANDIDATE_STORE_LOG resonance_graft_candidate_store_reader=$RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG resonance_graft_admission_proof=$RESONANCE_GRAFT_ADMISSION_PROOF_LOG boundary_report=$BOUNDARY_REPORT"
