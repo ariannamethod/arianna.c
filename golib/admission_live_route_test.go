@@ -628,6 +628,27 @@ func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 		!reflect.DeepEqual(failed.Reasons, []string{"boundary_mismatch:resonance_graft_admission_proof"}) {
 		t.Fatalf("expected report to catch missing-organ drift: %+v", failed)
 	}
+
+	empty := buildAdmissionLiveRouteBoundaryReport(boundary, nil)
+	if empty.Passed ||
+		empty.ReceiptsChecked != 0 ||
+		len(empty.Stages) != 0 ||
+		!reflect.DeepEqual(empty.Reasons, []string{"no_receipts_checked"}) {
+		t.Fatalf("expected empty report to fail closed: %+v", empty)
+	}
+
+	disabledOnly := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled: false,
+			Name:    "disabled_only",
+		},
+	})
+	if disabledOnly.Passed ||
+		disabledOnly.ReceiptsChecked != 0 ||
+		len(disabledOnly.Stages) != 0 ||
+		!reflect.DeepEqual(disabledOnly.Reasons, []string{"no_receipts_checked"}) {
+		t.Fatalf("expected disabled-only report to fail closed: %+v", disabledOnly)
+	}
 }
 
 func TestAdmissionLiveRouteTurnCandidateShellForJob(t *testing.T) {

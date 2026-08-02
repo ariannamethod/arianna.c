@@ -6757,6 +6757,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 		),
 		boundaryReportInputs,
 	)
+	if boundaryReport.ReceiptsChecked == 0 {
+		return fmt.Errorf("live route boundary report checked no receipts: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
+	}
 	for _, stage := range boundaryReport.Stages {
 		if !stage.Passed {
 			return fmt.Errorf("%s receipt lost route boundary: body=%q availability=%q reason=%q missing=%v decision=%+v",
@@ -6768,6 +6771,9 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 				decision,
 			)
 		}
+	}
+	if !boundaryReport.Passed {
+		return fmt.Errorf("live route boundary report failed: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
 	}
 	if boundaryReportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv)); boundaryReportPath != "" {
 		if !admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {

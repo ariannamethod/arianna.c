@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-02 - Route boundary report root pass is enforced in Go
+
+The live-route admission smoke now refuses a compact boundary report before
+writing it when no receipt stages were checked, and it has a final report-level
+`Passed` guard after the per-stage mismatch diagnostics. Unit coverage now
+asserts that empty and disabled-only report inputs fail closed with
+`no_receipts_checked`, so the root verdict is enforced in runtime code as well
+as in the shell fixture.
+
 ## 2026-08-02 - Route boundary report gets a negative witness
 
 The compact boundary report check is now a reusable shell assertion with a
