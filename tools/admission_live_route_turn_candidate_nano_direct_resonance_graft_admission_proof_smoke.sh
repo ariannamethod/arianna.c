@@ -48,14 +48,12 @@ fi
 [[ -s "$RESONANCE_GRAFT_CANDIDATE_STORE_LOG" ]] || die "candidate admission resonance graft candidate store JSONL log not written"
 [[ -s "$RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG" ]] || die "candidate admission resonance graft candidate store reader JSONL log not written"
 [[ -s "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" ]] || die "candidate admission resonance graft admission proof JSONL log not written"
-[[ -s "$BOUNDARY_REPORT" ]] || die "live route boundary report not written"
 
-grep -q '^  "schema": "arianna.live_route_boundary_report.v1",$' "$BOUNDARY_REPORT" || die "boundary report schema missing"
-grep -q '^  "passed": true,$' "$BOUNDARY_REPORT" || die "boundary report did not pass"
-grep -q '^  "receipts_checked": 18,$' "$BOUNDARY_REPORT" || die "boundary report receipt count mismatch"
-grep -q '^  "boundary": {' "$BOUNDARY_REPORT" || die "boundary report projection missing"
-grep -q '"name": "final_gate"' "$BOUNDARY_REPORT" || die "boundary report final gate stage missing"
-grep -q '"name": "resonance_graft_admission_proof"' "$BOUNDARY_REPORT" || die "boundary report admission proof stage missing"
+bash "$ROOT/tools/admission_live_route_boundary_report_assert.sh" \
+    "$BOUNDARY_REPORT" \
+    18 \
+    final_gate \
+    resonance_graft_admission_proof
 
 grep -q '"schema":"arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof schema missing"
 grep -q '"timing":"live_admission_resonance_graft_admission_proof"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof timing missing"
