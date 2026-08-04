@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary pass assertion stops trusting one whitespace shape
+
+The compact boundary report pass assertion now keeps root-level checks strict
+while accepting JSON field spacing variants for schema, pass verdict, receipt
+count, boundary projection, and stage pass lookup. Its fixture smoke includes a
+tight Go-compatible report shape, so pass-report consumers no longer rely on one
+pretty-printer spacing style.
+
 ## 2026-08-04 - Route boundary drift artifact is consumed end-to-end
 
 The failed boundary report consumer now has an end-to-end artifact smoke:
