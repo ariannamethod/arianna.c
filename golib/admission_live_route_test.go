@@ -689,9 +689,10 @@ func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read failed boundary report: %v", err)
 	}
-	if !strings.Contains(string(failedRaw), `"mismatches": [`) ||
-		!strings.Contains(string(failedRaw), `"body_inventory_status"`) ||
-		!strings.Contains(string(failedRaw), `"route_missing_organs"`) {
+	failedText := string(failedRaw)
+	if !strings.Contains(failedText, `"mismatches":`) ||
+		!strings.Contains(failedText, `"body_inventory_status"`) ||
+		!strings.Contains(failedText, `"route_missing_organs"`) {
 		t.Fatalf("failed boundary report JSON missing mismatch diagnostics: %s", failedRaw)
 	}
 	var decodedFailed admissionLiveRouteBoundaryReport

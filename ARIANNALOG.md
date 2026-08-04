@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary failed diagnostics get a consumer
+
+Failed compact boundary reports now have a shell assertion and fixture smoke
+for diagnostic consumers: the report must fail at the root, name the failed
+stage, carry `boundary_mismatch:<stage>`, and expose each expected mismatch
+field. The pass-report assertion stays separate, keeping both contracts simple.
+The previous JSON round-trip test also stopped depending on the pretty-printer's
+space after `"mismatches":`, matching Copilot's low-risk review note.
+
 ## 2026-08-04 - Route boundary mismatch diagnostics round-trip
 
 Boundary report tests now write and unmarshal a failed compact report, proving
