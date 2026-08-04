@@ -2347,6 +2347,7 @@ type admissionLiveRouteBoundaryReportInput struct {
 type admissionLiveRouteBoundaryReportStage struct {
 	Name                    string   `json:"name"`
 	Passed                  bool     `json:"passed"`
+	Mismatches              []string `json:"mismatches,omitempty"`
 	BodyInventoryStatus     string   `json:"body_inventory_status,omitempty"`
 	RouteAvailabilityStatus string   `json:"route_availability_status,omitempty"`
 	RouteAvailabilityReason string   `json:"route_availability_reason,omitempty"`
@@ -2407,6 +2408,18 @@ func buildAdmissionLiveRouteBoundaryReport(boundary admissionLiveRouteBoundary, 
 			boundary.RouteMissingOrgans,
 		)
 		if !stage.Passed {
+			if stage.BodyInventoryStatus != boundary.BodyInventoryStatus {
+				stage.Mismatches = append(stage.Mismatches, "body_inventory_status")
+			}
+			if stage.RouteAvailabilityStatus != boundary.RouteAvailabilityStatus {
+				stage.Mismatches = append(stage.Mismatches, "route_availability_status")
+			}
+			if stage.RouteAvailabilityReason != boundary.RouteAvailabilityReason {
+				stage.Mismatches = append(stage.Mismatches, "route_availability_reason")
+			}
+			if !admissionLiveRouteMissingOrgansEqual(stage.RouteMissingOrgans, boundary.RouteMissingOrgans) {
+				stage.Mismatches = append(stage.Mismatches, "route_missing_organs")
+			}
 			report.Reasons = append(report.Reasons, "boundary_mismatch:"+name)
 		}
 		report.Stages = append(report.Stages, stage)
