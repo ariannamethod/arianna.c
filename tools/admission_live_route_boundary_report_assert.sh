@@ -31,8 +31,19 @@ grep -q '^  "passed": true,$' -- "$report" || die "boundary report did not pass"
 grep -q "^  \"receipts_checked\": ${expected_receipts},$" -- "$report" || die "boundary report receipt count mismatch"
 grep -q '^  "boundary": {' -- "$report" || die "boundary report projection missing"
 
+stage_passed() {
+    local stage="$1"
+    awk -v stage="$stage" '
+        $0 == "      \"name\": \"" stage "\"," { found = 1; next }
+        found && $0 == "      \"passed\": true" { ok = 1; exit 0 }
+        found && ($0 == "    }" || $0 == "    },") { exit 1 }
+        END { if (!ok) exit 1 }
+    ' "$report"
+}
+
 for stage in "$@"; do
     [[ -n "$stage" ]] || die "empty boundary report stage name"
     stage_pattern="\"name\": \"${stage}\""
     grep -q --fixed-strings "$stage_pattern" -- "$report" || die "boundary report stage missing: $stage"
+    stage_passed "$stage" || die "boundary report stage did not pass: $stage"
 done

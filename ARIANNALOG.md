@@ -13,6 +13,13 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary report stages must pass by name
+
+The compact boundary report shell assertion now treats expected stages as
+`name` plus local `passed:true`, not just a visible stage name. Its fixture smoke
+adds a corrupt report with a passing root and a failed `final_gate` stage, so
+report consumers cannot accept a named but failed boundary stage by accident.
+
 ## 2026-08-02 - Route boundary report root pass is enforced in Go
 
 The live-route admission smoke now refuses a compact boundary report before
