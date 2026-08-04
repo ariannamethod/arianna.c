@@ -445,6 +445,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-drift-artifact-smoke" {
+		if err := runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke(); err != nil {
+			fmt.Println("admission-live-route-boundary-report-drift-artifact-smoke:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-shell-smoke" {
 		if err := runAdmissionLiveRouteTurnCandidateShellSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-candidate-shell-smoke:", err)
