@@ -44,6 +44,8 @@ stage_passed() {
 for stage in "$@"; do
     [[ -n "$stage" ]] || die "empty boundary report stage name"
     stage_pattern="\"name\": \"${stage}\""
-    grep -q --fixed-strings "$stage_pattern" -- "$report" || die "boundary report stage missing: $stage"
+    stage_count="$(awk -v pattern="$stage_pattern" 'index($0, pattern) { count++ } END { print count + 0 }' "$report")"
+    [[ "$stage_count" != "0" ]] || die "boundary report stage missing: $stage"
+    [[ "$stage_count" == "1" ]] || die "boundary report stage duplicated: $stage"
     stage_passed "$stage" || die "boundary report stage did not pass: $stage"
 done

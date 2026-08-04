@@ -2376,6 +2376,7 @@ func buildAdmissionLiveRouteBoundaryReport(boundary admissionLiveRouteBoundary, 
 		Schema:   admissionLiveRouteBoundaryReportSchema,
 		Boundary: boundary,
 	}
+	seenStageNames := make(map[string]struct{})
 	for _, input := range inputs {
 		if !input.Enabled {
 			continue
@@ -2384,6 +2385,10 @@ func buildAdmissionLiveRouteBoundaryReport(boundary admissionLiveRouteBoundary, 
 		if name == "" {
 			name = "unknown"
 		}
+		if _, ok := seenStageNames[name]; ok {
+			report.Reasons = append(report.Reasons, "duplicate_stage:"+name)
+		}
+		seenStageNames[name] = struct{}{}
 		stage := admissionLiveRouteBoundaryReportStage{
 			Name:                    name,
 			BodyInventoryStatus:     input.BodyInventoryStatus,
