@@ -10,10 +10,12 @@ if [[ ! -d "$tmp_root" ]]; then tmp_root="/tmp"; fi
 WORKDIR="${A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_FAILED_DIAGNOSTICS_ASSERT_WORKDIR:-$(mktemp -d "${tmp_root%/}/arianna-live-route-boundary-report-failed-diagnostics.XXXXXX")}"
 ASSERT="$ROOT/tools/admission_live_route_boundary_report_failed_diagnostics_assert.sh"
 GOOD_REPORT="$WORKDIR/live_route_boundary_report.failed_good.json"
+BAD_SCHEMA_REPORT="$WORKDIR/live_route_boundary_report.bad_schema.json"
 BAD_TOP_LEVEL_REPORT="$WORKDIR/live_route_boundary_report.bad_top_level.json"
 BAD_STAGE_REPORT="$WORKDIR/live_route_boundary_report.bad_stage.json"
 BAD_MISMATCH_REPORT="$WORKDIR/live_route_boundary_report.bad_mismatch.json"
 BAD_REASON_REPORT="$WORKDIR/live_route_boundary_report.bad_reason.json"
+BAD_SCHEMA_LOG="$WORKDIR/bad_schema.log"
 BAD_TOP_LEVEL_LOG="$WORKDIR/bad_top_level.log"
 BAD_STAGE_LOG="$WORKDIR/bad_stage.log"
 BAD_MISMATCH_LOG="$WORKDIR/bad_mismatch.log"
@@ -30,10 +32,11 @@ write_failed_report() {
     local stage_passed="$3"
     local include_route_missing="${4:-true}"
     local reason="${5:-boundary_mismatch:writer_receipt}"
+    local schema="${6:-arianna.live_route_boundary_report.v1}"
 
     {
         printf '%s\n' '{'
-        printf '%s\n' '  "schema": "arianna.live_route_boundary_report.v1",'
+        printf '  "schema": "%s",\n' "$schema"
         printf '  "passed": %s,\n' "$top_passed"
         printf '%s\n' '  "receipts_checked": 1,'
         printf '%s\n' '  "boundary": {},'
@@ -68,6 +71,12 @@ bash "$ASSERT" "$GOOD_REPORT" writer_receipt \
     route_availability_status \
     route_availability_reason \
     route_missing_organs || die "valid failed boundary report diagnostics rejected"
+
+write_failed_report "$BAD_SCHEMA_REPORT" false false true "boundary_mismatch:writer_receipt" "arianna.live_route_boundary_report.v0"
+if bash "$ASSERT" "$BAD_SCHEMA_REPORT" writer_receipt route_missing_organs > "$BAD_SCHEMA_LOG" 2>&1; then
+    die "bad schema boundary report passed failed-diagnostics assertion"
+fi
+grep -q --fixed-strings 'boundary report schema mismatch: got "arianna.live_route_boundary_report.v0" want "arianna.live_route_boundary_report.v1"' -- "$BAD_SCHEMA_LOG" || die "schema mismatch failure reason missing"
 
 write_failed_report "$BAD_TOP_LEVEL_REPORT" true false true
 if bash "$ASSERT" "$BAD_TOP_LEVEL_REPORT" writer_receipt route_missing_organs > "$BAD_TOP_LEVEL_LOG" 2>&1; then

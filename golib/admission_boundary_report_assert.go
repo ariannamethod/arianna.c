@@ -20,8 +20,8 @@ func runAdmissionLiveRouteBoundaryReportAssert(args []string) error {
 	if err != nil {
 		return err
 	}
-	if report.Schema != admissionLiveRouteBoundaryReportSchema {
-		return fmt.Errorf("boundary report schema missing")
+	if err := admissionLiveRouteBoundaryReportSchemaError(report, root); err != nil {
+		return err
 	}
 	if !report.Passed {
 		return fmt.Errorf("boundary report did not pass")
@@ -54,7 +54,7 @@ func runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(args []string) e
 	if len(args) < 3 {
 		return fmt.Errorf("usage: --admission-live-route-boundary-report-failed-diagnostics-assert REPORT STAGE EXPECTED_MISMATCH [EXPECTED_MISMATCH...]")
 	}
-	report, _, err := readAdmissionLiveRouteBoundaryReportForAssert(args[0])
+	report, root, err := readAdmissionLiveRouteBoundaryReportForAssert(args[0])
 	if err != nil {
 		return err
 	}
@@ -62,8 +62,8 @@ func runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(args []string) e
 	if strings.TrimSpace(stageName) == "" {
 		return fmt.Errorf("boundary report stage name missing")
 	}
-	if report.Schema != admissionLiveRouteBoundaryReportSchema {
-		return fmt.Errorf("boundary report schema missing")
+	if err := admissionLiveRouteBoundaryReportSchemaError(report, root); err != nil {
+		return err
 	}
 	if report.Passed {
 		return fmt.Errorf("boundary report did not fail")
@@ -106,6 +106,9 @@ func readAdmissionLiveRouteBoundaryReportForAssert(path string) (admissionLiveRo
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return report, nil, fmt.Errorf("boundary report not written")
+		}
 		return report, nil, err
 	}
 	if len(raw) == 0 {
@@ -160,4 +163,14 @@ func admissionLiveRouteBoundaryReportHasObject(root map[string]json.RawMessage, 
 		return false
 	}
 	return strings.HasPrefix(strings.TrimSpace(string(raw)), "{")
+}
+
+func admissionLiveRouteBoundaryReportSchemaError(report admissionLiveRouteBoundaryReport, root map[string]json.RawMessage) error {
+	if _, ok := root["schema"]; !ok {
+		return fmt.Errorf("boundary report schema missing")
+	}
+	if report.Schema != admissionLiveRouteBoundaryReportSchema {
+		return fmt.Errorf("boundary report schema mismatch: got %q want %q", report.Schema, admissionLiveRouteBoundaryReportSchema)
+	}
+	return nil
 }
