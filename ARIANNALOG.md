@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-05 - Route boundary assertion errors get Go witnesses
+
+The compact boundary report assertion errors now have direct Go unit witnesses
+for missing reports, missing schemas, schema mismatches, missing boundary
+projection, and failed-diagnostics mismatch lookup. Shell smokes still cover the
+CLI wrappers, while the helper contract itself is pinned where the decoder
+lives.
+
 ## 2026-08-05 - Route boundary assertion errors stay diagnostic
 
 The structured boundary report assertion keeps the old missing-report contract
