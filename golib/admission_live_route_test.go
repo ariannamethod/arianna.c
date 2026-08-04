@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -679,6 +680,28 @@ func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 		}) ||
 		!reflect.DeepEqual(fieldDrift.Reasons, []string{"boundary_mismatch:writer_receipt"}) {
 		t.Fatalf("expected report to name each boundary field drift: %+v", fieldDrift)
+	}
+	failedPath := filepath.Join(t.TempDir(), "boundary-report-failed.json")
+	if err := writeAdmissionLiveRouteBoundaryReport(failedPath, fieldDrift); err != nil {
+		t.Fatalf("write failed boundary report: %v", err)
+	}
+	failedRaw, err := os.ReadFile(failedPath)
+	if err != nil {
+		t.Fatalf("read failed boundary report: %v", err)
+	}
+	if !strings.Contains(string(failedRaw), `"mismatches": [`) ||
+		!strings.Contains(string(failedRaw), `"body_inventory_status"`) ||
+		!strings.Contains(string(failedRaw), `"route_missing_organs"`) {
+		t.Fatalf("failed boundary report JSON missing mismatch diagnostics: %s", failedRaw)
+	}
+	var decodedFailed admissionLiveRouteBoundaryReport
+	if err := json.Unmarshal(failedRaw, &decodedFailed); err != nil {
+		t.Fatalf("unmarshal failed boundary report: %v", err)
+	}
+	if len(decodedFailed.Stages) != 1 ||
+		!reflect.DeepEqual(decodedFailed.Stages[0].Mismatches, fieldDrift.Stages[0].Mismatches) ||
+		!reflect.DeepEqual(decodedFailed.Reasons, fieldDrift.Reasons) {
+		t.Fatalf("failed boundary report diagnostics did not round-trip: %+v", decodedFailed)
 	}
 
 	empty := buildAdmissionLiveRouteBoundaryReport(boundary, nil)

@@ -13,6 +13,12 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary mismatch diagnostics round-trip
+
+Boundary report tests now write and unmarshal a failed compact report, proving
+per-stage `mismatches` survive JSON output and can be consumed by later
+admission tooling instead of only existing as in-memory Go fields.
+
 ## 2026-08-04 - Route boundary report names mismatch fields
 
 Boundary report stages now include optional `mismatches` when a receipt loses
