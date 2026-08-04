@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-05 - Route boundary assertion errors stay diagnostic
+
+The structured boundary report assertion keeps the old missing-report contract
+message (`boundary report not written`) for absent files while reporting bad
+schemas as explicit mismatches with the observed and expected values. Pass and
+failed-diagnostics fixture smokes now lock those messages, so tooling can depend
+on stable, useful failure text after the Go JSON decoder migration.
+
 ## 2026-08-04 - Route boundary assertions now decode JSON
 
 The compact boundary report pass and failed-diagnostics assertions now run
