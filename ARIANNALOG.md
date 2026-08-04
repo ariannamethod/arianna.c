@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary report names mismatch fields
+
+Boundary report stages now include optional `mismatches` when a receipt loses
+the shared route-boundary projection. The report still keeps the compact
+`boundary_mismatch:<stage>` root reason, but each failed stage now says whether
+the drift was in body status, route availability status, availability reason, or
+missing organs, giving later admission tooling a precise repair surface.
+
 ## 2026-08-04 - Route boundary report stage names are unique
 
 Boundary report construction now fails closed with `duplicate_stage:<name>` when

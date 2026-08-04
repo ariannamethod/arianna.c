@@ -652,8 +652,33 @@ func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 		failed.ReceiptsChecked != 1 ||
 		len(failed.Stages) != 1 ||
 		failed.Stages[0].Passed ||
+		!reflect.DeepEqual(failed.Stages[0].Mismatches, []string{"route_missing_organs"}) ||
 		!reflect.DeepEqual(failed.Reasons, []string{"boundary_mismatch:resonance_graft_admission_proof"}) {
 		t.Fatalf("expected report to catch missing-organ drift: %+v", failed)
+	}
+
+	fieldDrift := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "writer_receipt",
+			BodyInventoryStatus:     "blocked",
+			RouteAvailabilityStatus: "unavailable",
+			RouteAvailabilityReason: "missing_route_organs:nano-weight",
+			RouteMissingOrgans:      []string{"nano-weight"},
+		},
+	})
+	if fieldDrift.Passed ||
+		fieldDrift.ReceiptsChecked != 1 ||
+		len(fieldDrift.Stages) != 1 ||
+		fieldDrift.Stages[0].Passed ||
+		!reflect.DeepEqual(fieldDrift.Stages[0].Mismatches, []string{
+			"body_inventory_status",
+			"route_availability_status",
+			"route_availability_reason",
+			"route_missing_organs",
+		}) ||
+		!reflect.DeepEqual(fieldDrift.Reasons, []string{"boundary_mismatch:writer_receipt"}) {
+		t.Fatalf("expected report to name each boundary field drift: %+v", fieldDrift)
 	}
 
 	empty := buildAdmissionLiveRouteBoundaryReport(boundary, nil)
