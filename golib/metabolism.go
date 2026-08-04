@@ -452,6 +452,20 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-assert" {
+		if err := runAdmissionLiveRouteBoundaryReportAssert(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-boundary-report-assert:", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-failed-diagnostics-assert" {
+		if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-boundary-report-failed-diagnostics-assert:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-turn-candidate-shell-smoke" {
 		if err := runAdmissionLiveRouteTurnCandidateShellSmoke(); err != nil {
 			fmt.Println("admission-live-route-turn-candidate-shell-smoke:", err)

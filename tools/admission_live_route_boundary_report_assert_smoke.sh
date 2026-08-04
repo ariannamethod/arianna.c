@@ -13,10 +13,12 @@ GOOD_REPORT="$WORKDIR/live_route_boundary_report.good.json"
 GOOD_TIGHT_REPORT="$WORKDIR/live_route_boundary_report.good_tight.json"
 BAD_TOP_LEVEL_REPORT="$WORKDIR/live_route_boundary_report.bad_top_level.json"
 BAD_RECEIPTS_REPORT="$WORKDIR/live_route_boundary_report.bad_receipts.json"
+BAD_BOUNDARY_REPORT="$WORKDIR/live_route_boundary_report.bad_boundary.json"
 BAD_STAGE_REPORT="$WORKDIR/live_route_boundary_report.bad_stage.json"
 BAD_DUP_STAGE_REPORT="$WORKDIR/live_route_boundary_report.bad_dup_stage.json"
 BAD_TOP_LEVEL_LOG="$WORKDIR/bad_top_level.log"
 BAD_RECEIPTS_LOG="$WORKDIR/bad_receipts.log"
+BAD_BOUNDARY_LOG="$WORKDIR/bad_boundary.log"
 BAD_STAGE_LOG="$WORKDIR/bad_stage.log"
 BAD_DUP_STAGE_LOG="$WORKDIR/bad_dup_stage.log"
 
@@ -79,6 +81,29 @@ write_duplicate_stage_report() {
     } > "$report"
 }
 
+write_missing_boundary_report() {
+    local report="$1"
+
+    {
+        printf '%s\n' '{'
+        printf '%s\n' '  "schema": "arianna.live_route_boundary_report.v1",'
+        printf '%s\n' '  "passed": true,'
+        printf '%s\n' '  "receipts_checked": 2,'
+        printf '%s\n' '  "boundary": null,'
+        printf '%s\n' '  "stages": ['
+        printf '%s\n' '    {'
+        printf '%s\n' '      "name": "final_gate",'
+        printf '%s\n' '      "passed": true'
+        printf '%s\n' '    },'
+        printf '%s\n' '    {'
+        printf '%s\n' '      "name": "resonance_graft_admission_proof",'
+        printf '%s\n' '      "passed": true'
+        printf '%s\n' '    }'
+        printf '%s\n' '  ]'
+        printf '%s\n' '}'
+    } > "$report"
+}
+
 write_tight_report() {
     local report="$1"
 
@@ -121,6 +146,12 @@ if bash "$ASSERT" "$BAD_RECEIPTS_REPORT" 2 final_gate resonance_graft_admission_
     die "wrong receipt count boundary report passed assertion"
 fi
 grep -q --fixed-strings "boundary report receipt count mismatch" -- "$BAD_RECEIPTS_LOG" || die "receipt count failure reason missing"
+
+write_missing_boundary_report "$BAD_BOUNDARY_REPORT"
+if bash "$ASSERT" "$BAD_BOUNDARY_REPORT" 2 final_gate resonance_graft_admission_proof > "$BAD_BOUNDARY_LOG" 2>&1; then
+    die "missing projection boundary report passed assertion"
+fi
+grep -q --fixed-strings "boundary report projection missing" -- "$BAD_BOUNDARY_LOG" || die "missing projection failure reason missing"
 
 write_report "$BAD_STAGE_REPORT" true 2 false true
 if bash "$ASSERT" "$BAD_STAGE_REPORT" 2 final_gate resonance_graft_admission_proof > "$BAD_STAGE_LOG" 2>&1; then
