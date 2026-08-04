@@ -12,8 +12,10 @@ ASSERT="$ROOT/tools/admission_live_route_boundary_report_assert.sh"
 GOOD_REPORT="$WORKDIR/live_route_boundary_report.good.json"
 BAD_TOP_LEVEL_REPORT="$WORKDIR/live_route_boundary_report.bad_top_level.json"
 BAD_RECEIPTS_REPORT="$WORKDIR/live_route_boundary_report.bad_receipts.json"
+BAD_STAGE_REPORT="$WORKDIR/live_route_boundary_report.bad_stage.json"
 BAD_TOP_LEVEL_LOG="$WORKDIR/bad_top_level.log"
 BAD_RECEIPTS_LOG="$WORKDIR/bad_receipts.log"
+BAD_STAGE_LOG="$WORKDIR/bad_stage.log"
 
 die() {
     echo "[admission-live-route-boundary-report-assert-smoke] FAIL: $*" >&2
@@ -24,6 +26,8 @@ write_report() {
     local report="$1"
     local top_passed="$2"
     local receipts_checked="$3"
+    local final_gate_passed="${4:-true}"
+    local admission_proof_passed="${5:-true}"
 
     {
         printf '%s\n' '{'
@@ -34,11 +38,11 @@ write_report() {
         printf '%s\n' '  "stages": ['
         printf '%s\n' '    {'
         printf '%s\n' '      "name": "final_gate",'
-        printf '%s\n' '      "passed": true'
+        printf '      "passed": %s\n' "$final_gate_passed"
         printf '%s\n' '    },'
         printf '%s\n' '    {'
         printf '%s\n' '      "name": "resonance_graft_admission_proof",'
-        printf '%s\n' '      "passed": true'
+        printf '      "passed": %s\n' "$admission_proof_passed"
         printf '%s\n' '    }'
         printf '%s\n' '  ]'
         printf '%s\n' '}'
@@ -61,5 +65,11 @@ if bash "$ASSERT" "$BAD_RECEIPTS_REPORT" 2 final_gate resonance_graft_admission_
     die "wrong receipt count boundary report passed assertion"
 fi
 grep -q --fixed-strings "boundary report receipt count mismatch" -- "$BAD_RECEIPTS_LOG" || die "receipt count failure reason missing"
+
+write_report "$BAD_STAGE_REPORT" true 2 false true
+if bash "$ASSERT" "$BAD_STAGE_REPORT" 2 final_gate resonance_graft_admission_proof > "$BAD_STAGE_LOG" 2>&1; then
+    die "failed stage boundary report passed assertion"
+fi
+grep -q --fixed-strings "boundary report stage did not pass: final_gate" -- "$BAD_STAGE_LOG" || die "failed stage failure reason missing"
 
 echo "[admission-live-route-boundary-report-assert-smoke] pass: workdir=$WORKDIR"
