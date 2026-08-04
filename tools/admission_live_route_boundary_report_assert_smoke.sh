@@ -10,6 +10,7 @@ if [[ ! -d "$tmp_root" ]]; then tmp_root="/tmp"; fi
 WORKDIR="${A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_ASSERT_WORKDIR:-$(mktemp -d "${tmp_root%/}/arianna-live-route-boundary-report-assert.XXXXXX")}"
 ASSERT="$ROOT/tools/admission_live_route_boundary_report_assert.sh"
 GOOD_REPORT="$WORKDIR/live_route_boundary_report.good.json"
+GOOD_TIGHT_REPORT="$WORKDIR/live_route_boundary_report.good_tight.json"
 BAD_TOP_LEVEL_REPORT="$WORKDIR/live_route_boundary_report.bad_top_level.json"
 BAD_RECEIPTS_REPORT="$WORKDIR/live_route_boundary_report.bad_receipts.json"
 BAD_STAGE_REPORT="$WORKDIR/live_route_boundary_report.bad_stage.json"
@@ -78,10 +79,36 @@ write_duplicate_stage_report() {
     } > "$report"
 }
 
+write_tight_report() {
+    local report="$1"
+
+    {
+        printf '%s\n' '{'
+        printf '%s\n' '  "schema":"arianna.live_route_boundary_report.v1",'
+        printf '%s\n' '  "passed":true,'
+        printf '%s\n' '  "receipts_checked":2,'
+        printf '%s\n' '  "boundary":{},'
+        printf '%s\n' '  "stages":['
+        printf '%s\n' '    {'
+        printf '%s\n' '      "name":"final_gate",'
+        printf '%s\n' '      "passed":true'
+        printf '%s\n' '    },'
+        printf '%s\n' '    {'
+        printf '%s\n' '      "name":"resonance_graft_admission_proof",'
+        printf '%s\n' '      "passed":true'
+        printf '%s\n' '    }'
+        printf '%s\n' '  ]'
+        printf '%s\n' '}'
+    } > "$report"
+}
+
 mkdir -p "$WORKDIR"
 
 write_report "$GOOD_REPORT" true 2
 bash "$ASSERT" "$GOOD_REPORT" 2 final_gate resonance_graft_admission_proof || die "valid boundary report rejected"
+
+write_tight_report "$GOOD_TIGHT_REPORT"
+bash "$ASSERT" "$GOOD_TIGHT_REPORT" 2 final_gate resonance_graft_admission_proof || die "tight boundary report rejected"
 
 write_report "$BAD_TOP_LEVEL_REPORT" false 2
 if bash "$ASSERT" "$BAD_TOP_LEVEL_REPORT" 2 final_gate resonance_graft_admission_proof > "$BAD_TOP_LEVEL_LOG" 2>&1; then
