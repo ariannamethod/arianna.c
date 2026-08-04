@@ -69,6 +69,50 @@ func runAdmissionSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
+	reportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv))
+	if reportPath == "" {
+		return fmt.Errorf("%s is required", admissionLiveRouteBoundaryReportEnv)
+	}
+	boundary := admissionLiveRouteBoundaryProjection(
+		"degraded",
+		"available",
+		"optional_route_organs_missing:goldie-weight",
+		[]string{"goldie-weight"},
+	)
+	report := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "writer_receipt",
+			BodyInventoryStatus:     "blocked",
+			RouteAvailabilityStatus: "unavailable",
+			RouteAvailabilityReason: "missing_route_organs:nano-weight",
+			RouteMissingOrgans:      []string{"nano-weight"},
+		},
+	})
+	if report.Passed ||
+		report.ReceiptsChecked != 1 ||
+		len(report.Stages) != 1 ||
+		report.Stages[0].Passed ||
+		len(report.Stages[0].Mismatches) != 4 ||
+		report.Stages[0].Mismatches[0] != "body_inventory_status" ||
+		report.Stages[0].Mismatches[1] != "route_availability_status" ||
+		report.Stages[0].Mismatches[2] != "route_availability_reason" ||
+		report.Stages[0].Mismatches[3] != "route_missing_organs" ||
+		len(report.Reasons) != 1 ||
+		report.Reasons[0] != "boundary_mismatch:writer_receipt" {
+		return fmt.Errorf("unexpected drift boundary report: %+v", report)
+	}
+	if err := writeAdmissionLiveRouteBoundaryReport(reportPath, report); err != nil {
+		return fmt.Errorf("write drift boundary report: %w", err)
+	}
+	fmt.Printf("[admission-live-route-boundary-report-drift-artifact-smoke] pass: report=%s stage=writer_receipt mismatches=%s\n",
+		reportPath,
+		strings.Join(report.Stages[0].Mismatches, ","),
+	)
+	return nil
+}
+
 func runAdmissionLiveRouteGateSmoke() error {
 	logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
 	if logPath == "" {

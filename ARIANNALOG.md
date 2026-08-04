@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary drift artifact is consumed end-to-end
+
+The failed boundary report consumer now has an end-to-end artifact smoke:
+`metabolism` writes a deterministic drift report through the same Go
+`buildAdmissionLiveRouteBoundaryReport` and `writeAdmissionLiveRouteBoundaryReport`
+path used by admission tooling, the failed-diagnostics assertion reads the
+persisted JSON, and the pass-report assertion is required to reject it. This
+closes the gap between synthetic fixtures and a real compact report artifact.
+
 ## 2026-08-04 - Route boundary failed diagnostics get a consumer
 
 Failed compact boundary reports now have a shell assertion and fixture smoke
