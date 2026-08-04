@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-04 - Route boundary assertions now decode JSON
+
+The compact boundary report pass and failed-diagnostics assertions now run
+through `metabolism` CLI modes that decode `arianna.live_route_boundary_report.v1`
+with Go's `encoding/json` instead of approximating JSON with shell grep/awk.
+The shell scripts remain transport wrappers; the contract now checks the same
+structured report surface regardless of whitespace, indentation, or field order.
+
 ## 2026-08-04 - Route boundary pass assertion stops trusting one whitespace shape
 
 The compact boundary report pass assertion now keeps root-level checks strict
