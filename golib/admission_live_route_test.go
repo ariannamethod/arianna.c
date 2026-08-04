@@ -599,6 +599,33 @@ func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 		t.Fatalf("expected passing one-stage boundary report: %+v", passed)
 	}
 
+	duplicated := buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "decision",
+			BodyInventoryStatus:     "degraded",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "optional_route_organs_missing:goldie-weight",
+			RouteMissingOrgans:      []string{"goldie-weight"},
+		},
+		{
+			Enabled:                 true,
+			Name:                    "decision",
+			BodyInventoryStatus:     "degraded",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "optional_route_organs_missing:goldie-weight",
+			RouteMissingOrgans:      []string{"goldie-weight"},
+		},
+	})
+	if duplicated.Passed ||
+		duplicated.ReceiptsChecked != 2 ||
+		len(duplicated.Stages) != 2 ||
+		!duplicated.Stages[0].Passed ||
+		!duplicated.Stages[1].Passed ||
+		!reflect.DeepEqual(duplicated.Reasons, []string{"duplicate_stage:decision"}) {
+		t.Fatalf("expected duplicated stage report to fail closed: %+v", duplicated)
+	}
+
 	path := filepath.Join(t.TempDir(), "boundary-report.json")
 	if err := writeAdmissionLiveRouteBoundaryReport(path, passed); err != nil {
 		t.Fatalf("write boundary report: %v", err)
