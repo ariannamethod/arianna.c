@@ -2363,6 +2363,64 @@ type admissionLiveRouteBoundaryReport struct {
 	Reasons         []string                                `json:"reasons,omitempty"`
 }
 
+func admissionLiveRouteBoundaryReportExpectedStageNames() []string {
+	return []string{
+		"rollback_implementation",
+		"ledger_implementation",
+		"ledger_persistence",
+		"ledger_verification",
+		"admission_readiness",
+		"admission_permit",
+		"admission_seal",
+		"final_gate",
+		"resonance_intent",
+		"resonance_receiver",
+		"resonance_observation",
+		"resonance_graft_boundary",
+		"resonance_graft_preflight",
+		"resonance_graft_gate",
+		"resonance_graft_candidate",
+		"resonance_graft_candidate_store",
+		"resonance_graft_candidate_store_reader",
+		"resonance_graft_admission_proof",
+	}
+}
+
+func admissionLiveRouteBoundaryReportInputStageNames(inputs []admissionLiveRouteBoundaryReportInput) []string {
+	names := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		if !input.Enabled {
+			continue
+		}
+		name := strings.TrimSpace(input.Name)
+		if name == "" {
+			name = "unknown"
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+func admissionLiveRouteBoundaryReportStageNames(report admissionLiveRouteBoundaryReport) []string {
+	names := make([]string, 0, len(report.Stages))
+	for _, stage := range report.Stages {
+		names = append(names, stage.Name)
+	}
+	return names
+}
+
+func admissionLiveRouteBoundaryReportStageChainMatchesPrefix(got, want []string) bool {
+	if len(got) > len(want) {
+		return false
+	}
+	for i, name := range got {
+		if name != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func admissionLiveRouteBoundaryProjection(bodyStatus, availabilityStatus, availabilityReason string, missingOrgans []string) admissionLiveRouteBoundary {
 	return admissionLiveRouteBoundary{
 		BodyInventoryStatus:     bodyStatus,

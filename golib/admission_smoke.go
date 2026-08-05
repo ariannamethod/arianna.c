@@ -6792,6 +6792,14 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			RouteMissingOrgans:      resonanceGraftAdmissionProof.RouteMissingOrgans,
 		},
 	}
+	expectedBoundaryReportStages := admissionLiveRouteBoundaryReportExpectedStageNames()
+	boundaryReportInputStages := admissionLiveRouteBoundaryReportInputStageNames(boundaryReportInputs)
+	if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportInputStages, expectedBoundaryReportStages) {
+		return fmt.Errorf("live route boundary report input stage chain mismatch: got=%s want_prefix=%s",
+			strings.Join(boundaryReportInputStages, ","),
+			strings.Join(expectedBoundaryReportStages, ","),
+		)
+	}
 	boundaryReport := buildAdmissionLiveRouteBoundaryReport(
 		admissionLiveRouteBoundaryProjection(
 			decision.BodyInventoryStatus,
@@ -6803,6 +6811,13 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 	)
 	if boundaryReport.ReceiptsChecked == 0 {
 		return fmt.Errorf("live route boundary report checked no receipts: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
+	}
+	boundaryReportStages := admissionLiveRouteBoundaryReportStageNames(boundaryReport)
+	if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportStages, expectedBoundaryReportStages) {
+		return fmt.Errorf("live route boundary report stage chain mismatch: got=%s want_prefix=%s",
+			strings.Join(boundaryReportStages, ","),
+			strings.Join(expectedBoundaryReportStages, ","),
+		)
 	}
 	for _, stage := range boundaryReport.Stages {
 		if !stage.Passed {
