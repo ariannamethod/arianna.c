@@ -13,6 +13,13 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-05 - Route boundary proof smoke requires the full stage chain
+
+The nano-direct resonance graft admission proof smoke now asserts the full
+18-stage boundary report chain by name, not only the final gate and proof tail.
+The real boundary artifact must keep every intermediate admission receipt visible
+before later tooling treats the report as route evidence.
+
 ## 2026-08-05 - Route boundary assertion helpers name every refusal path
 
 The boundary report assertion helper tests now cover the remaining local refusal
