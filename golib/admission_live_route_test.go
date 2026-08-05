@@ -560,6 +560,98 @@ func TestAdmissionLiveRouteTurnRouteBoundaryReceipts(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteBoundaryReportExpectedStageChain(t *testing.T) {
+	want := []string{
+		"rollback_implementation",
+		"ledger_implementation",
+		"ledger_persistence",
+		"ledger_verification",
+		"admission_readiness",
+		"admission_permit",
+		"admission_seal",
+		"final_gate",
+		"resonance_intent",
+		"resonance_receiver",
+		"resonance_observation",
+		"resonance_graft_boundary",
+		"resonance_graft_preflight",
+		"resonance_graft_gate",
+		"resonance_graft_candidate",
+		"resonance_graft_candidate_store",
+		"resonance_graft_candidate_store_reader",
+		"resonance_graft_admission_proof",
+	}
+	got := admissionLiveRouteBoundaryReportExpectedStageNames()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected boundary report stage chain: got=%v want=%v", got, want)
+	}
+	seen := make(map[string]struct{})
+	for _, name := range got {
+		if _, ok := seen[name]; ok {
+			t.Fatalf("duplicated expected boundary report stage: %s", name)
+		}
+		seen[name] = struct{}{}
+	}
+	got[0] = "mutated"
+	if fresh := admissionLiveRouteBoundaryReportExpectedStageNames(); fresh[0] != "rollback_implementation" {
+		t.Fatalf("expected stage chain must be returned as a fresh slice: %v", fresh)
+	}
+	if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(want[:8], want) {
+		t.Fatal("expected final-gate prefix to match expected chain")
+	}
+	if admissionLiveRouteBoundaryReportStageChainMatchesPrefix([]string{"ledger_implementation"}, want) {
+		t.Fatal("out-of-order boundary report prefix should fail")
+	}
+	if admissionLiveRouteBoundaryReportStageChainMatchesPrefix(append(append([]string{}, want...), "extra_stage"), want) {
+		t.Fatal("boundary report chain longer than expected should fail")
+	}
+}
+
+func TestAdmissionLiveRouteBoundaryReportStageNamesMirrorBuilder(t *testing.T) {
+	boundary := admissionLiveRouteBoundaryProjection("complete", "available", "route ready", nil)
+	inputs := []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    " final_gate ",
+			BodyInventoryStatus:     "complete",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "route ready",
+		},
+		{
+			Enabled:                 false,
+			Name:                    "disabled_stage",
+			BodyInventoryStatus:     "blocked",
+			RouteAvailabilityStatus: "unavailable",
+			RouteAvailabilityReason: "disabled",
+		},
+		{
+			Enabled:                 true,
+			Name:                    "",
+			BodyInventoryStatus:     "complete",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "route ready",
+		},
+		{
+			Enabled:                 true,
+			Name:                    "resonance_graft_admission_proof",
+			BodyInventoryStatus:     "complete",
+			RouteAvailabilityStatus: "available",
+			RouteAvailabilityReason: "route ready",
+		},
+	}
+	want := []string{"final_gate", "unknown", "resonance_graft_admission_proof"}
+	if got := admissionLiveRouteBoundaryReportInputStageNames(inputs); !reflect.DeepEqual(got, want) {
+		t.Fatalf("input stage names should mirror builder naming: got=%v want=%v", got, want)
+	}
+	report := buildAdmissionLiveRouteBoundaryReport(boundary, inputs)
+	if got := admissionLiveRouteBoundaryReportStageNames(report); !reflect.DeepEqual(got, want) {
+		t.Fatalf("report stage names should mirror input helper: got=%v want=%v", got, want)
+	}
+	if !report.Passed || report.ReceiptsChecked != len(want) {
+		t.Fatalf("expected report to pass after stage-name extraction: %+v", report)
+	}
+}
+
 func TestAdmissionLiveRouteBoundaryReportProjectsAndCatchesDrift(t *testing.T) {
 	missing := []string{"goldie-weight"}
 	boundary := admissionLiveRouteBoundaryProjection(

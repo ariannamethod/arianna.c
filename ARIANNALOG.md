@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-05 - Route boundary stage chain is a Go contract
+
+The boundary report builder now has an explicit expected stage-chain witness in
+Go. Live route smokes compare enabled report inputs and the emitted report
+stages against the expected ordered prefix, so partial admission layers can keep
+working while the final resonance graft admission proof must carry the full
+18-stage route-boundary chain without silent drift.
+
 ## 2026-08-05 - Route boundary proof smoke requires the full stage chain
 
 The nano-direct resonance graft admission proof smoke now asserts the full
