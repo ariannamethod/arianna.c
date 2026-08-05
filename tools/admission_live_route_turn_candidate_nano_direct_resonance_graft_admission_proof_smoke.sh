@@ -22,6 +22,26 @@ RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG="$WORKDIR/live_route_candidate_admiss
 RESONANCE_GRAFT_ADMISSION_PROOF_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_admission_proof_nano_direct.jsonl"
 BOUNDARY_REPORT="$WORKDIR/live_route_boundary_report.json"
 RUN_LOG="$WORKDIR/admission_live_route_candidate_nano_direct_chat_shadow.log"
+BOUNDARY_REPORT_STAGES=(
+    rollback_implementation
+    ledger_implementation
+    ledger_persistence
+    ledger_verification
+    admission_readiness
+    admission_permit
+    admission_seal
+    final_gate
+    resonance_intent
+    resonance_receiver
+    resonance_observation
+    resonance_graft_boundary
+    resonance_graft_preflight
+    resonance_graft_gate
+    resonance_graft_candidate
+    resonance_graft_candidate_store
+    resonance_graft_candidate_store_reader
+    resonance_graft_admission_proof
+)
 
 die() {
     echo "[admission-live-route-turn-candidate-nano-direct-resonance-graft-admission-proof-smoke] FAIL: $*" >&2
@@ -51,9 +71,8 @@ fi
 
 bash "$ROOT/tools/admission_live_route_boundary_report_assert.sh" \
     "$BOUNDARY_REPORT" \
-    18 \
-    final_gate \
-    resonance_graft_admission_proof
+    "${#BOUNDARY_REPORT_STAGES[@]}" \
+    "${BOUNDARY_REPORT_STAGES[@]}"
 
 grep -q '"schema":"arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof schema missing"
 grep -q '"timing":"live_admission_resonance_graft_admission_proof"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof timing missing"
