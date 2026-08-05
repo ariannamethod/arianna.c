@@ -13,6 +13,15 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-05 - Route boundary assertion helpers name every refusal path
+
+The boundary report assertion helper tests now cover the remaining local refusal
+paths: usage errors, blank paths, non-numeric receipt counts, top-level
+pass/fail inversions, receipt mismatches, empty names, missing/duplicated
+stages, stage pass-state mismatches, missing mismatch arrays, and empty expected
+mismatch names. The contract is now explicit before later admission tooling
+starts leaning on these diagnostics as route evidence.
+
 ## 2026-08-05 - Route boundary assertion errors get Go witnesses
 
 The compact boundary report assertion errors now have direct Go unit witnesses
