@@ -71,10 +71,13 @@ func runAdmissionSmoke() error {
 	return nil
 }
 
-func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
-	reportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv))
-	if reportPath == "" {
-		return fmt.Errorf("%s is required", admissionLiveRouteBoundaryReportEnv)
+func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-drift-artifact-smoke")
+	}
+	reportPath, err := admissionLiveRouteBoundaryReportDriftArtifactSmokePath()
+	if err != nil {
+		return err
 	}
 	boundary := admissionLiveRouteBoundaryProjection(
 		"degraded",
@@ -108,11 +111,51 @@ func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
 	if err := writeAdmissionLiveRouteBoundaryReport(reportPath, report); err != nil {
 		return fmt.Errorf("write drift boundary report: %w", err)
 	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{
+		reportPath,
+		"writer_receipt",
+		"body_inventory_status",
+		"route_availability_status",
+		"route_availability_reason",
+		"route_missing_organs",
+	}); err != nil {
+		return fmt.Errorf("Go-written drift boundary report failed diagnostic assertion: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportAssert([]string{
+		reportPath,
+		"1",
+		"writer_receipt",
+	}); err == nil || !strings.Contains(err.Error(), "boundary report did not pass") {
+		return fmt.Errorf("drift boundary report pass assertion error mismatch: %v", err)
+	}
 	fmt.Printf("[admission-live-route-boundary-report-drift-artifact-smoke] pass: report=%s stage=writer_receipt mismatches=%s\n",
 		reportPath,
 		strings.Join(report.Stages[0].Mismatches, ","),
 	)
 	return nil
+}
+
+func admissionLiveRouteBoundaryReportDriftArtifactSmokePath() (string, error) {
+	if reportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv)); reportPath != "" {
+		if dir := filepath.Dir(reportPath); dir != "." && dir != "" {
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				return "", err
+			}
+		}
+		return reportPath, nil
+	}
+
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_DRIFT_ARTIFACT_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-boundary-report-drift-artifact.")
+		if err != nil {
+			return "", err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return "", err
+	}
+	return filepath.Join(workdir, "live_route_boundary_report.drift.json"), nil
 }
 
 func runAdmissionLiveRouteBoundaryReportAssertSmoke(args []string) error {
