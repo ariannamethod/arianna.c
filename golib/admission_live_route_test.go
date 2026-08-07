@@ -607,6 +607,21 @@ func TestAdmissionLiveRouteBoundaryReportExpectedStageChain(t *testing.T) {
 	}
 }
 
+func TestAdmissionLiveRouteBoundaryReportStageChainWriter(t *testing.T) {
+	var out strings.Builder
+	if err := writeAdmissionLiveRouteBoundaryReportStageChain(&out, nil); err != nil {
+		t.Fatalf("write stage chain: %v", err)
+	}
+	want := strings.Join(admissionLiveRouteBoundaryReportExpectedStageNames(), "\n") + "\n"
+	if out.String() != want {
+		t.Fatalf("unexpected stage chain export:\ngot:\n%s\nwant:\n%s", out.String(), want)
+	}
+	if err := writeAdmissionLiveRouteBoundaryReportStageChain(&out, []string{"extra"}); err == nil ||
+		!strings.Contains(err.Error(), "usage: --admission-live-route-boundary-report-stage-chain") {
+		t.Fatalf("expected usage error for extra stage-chain args, got %v", err)
+	}
+}
+
 func TestAdmissionLiveRouteBoundaryReportStageNamesMirrorBuilder(t *testing.T) {
 	boundary := admissionLiveRouteBoundaryProjection("complete", "available", "route ready", nil)
 	inputs := []admissionLiveRouteBoundaryReportInput{

@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary stage chain has one source
+
+The resonance graft admission proof smoke no longer carries a second handwritten
+copy of the 18-stage boundary report chain. `metabolism` now exports the
+canonical chain through `--admission-live-route-boundary-report-stage-chain`, the
+shell proof smoke consumes that export, and a Go unit witness pins the exporter
+output. The shell remains a consumer; Go remains the stage-chain source.
+
 ## 2026-08-05 - Route boundary stage chain is a Go contract
 
 The boundary report builder now has an explicit expected stage-chain witness in
