@@ -13,6 +13,17 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary pass-assert smoke moved into Go
+
+The ordinary pass boundary report assertion smoke is now a `metabolism`
+command: `--admission-live-route-boundary-report-assert-smoke`. Go creates the
+valid, tight-JSON, missing-report, bad-schema, top-level false, receipt-count,
+missing-projection, failed-stage, and duplicate-stage probes against the same
+structured assertion helper that live boundary consumers call. The shell smoke
+now only launches the Go command.
+
+---
+
 ## 2026-08-07 - Route boundary failed-diagnostics smoke moved into Go
 
 The failed compact boundary report diagnostics smoke is now a `metabolism`

@@ -115,6 +115,147 @@ func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
 	return nil
 }
 
+func runAdmissionLiveRouteBoundaryReportAssertSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-assert-smoke")
+	}
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_ASSERT_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-boundary-report-assert.")
+		if err != nil {
+			return err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return err
+	}
+
+	goodReport := filepath.Join(workdir, "live_route_boundary_report.good.json")
+	goodTightReport := filepath.Join(workdir, "live_route_boundary_report.good_tight.json")
+	missingReport := filepath.Join(workdir, "live_route_boundary_report.missing.json")
+	badSchemaReport := filepath.Join(workdir, "live_route_boundary_report.bad_schema.json")
+	badTopLevelReport := filepath.Join(workdir, "live_route_boundary_report.bad_top_level.json")
+	badReceiptsReport := filepath.Join(workdir, "live_route_boundary_report.bad_receipts.json")
+	badBoundaryReport := filepath.Join(workdir, "live_route_boundary_report.bad_boundary.json")
+	badStageReport := filepath.Join(workdir, "live_route_boundary_report.bad_stage.json")
+	badDupStageReport := filepath.Join(workdir, "live_route_boundary_report.bad_dup_stage.json")
+	if err := os.Remove(missingReport); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("prepare missing boundary report probe: %w", err)
+	}
+
+	stageNames := []string{"final_gate", "resonance_graft_admission_proof"}
+	assertArgs := func(path string, expectedReceipts string) []string {
+		args := []string{path, expectedReceipts}
+		return append(args, stageNames...)
+	}
+	assertAccepts := func(label, path string) error {
+		if err := runAdmissionLiveRouteBoundaryReportAssert(assertArgs(path, "2")); err != nil {
+			return fmt.Errorf("%s boundary report rejected: %w", label, err)
+		}
+		return nil
+	}
+	assertRejects := func(label, path string, expectedReceipts string, needle string) error {
+		err := runAdmissionLiveRouteBoundaryReportAssert(assertArgs(path, expectedReceipts))
+		if err == nil || !strings.Contains(err.Error(), needle) {
+			return fmt.Errorf("%s boundary report assertion error mismatch: %v", label, err)
+		}
+		return nil
+	}
+
+	report := admissionLiveRouteBoundaryReportAssertSmokeReport(stageNames)
+	if err := writeAdmissionLiveRouteBoundaryReport(goodReport, report); err != nil {
+		return fmt.Errorf("write valid boundary report: %w", err)
+	}
+	if err := assertAccepts("valid", goodReport); err != nil {
+		return err
+	}
+
+	if err := writeAdmissionLiveRouteBoundaryReportAssertSmokeJSON(goodTightReport, report, true); err != nil {
+		return fmt.Errorf("write tight boundary report: %w", err)
+	}
+	if err := assertAccepts("tight", goodTightReport); err != nil {
+		return err
+	}
+
+	if err := assertRejects("missing", missingReport, "2", "boundary report not written"); err != nil {
+		return err
+	}
+
+	badSchema := report
+	badSchema.Schema = "arianna.live_route_boundary_report.v0"
+	if err := writeAdmissionLiveRouteBoundaryReport(badSchemaReport, badSchema); err != nil {
+		return fmt.Errorf("write bad-schema boundary report: %w", err)
+	}
+	if err := assertRejects("bad-schema", badSchemaReport, "2", `boundary report schema mismatch: got "arianna.live_route_boundary_report.v0" want "arianna.live_route_boundary_report.v1"`); err != nil {
+		return err
+	}
+
+	badTopLevel := report
+	badTopLevel.Passed = false
+	if err := writeAdmissionLiveRouteBoundaryReport(badTopLevelReport, badTopLevel); err != nil {
+		return fmt.Errorf("write top-level boundary report: %w", err)
+	}
+	if err := assertRejects("top-level false", badTopLevelReport, "2", "boundary report did not pass"); err != nil {
+		return err
+	}
+
+	badReceipts := report
+	badReceipts.ReceiptsChecked = 3
+	if err := writeAdmissionLiveRouteBoundaryReport(badReceiptsReport, badReceipts); err != nil {
+		return fmt.Errorf("write receipt-count boundary report: %w", err)
+	}
+	if err := assertRejects("receipt-count", badReceiptsReport, "2", "boundary report receipt count mismatch"); err != nil {
+		return err
+	}
+
+	badBoundary := struct {
+		Schema          string                                  `json:"schema"`
+		Passed          bool                                    `json:"passed"`
+		ReceiptsChecked int                                     `json:"receipts_checked"`
+		Boundary        interface{}                             `json:"boundary"`
+		Stages          []admissionLiveRouteBoundaryReportStage `json:"stages"`
+	}{
+		Schema:          admissionLiveRouteBoundaryReportSchema,
+		Passed:          true,
+		ReceiptsChecked: report.ReceiptsChecked,
+		Boundary:        nil,
+		Stages:          report.Stages,
+	}
+	if err := writeAdmissionLiveRouteBoundaryReportAssertSmokeJSON(badBoundaryReport, badBoundary, false); err != nil {
+		return fmt.Errorf("write missing-projection boundary report: %w", err)
+	}
+	if err := assertRejects("missing projection", badBoundaryReport, "2", "boundary report projection missing"); err != nil {
+		return err
+	}
+
+	badStage := report
+	badStage.Stages = append([]admissionLiveRouteBoundaryReportStage(nil), report.Stages...)
+	badStage.Stages[0].Passed = false
+	if err := writeAdmissionLiveRouteBoundaryReport(badStageReport, badStage); err != nil {
+		return fmt.Errorf("write failed-stage boundary report: %w", err)
+	}
+	if err := assertRejects("failed stage", badStageReport, "2", "boundary report stage did not pass: final_gate"); err != nil {
+		return err
+	}
+
+	badDupStage := report
+	badDupStage.ReceiptsChecked = 3
+	badDupStage.Stages = []admissionLiveRouteBoundaryReportStage{
+		{Name: "final_gate", Passed: true},
+		{Name: "final_gate", Passed: true},
+		{Name: "resonance_graft_admission_proof", Passed: true},
+	}
+	if err := writeAdmissionLiveRouteBoundaryReport(badDupStageReport, badDupStage); err != nil {
+		return fmt.Errorf("write duplicate-stage boundary report: %w", err)
+	}
+	if err := assertRejects("duplicate stage", badDupStageReport, "3", "boundary report stage duplicated: final_gate"); err != nil {
+		return err
+	}
+
+	fmt.Printf("[admission-live-route-boundary-report-assert-smoke] pass: workdir=%s\n", workdir)
+	return nil
+}
+
 func runAdmissionLiveRouteBoundaryReportAssertFullChainSmoke(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("usage: --admission-live-route-boundary-report-assert-full-chain-smoke")
@@ -291,6 +432,40 @@ func admissionLiveRouteBoundaryReportFailedDiagnosticsSmokeReport() admissionLiv
 			RouteMissingOrgans:      []string{"nano-weight"},
 		},
 	})
+}
+
+func admissionLiveRouteBoundaryReportAssertSmokeReport(stageNames []string) admissionLiveRouteBoundaryReport {
+	stages := make([]admissionLiveRouteBoundaryReportStage, 0, len(stageNames))
+	for _, stageName := range stageNames {
+		stages = append(stages, admissionLiveRouteBoundaryReportStage{
+			Name:   stageName,
+			Passed: true,
+		})
+	}
+	return admissionLiveRouteBoundaryReport{
+		Schema:          admissionLiveRouteBoundaryReportSchema,
+		Passed:          true,
+		ReceiptsChecked: len(stages),
+		Boundary:        admissionLiveRouteBoundary{},
+		Stages:          stages,
+	}
+}
+
+func writeAdmissionLiveRouteBoundaryReportAssertSmokeJSON(path string, value interface{}, compact bool) error {
+	var (
+		raw []byte
+		err error
+	)
+	if compact {
+		raw, err = json.Marshal(value)
+	} else {
+		raw, err = json.MarshalIndent(value, "", "  ")
+	}
+	if err != nil {
+		return err
+	}
+	raw = append(raw, '\n')
+	return os.WriteFile(path, raw, 0600)
 }
 
 func admissionLiveRouteBoundaryReportFullChainSmokeReport(stageNames []string) admissionLiveRouteBoundaryReport {
