@@ -21,7 +21,6 @@ RESONANCE_GRAFT_CANDIDATE_STORE_LOG="$WORKDIR/live_route_candidate_admission_res
 RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_candidate_store_reader_nano_direct.jsonl"
 RESONANCE_GRAFT_ADMISSION_PROOF_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_admission_proof_nano_direct.jsonl"
 BOUNDARY_REPORT="$WORKDIR/live_route_boundary_report.json"
-BOUNDARY_REPORT_STAGE_FILE="$WORKDIR/live_route_boundary_report_stages.txt"
 RUN_LOG="$WORKDIR/admission_live_route_candidate_nano_direct_chat_shadow.log"
 
 die() {
@@ -33,17 +32,6 @@ die() {
 }
 
 mkdir -p "$WORKDIR"
-
-if ! bash "$ROOT/tools/admission_live_route_boundary_report_stage_chain.sh" >"$BOUNDARY_REPORT_STAGE_FILE"; then
-    die "boundary report stage chain export failed"
-fi
-
-BOUNDARY_REPORT_STAGES=()
-while IFS= read -r stage_name; do
-    [[ -n "$stage_name" ]] || die "boundary report stage chain exported an empty stage"
-    BOUNDARY_REPORT_STAGES+=("$stage_name")
-done <"$BOUNDARY_REPORT_STAGE_FILE"
-[[ ${#BOUNDARY_REPORT_STAGES[@]} -gt 0 ]] || die "boundary report stage chain export was empty"
 
 if ! A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RESONANCE_GRAFT_CANDIDATE_STORE_READER_WORKDIR="$WORKDIR" \
     AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_DRY_RUN=1 \
@@ -61,10 +49,7 @@ fi
 [[ -s "$RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG" ]] || die "candidate admission resonance graft candidate store reader JSONL log not written"
 [[ -s "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" ]] || die "candidate admission resonance graft admission proof JSONL log not written"
 
-bash "$ROOT/tools/admission_live_route_boundary_report_assert.sh" \
-    "$BOUNDARY_REPORT" \
-    "${#BOUNDARY_REPORT_STAGES[@]}" \
-    "${BOUNDARY_REPORT_STAGES[@]}"
+bash "$ROOT/tools/admission_live_route_boundary_report_assert_full_chain.sh" "$BOUNDARY_REPORT"
 
 grep -q '"schema":"arianna.live_route_turn_candidate_admission_resonance_graft_admission_proof.v1"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof schema missing"
 grep -q '"timing":"live_admission_resonance_graft_admission_proof"' "$RESONANCE_GRAFT_ADMISSION_PROOF_LOG" || die "admission resonance graft admission proof timing missing"

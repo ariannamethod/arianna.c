@@ -13,6 +13,16 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary full-chain assertion has one consumer helper
+
+Full-chain boundary report consumers no longer need to read the canonical stage
+export and rebuild an argv list by hand. `admission_live_route_boundary_report_assert_full_chain.sh`
+now loads the Go-exported stage chain and delegates to the structured assertion,
+with a standalone smoke for valid, usage, failed-stage, and missing-report paths.
+The resonance graft admission proof smoke now calls this helper directly.
+
+---
+
 ## 2026-08-07 - Route boundary stage chain has one source
 
 The resonance graft admission proof smoke no longer carries a second handwritten
