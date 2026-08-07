@@ -390,7 +390,7 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-gate-smoke" {
-		if err := runAdmissionLiveRouteGateSmoke(); err != nil {
+		if err := runAdmissionLiveRouteGateSmoke(os.Args[2:]); err != nil {
 			fmt.Println("admission-live-route-gate-smoke:", err)
 			os.Exit(1)
 		}

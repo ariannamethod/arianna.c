@@ -13,6 +13,17 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Live route gate smoke moved into Go
+
+The route-plan admission gate smoke now bootstraps its own scratch/log path,
+shadow admission mode, and live route-plan requirement inside
+`metabolism --admission-live-route-gate-smoke`. Go validates every canonical
+prompt class, route, route-prefixed trigger, pass/fail reason, and non-mutating
+scratch state before reporting success. The shell smoke now only launches the
+Go-owned contract.
+
+---
+
 ## 2026-08-07 - Route boundary drift artifact smoke moved into Go
 
 The failed drift boundary report artifact smoke is now self-validating inside

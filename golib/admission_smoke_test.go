@@ -63,7 +63,7 @@ func TestAdmissionLiveRouteGateSmokeWritesBroadMatchedAndRejectedReceipts(t *tes
 	logPath := filepath.Join(t.TempDir(), "live-route-gate.jsonl")
 	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
 
-	if err := runAdmissionLiveRouteGateSmoke(); err != nil {
+	if err := runAdmissionLiveRouteGateSmoke(nil); err != nil {
 		t.Fatal(err)
 	}
 
