@@ -561,11 +561,17 @@ func runAdmissionLiveRouteBoundaryReportStageChain(args []string) error {
 	return writeAdmissionLiveRouteBoundaryReportStageChain(os.Stdout, args)
 }
 
-func runAdmissionLiveRouteGateSmoke() error {
-	logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
-	if logPath == "" {
-		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+func runAdmissionLiveRouteGateSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-gate-smoke")
 	}
+	workdir, logPath, err := admissionLiveRouteGateSmokePaths()
+	if err != nil {
+		return err
+	}
+	restoreEnv := admissionLiveRouteGateSmokeEnv(logPath)
+	defer restoreEnv()
+
 	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
 		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
 	}
@@ -621,6 +627,7 @@ func runAdmissionLiveRouteGateSmoke() error {
 	if len(lines) != len(cases) {
 		return fmt.Errorf("expected %d live route gate receipts, got %d", len(cases), len(lines))
 	}
+	coverage := newAdmissionLiveRouteGateSmokeCoverage()
 	for i, line := range lines {
 		var got dreamCandidate
 		if err := json.Unmarshal([]byte(line), &got); err != nil {
@@ -635,10 +642,187 @@ func runAdmissionLiveRouteGateSmoke() error {
 		if got.Admission.LiveRouteChoice == nil {
 			return fmt.Errorf("receipt %d missing live route choice: %+v", i+1, got.Admission)
 		}
+		coverage.observe(got)
+	}
+	if err := coverage.validate(); err != nil {
+		return err
+	}
+	hits, err := admissionLiveRouteGateSmokeDurableStateHits(workdir)
+	if err != nil {
+		return err
+	}
+	if len(hits) != 0 {
+		return fmt.Errorf("live route gate smoke wrote durable organism state: %s", strings.Join(hits, ", "))
 	}
 
 	fmt.Printf("[admission-live-route-gate-smoke] pass: log=%s cases=%d\n", logPath, len(cases))
 	return nil
+}
+
+func admissionLiveRouteGateSmokePaths() (string, string, error) {
+	if logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG")); logPath != "" {
+		workdir := filepath.Dir(logPath)
+		if workdir == "" || workdir == "." {
+			var err error
+			workdir, err = os.Getwd()
+			if err != nil {
+				return "", "", err
+			}
+		}
+		if err := os.MkdirAll(workdir, 0700); err != nil {
+			return "", "", err
+		}
+		return workdir, logPath, nil
+	}
+
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_GATE_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-gate.")
+		if err != nil {
+			return "", "", err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return "", "", err
+	}
+	return workdir, filepath.Join(workdir, "dream_admission_live_route_gate.jsonl"), nil
+}
+
+func admissionLiveRouteGateSmokeEnv(logPath string) func() {
+	type savedEnv struct {
+		value string
+		ok    bool
+	}
+	keys := []string{
+		"AM_DREAM_ADMISSION",
+		"AM_DREAM_ADMISSION_ALLOWED_SOURCES",
+		"AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN",
+		"AM_DREAM_ADMISSION_LOG",
+	}
+	saved := make(map[string]savedEnv, len(keys))
+	for _, key := range keys {
+		value, ok := os.LookupEnv(key)
+		saved[key] = savedEnv{value: value, ok: ok}
+	}
+	_ = os.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	_ = os.Setenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES", "")
+	_ = os.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+	_ = os.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+	return func() {
+		for _, key := range keys {
+			if saved[key].ok {
+				_ = os.Setenv(key, saved[key].value)
+			} else {
+				_ = os.Unsetenv(key)
+			}
+		}
+	}
+}
+
+type admissionLiveRouteGateSmokeCoverage struct {
+	promptClasses map[string]bool
+	routes        map[string]bool
+	triggers      map[string]bool
+	passed        bool
+	failed        bool
+	reasons       map[string]bool
+}
+
+func newAdmissionLiveRouteGateSmokeCoverage() admissionLiveRouteGateSmokeCoverage {
+	return admissionLiveRouteGateSmokeCoverage{
+		promptClasses: make(map[string]bool),
+		routes:        make(map[string]bool),
+		triggers:      make(map[string]bool),
+		reasons:       make(map[string]bool),
+	}
+}
+
+func (c *admissionLiveRouteGateSmokeCoverage) observe(got dreamCandidate) {
+	if got.Trigger != "" {
+		c.triggers[got.Trigger] = true
+	}
+	if got.Admission == nil {
+		return
+	}
+	if got.Admission.Passed {
+		c.passed = true
+	} else {
+		c.failed = true
+	}
+	for _, reason := range got.Admission.Reasons {
+		c.reasons[reason] = true
+	}
+	if got.Admission.LiveRoutePlan != nil {
+		c.promptClasses[got.Admission.LiveRoutePlan.PromptClass] = true
+		if got.Admission.LiveRoutePlan.Route != "" {
+			c.routes[got.Admission.LiveRoutePlan.Route] = true
+		}
+		if got.Admission.LiveRoutePlan.Reason != "" {
+			c.reasons["live route plan failed: "+got.Admission.LiveRoutePlan.Reason] = true
+		}
+	}
+	if got.Admission.LiveRouteChoice != nil {
+		c.promptClasses[got.Admission.LiveRouteChoice.PromptClass] = true
+		if got.Admission.LiveRouteChoice.Route != "" {
+			c.routes[got.Admission.LiveRouteChoice.Route] = true
+		}
+		if got.Admission.LiveRouteChoice.Reason != "" {
+			c.reasons[got.Admission.LiveRouteChoice.Reason] = true
+		}
+	}
+}
+
+func (c admissionLiveRouteGateSmokeCoverage) validate() error {
+	for _, promptClass := range admissionLiveRoutePromptClasses() {
+		if !c.promptClasses[promptClass] {
+			return fmt.Errorf("%s prompt class missing from live route gate receipts", promptClass)
+		}
+		plan := admissionLiveRoutePlanForPromptClass(promptClass)
+		trigger := admissionLiveRouteGateSmokeTrigger(plan.Route, promptClass)
+		if !c.triggers[trigger] {
+			return fmt.Errorf("%s route-prefixed trigger missing from live route gate receipts", trigger)
+		}
+	}
+	for _, route := range []string{"chorus", "direct", "qloop_hint_qa", "qloop_target", "user_bridge"} {
+		if !c.routes[route] {
+			return fmt.Errorf("%s route missing from live route gate receipts", route)
+		}
+	}
+	if !c.passed {
+		return fmt.Errorf("matching route policy did not pass")
+	}
+	if !c.failed {
+		return fmt.Errorf("wrong-source route policy did not fail")
+	}
+	for _, reason := range []string{
+		"source direct does not match live route chorus for prompt class identity",
+		"live route plan failed: unknown_prompt_class",
+	} {
+		if !c.reasons[reason] {
+			return fmt.Errorf("%s route-plan reason missing", reason)
+		}
+	}
+	return nil
+}
+
+func admissionLiveRouteGateSmokeDurableStateHits(root string) ([]string, error) {
+	var hits []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info == nil || info.IsDir() {
+			return nil
+		}
+		name := info.Name()
+		if name == "arianna.inner.state" || name == "arianna.soma" ||
+			strings.HasPrefix(name, "arianna.cooc.") ||
+			strings.HasPrefix(name, "arianna.delta.") {
+			hits = append(hits, path)
+		}
+		return nil
+	})
+	return hits, err
 }
 
 func runAdmissionLiveRouteChatSmoke() error {
