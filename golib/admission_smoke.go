@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -112,6 +113,88 @@ func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
 		strings.Join(report.Stages[0].Mismatches, ","),
 	)
 	return nil
+}
+
+func runAdmissionLiveRouteBoundaryReportAssertFullChainSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-assert-full-chain-smoke")
+	}
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_ASSERT_FULL_CHAIN_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-boundary-report-assert-full-chain.")
+		if err != nil {
+			return err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return err
+	}
+
+	stageNames := admissionLiveRouteBoundaryReportExpectedStageNames()
+	if len(stageNames) == 0 {
+		return fmt.Errorf("boundary report stage chain empty")
+	}
+	goodReport := filepath.Join(workdir, "live_route_boundary_report.full_chain.good.json")
+	badStageReport := filepath.Join(workdir, "live_route_boundary_report.full_chain.bad_stage.json")
+	missingReport := filepath.Join(workdir, "live_route_boundary_report.full_chain.missing.json")
+	if err := os.Remove(missingReport); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("prepare missing full-chain report probe: %w", err)
+	}
+
+	report := admissionLiveRouteBoundaryReportFullChainSmokeReport(stageNames)
+	if err := writeAdmissionLiveRouteBoundaryReport(goodReport, report); err != nil {
+		return fmt.Errorf("write full-chain report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{goodReport}); err != nil {
+		return fmt.Errorf("valid full-chain boundary report rejected: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{goodReport, "extra"}); err == nil ||
+		!strings.Contains(err.Error(), "usage:") {
+		return fmt.Errorf("extra arg full-chain assertion error mismatch: %v", err)
+	}
+
+	badStage := report
+	badStage.Stages = append([]admissionLiveRouteBoundaryReportStage(nil), report.Stages...)
+	badStage.Stages[0].Passed = false
+	if err := writeAdmissionLiveRouteBoundaryReport(badStageReport, badStage); err != nil {
+		return fmt.Errorf("write bad-stage full-chain report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{badStageReport}); err == nil ||
+		!strings.Contains(err.Error(), "boundary report stage did not pass: "+stageNames[0]) {
+		return fmt.Errorf("bad-stage full-chain assertion error mismatch: %v", err)
+	}
+
+	if err := runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{missingReport}); err == nil ||
+		!strings.Contains(err.Error(), "boundary report not written") {
+		return fmt.Errorf("missing full-chain report assertion error mismatch: %v", err)
+	}
+
+	fmt.Printf("[admission-live-route-boundary-report-assert-full-chain-smoke] pass: workdir=%s stages=%d\n",
+		workdir,
+		len(stageNames),
+	)
+	return nil
+}
+
+func admissionLiveRouteBoundaryReportFullChainSmokeReport(stageNames []string) admissionLiveRouteBoundaryReport {
+	boundary := admissionLiveRouteBoundaryProjection(
+		"ready",
+		"available",
+		"all_route_organs_present",
+		nil,
+	)
+	inputs := make([]admissionLiveRouteBoundaryReportInput, 0, len(stageNames))
+	for _, stageName := range stageNames {
+		inputs = append(inputs, admissionLiveRouteBoundaryReportInput{
+			Enabled:                 true,
+			Name:                    stageName,
+			BodyInventoryStatus:     boundary.BodyInventoryStatus,
+			RouteAvailabilityStatus: boundary.RouteAvailabilityStatus,
+			RouteAvailabilityReason: boundary.RouteAvailabilityReason,
+			RouteMissingOrgans:      admissionLiveRouteMissingOrgansCopy(boundary.RouteMissingOrgans),
+		})
+	}
+	return buildAdmissionLiveRouteBoundaryReport(boundary, inputs)
 }
 
 func writeAdmissionLiveRouteBoundaryReportStageChain(w io.Writer, args []string) error {

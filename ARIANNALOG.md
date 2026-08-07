@@ -13,6 +13,17 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary full-chain smoke moved into Go
+
+The full-chain boundary report smoke is now a `metabolism` command:
+`--admission-live-route-boundary-report-assert-full-chain-smoke`. Go creates the
+valid, bad-stage, usage, and missing-report probes through the same report
+types and assertion helpers that own the boundary contract. The shell smoke is
+now a launcher only, so fixture shape and stage-chain semantics no longer live
+in shell.
+
+---
+
 ## 2026-08-07 - Route boundary full-chain assertion moved into Go
 
 The full-chain boundary report assertion is now a `metabolism` command:
