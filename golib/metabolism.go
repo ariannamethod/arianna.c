@@ -446,7 +446,7 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-drift-artifact-smoke" {
-		if err := runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke(); err != nil {
+		if err := runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke(os.Args[2:]); err != nil {
 			fmt.Println("admission-live-route-boundary-report-drift-artifact-smoke:", err)
 			os.Exit(1)
 		}

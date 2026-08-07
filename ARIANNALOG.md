@@ -13,6 +13,16 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary drift artifact smoke moved into Go
+
+The failed drift boundary report artifact smoke is now self-validating inside
+`metabolism --admission-live-route-boundary-report-drift-artifact-smoke`. Go
+writes the mismatch report, proves the failed-diagnostics assertion accepts it,
+and proves the ordinary pass assertion rejects it with `boundary report did not
+pass`. The shell smoke now only launches the Go command.
+
+---
+
 ## 2026-08-07 - Route boundary pass-assert smoke moved into Go
 
 The ordinary pass boundary report assertion smoke is now a `metabolism`
