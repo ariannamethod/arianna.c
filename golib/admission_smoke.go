@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -111,6 +112,35 @@ func runAdmissionLiveRouteBoundaryReportDriftArtifactSmoke() error {
 		strings.Join(report.Stages[0].Mismatches, ","),
 	)
 	return nil
+}
+
+func writeAdmissionLiveRouteBoundaryReportStageChain(w io.Writer, args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-stage-chain")
+	}
+	stageNames := admissionLiveRouteBoundaryReportExpectedStageNames()
+	if len(stageNames) == 0 {
+		return fmt.Errorf("boundary report stage chain empty")
+	}
+	seen := make(map[string]struct{}, len(stageNames))
+	for _, stageName := range stageNames {
+		stageName = strings.TrimSpace(stageName)
+		if stageName == "" {
+			return fmt.Errorf("boundary report stage chain contains empty stage")
+		}
+		if _, ok := seen[stageName]; ok {
+			return fmt.Errorf("boundary report stage chain duplicated: %s", stageName)
+		}
+		seen[stageName] = struct{}{}
+		if _, err := io.WriteString(w, stageName+"\n"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runAdmissionLiveRouteBoundaryReportStageChain(args []string) error {
+	return writeAdmissionLiveRouteBoundaryReportStageChain(os.Stdout, args)
 }
 
 func runAdmissionLiveRouteGateSmoke() error {

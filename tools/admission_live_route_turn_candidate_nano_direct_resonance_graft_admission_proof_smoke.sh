@@ -21,27 +21,8 @@ RESONANCE_GRAFT_CANDIDATE_STORE_LOG="$WORKDIR/live_route_candidate_admission_res
 RESONANCE_GRAFT_CANDIDATE_STORE_READER_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_candidate_store_reader_nano_direct.jsonl"
 RESONANCE_GRAFT_ADMISSION_PROOF_LOG="$WORKDIR/live_route_candidate_admission_resonance_graft_admission_proof_nano_direct.jsonl"
 BOUNDARY_REPORT="$WORKDIR/live_route_boundary_report.json"
+BOUNDARY_REPORT_STAGE_FILE="$WORKDIR/live_route_boundary_report_stages.txt"
 RUN_LOG="$WORKDIR/admission_live_route_candidate_nano_direct_chat_shadow.log"
-BOUNDARY_REPORT_STAGES=(
-    rollback_implementation
-    ledger_implementation
-    ledger_persistence
-    ledger_verification
-    admission_readiness
-    admission_permit
-    admission_seal
-    final_gate
-    resonance_intent
-    resonance_receiver
-    resonance_observation
-    resonance_graft_boundary
-    resonance_graft_preflight
-    resonance_graft_gate
-    resonance_graft_candidate
-    resonance_graft_candidate_store
-    resonance_graft_candidate_store_reader
-    resonance_graft_admission_proof
-)
 
 die() {
     echo "[admission-live-route-turn-candidate-nano-direct-resonance-graft-admission-proof-smoke] FAIL: $*" >&2
@@ -52,6 +33,17 @@ die() {
 }
 
 mkdir -p "$WORKDIR"
+
+if ! bash "$ROOT/tools/admission_live_route_boundary_report_stage_chain.sh" >"$BOUNDARY_REPORT_STAGE_FILE"; then
+    die "boundary report stage chain export failed"
+fi
+
+BOUNDARY_REPORT_STAGES=()
+while IFS= read -r stage_name; do
+    [[ -n "$stage_name" ]] || die "boundary report stage chain exported an empty stage"
+    BOUNDARY_REPORT_STAGES+=("$stage_name")
+done <"$BOUNDARY_REPORT_STAGE_FILE"
+[[ ${#BOUNDARY_REPORT_STAGES[@]} -gt 0 ]] || die "boundary report stage chain export was empty"
 
 if ! A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RESONANCE_GRAFT_CANDIDATE_STORE_READER_WORKDIR="$WORKDIR" \
     AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_RESONANCE_GRAFT_ADMISSION_PROOF_DRY_RUN=1 \
