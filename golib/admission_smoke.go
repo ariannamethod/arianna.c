@@ -176,6 +176,123 @@ func runAdmissionLiveRouteBoundaryReportAssertFullChainSmoke(args []string) erro
 	return nil
 }
 
+func runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssertSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-failed-diagnostics-assert-smoke")
+	}
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_BOUNDARY_REPORT_FAILED_DIAGNOSTICS_ASSERT_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-boundary-report-failed-diagnostics.")
+		if err != nil {
+			return err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return err
+	}
+
+	goodReport := filepath.Join(workdir, "live_route_boundary_report.failed_good.json")
+	badSchemaReport := filepath.Join(workdir, "live_route_boundary_report.bad_schema.json")
+	badTopLevelReport := filepath.Join(workdir, "live_route_boundary_report.bad_top_level.json")
+	badStageReport := filepath.Join(workdir, "live_route_boundary_report.bad_stage.json")
+	badMismatchReport := filepath.Join(workdir, "live_route_boundary_report.bad_mismatch.json")
+	badReasonReport := filepath.Join(workdir, "live_route_boundary_report.bad_reason.json")
+
+	report := admissionLiveRouteBoundaryReportFailedDiagnosticsSmokeReport()
+	assertArgs := []string{
+		goodReport,
+		"writer_receipt",
+		"body_inventory_status",
+		"route_availability_status",
+		"route_availability_reason",
+		"route_missing_organs",
+	}
+	if err := writeAdmissionLiveRouteBoundaryReport(goodReport, report); err != nil {
+		return fmt.Errorf("write failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(assertArgs); err != nil {
+		return fmt.Errorf("valid failed boundary report diagnostics rejected: %w", err)
+	}
+
+	badSchema := report
+	badSchema.Schema = "arianna.live_route_boundary_report.v0"
+	if err := writeAdmissionLiveRouteBoundaryReport(badSchemaReport, badSchema); err != nil {
+		return fmt.Errorf("write bad-schema failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{badSchemaReport, "writer_receipt", "route_missing_organs"}); err == nil ||
+		!strings.Contains(err.Error(), `boundary report schema mismatch: got "arianna.live_route_boundary_report.v0" want "arianna.live_route_boundary_report.v1"`) {
+		return fmt.Errorf("bad-schema failed-diagnostics assertion error mismatch: %v", err)
+	}
+
+	badTopLevel := report
+	badTopLevel.Passed = true
+	if err := writeAdmissionLiveRouteBoundaryReport(badTopLevelReport, badTopLevel); err != nil {
+		return fmt.Errorf("write top-level failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{badTopLevelReport, "writer_receipt", "route_missing_organs"}); err == nil ||
+		!strings.Contains(err.Error(), "boundary report did not fail") {
+		return fmt.Errorf("top-level failed-diagnostics assertion error mismatch: %v", err)
+	}
+
+	badStage := report
+	badStage.Stages = append([]admissionLiveRouteBoundaryReportStage(nil), report.Stages...)
+	badStage.Stages[0].Passed = true
+	if err := writeAdmissionLiveRouteBoundaryReport(badStageReport, badStage); err != nil {
+		return fmt.Errorf("write stage failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{badStageReport, "writer_receipt", "route_missing_organs"}); err == nil ||
+		!strings.Contains(err.Error(), "boundary report stage did not fail: writer_receipt") {
+		return fmt.Errorf("stage failed-diagnostics assertion error mismatch: %v", err)
+	}
+
+	badMismatch := report
+	badMismatch.Stages = append([]admissionLiveRouteBoundaryReportStage(nil), report.Stages...)
+	badMismatch.Stages[0].Mismatches = []string{
+		"body_inventory_status",
+		"route_availability_status",
+		"route_availability_reason",
+	}
+	if err := writeAdmissionLiveRouteBoundaryReport(badMismatchReport, badMismatch); err != nil {
+		return fmt.Errorf("write mismatch failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{badMismatchReport, "writer_receipt", "route_missing_organs"}); err == nil ||
+		!strings.Contains(err.Error(), "boundary report stage mismatch missing: writer_receipt/route_missing_organs") {
+		return fmt.Errorf("mismatch failed-diagnostics assertion error mismatch: %v", err)
+	}
+
+	badReason := report
+	badReason.Reasons = []string{"other_failure"}
+	if err := writeAdmissionLiveRouteBoundaryReport(badReasonReport, badReason); err != nil {
+		return fmt.Errorf("write reason failed-diagnostics report: %w", err)
+	}
+	if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert([]string{badReasonReport, "writer_receipt", "route_missing_organs"}); err == nil ||
+		!strings.Contains(err.Error(), "boundary mismatch reason missing: writer_receipt") {
+		return fmt.Errorf("reason failed-diagnostics assertion error mismatch: %v", err)
+	}
+
+	fmt.Printf("[admission-live-route-boundary-report-failed-diagnostics-assert-smoke] pass: workdir=%s\n", workdir)
+	return nil
+}
+
+func admissionLiveRouteBoundaryReportFailedDiagnosticsSmokeReport() admissionLiveRouteBoundaryReport {
+	boundary := admissionLiveRouteBoundaryProjection(
+		"degraded",
+		"available",
+		"optional_route_organs_missing:goldie-weight",
+		[]string{"goldie-weight"},
+	)
+	return buildAdmissionLiveRouteBoundaryReport(boundary, []admissionLiveRouteBoundaryReportInput{
+		{
+			Enabled:                 true,
+			Name:                    "writer_receipt",
+			BodyInventoryStatus:     "blocked",
+			RouteAvailabilityStatus: "unavailable",
+			RouteAvailabilityReason: "missing_route_organs:nano-weight",
+			RouteMissingOrgans:      []string{"nano-weight"},
+		},
+	})
+}
+
 func admissionLiveRouteBoundaryReportFullChainSmokeReport(stageNames []string) admissionLiveRouteBoundaryReport {
 	boundary := admissionLiveRouteBoundaryProjection(
 		"ready",

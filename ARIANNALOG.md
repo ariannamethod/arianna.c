@@ -13,6 +13,17 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary failed-diagnostics smoke moved into Go
+
+The failed compact boundary report diagnostics smoke is now a `metabolism`
+command: `--admission-live-route-boundary-report-failed-diagnostics-assert-smoke`.
+Go creates the valid failed report plus bad schema, top-level pass, passing
+stage, missing mismatch, and missing reason probes through the same report types
+and assertion helper that own the diagnostics contract. The shell smoke now only
+launches the Go command.
+
+---
+
 ## 2026-08-07 - Route boundary full-chain smoke moved into Go
 
 The full-chain boundary report smoke is now a `metabolism` command:
