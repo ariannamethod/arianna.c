@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -185,9 +186,88 @@ func TestAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssertErrorContract(t 
 	)
 }
 
+func TestAdmissionLiveRouteBoundaryReportAssertFullChainContract(t *testing.T) {
+	dir := t.TempDir()
+
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain(nil),
+		"usage: --admission-live-route-boundary-report-assert-full-chain REPORT",
+	)
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{"report.json", "extra"}),
+		"usage: --admission-live-route-boundary-report-assert-full-chain REPORT",
+	)
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{filepath.Join(dir, "missing_full_chain.json")}),
+		"boundary report not written",
+	)
+
+	validPath := filepath.Join(dir, "valid_full_chain.json")
+	writeBoundaryAssertFullChainFixture(t, validPath, nil)
+	if err := runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{validPath}); err != nil {
+		t.Fatalf("valid full-chain boundary report rejected: %v", err)
+	}
+
+	badReceiptCountPath := filepath.Join(dir, "bad_full_chain_receipts.json")
+	writeBoundaryAssertFullChainFixture(t, badReceiptCountPath, func(report *admissionLiveRouteBoundaryReport) {
+		report.ReceiptsChecked++
+	})
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{badReceiptCountPath}),
+		"boundary report receipt count mismatch",
+	)
+
+	missingStagePath := filepath.Join(dir, "missing_full_chain_stage.json")
+	writeBoundaryAssertFullChainFixture(t, missingStagePath, func(report *admissionLiveRouteBoundaryReport) {
+		report.Stages = report.Stages[:len(report.Stages)-1]
+	})
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{missingStagePath}),
+		"boundary report stage missing: resonance_graft_admission_proof",
+	)
+
+	failedStagePath := filepath.Join(dir, "failed_full_chain_stage.json")
+	writeBoundaryAssertFullChainFixture(t, failedStagePath, func(report *admissionLiveRouteBoundaryReport) {
+		report.Stages[0].Passed = false
+	})
+	requireBoundaryAssertError(t,
+		runAdmissionLiveRouteBoundaryReportAssertFullChain([]string{failedStagePath}),
+		"boundary report stage did not pass: rollback_implementation",
+	)
+}
+
 func writeBoundaryAssertFixture(t *testing.T, path string, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatalf("write boundary assertion fixture %s: %v", path, err)
+	}
+}
+
+func writeBoundaryAssertFullChainFixture(t *testing.T, path string, mutate func(*admissionLiveRouteBoundaryReport)) {
+	t.Helper()
+	stageNames := admissionLiveRouteBoundaryReportExpectedStageNames()
+	stages := make([]admissionLiveRouteBoundaryReportStage, 0, len(stageNames))
+	for _, name := range stageNames {
+		stages = append(stages, admissionLiveRouteBoundaryReportStage{
+			Name:   name,
+			Passed: true,
+		})
+	}
+	report := admissionLiveRouteBoundaryReport{
+		Schema:          admissionLiveRouteBoundaryReportSchema,
+		Passed:          true,
+		ReceiptsChecked: len(stages),
+		Boundary:        admissionLiveRouteBoundary{},
+		Stages:          stages,
+	}
+	if mutate != nil {
+		mutate(&report)
+	}
+	raw, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal boundary assertion fixture %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatalf("write boundary assertion fixture %s: %v", path, err)
 	}
 }

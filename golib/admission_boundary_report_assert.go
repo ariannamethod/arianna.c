@@ -50,6 +50,20 @@ func runAdmissionLiveRouteBoundaryReportAssert(args []string) error {
 	return nil
 }
 
+func runAdmissionLiveRouteBoundaryReportAssertFullChain(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: --admission-live-route-boundary-report-assert-full-chain REPORT")
+	}
+	stageNames := admissionLiveRouteBoundaryReportExpectedStageNames()
+	if len(stageNames) == 0 {
+		return fmt.Errorf("boundary report stage chain empty")
+	}
+	assertArgs := make([]string, 0, 2+len(stageNames))
+	assertArgs = append(assertArgs, args[0], strconv.Itoa(len(stageNames)))
+	assertArgs = append(assertArgs, stageNames...)
+	return runAdmissionLiveRouteBoundaryReportAssert(assertArgs)
+}
+
 func runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(args []string) error {
 	if len(args) < 3 {
 		return fmt.Errorf("usage: --admission-live-route-boundary-report-failed-diagnostics-assert REPORT STAGE EXPECTED_MISMATCH [EXPECTED_MISMATCH...]")

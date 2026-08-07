@@ -13,6 +13,17 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-07 - Route boundary full-chain assertion moved into Go
+
+The full-chain boundary report assertion is now a `metabolism` command:
+`--admission-live-route-boundary-report-assert-full-chain REPORT`. Go builds the
+expected receipt count and stage argv from the canonical stage-chain function,
+then delegates to the structured boundary assertion. The shell helper is now only
+a thin CLI wrapper, so full-chain consumers no longer rebuild the canonical order
+in shell at all.
+
+---
+
 ## 2026-08-07 - Route boundary full-chain assertion has one consumer helper
 
 Full-chain boundary report consumers no longer need to read the canonical stage
