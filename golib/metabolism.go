@@ -397,7 +397,7 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-chat-smoke" {
-		if err := runAdmissionLiveRouteChatSmoke(); err != nil {
+		if err := runAdmissionLiveRouteChatSmoke(os.Args[2:]); err != nil {
 			fmt.Println("admission-live-route-chat-smoke:", err)
 			os.Exit(1)
 		}

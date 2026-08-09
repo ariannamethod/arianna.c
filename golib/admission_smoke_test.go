@@ -124,7 +124,7 @@ func TestAdmissionLiveRouteChatSmokeWritesDryRunReceipt(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "live-route-chat.jsonl")
 	t.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
 
-	if err := runAdmissionLiveRouteChatSmoke(); err != nil {
+	if err := runAdmissionLiveRouteChatSmoke(nil); err != nil {
 		t.Fatal(err)
 	}
 

@@ -13,6 +13,16 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-09 - Live route chat smoke moved into Go
+
+The chat dry-run route smoke now owns its scratch/log path, shadow admission
+mode, live-route-choice dry-run flag, typed `chorus-identity` receipt checks,
+dry-run surface line, and non-mutating scratch-state proof inside
+`metabolism --admission-live-route-chat-smoke`. The shell smoke now only
+launches the Go-owned contract.
+
+---
+
 ## 2026-08-07 - Live route gate smoke moved into Go
 
 The route-plan admission gate smoke now bootstraps its own scratch/log path,
