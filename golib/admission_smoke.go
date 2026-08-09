@@ -647,7 +647,7 @@ func runAdmissionLiveRouteGateSmoke(args []string) error {
 	if err := coverage.validate(); err != nil {
 		return err
 	}
-	hits, err := admissionLiveRouteGateSmokeDurableStateHits(workdir)
+	hits, err := admissionLiveRouteSmokeDurableStateHits(workdir)
 	if err != nil {
 		return err
 	}
@@ -805,7 +805,7 @@ func (c admissionLiveRouteGateSmokeCoverage) validate() error {
 	return nil
 }
 
-func admissionLiveRouteGateSmokeDurableStateHits(root string) ([]string, error) {
+func admissionLiveRouteSmokeDurableStateHits(root string) ([]string, error) {
 	var hits []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -825,11 +825,17 @@ func admissionLiveRouteGateSmokeDurableStateHits(root string) ([]string, error) 
 	return hits, err
 }
 
-func runAdmissionLiveRouteChatSmoke() error {
-	logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG"))
-	if logPath == "" {
-		return fmt.Errorf("AM_DREAM_ADMISSION_LOG is required")
+func runAdmissionLiveRouteChatSmoke(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: --admission-live-route-chat-smoke")
 	}
+	workdir, logPath, err := admissionLiveRouteChatSmokePaths()
+	if err != nil {
+		return err
+	}
+	restoreEnv := admissionLiveRouteChatSmokeEnv(logPath)
+	defer restoreEnv()
+
 	if mode := dreamAdmissionMode(); mode != dreamAdmissionShadow {
 		return fmt.Errorf("AM_DREAM_ADMISSION=%q, want %q", mode, dreamAdmissionShadow)
 	}
@@ -867,7 +873,8 @@ func runAdmissionLiveRouteChatSmoke() error {
 	}
 	line := chatLiveRouteChoiceDryRunLine(r.candidate)
 	if !strings.Contains(line, "live-route dry-run:") || !strings.Contains(line, "class=identity") ||
-		!strings.Contains(line, "route=chorus") || !strings.Contains(line, "passed=true") {
+		!strings.Contains(line, "route=chorus") || !strings.Contains(line, "source=chorus") ||
+		!strings.Contains(line, "expected=chorus") || !strings.Contains(line, "passed=true") {
 		return fmt.Errorf("bad chat dry-run line: %q", line)
 	}
 
@@ -883,17 +890,101 @@ func runAdmissionLiveRouteChatSmoke() error {
 	if err := json.Unmarshal([]byte(lines[0]), &got); err != nil {
 		return err
 	}
+	if got.Schema != "arianna.dream_candidate.v1" || got.Mode != dreamAdmissionShadow || got.Accepted {
+		return fmt.Errorf("bad logged chat dry-run candidate: %+v", got)
+	}
 	if got.Admission == nil || got.Admission.LiveRouteChoice == nil || !got.Admission.LiveRouteChoiceDryRun {
 		return fmt.Errorf("logged candidate missing dry-run route choice: %+v", got.Admission)
 	}
+	if got.Admission.LiveRoutePlan == nil {
+		return fmt.Errorf("logged candidate missing live route plan: %+v", got.Admission)
+	}
 	if got.Trigger != "chorus-identity" || got.Admission.LiveRouteChoice.PromptClass != "identity" {
 		return fmt.Errorf("logged candidate lost typed route trigger: %+v", got)
+	}
+	if got.Admission.LiveRoutePlan.Schema != admissionLiveRoutePlanSchema ||
+		got.Admission.LiveRouteChoice.Schema != admissionLiveRouteChoiceSchema {
+		return fmt.Errorf("logged candidate has bad live route schemas: plan=%+v choice=%+v",
+			got.Admission.LiveRoutePlan, got.Admission.LiveRouteChoice)
+	}
+	if got.Admission.LiveRoutePlan.PromptClass != "identity" ||
+		got.Admission.LiveRoutePlan.Route != "chorus" ||
+		got.Admission.LiveRouteChoice.Route != "chorus" {
+		return fmt.Errorf("logged candidate has bad live route map: plan=%+v choice=%+v",
+			got.Admission.LiveRoutePlan, got.Admission.LiveRouteChoice)
+	}
+	hits, err := admissionLiveRouteSmokeDurableStateHits(workdir)
+	if err != nil {
+		return err
+	}
+	if len(hits) != 0 {
+		return fmt.Errorf("chat dry-run smoke wrote durable organism state: %s", strings.Join(hits, ", "))
 	}
 
 	fmt.Println(line)
 	fmt.Printf("[admission-live-route-chat-smoke] pass: log=%s route=%s prompt_class=%s\n",
 		logPath, choice.Route, choice.PromptClass)
 	return nil
+}
+
+func admissionLiveRouteChatSmokePaths() (string, string, error) {
+	if logPath := strings.TrimSpace(os.Getenv("AM_DREAM_ADMISSION_LOG")); logPath != "" {
+		workdir := filepath.Dir(logPath)
+		if workdir == "" || workdir == "." {
+			var err error
+			workdir, err = os.Getwd()
+			if err != nil {
+				return "", "", err
+			}
+		}
+		if err := os.MkdirAll(workdir, 0700); err != nil {
+			return "", "", err
+		}
+		return workdir, logPath, nil
+	}
+
+	workdir := strings.TrimSpace(os.Getenv("A2A_ADMISSION_LIVE_ROUTE_CHAT_WORKDIR"))
+	var err error
+	if workdir == "" {
+		workdir, err = os.MkdirTemp("", "arianna-live-route-chat.")
+		if err != nil {
+			return "", "", err
+		}
+	} else if err := os.MkdirAll(workdir, 0700); err != nil {
+		return "", "", err
+	}
+	return workdir, filepath.Join(workdir, "dream_admission_live_route_chat.jsonl"), nil
+}
+
+func admissionLiveRouteChatSmokeEnv(logPath string) func() {
+	type savedEnv struct {
+		value string
+		ok    bool
+	}
+	keys := []string{
+		"AM_DREAM_ADMISSION",
+		"AM_DREAM_ADMISSION_ALLOWED_SOURCES",
+		"AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN",
+		"AM_DREAM_ADMISSION_LOG",
+	}
+	saved := make(map[string]savedEnv, len(keys))
+	for _, key := range keys {
+		value, ok := os.LookupEnv(key)
+		saved[key] = savedEnv{value: value, ok: ok}
+	}
+	_ = os.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	_ = os.Setenv("AM_DREAM_ADMISSION_ALLOWED_SOURCES", "")
+	_ = os.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
+	_ = os.Setenv("AM_DREAM_ADMISSION_LOG", logPath)
+	return func() {
+		for _, key := range keys {
+			if saved[key].ok {
+				_ = os.Setenv(key, saved[key].value)
+			} else {
+				_ = os.Unsetenv(key)
+			}
+		}
+	}
 }
 
 func runAdmissionLiveRouteTurnSmoke() error {
