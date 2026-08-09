@@ -25,6 +25,27 @@ AR      ?= ar
 CFLAGS  = -O2 -Wall -Wextra -std=c11
 LDFLAGS = -lm -lpthread
 
+# DoE has packed int8 row kernels gated on compiler feature macros. Native arm64
+# builds should enable them when the host/compiler supports the ISA; keep the
+# probe scoped to doe_field so the wider Arianna build stays unchanged.
+DOE_ARM_SIMD ?= 1
+DOE_ARM_FLAGS =
+ifneq ($(filter aarch64 arm64,$(shell uname -m)),)
+  ifeq ($(DOE_ARM_SIMD),1)
+    DOE_ARM_HAS_DOT := $(shell echo | $(CC) -dM -E - 2>/dev/null | grep -c __ARM_FEATURE_DOTPROD)
+    ifeq ($(DOE_ARM_HAS_DOT),0)
+      DOE_ARM_MARCH := $(shell f=""; \
+        { grep -qwm1 asimddp /proc/cpuinfo 2>/dev/null || \
+          [ "$$(sysctl -n hw.optional.arm.FEAT_DotProd 2>/dev/null)" = 1 ]; } && f="$$f+dotprod"; \
+        { grep -qwm1 i8mm /proc/cpuinfo 2>/dev/null || \
+          [ "$$(sysctl -n hw.optional.arm.FEAT_I8MM 2>/dev/null)" = 1 ]; } && f="$$f+i8mm"; \
+        [ -n "$$f" ] && echo "-march=armv8.2-a$$f")
+      DOE_ARM_FLAGS ?= $(shell [ -n "$(DOE_ARM_MARCH)" ] && \
+        $(CC) $(DOE_ARM_MARCH) -E -x c /dev/null >/dev/null 2>&1 && echo "$(DOE_ARM_MARCH)")
+    endif
+  endif
+endif
+
 UNAME := $(shell uname)
 
 # ── CUDA: OFF by default ───────────────────────────────────────────────────
@@ -113,7 +134,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_boundary_report_assert_full_chain_smoke admission-live-route-boundary-report-assert-full-chain-smoke
 .PHONY: admission_live_route_boundary_report_failed_diagnostics_assert_smoke admission-live-route-boundary-report-failed-diagnostics-assert-smoke
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
-.PHONY: notorch_qmatvec_test notorch-qmatvec-test
+.PHONY: notorch_qmatvec_test notorch-qmatvec-test doe_qmatvec_test doe-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -140,6 +161,13 @@ notorch_qmatvec_test: $(LIBNOTORCH) tools/test_notorch_qmatvec.c tools/test_noto
 	    tools/test_notorch_qpool.c $(LIBNOTORCH) $(BLAS_LIBS) $(LDFLAGS) \
 	    -o /tmp/arianna-test-notorch-qpool
 	/tmp/arianna-test-notorch-qpool
+
+doe-qmatvec-test: doe_qmatvec_test
+
+doe_qmatvec_test: tools/test_doe_qmatvec.c doe/doe.c
+	$(CC) $(CFLAGS) $(DOE_ARM_FLAGS) -Wno-unused-function -Wno-unused-variable \
+	    tools/test_doe_qmatvec.c -lm -lpthread -o /tmp/arianna-test-doe-qmatvec
+	/tmp/arianna-test-doe-qmatvec
 
 ariannamethod/notorch/notorch_cuda.o: ariannamethod/notorch/notorch_cuda.cu \
                                       ariannamethod/notorch/notorch_cuda.h
@@ -296,7 +324,7 @@ chorus:
 # --lora-alpha 0 = parliament dormant (plain notorch-native forward, the #3 bridge),
 # --lora-alpha 0.1 = the parliament seats (experts vote / mitosis / apoptosis).
 doe_field:
-	cc -O2 doe/doe.c -lm -lpthread -o doe_field
+	$(CC) -O2 $(DOE_ARM_FLAGS) doe/doe.c -lm -lpthread -o doe_field
 	@echo "[build] doe_field (notorch-native nano engine + LoRA parliament, CPU, vendored)"
 
 # ── body-smoke — executable contract for the shared body. Builds every local
