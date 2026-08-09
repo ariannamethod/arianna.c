@@ -39,6 +39,9 @@ echo "[admission-live-route-turn-route-boundary-smoke] scratch=$WORKDIR"
 
 if ! (cd "$WORKDIR" && \
     AM_BODY_INVENTORY_ROOT="$BODYDIR" \
+    A2A_JANUS_MODEL="weights/arianna_v4_sft_f16.gguf" \
+    A2A_RESONANCE_MODEL="weights/arianna_resonance_v3_f16.gguf" \
+    A2A_NANO_MODEL="weights/nano_arianna_f16.gguf" \
     AM_LIVE_ROUTE_TURN_GENERATION_JOB_DRY_RUN=1 \
     AM_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE=1 \
     AM_LIVE_ROUTE_TURN_CANDIDATE_SHELL_DRY_RUN=1 \

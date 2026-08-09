@@ -4626,3 +4626,19 @@ the failed generation job: `body_inventory_status`, `route_availability_status`,
 with no `job-<hash>`, `shell-<hash>`, `execution-<hash>`, or `adapter-<hash>` minted for an absent body. The
 `admission-live-route-turn-route-boundary-smoke` target proves the boundary across all four receipts from an empty
 scratch body; `make body-smoke` includes that proof in the main body harness.
+
+**Follow-up, 2026-08-10 - Arianna inherits notorch's persistent packed-matvec workers.**
+Vendored `ariannamethod/notorch` is synced to the current canonical notorch qmatvec/qpool line, so Janus and Resonance
+no longer need to pay a fresh pthread create/join cycle for every large packed projection. The import is not blind:
+Arianna's allocation/reshape hardening stays in place, and the local F16 NEON row kernel is kept until canon notorch
+carries an equivalent path. `make notorch-qmatvec-test` adds the local guardrail: F32/F16/Q4_0/Q5_0/Q8_0/Q4_K/Q6_K are
+checked against the dequantized BLAS oracle, all advertised i8 fast paths are checked against f32-dequant output, and
+the qpool harness proves threaded packed matvec output is byte-identical to the single-thread reference. DoE/parliament
+vendor movement is deliberately left as a separate admission layer, because its runtime contract is wider than this
+worker-pool foundation patch.
+
+The full body harness also caught a test-isolation issue: negative route-inventory smokes inherited absolute
+`A2A_*_MODEL` paths from the parent environment and could accidentally see the real nano weight while proving an empty
+scratch body. Those smokes now override the model paths to deliberately-missing relative files before checking the
+fail-closed `chorus-binary,nano-weight` boundary. With real shared GGUFs passed explicitly, `make body-smoke` reaches
+Janus, Resonance, nano, and chorus runtime probes from scratch and passes.

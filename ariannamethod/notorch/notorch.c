@@ -7,9 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <float.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BLAS BACKEND
@@ -138,18 +140,18 @@ static float rand_uniform(void) {
     return (float)xorshift32() / 4294967296.0f;
 }
 
-static int nt_count2(int a, int b, size_t* out) {
-    if (!out || a <= 0 || b <= 0) return 0;
-    size_t aa = (size_t)a;
-    size_t bb = (size_t)b;
-    if (aa > SIZE_MAX / bb) return 0;
-    *out = aa * bb;
+static int nt_checked_mul_size(size_t a, size_t b, size_t *out) {
+    if (!out) return 0;
+    if (a != 0 && b > SIZE_MAX / a) return 0;
+    *out = a * b;
     return 1;
 }
 
 static float* nt_calloc2_float(int a, int b) {
+    if (a <= 0 || b <= 0) return NULL;
     size_t n = 0;
-    if (!nt_count2(a, b, &n)) return NULL;
+    if (!nt_checked_mul_size((size_t)a, (size_t)b, &n)) return NULL;
+    if (n > NT_MAX_ELEMENTS) return NULL;
     return (float*)calloc(n, sizeof(float));
 }
 
@@ -164,15 +166,15 @@ static void compute_strides(nt_tensor* t) {
         t->stride[i] = t->stride[i + 1] * t->shape[i + 1];
 }
 
-nt_tensor* nt_tensor_new(int len) {
-    if (len <= 0 || len > NT_MAX_ELEMENTS) return NULL;
+nt_tensor* nt_tensor_new(size_t len) {
+    if (len == 0 || len > NT_MAX_ELEMENTS) return NULL;
     nt_tensor* t = (nt_tensor*)calloc(1, sizeof(nt_tensor));
     if (!t) return NULL;
     t->data = (float*)calloc(len, sizeof(float));
     if (!t->data) { free(t); return NULL; }
-    t->len = len;
+    t->len = (int)len;
     t->ndim = 1;
-    t->shape[0] = len;
+    t->shape[0] = (int)len;
     t->stride[0] = 1;
     t->refcount = 1;
     return t;
@@ -180,9 +182,9 @@ nt_tensor* nt_tensor_new(int len) {
 
 nt_tensor* nt_tensor_new2d(int rows, int cols) {
     if (rows <= 0 || cols <= 0) return NULL;
-    size_t total_sz = 0;
-    if (!nt_count2(rows, cols, &total_sz) || total_sz > NT_MAX_ELEMENTS) return NULL;
-    int total = (int)total_sz;
+    size_t total = 0;
+    if (!nt_checked_mul_size((size_t)rows, (size_t)cols, &total)) return NULL;
+    if (total > NT_MAX_ELEMENTS) return NULL;
     nt_tensor* t = nt_tensor_new(total);
     if (!t) return NULL;
     t->ndim = 2;
@@ -194,14 +196,12 @@ nt_tensor* nt_tensor_new2d(int rows, int cols) {
 
 nt_tensor* nt_tensor_new_shape(const int* shape, int ndim) {
     if (ndim <= 0 || ndim > NT_MAX_DIMS) return NULL;
-    size_t total_sz = 1;
+    size_t total = 1;
     for (int i = 0; i < ndim; i++) {
         if (shape[i] <= 0) return NULL;
-        if (total_sz > SIZE_MAX / (size_t)shape[i]) return NULL;
-        total_sz *= (size_t)shape[i];
-        if (total_sz > NT_MAX_ELEMENTS) return NULL;
+        if (!nt_checked_mul_size(total, (size_t)shape[i], &total)) return NULL;
+        if (total > NT_MAX_ELEMENTS) return NULL;
     }
-    int total = (int)total_sz;
     nt_tensor* t = nt_tensor_new(total);
     if (!t) return NULL;
     t->ndim = ndim;
@@ -266,12 +266,13 @@ void nt_kaiming_uniform_init(nt_tensor* t, int fan_in) {
 
 int nt_tensor_reshape(nt_tensor* t, const int* new_shape, int new_ndim) {
     if (!t || new_ndim <= 0 || new_ndim > NT_MAX_DIMS) return -1;
-    size_t total_sz = 1;
+    size_t total = 1;
     for (int i = 0; i < new_ndim; i++) {
-        if (new_shape[i] <= 0 || total_sz > SIZE_MAX / (size_t)new_shape[i]) return -1;
-        total_sz *= (size_t)new_shape[i];
+        if (new_shape[i] <= 0) return -1;
+        if (!nt_checked_mul_size(total, (size_t)new_shape[i], &total)) return -1;
+        if (total > NT_MAX_ELEMENTS) return -1;
     }
-    if (total_sz > NT_MAX_ELEMENTS || (int)total_sz != t->len) return -1;
+    if (total != (size_t)t->len) return -1;
     t->ndim = new_ndim;
     for (int i = 0; i < new_ndim; i++) t->shape[i] = new_shape[i];
     compute_strides(t);
@@ -311,6 +312,9 @@ void nt_tape_clear(void) {
             nt_tensor_free(g_tape.entries[i].grad);
             g_tape.entries[i].grad = NULL;
         }
+        /* Reset frozen flag — defense-in-depth so reused slots can't leak
+         * frozen=1 from prior session into ops that don't init it explicitly. */
+        g_tape.entries[i].frozen = 0;
     }
     g_tape.count = 0;
     g_tape.active = 0;
@@ -355,6 +359,7 @@ int nt_tape_record(nt_tensor* output, int op, int p1, int p2, float aux) {
     e->aux2 = 0;
     e->is_param = 0;
     e->no_decay = 0;
+    e->frozen = 0;  /* clear leftover from prior tape session sharing this slot */
     g_tape.count++;
     return idx;
 }
@@ -374,6 +379,7 @@ int nt_tape_record3(nt_tensor* output, int op, int p1, int p2, int p3, float aux
     e->aux2 = aux2;
     e->is_param = 0;
     e->no_decay = 0;
+    e->frozen = 0;  /* clear leftover from prior tape session sharing this slot */
     g_tape.count++;
     return idx;
 }
@@ -395,6 +401,7 @@ int nt_tape_record4(nt_tensor* output, int op, int p1, int p2, int p3, float aux
     e->aux4 = aux4;
     e->is_param = 0;
     e->no_decay = 0;
+    e->frozen = 0;  /* clear leftover from prior tape session sharing this slot */
     g_tape.count++;
     return idx;
 }
@@ -413,6 +420,7 @@ int nt_tape_param(nt_tensor* param) {
     e->aux = 0;
     e->aux2 = 0;
     e->is_param = 1;
+    e->frozen = 0;  /* clear leftover from prior tape session sharing this slot */
     e->no_decay = 0;
     e->frozen = 0;       // explicit reset — prevents sticky frozen flag from
                          // a previous nt_tape_param_frozen() that reused this slot.
@@ -478,23 +486,6 @@ int nt_tape_param_frozen(nt_tensor* param) {
     // Chuck slots stay 1:1 with truly trainable params registered via nt_tape_param().
     g_tape.count++;
     return idx;
-}
-
-// Find tape entry by tensor pointer
-static int tape_find(nt_tensor* t) {
-    if (!t) return -1;
-    for (int i = g_tape.count - 1; i >= 0; i--)
-        if (g_tape.entries[i].output && g_tape.entries[i].output->data == t->data)
-            return i;
-    return -1;
-}
-
-// Ensure tensor is on tape (record as leaf if not)
-static int tape_ensure(nt_tensor* t) {
-    if (!t || !g_tape.active) return -1;
-    int idx = tape_find(t);
-    if (idx >= 0) return idx;
-    return nt_tape_record(t, NT_OP_NONE, -1, -1, 0);
 }
 
 // Accumulate gradient into a tape entry
@@ -758,6 +749,51 @@ void nt_tape_backward(int loss_idx) {
             break;
         }
 
+        case NT_OP_RELU: {
+            /* y = max(0, x); dy/dx = (y > 0) ? 1 : 0  (y>0 ⟺ x>0) */
+            if (e->parent1 >= 0) {
+                float* gx = (float*)calloc(out_len, sizeof(float));
+                if (gx) {
+                    for (int i = 0; i < out_len; i++) {
+                        gx[i] = (e->output->data[i] > 0.0f) ? dout[i] : 0.0f;
+                    }
+                    tape_acc_grad(e->parent1, gx, out_len);
+                }
+                free(gx);
+            }
+            break;
+        }
+
+        case NT_OP_SEQ_GATE: {
+            /* out[t,d] = x[t,d] * g[t,gi];
+             * dx[t,d] = dout[t,d] * g[t,gi];  dg[t,gi] = Σ_d dout[t,d] * x[t,d] */
+            if (e->parent1 >= 0 && e->parent2 >= 0) {
+                nt_tape_entry* px = &g_tape.entries[e->parent1];
+                nt_tape_entry* pg = &g_tape.entries[e->parent2];
+                int T = (int)e->aux, nm = (int)e->aux2, gi = (int)e->aux3;
+                int B = (T > 0) ? out_len / T : 0;
+                nt_tensor_sync_cpu(px->output);
+                nt_tensor_sync_cpu(pg->output);
+                float* dx = (float*)calloc(out_len, sizeof(float));
+                float* dg = (float*)calloc(pg->output->len, sizeof(float));
+                if (dx && dg) {
+                    for (int t = 0; t < T; t++) {
+                        float gv = pg->output->data[t * nm + gi];
+                        float acc = 0.0f;
+                        for (int d = 0; d < B; d++) {
+                            dx[t * B + d] = dout[t * B + d] * gv;
+                            acc += dout[t * B + d] * px->output->data[t * B + d];
+                        }
+                        dg[t * nm + gi] = acc;
+                    }
+                    tape_acc_grad(e->parent1, dx, out_len);
+                    tape_acc_grad(e->parent2, dg, pg->output->len);
+                }
+                free(dx); free(dg);
+            }
+            break;
+        }
+
         case NT_OP_SCALE_BY_T: {
             /* y = a[0] * x; gx = a[0] * dout; ga = sum(dout * x) */
             if (e->parent1 >= 0 && e->parent2 >= 0) {
@@ -808,7 +844,7 @@ void nt_tape_backward(int loss_idx) {
                  * after CE 3d46007 + MUL/SILU 8ab5062): backward below reads
                  * px->output->data and gamma_data on CPU side. In GPU mode
                  * the mirror is stale → garbage gx → NaN explosion. Verified
-                 * neo 2026-05-14 on nanollama-notorch SFT: 27 RMSNorms per
+                 * 2026-05-14 on nanollama-notorch SFT: 27 RMSNorms per
                  * forward exploded at step ~40, lr=1e-4 (same shape as
                  * Resonance pre-fix lr=1e-4 step 60 explosion). */
                 nt_tensor_sync_cpu(px->output);
@@ -915,8 +951,8 @@ void nt_tape_backward(int loss_idx) {
                 int T = (int)e->aux;
                 int D = (int)e->aux2;
                 int wte_rows = pwte->output->ndim >= 2 ? pwte->output->shape[0] : pwte->output->len / D;
-                int seqemb_done_gpu = 0;
 #ifdef USE_CUDA
+                int seqemb_done_gpu = 0;
                 /* GPU bw — only when no WPE branch (parent2 < 0). WPE handled CPU. */
                 if (g_use_gpu && e->parent2 < 0) {
                     float* d_dwte = gpu_scratch(3, pwte->output->len);
@@ -1091,7 +1127,7 @@ void nt_tape_backward(int loss_idx) {
                 float* gamma_data = NULL;
                 if (has_gamma) gamma_data = g_tape.entries[e->parent2].output->data;
 
-                float* gx = nt_calloc2_float(T, D);
+                float* gx = (float*)calloc((size_t)T * D, sizeof(float));
                 float* gg = has_gamma ? (float*)calloc(D, sizeof(float)) : NULL;
                 if (gx) {
                     float* Xrn = px->output->data;
@@ -1137,9 +1173,9 @@ void nt_tape_backward(int loss_idx) {
                 int T = (int)e->aux;
                 int D = (int)e->aux2;
                 float sc = 1.0f / sqrtf((float)D);
-                float* dq = nt_calloc2_float(T, D);
-                float* dk = nt_calloc2_float(T, D);
-                float* dv = nt_calloc2_float(T, D);
+                float* dq = (float*)calloc((size_t)T * D, sizeof(float));
+                float* dk = (float*)calloc((size_t)T * D, sizeof(float));
+                float* dv = (float*)calloc((size_t)T * D, sizeof(float));
                 if (dq && dk && dv) {
                     for (int i = 0; i < T; i++) {
                         float* qi = pq->output->data + i * D;
@@ -1200,9 +1236,9 @@ void nt_tape_backward(int loss_idx) {
                 int D = e->output->len / T;
                 int n_heads = D / head_dim;
                 float sc = 1.0f / sqrtf((float)head_dim);
-                float* dq = nt_calloc2_float(T, D);
-                float* dk = nt_calloc2_float(T, D);
-                float* dv = nt_calloc2_float(T, D);
+                float* dq = (float*)calloc((size_t)T * D, sizeof(float));
+                float* dk = (float*)calloc((size_t)T * D, sizeof(float));
+                float* dv = (float*)calloc((size_t)T * D, sizeof(float));
                 int mh_done_gpu = 0;
 #ifdef USE_CUDA
                 /* GPU backward: kernel needs softmaxed scores. Forward did not
@@ -1253,7 +1289,7 @@ void nt_tape_backward(int loss_idx) {
                  * ds, dq, dk. Without sync, GPU-resident mirrors are stale
                  * (calloc-zero) → ds = attn * (d_attn - dot_da) * sc = 0 →
                  * dq, dk accumulate zero → wq, wk LoRA targets receive no
-                 * grad (verified neo 2026-05-14 with NT_DISABLE_MH_GPU=1).
+                 * grad (verified 2026-05-14 with NT_DISABLE_MH_GPU=1).
                  * dv survives because it uses dout, not q/k. */
                 nt_tensor_sync_cpu(pq->output);
                 nt_tensor_sync_cpu(pk->output);
@@ -1324,9 +1360,9 @@ void nt_tape_backward(int loss_idx) {
                 int KV_D = n_kv_heads * head_dim;
                 int gqa_ratio = n_heads / n_kv_heads;
                 float sc = 1.0f / sqrtf((float)head_dim);
-                float* dq = nt_calloc2_float(T, Q_D);
-                float* dk = nt_calloc2_float(T, KV_D);
-                float* dv = nt_calloc2_float(T, KV_D);
+                float* dq = (float*)calloc((size_t)T * Q_D, sizeof(float));
+                float* dk = (float*)calloc((size_t)T * KV_D, sizeof(float));
+                float* dv = (float*)calloc((size_t)T * KV_D, sizeof(float));
                 if (dq && dk && dv) {
                     for (int h = 0; h < n_heads; h++) {
                         int kv_h = h / gqa_ratio;
@@ -1407,11 +1443,11 @@ void nt_tape_backward(int loss_idx) {
                 long wra_total = (long)nr * n_embd * rank;
 
                 float* dwr = (float*)calloc(combined_len, sizeof(float));
-                float* dx  = nt_calloc2_float(T, n_embd);
-                float* dv  = nt_calloc2_float(T, out_dim);
+                float* dx  = (float*)calloc((long)T * n_embd, sizeof(float));
+                float* dv  = (float*)calloc((long)T * out_dim, sizeof(float));
 
-                int rrlr_bw_gpu = 0;
 #ifdef USE_CUDA
+                int rrlr_bw_gpu = 0;
                 if (g_use_gpu && dwr && dx && dv) {
                     /* Recompute U and scores on GPU (forward did not persist
                      * across tape boundary cleanly — this is cheap: H·T·R + H·T·T floats). */
@@ -1544,6 +1580,148 @@ void nt_tape_backward(int loss_idx) {
             break;
         }
 
+        case NT_OP_RRPRAM_BCAST: {
+            /* Broadcast RRPRAM backward (canonical Janus scale included).
+             * Forward: mid = Σ_t x·Wr_a (broadcast); raw_s = mid·Wr_b (per layer);
+             *          score = raw_s * sc, sc = 1/sqrt(D);
+             *          attn[i,:] = softmax_causal(score)[0..i]; out[i] = Σ attn·v.
+             * d_v[j,h,d] += Σ_i attn[i,j] · dout[i,h,d]
+             * d_attn[i,j] = Σ_d dout[i,h,d] · v[j,h,d]
+             * d_score[j] = Σ_i softmax_bwd(attn[i],d_attn[i])[j]   (only j ≤ i)
+             * d_raw_s[j] = d_score[j] * sc                          (chain rule through scale)
+             * d_mid[r] = Σ_j d_raw_s[j] · Wr_b[h,r,j]
+             * d_Wr_b[h,r,j] = mid[r] · d_raw_s[j]
+             * d_x[t,e] += Σ_r d_mid[r] · Wr_a[h,e,r]   (broadcast — same dxe added to every t)
+             * d_Wr_a[h,e,r] += Σ_t x[t,e] · d_mid[r]
+             */
+            if (e->parent1 >= 0 && e->parent2 >= 0 && e->parent3 >= 0) {
+                nt_tape_entry* pwr = &g_tape.entries[e->parent1];
+                nt_tape_entry* px  = &g_tape.entries[e->parent2];
+                nt_tape_entry* pv  = &g_tape.entries[e->parent3];
+                int T = (int)e->aux; int n_embd = (int)e->aux2;
+                int nr = (int)e->aux3;
+                int rank = (int)e->aux4;  /* aux4 = rank, head_dim = E/H */
+                int hd = n_embd / nr;
+                int out_dim = nr * hd;
+                long combined_len = pwr->output->len;
+                int ctx_T = (int)(combined_len / ((long)nr * rank) - n_embd);
+                long wra_total = (long)nr * n_embd * rank;
+                float sc = 1.0f / sqrtf((float)hd);
+
+#ifdef USE_CUDA
+                nt_tensor_ensure_cpu(pwr->output);
+                nt_tensor_ensure_cpu(px->output);
+                nt_tensor_ensure_cpu(pv->output);
+                nt_tensor_ensure_cpu(e->grad);
+#endif
+
+                float* dwr = (float*)calloc(combined_len, sizeof(float));
+                float* dx  = (float*)calloc((long)T * n_embd, sizeof(float));
+                float* dv  = (float*)calloc((long)T * out_dim, sizeof(float));
+
+                float* mid_buf       = (float*)malloc(rank * sizeof(float));
+                float* d_mid_buf     = (float*)malloc(rank * sizeof(float));
+                float* all_scores    = (float*)malloc(T  * sizeof(float));
+                float* attn_buf      = (float*)malloc(T  * sizeof(float));
+                float* d_attn_buf    = (float*)malloc(T  * sizeof(float));
+                float* d_score_global= (float*)calloc(T,   sizeof(float));
+
+                float* dout = e->grad ? e->grad->data : NULL;
+
+                if (dwr && dx && dv && mid_buf && d_mid_buf && all_scores &&
+                    attn_buf && d_attn_buf && d_score_global && dout) {
+                    for (int h = 0; h < nr; h++) {
+                        long wr_a_base = (long)h * n_embd * rank;
+                        long wr_b_base = wra_total + (long)h * rank * ctx_T;
+                        int  v_off     = h * hd;
+
+                        for (int r = 0; r < rank; r++) mid_buf[r] = 0.0f;
+                        for (int t = 0; t < T; t++) {
+                            const float* xt = px->output->data + (long)t * n_embd;
+                            for (int e2 = 0; e2 < n_embd; e2++) {
+                                float xe = xt[e2];
+                                const float* wa_row = pwr->output->data + wr_a_base + (long)e2 * rank;
+                                for (int r = 0; r < rank; r++) mid_buf[r] += xe * wa_row[r];
+                            }
+                        }
+
+                        for (int j = 0; j < T; j++) {
+                            float s = 0.0f;
+                            for (int r = 0; r < rank; r++) {
+                                s += mid_buf[r] * pwr->output->data[wr_b_base + (long)r * ctx_T + j];
+                            }
+                            all_scores[j] = s * sc;
+                        }
+
+                        for (int j = 0; j < T; j++) d_score_global[j] = 0.0f;
+
+                        for (int i = 0; i < T; i++) {
+                            float mx = -1e30f;
+                            for (int j = 0; j <= i; j++) {
+                                attn_buf[j] = all_scores[j];
+                                if (attn_buf[j] > mx) mx = attn_buf[j];
+                            }
+                            float sm = 0.0f;
+                            for (int j = 0; j <= i; j++) { attn_buf[j] = expf(attn_buf[j] - mx); sm += attn_buf[j]; }
+                            if (sm > 0.0f) for (int j = 0; j <= i; j++) attn_buf[j] /= sm;
+
+                            const float* dout_i = dout + (long)i * out_dim + v_off;
+
+                            for (int j = 0; j <= i; j++) d_attn_buf[j] = 0.0f;
+                            for (int j = 0; j <= i; j++) {
+                                const float* vj = pv->output->data + (long)j * out_dim + v_off;
+                                float* dvj      = dv + (long)j * out_dim + v_off;
+                                for (int d = 0; d < hd; d++) {
+                                    d_attn_buf[j] += dout_i[d] * vj[d];
+                                    dvj[d]        += attn_buf[j] * dout_i[d];
+                                }
+                            }
+
+                            float dot_da = 0.0f;
+                            for (int j = 0; j <= i; j++) dot_da += d_attn_buf[j] * attn_buf[j];
+                            for (int j = 0; j <= i; j++) {
+                                d_score_global[j] += attn_buf[j] * (d_attn_buf[j] - dot_da);
+                            }
+                        }
+
+                        for (int r = 0; r < rank; r++) d_mid_buf[r] = 0.0f;
+                        for (int j = 0; j < T; j++) {
+                            /* Chain rule through forward scale: d_raw_s[j] = d_score[j] * sc. */
+                            float ds = d_score_global[j] * sc;
+                            if (ds == 0.0f) continue;
+                            for (int r = 0; r < rank; r++) {
+                                d_mid_buf[r] += ds * pwr->output->data[wr_b_base + (long)r * ctx_T + j];
+                                dwr[wr_b_base + (long)r * ctx_T + j] += ds * mid_buf[r];
+                            }
+                        }
+
+                        for (int t = 0; t < T; t++) {
+                            const float* xt = px->output->data + (long)t * n_embd;
+                            float* dxt = dx + (long)t * n_embd;
+                            for (int e2 = 0; e2 < n_embd; e2++) {
+                                const float* wa_row = pwr->output->data + wr_a_base + (long)e2 * rank;
+                                float* dwa_row     = dwr + wr_a_base + (long)e2 * rank;
+                                float dxe = 0.0f;
+                                float xe  = xt[e2];
+                                for (int r = 0; r < rank; r++) {
+                                    dxe         += d_mid_buf[r] * wa_row[r];
+                                    dwa_row[r]  += d_mid_buf[r] * xe;
+                                }
+                                dxt[e2] += dxe;
+                            }
+                        }
+                    }
+                    tape_acc_grad(e->parent1, dwr, combined_len);
+                    tape_acc_grad(e->parent2, dx,  (long)T * n_embd);
+                    tape_acc_grad(e->parent3, dv,  (long)T * out_dim);
+                }
+                free(dwr); free(dx); free(dv);
+                free(mid_buf); free(d_mid_buf); free(all_scores);
+                free(attn_buf); free(d_attn_buf); free(d_score_global);
+            }
+            break;
+        }
+
         case NT_OP_RRPRAM_ATTN: {
             if (e->parent1 >= 0 && e->parent2 >= 0 && e->parent3 >= 0) {
                 nt_tape_entry* pwr = &g_tape.entries[e->parent1];
@@ -1554,8 +1732,8 @@ void nt_tape_backward(int loss_idx) {
                 int out_dim = nr * hd;
                 int ctx = pwr->output->len / (nr * n_embd);
                 float* dwr = (float*)calloc(pwr->output->len, sizeof(float));
-                float* dx  = nt_calloc2_float(T, n_embd);
-                float* dv  = nt_calloc2_float(T, out_dim);
+                float* dx  = (float*)calloc((size_t)T * n_embd, sizeof(float));
+                float* dv  = (float*)calloc((size_t)T * out_dim, sizeof(float));
                 if (dwr && dx && dv) {
                     for (int h = 0; h < nr; h++) {
                         int wr_base = h * n_embd * ctx; int v_off = h * hd;
@@ -1613,8 +1791,8 @@ void nt_tape_backward(int loss_idx) {
                 nt_tape_entry* pb = &g_tape.entries[e->parent2];
                 int T = (int)e->aux;
                 int Da = pa->output->len / T; int Db = pb->output->len / T; int Dc = Da + Db;
-                float* da = nt_calloc2_float(T, Da);
-                float* db = nt_calloc2_float(T, Db);
+                float* da = (float*)calloc((size_t)T * Da, sizeof(float));
+                float* db = (float*)calloc((size_t)T * Db, sizeof(float));
                 if (da && db) {
                     for (int t = 0; t < T; t++) {
                         for (int d = 0; d < Da; d++) da[t * Da + d] = dout[t * Dc + d];
@@ -1731,7 +1909,7 @@ void nt_tape_backward(int loss_idx) {
                     }
                 }
 #endif
-                float* dl = ce_done_gpu ? NULL : nt_calloc2_float(T, V);
+                float* dl = ce_done_gpu ? NULL : (float*)calloc((size_t)T * V, sizeof(float));
                 if (!ce_done_gpu && dl && pt) {
                     for (int t = 0; t < T; t++) {
                         float* logits_t = pl->output->data + t * V;
@@ -1769,7 +1947,7 @@ void nt_tape_backward(int loss_idx) {
                  * dl computed via softmax(stale_logits) - target produces a
                  * gradient pointing at the wrong direction → feeds garbage up
                  * 13 layers → Chuck oscillates → NaN at step 40-220 regardless
-                 * of LoRA scale. Verified neo 2026-05-14 nanollama-notorch SFT.
+                 * of LoRA scale. Verified 2026-05-14 nanollama-notorch SFT.
                  * Matches Olego «не из-за оптимайзера» and Intel POST_SFT note
                  * that lr=1e-5/3e-5 plateau is lr-independent (= zero/garbage
                  * grad somewhere upstream). */
@@ -1781,7 +1959,7 @@ void nt_tape_backward(int loss_idx) {
                 float n_active = 0;
                 for (int t = 0; t < T; t++) n_active += pm->output->data[t];
                 if (n_active <= 0) break;
-                float* dl = nt_calloc2_float(T, V);
+                float* dl = (float*)calloc((size_t)T * V, sizeof(float));
                 if (dl) {
                     for (int t = 0; t < T; t++) {
                         float m = pm->output->data[t];
@@ -1823,9 +2001,9 @@ void nt_tape_backward(int loss_idx) {
                 int T = px->output->len / D_in;
 
                 // Recompute gate and value
-                float* gate = nt_calloc2_float(T, D_out);
-                float* val = nt_calloc2_float(T, D_out);
-                float* gelu_gate = nt_calloc2_float(T, D_out);
+                float* gate = (float*)calloc((size_t)T * D_out, sizeof(float));
+                float* val = (float*)calloc((size_t)T * D_out, sizeof(float));
+                float* gelu_gate = (float*)calloc((size_t)T * D_out, sizeof(float));
                 float* dx = (float*)calloc(px->output->len, sizeof(float));
                 float* dw1 = (float*)calloc(pw1->output->len, sizeof(float));
                 float* dw2 = (float*)calloc(pw2->output->len, sizeof(float));
@@ -2006,7 +2184,7 @@ void nt_tape_backward(int loss_idx) {
                 int has_beta = (e->parent3 >= 0 && e->parent3 < g_tape.count);
                 float* gamma_data = has_gamma ? g_tape.entries[e->parent2].output->data : NULL;
 
-                float* gx = nt_calloc2_float(T, D);
+                float* gx = (float*)calloc((size_t)T * D, sizeof(float));
                 float* gg = has_gamma ? (float*)calloc(D, sizeof(float)) : NULL;
                 float* gb = has_beta ? (float*)calloc(D, sizeof(float)) : NULL;
 
@@ -2224,7 +2402,7 @@ void nt_tape_backward(int loss_idx) {
                         tape_acc_grad(e->parent1, dw, rows * cols);
                     }
                     free(dw);
-                    float* dx = nt_calloc2_float(T, cols);
+                    float* dx = (float*)calloc((size_t)T * cols, sizeof(float));
                     if (dx) {
                         for (int t = 0; t < T; t++) {
                             const float* dout_t = dout + t * rows;
@@ -2640,7 +2818,8 @@ void nt_tape_accum_grads(void) {
     int param_idx = 0;
     for (int i = 0; i < g_tape.count && param_idx < g_tape.n_params; i++) {
         nt_tape_entry* e = &g_tape.entries[i];
-        if (!e->is_param || !e->grad) continue;
+        if (!e->is_param) continue;
+        if (!e->grad) { param_idx++; continue; }   // registered param w/o grad this step: keep slot alignment, skip update
         nt_adam_state* as = &g_tape.adam[param_idx];
         int n = e->output->len;
         if (!as->acc_grad) {
@@ -2833,16 +3012,7 @@ int nt_nan_guard_check(nt_nan_guard* guard) {
 // PROFILER
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#include <sys/time.h>
-
 static nt_profiler g_profiler = {0};
-static long g_alloc_bytes = 0;
-
-static double now_ms(void) {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000.0 + tv.tv_usec / 1000.0;
-}
 
 void nt_profiler_enable(void)  { g_profiler.enabled = 1; }
 void nt_profiler_disable(void) { g_profiler.enabled = 0; }
@@ -2885,7 +3055,7 @@ int nt_seq_embedding(int wte_idx, int wpe_idx, int tokens_idx, int T, int D) {
     nt_tape_entry* tok = &g_tape.entries[tokens_idx];
     int wte_rows = wte->output->ndim >= 2 ? wte->output->shape[0] : wte->output->len / D;
 
-    nt_tensor* out = nt_tensor_new(T * D);
+    nt_tensor* out = nt_tensor_new((size_t)T * D);
     if (!out) return -1;
 
 #ifdef USE_CUDA
@@ -2961,7 +3131,7 @@ int nt_seq_linear(int w_idx, int x_idx, int T) {
     int out_dim = pw->output->shape[0];
     int in_dim = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / out_dim;
 
-    nt_tensor* out = nt_tensor_new(T * out_dim);
+    nt_tensor* out = nt_tensor_new((size_t)T * out_dim);
     if (!out) return -1;
 
     int done_gpu = 0;
@@ -3015,7 +3185,7 @@ int nt_seq_linear_t(int w_idx, int x_idx, int T) {
     int W_cols = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / W_rows;
 
     /* W^T @ X[t]: input dim = W_rows, output dim = W_cols */
-    nt_tensor* out = nt_tensor_new(T * W_cols);
+    nt_tensor* out = nt_tensor_new((size_t)T * W_cols);
     if (!out) return -1;
 
     int done_gpu = 0;
@@ -3092,7 +3262,7 @@ int nt_seq_rmsnorm(int x_idx, int gamma_idx, int T, int D) {
     if (x_idx < 0 || T <= 0 || D <= 0) return -1;
     nt_tape_entry* px = &g_tape.entries[x_idx];
 
-    nt_tensor* out = nt_tensor_new(T * D);
+    nt_tensor* out = nt_tensor_new((size_t)T * D);
     if (!out) return -1;
 
     int done_gpu = 0;
@@ -3188,6 +3358,50 @@ int nt_sigmoid(int x_idx) {
     return idx;
 }
 
+int nt_relu(int x_idx) {
+    if (x_idx < 0) return -1;
+    nt_tape_entry* px = &g_tape.entries[x_idx];
+    int n = px->output->len;
+    nt_tensor* out = nt_tensor_new(n);
+    if (!out) return -1;
+    /* parent output may be GPU-resident with a stale CPU mirror — sync before
+     * read (same bug class as SIGMOID/SILU). */
+    nt_tensor_sync_cpu(px->output);
+    for (int i = 0; i < n; i++) {
+        float x = px->output->data[i];
+        out->data[i] = x > 0.0f ? x : 0.0f;
+    }
+    int idx = nt_tape_record(out, NT_OP_RELU, x_idx, -1, 0);
+    nt_tensor_free(out);
+    return idx;
+}
+
+int nt_seq_gate(int x_idx, int g_idx, int T, int nm, int gi) {
+    if (x_idx < 0 || g_idx < 0 || x_idx >= g_tape.count || g_idx >= g_tape.count) return -1;
+    if (T <= 0 || nm <= 0 || gi < 0 || gi >= nm) return -1;
+    nt_tape_entry* px = &g_tape.entries[x_idx];
+    nt_tape_entry* pg = &g_tape.entries[g_idx];
+    if (!px->output || !pg->output) return -1;
+    int n = px->output->len;
+    if (n <= 0 || (n % T) != 0) return -1;
+    if (pg->output->len != (long)T * nm) return -1;
+    int B = n / T;
+    nt_tensor* out = nt_tensor_new(n);
+    if (!out) return -1;
+    /* parents may be GPU-resident with stale CPU mirrors — sync before read. */
+    nt_tensor_sync_cpu(px->output);
+    nt_tensor_sync_cpu(pg->output);
+    for (int t = 0; t < T; t++) {
+        float gv = pg->output->data[t * nm + gi];
+        for (int d = 0; d < B; d++)
+            out->data[t * B + d] = px->output->data[t * B + d] * gv;
+    }
+    int idx = nt_tape_record4(out, NT_OP_SEQ_GATE, x_idx, g_idx, -1,
+                              (float)T, (float)nm, (float)gi, 0.0f);
+    nt_tensor_free(out);
+    return idx;
+}
+
 int nt_scale_by_t(int x_idx, int a_idx) {
     if (x_idx < 0 || a_idx < 0) return -1;
     nt_tape_entry* px = &g_tape.entries[x_idx];
@@ -3214,7 +3428,7 @@ int nt_geglu(int x_idx, int w1_idx, int w2_idx, int T, int D_in, int D_out) {
     nt_tape_entry* pw1 = &g_tape.entries[w1_idx];
     nt_tape_entry* pw2 = &g_tape.entries[w2_idx];
 
-    nt_tensor* out = nt_tensor_new(T * D_out);
+    nt_tensor* out = nt_tensor_new((size_t)T * D_out);
     if (!out) return -1;
 
     for (int t = 0; t < T; t++) {
@@ -3260,7 +3474,7 @@ int nt_causal_attention(int q_idx, int k_idx, int v_idx, int T, int D) {
     nt_tape_entry* pk = &g_tape.entries[k_idx];
     nt_tape_entry* pv = &g_tape.entries[v_idx];
     float scale = 1.0f / sqrtf((float)D);
-    nt_tensor* out = nt_tensor_new(T * D);
+    nt_tensor* out = nt_tensor_new((size_t)T * D);
     if (!out) return -1;
     for (int i = 0; i < T; i++) {
         float* qi = pq->output->data + i * D;
@@ -3298,7 +3512,7 @@ int nt_mh_causal_attention(int q_idx, int k_idx, int v_idx, int T, int head_dim)
     if (n_heads <= 0 || D % head_dim != 0) return -1;
     float scale = 1.0f / sqrtf((float)head_dim);
 
-    nt_tensor* out = nt_tensor_new(T * D);
+    nt_tensor* out = nt_tensor_new((size_t)T * D);
     if (!out) return -1;
     nt_tape_entry* pk = &g_tape.entries[k_idx];
     nt_tape_entry* pv = &g_tape.entries[v_idx];
@@ -3369,7 +3583,7 @@ int nt_gqa_causal_attention(int q_idx, int k_idx, int v_idx, int T, int head_dim
     int gqa_ratio = n_heads / n_kv_heads;
     float scale = 1.0f / sqrtf((float)head_dim);
 
-    nt_tensor* out = nt_tensor_new(T * Q_D);
+    nt_tensor* out = nt_tensor_new((size_t)T * Q_D);
     if (!out) return -1;
     nt_tape_entry* pq = &g_tape.entries[q_idx];
     nt_tape_entry* pk = &g_tape.entries[k_idx];
@@ -3412,7 +3626,7 @@ int nt_gqa_causal_attention(int q_idx, int k_idx, int v_idx, int T, int head_dim
 int nt_rrpram_attention(int wr_idx, int x_idx, int v_idx, int T, int n_embd, int nr_heads, int head_dim) {
     if (wr_idx < 0 || x_idx < 0 || v_idx < 0) return -1;
     int out_dim = nr_heads * head_dim;
-    nt_tensor* out = nt_tensor_new(T * out_dim);
+    nt_tensor* out = nt_tensor_new((size_t)T * out_dim);
     if (!out) return -1;
     nt_tape_entry* pwr = &g_tape.entries[wr_idx];
     nt_tape_entry* px  = &g_tape.entries[x_idx];
@@ -3471,7 +3685,7 @@ int nt_rrpram_lowrank_attention(int wr_combined_idx, int x_idx, int v_idx,
                                  int T, int n_embd, int nr_heads, int head_dim) {
     if (wr_combined_idx < 0 || x_idx < 0 || v_idx < 0) return -1;
     int out_dim = nr_heads * head_dim;
-    nt_tensor* out = nt_tensor_new(T * out_dim);
+    nt_tensor* out = nt_tensor_new((size_t)T * out_dim);
     if (!out) return -1;
     nt_tape_entry* pwr = &g_tape.entries[wr_combined_idx];
     nt_tape_entry* px  = &g_tape.entries[x_idx];
@@ -3569,6 +3783,120 @@ int nt_rrpram_lowrank_attention(int wr_combined_idx, int x_idx, int v_idx,
     return idx;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+ * nt_rrpram_broadcast_attention
+ *
+ * Canonical Janus broadcast pattern (per dario/infer_v4.c:218-249).
+ *
+ *   mid[h, r]   = Σ_t Σ_e x[t, e] · Wr_a[h, e, r]                  (one mid per head, layer-broadcast)
+ *   score[h, j] = Σ_r mid[h, r] · Wr_b[h, r, j]                    (one set of scores, broadcast across i)
+ *   attn[h,i,j] = softmax(scores[h])[0..i] for j ≤ i               (causal softmax per i)
+ *   out[i, h_off+d] = Σ_{j≤i} attn[h, i, j] · v[j, h_off+d]
+ * ════════════════════════════════════════════════════════════════════════ */
+int nt_rrpram_broadcast_attention(int wr_combined_idx, int x_idx, int v_idx,
+                                   int T, int n_embd, int nr_heads, int head_dim, int rank) {
+    if (wr_combined_idx < 0 || x_idx < 0 || v_idx < 0 ||
+        wr_combined_idx >= g_tape.count || x_idx >= g_tape.count || v_idx >= g_tape.count) return -1;
+    if (T < 1 || rank < 1 || nr_heads < 1 || head_dim < 1 || n_embd < 1) return -1;
+    if (nr_heads * head_dim != n_embd) return -1;  /* invariant: H*D=E */
+    int out_dim = nr_heads * head_dim;
+    nt_tensor* out = nt_tensor_new((size_t)T * out_dim);
+    if (!out) return -1;
+    nt_tape_entry* pwr = &g_tape.entries[wr_combined_idx];
+    nt_tape_entry* px  = &g_tape.entries[x_idx];
+    nt_tape_entry* pv  = &g_tape.entries[v_idx];
+    if (!pwr->output || !px->output || !pv->output) { nt_tensor_free(out); return -1; }
+    if (px->output->len != (long)T * n_embd ||
+        pv->output->len != (long)T * out_dim) {
+        nt_tensor_free(out);
+        return -1;
+    }
+
+    /* Packed weight shape: H*E*R + H*R*ctx_T = H*R*(E+ctx_T).
+     * Derive ctx_T from combined_len / (H*R) - E (rank passed by caller). */
+    long combined_len = pwr->output->len;
+    long denom = (long)nr_heads * rank;
+    if (combined_len <= 0 || (combined_len % denom) != 0) {
+        nt_tensor_free(out);
+        return -1;
+    }
+    int ctx_T = (int)(combined_len / denom - n_embd);
+    if (ctx_T < T) { nt_tensor_free(out); return -1; }  /* runtime T must fit ctx */
+    if ((long)nr_heads * rank * ((long)n_embd + ctx_T) != combined_len) {
+        nt_tensor_free(out); return -1;  /* shape mismatch */
+    }
+    long wra_total = (long)nr_heads * n_embd * rank;
+    /* Canonical Janus attention scale: 1/sqrt(D) per dario/infer_v4.c:239-244 */
+    float sc = 1.0f / sqrtf((float)head_dim);
+
+#ifdef USE_CUDA
+    nt_tensor_ensure_cpu(pwr->output);
+    nt_tensor_ensure_cpu(px->output);
+    nt_tensor_ensure_cpu(pv->output);
+#endif
+
+    float* mid_buf    = (float*)malloc(rank * sizeof(float));
+    float* all_scores = (float*)malloc(T  * sizeof(float));
+    float* attn_buf   = (float*)malloc(T  * sizeof(float));
+    if (!mid_buf || !all_scores || !attn_buf) {
+        free(mid_buf); free(all_scores); free(attn_buf); nt_tensor_free(out); return -1;
+    }
+
+    for (int h = 0; h < nr_heads; h++) {
+        long wr_a_base = (long)h * n_embd * rank;
+        long wr_b_base = wra_total + (long)h * rank * ctx_T;
+        int  v_off     = h * head_dim;
+
+        for (int r = 0; r < rank; r++) mid_buf[r] = 0.0f;
+        for (int t = 0; t < T; t++) {
+            const float* xt = px->output->data + (long)t * n_embd;
+            for (int e = 0; e < n_embd; e++) {
+                float xe = xt[e];
+                const float* wa_row = pwr->output->data + wr_a_base + (long)e * rank;
+                for (int r = 0; r < rank; r++) mid_buf[r] += xe * wa_row[r];
+            }
+        }
+
+        for (int j = 0; j < T; j++) {
+            float s = 0.0f;
+            for (int r = 0; r < rank; r++) {
+                s += mid_buf[r] * pwr->output->data[wr_b_base + (long)r * ctx_T + j];
+            }
+            all_scores[j] = s * sc;
+        }
+
+        for (int i = 0; i < T; i++) {
+            float mx = -1e30f;
+            for (int j = 0; j <= i; j++) {
+                attn_buf[j] = all_scores[j];
+                if (attn_buf[j] > mx) mx = attn_buf[j];
+            }
+            float sm = 0.0f;
+            for (int j = 0; j <= i; j++) {
+                attn_buf[j] = expf(attn_buf[j] - mx);
+                sm += attn_buf[j];
+            }
+            if (sm > 0.0f) for (int j = 0; j <= i; j++) attn_buf[j] /= sm;
+
+            float* oi = out->data + (long)i * out_dim + v_off;
+            for (int d = 0; d < head_dim; d++) oi[d] = 0.0f;
+            for (int j = 0; j <= i; j++) {
+                const float* vj = pv->output->data + (long)j * out_dim + v_off;
+                for (int d = 0; d < head_dim; d++) oi[d] += attn_buf[j] * vj[d];
+            }
+        }
+    }
+
+    free(mid_buf); free(all_scores); free(attn_buf);
+
+    /* aux4 stores RANK (not head_dim) — head_dim derivable at backward as E/H.
+     * ctx_T is derivable from combined_len / (H*rank) - n_embd. */
+    int idx = nt_tape_record4(out, NT_OP_RRPRAM_BCAST, wr_combined_idx, x_idx, v_idx,
+                              (float)T, (float)n_embd, (float)nr_heads, (float)rank);
+    nt_tensor_free(out);
+    return idx;
+}
+
 int nt_concat(int a_idx, int b_idx, int T) {
     if (a_idx < 0 || b_idx < 0) return -1;
     nt_tape_entry* pa = &g_tape.entries[a_idx];
@@ -3576,7 +3904,7 @@ int nt_concat(int a_idx, int b_idx, int T) {
     int Da = pa->output->len / T;
     int Db = pb->output->len / T;
     int Dc = Da + Db;
-    nt_tensor* out = nt_tensor_new(T * Dc);
+    nt_tensor* out = nt_tensor_new((size_t)T * Dc);
     if (!out) return -1;
     for (int t = 0; t < T; t++) {
         for (int d = 0; d < Da; d++) out->data[t * Dc + d] = pa->output->data[t * Da + d];
@@ -3699,7 +4027,7 @@ int nt_bit_seq_linear(int w_idx, int x_idx, int T) {
     int cols = pw->output->ndim >= 2 ? pw->output->shape[1] : pw->output->len / rows;
     if (rows <= 0 || cols <= 0) return -1;
 
-    nt_tensor* out = nt_tensor_new(T * rows);
+    nt_tensor* out = nt_tensor_new((size_t)T * rows);
     if (!out) return -1;
 
     float gamma_w = nt_bit_absmean(pw->output->data, rows * cols);
@@ -4224,7 +4552,7 @@ int nt_layernorm(int x_idx, int gamma_idx, int beta_idx) {
 int nt_seq_layernorm(int x_idx, int gamma_idx, int beta_idx, int T, int D) {
     if (x_idx < 0 || T <= 0 || D <= 0) return -1;
     nt_tape_entry* px = &g_tape.entries[x_idx];
-    nt_tensor* out = nt_tensor_new(T * D);
+    nt_tensor* out = nt_tensor_new((size_t)T * D);
     if (!out) return -1;
 
     for (int t = 0; t < T; t++) {
@@ -4366,7 +4694,7 @@ nt_dataloader* nt_dataloader_create(const char* text_file, nt_bpe* bpe,
     fseek(f, 0, SEEK_SET);
     char* text = (char*)malloc(fsize + 1);
     if (!text) { fclose(f); return NULL; }
-    fread(text, 1, fsize, f);
+    if (fread(text, 1, (size_t)fsize, f) != (size_t)fsize) { free(text); fclose(f); return NULL; }
     text[fsize] = 0;
     fclose(f);
 
@@ -4410,7 +4738,9 @@ nt_dataloader* nt_dataloader_from_tokens(const char* token_file,
     if (n_tokens < seq_len + 1) { fclose(f); return NULL; }
     int* tokens = (int*)malloc(n_tokens * sizeof(int));
     if (!tokens) { fclose(f); return NULL; }
-    fread(tokens, sizeof(int), n_tokens, f);
+    if (fread(tokens, sizeof(int), (size_t)n_tokens, f) != (size_t)n_tokens) {
+        free(tokens); fclose(f); return NULL;
+    }
     fclose(f);
 
     nt_dataloader* dl = (nt_dataloader*)calloc(1, sizeof(nt_dataloader));
@@ -4506,27 +4836,32 @@ nt_tensor** nt_load(const char* path, int* n_params) {
     if (!f) return NULL;
     uint32_t magic;
     int32_t n;
-    fread(&magic, 4, 1, f);
-    if (magic != NT_MAGIC) { fclose(f); return NULL; }
-    fread(&n, 4, 1, f);
-    if (n <= 0 || n > NT_TAPE_MAX_PARAMS) { fclose(f); return NULL; }
+    if (fread(&magic, 4, 1, f) != 1 || magic != NT_MAGIC) { fclose(f); return NULL; }
+    if (fread(&n, 4, 1, f) != 1 || n <= 0 || n > NT_TAPE_MAX_PARAMS) { fclose(f); return NULL; }
 
     nt_tensor** params = (nt_tensor**)calloc(n, sizeof(nt_tensor*));
     if (!params) { fclose(f); return NULL; }
 
     for (int i = 0; i < n; i++) {
         int32_t ndim;
-        fread(&ndim, 4, 1, f);
-        if (ndim < 0 || ndim > NT_MAX_DIMS) { fclose(f); *n_params = i; return params; }
+        if (fread(&ndim, 4, 1, f) != 1 ||
+            ndim < 0 || ndim > NT_MAX_DIMS) { fclose(f); *n_params = i; return params; }
         int shape[NT_MAX_DIMS];
         for (int d = 0; d < ndim; d++) {
             int32_t s;
-            fread(&s, 4, 1, f);
+            if (fread(&s, 4, 1, f) != 1) { fclose(f); *n_params = i; return params; }
             shape[d] = s;
         }
         params[i] = nt_tensor_new_shape(shape, ndim);
         if (!params[i]) { fclose(f); *n_params = i; return params; }
-        fread(params[i]->data, sizeof(float), params[i]->len, f);
+        /* A truncated payload leaves a tensor of calloc-zeros that looks valid to
+         * the caller — drop it and report the count that actually loaded. */
+        if (fread(params[i]->data, sizeof(float), (size_t)params[i]->len, f)
+                != (size_t)params[i]->len) {
+            nt_tensor_free(params[i]);
+            params[i] = NULL;
+            fclose(f); *n_params = i; return params;
+        }
     }
     fclose(f);
     *n_params = n;
@@ -4800,6 +5135,25 @@ static void nt_q4_k_rows(float *out, const uint8_t *W, const float *x,
 
 // Q6_K: 210 B/block, 256 vals — ql[128] qh[64] int8 scales[16] + f16 d.
 // Lifted from the proven packed q6k_rows in examples/infer_gguf_metal.c.
+//
+// AVX2/FMA path (Colibri T5c): the scalar unpack costs ~3.3 cycles/weight, which on a
+// 151936x2048 lm_head is ~82 ms/token on 6 cores — the head, not memory, becomes the
+// bottleneck (measured: 4.65 t/s with the scalar kernel vs 7.53 with an AVX2 int8 head,
+// same box, same input, CPU 553%). Eight values per lane, four sub-groups accumulated
+// separately and folded by their int8 sub-scale once per 16-value group, so the scale
+// application is identical to the scalar order. The scalar body is kept verbatim under
+// #else for ARM and non-AVX2 x86.
+#if defined(__AVX2__) && defined(__FMA__)
+#include <immintrin.h>
+static inline float nt_hsum256_ps(__m256 v) {
+    __m128 lo = _mm256_castps256_ps128(v), hi = _mm256_extractf128_ps(v, 1);
+    lo = _mm_add_ps(lo, hi);
+    __m128 sh = _mm_movehl_ps(lo, lo); lo = _mm_add_ps(lo, sh);
+    sh = _mm_shuffle_ps(lo, lo, 0x1);  lo = _mm_add_ss(lo, sh);
+    return _mm_cvtss_f32(lo);
+}
+#endif
+
 static void nt_q6_k_rows(float *out, const uint8_t *W, const float *x,
                          int r0, int r1, int k) {
     int nb = k / 256;
@@ -4811,6 +5165,39 @@ static void nt_q6_k_rows(float *out, const uint8_t *W, const float *x,
             const int8_t *sc = (const int8_t *)(b + 192);
             float d = nt_f16_to_f32((uint16_t)(b[208] | (b[209] << 8)));
             const float *xb = x + (long)blk * 256;
+#if defined(__AVX2__) && defined(__FMA__)
+            for (int n = 0; n < 256; n += 128) {
+                const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
+                const int8_t *sch = sc + (n / 128) * 8;
+                const __m256i m4 = _mm256_set1_epi32(0x0F), m3 = _mm256_set1_epi32(3),
+                              b32 = _mm256_set1_epi32(32);
+                for (int is = 0; is < 2; is++) {          /* is = l/16, 16 values per sub-scale */
+                    __m256 a1 = _mm256_setzero_ps(), a2 = _mm256_setzero_ps(),
+                           a3 = _mm256_setzero_ps(), a4 = _mm256_setzero_ps();
+                    for (int l = is * 16; l < is * 16 + 16; l += 8) {
+                        __m256i lo = _mm256_cvtepu8_epi32(_mm_loadl_epi64((const __m128i *)(qlh + l)));
+                        __m256i hi = _mm256_cvtepu8_epi32(_mm_loadl_epi64((const __m128i *)(qlh + l + 32)));
+                        __m256i hb = _mm256_cvtepu8_epi32(_mm_loadl_epi64((const __m128i *)(qhh + l)));
+                        __m256i q1 = _mm256_sub_epi32(_mm256_or_si256(_mm256_and_si256(lo, m4),
+                                     _mm256_slli_epi32(_mm256_and_si256(hb, m3), 4)), b32);
+                        __m256i q2 = _mm256_sub_epi32(_mm256_or_si256(_mm256_and_si256(hi, m4),
+                                     _mm256_slli_epi32(_mm256_and_si256(_mm256_srli_epi32(hb, 2), m3), 4)), b32);
+                        __m256i q3 = _mm256_sub_epi32(_mm256_or_si256(_mm256_srli_epi32(lo, 4),
+                                     _mm256_slli_epi32(_mm256_and_si256(_mm256_srli_epi32(hb, 4), m3), 4)), b32);
+                        __m256i q4 = _mm256_sub_epi32(_mm256_or_si256(_mm256_srli_epi32(hi, 4),
+                                     _mm256_slli_epi32(_mm256_and_si256(_mm256_srli_epi32(hb, 6), m3), 4)), b32);
+                        a1 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q1), _mm256_loadu_ps(xb + n + l),      a1);
+                        a2 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q2), _mm256_loadu_ps(xb + n + l + 32), a2);
+                        a3 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q3), _mm256_loadu_ps(xb + n + l + 64), a3);
+                        a4 = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q4), _mm256_loadu_ps(xb + n + l + 96), a4);
+                    }
+                    acc += d * ((float)sch[is + 0] * nt_hsum256_ps(a1)
+                              + (float)sch[is + 2] * nt_hsum256_ps(a2)
+                              + (float)sch[is + 4] * nt_hsum256_ps(a3)
+                              + (float)sch[is + 6] * nt_hsum256_ps(a4));
+                }
+            }
+#else
             for (int n = 0; n < 256; n += 128) {
                 const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
                 const int8_t *sch = sc + (n / 128) * 8;
@@ -4826,6 +5213,7 @@ static void nt_q6_k_rows(float *out, const uint8_t *W, const float *x,
                     acc += d * sch[is + 6] * q4 * xb[n + l + 96];
                 }
             }
+#endif
         }
         out[row] = acc;
     }
@@ -4841,9 +5229,6 @@ static void nt_f16_rows(float *out, const uint8_t *W, const float *x,
                         int r0, int r1, int k) {
     const uint16_t *Wh = (const uint16_t *)W;
 #if defined(__aarch64__) && defined(__ARM_NEON)
-    /* NEON: native vcvt_f32_f16 + FMA with four accumulators (16 weights/iter) so the
-     * row dot is memory-bound — there F16 (2 B/weight) beats a dense-f32 sgemv.
-     * (Arianna-side optimization; not yet upstream in canon notorch.) */
     for (int row = r0; row < r1; row++) {
         const uint16_t *r = Wh + (long)row * k;
         float32x4_t a0 = vdupq_n_f32(0.0f), a1 = vdupq_n_f32(0.0f);
@@ -4900,17 +5285,196 @@ static nt_qrows_fn nt_qrows_for(int dtype, int k) {
 }
 
 #define NT_QMV_MAX_THREADS 16
+#define NT_QMV_ASUM_MAX   2048   /* k <= 65536: activation-sum scratch stays on the stack */
+
+/* Threading floor, shared by both packed matvecs. The API wins over the environment: a
+ * consumer that knows its own shapes should not have to export a variable to be fast. */
+static long g_qmv_thread_min = -1;
+void nt_qmv_set_thread_min(long elems) { g_qmv_thread_min = (elems > 0) ? elems : (4L << 20); }
+static long nt_qmv_thread_floor(void) {
+    if (g_qmv_thread_min < 0) {
+        const char *e = getenv("NT_QMV_THREAD_MIN");
+        g_qmv_thread_min = (e && atol(e) > 0) ? atol(e) : (4L << 20);
+    }
+    return g_qmv_thread_min;
+}
+
+static int nt_qmv_host_threads(int m) {
+    int nt = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    if (nt < 1) nt = 1;
+    if (nt > NT_QMV_MAX_THREADS) nt = NT_QMV_MAX_THREADS;
+    if (nt > m) nt = m;
+    return nt;
+}
 
 typedef struct {
     nt_qrows_fn fn; float *out; const uint8_t *Wq; const float *x;
     int r0, r1, k;
 } nt_qjob;
 
+#ifndef _OPENMP   /* only the pthread fan-out uses a worker entry point */
+static int nt_qmv_pool_enabled(void) {
+    static int enabled = -1;
+    if (enabled < 0) {
+        const char *e = getenv("NT_QMV_POOL");
+        enabled = !(e && (!strcmp(e, "0") || !strcmp(e, "false") ||
+                          !strcmp(e, "off") || !strcmp(e, "no")));
+    }
+    return enabled;
+}
+
 static void *nt_qworker(void *p) {
     nt_qjob *j = (nt_qjob *)p;
     j->fn(j->out, j->Wq, j->x, j->r0, j->r1, j->k);
     return NULL;
 }
+
+// Persistent qmatvec workers remove pthread_create/join from every decode matvec.
+// The caller computes the last shard inline; workers handle the earlier shards.
+typedef struct {
+    pthread_mutex_t mu;
+    pthread_cond_t cv_work;
+    pthread_cond_t cv_done;
+    pthread_t threads[NT_QMV_MAX_THREADS];
+    int ids[NT_QMV_MAX_THREADS];
+    int nthreads;
+    int ready;
+    int shutdown;
+    long generation;
+    int active;
+    int done;
+    nt_qjob jobs[NT_QMV_MAX_THREADS];
+    nt_qjob shared;              /* fn/out/Wq/x/k common to every chunk */
+    int lo, hi, chunk, next;     /* the range the workers drain */
+} nt_qpool;
+
+static nt_qpool g_nt_qpool = {
+    PTHREAD_MUTEX_INITIALIZER,
+    PTHREAD_COND_INITIALIZER,
+    PTHREAD_COND_INITIALIZER,
+    {0},
+    {0},
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    {{0}},
+    {0},              /* shared           */
+    0, 0, 0, 0,       /* lo hi chunk next */
+};
+static pthread_once_t g_nt_qpool_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t g_nt_qpool_dispatch_mu = PTHREAD_MUTEX_INITIALIZER;
+
+// Rows are handed out on demand rather than split up front. The split assumed every
+// worker retires its share in the same wall time, which is false on any asymmetric CPU:
+// on an Exynos 1580 a Cortex-A520 spends about three times as long per row as the prime
+// A720, so an equal share leaves the fast cores idle waiting for the slow one. Measured
+// on a 32000x2048 Q4_K head, 8.29 ms split evenly across all eight cores against 3.41 ms
+// once the rows were claimed in chunks.
+//
+// The jobs array still arrives as a static split, and is still used verbatim by the
+// pthread fallback below. The pool takes the RANGE it describes and ignores the division:
+// [jobs[0].r0, jobs[n-1].r1) with a chunk size, and every worker plus the caller drains
+// from a shared cursor. Rows are disjoint and each row's accumulation is self-contained,
+// so which worker claims which chunk cannot move a bit of the result — a symmetric machine
+// sees the same ranges it always did, one cursor step apart.
+//
+// About 16 chunks per worker. Coarser loses the balance this exists for; finer was swept
+// on the same device and lost to lock traffic.
+static void nt_qpool_drain(void) {
+    for (;;) {
+        pthread_mutex_lock(&g_nt_qpool.mu);
+        int r0 = g_nt_qpool.next, hi = g_nt_qpool.hi, ch = g_nt_qpool.chunk;
+        nt_qjob j = g_nt_qpool.shared;
+        if (r0 < hi) g_nt_qpool.next = r0 + ch;
+        pthread_mutex_unlock(&g_nt_qpool.mu);
+        if (r0 >= hi) return;
+        int r1 = r0 + ch; if (r1 > hi) r1 = hi;
+        j.fn(j.out, j.Wq, j.x, r0, r1, j.k);
+    }
+}
+
+static void *nt_qpool_loop(void *p) {
+    int id = *(int *)p;
+    long seen = 0;
+    pthread_mutex_lock(&g_nt_qpool.mu);
+    for (;;) {
+        while (!g_nt_qpool.shutdown && g_nt_qpool.generation == seen)
+            pthread_cond_wait(&g_nt_qpool.cv_work, &g_nt_qpool.mu);
+        if (g_nt_qpool.shutdown) break;
+
+        seen = g_nt_qpool.generation;
+        int has_job = id < g_nt_qpool.active;
+        pthread_mutex_unlock(&g_nt_qpool.mu);
+
+        if (has_job) nt_qpool_drain();
+
+        pthread_mutex_lock(&g_nt_qpool.mu);
+        if (has_job) {
+            g_nt_qpool.done++;
+            if (g_nt_qpool.done >= g_nt_qpool.active)
+                pthread_cond_signal(&g_nt_qpool.cv_done);
+        }
+    }
+    pthread_mutex_unlock(&g_nt_qpool.mu);
+    return NULL;
+}
+
+static void nt_qpool_shutdown(void) {
+    pthread_mutex_lock(&g_nt_qpool.mu);
+    g_nt_qpool.shutdown = 1;
+    g_nt_qpool.generation++;
+    pthread_cond_broadcast(&g_nt_qpool.cv_work);
+    pthread_mutex_unlock(&g_nt_qpool.mu);
+    for (int i = 0; i < g_nt_qpool.nthreads; i++)
+        pthread_join(g_nt_qpool.threads[i], NULL);
+}
+
+static void nt_qpool_init_once(void) {
+    int nt = nt_qmv_host_threads(NT_QMV_MAX_THREADS);
+    for (int i = 0; i < nt; i++) {
+        g_nt_qpool.ids[i] = i;
+        if (pthread_create(&g_nt_qpool.threads[i], NULL, nt_qpool_loop, &g_nt_qpool.ids[i]) != 0)
+            break;
+        g_nt_qpool.nthreads++;
+    }
+    g_nt_qpool.ready = g_nt_qpool.nthreads > 0;
+    if (g_nt_qpool.ready) atexit(nt_qpool_shutdown);
+}
+
+static int nt_qpool_run(const nt_qjob *jobs, int nt) {
+    if (!nt_qmv_pool_enabled()) return -1;
+    pthread_once(&g_nt_qpool_once, nt_qpool_init_once);
+    if (!g_nt_qpool.ready) return -1;
+    int worker_nt = nt - 1;
+    if (worker_nt <= 0 || worker_nt > g_nt_qpool.nthreads) return -1;
+
+    int lo = jobs[0].r0, hi = jobs[worker_nt].r1;
+    int chunk = (hi - lo) / (nt * 16); if (chunk < 1) chunk = 1;
+
+    pthread_mutex_lock(&g_nt_qpool_dispatch_mu);
+    pthread_mutex_lock(&g_nt_qpool.mu);
+    g_nt_qpool.shared = jobs[0];
+    g_nt_qpool.lo = lo; g_nt_qpool.hi = hi; g_nt_qpool.chunk = chunk;
+    g_nt_qpool.next = lo;
+    g_nt_qpool.active = worker_nt;
+    g_nt_qpool.done = 0;
+    g_nt_qpool.generation++;
+    pthread_cond_broadcast(&g_nt_qpool.cv_work);
+    pthread_mutex_unlock(&g_nt_qpool.mu);
+
+    nt_qpool_drain();                    /* the caller is a worker too */
+
+    pthread_mutex_lock(&g_nt_qpool.mu);
+    while (g_nt_qpool.done < g_nt_qpool.active)
+        pthread_cond_wait(&g_nt_qpool.cv_done, &g_nt_qpool.mu);
+    pthread_mutex_unlock(&g_nt_qpool.mu);
+    pthread_mutex_unlock(&g_nt_qpool_dispatch_mu);
+    return 0;
+}
+#endif
 
 // Packed quantized matvec, parallelized across rows (rows are independent and
 // write disjoint out[]). dtype = GGUF type code. Returns 0 ok, -1 if the dtype
@@ -4920,16 +5484,35 @@ int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
     nt_qrows_fn fn = nt_qrows_for(dtype, k);
     if (!fn) return -1;
 
-    int nt = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    if (nt < 1) nt = 1;
-    if (nt > NT_QMV_MAX_THREADS) nt = NT_QMV_MAX_THREADS;
-    if (nt > m) nt = m;
-    // Per-call pthread_create + the 2P+4E asymmetry of Apple-Silicon-class CPUs make
-    // fan-out counterproductive for small single-token decode matvecs (measured ~6%/noise
-    // on a 360M model). Gate it high: only large matvecs (big models / batched work) thread,
-    // where the spawn cost amortizes; small decode stays single-thread.
-    if (nt <= 1 || (long)m * k < (4L << 20)) { fn(out, Wq, x, 0, m, k); return 0; }
+    int nt = nt_qmv_host_threads(m);
+    // Thread fan-out and the 2P+4E asymmetry of Apple-Silicon-class CPUs make small
+    // single-token decode matvecs counterproductive even when workers are persistent.
+    // Gate it high: only large matvecs (big models / batched work) thread; small
+    // decode stays single-thread.
+    /* The 4M floor was measured on a 360M-class decoder, where fan-out was noise.
+     * Other shapes exist: a 500M decoder's matrices are 2.46M and sit just under
+     * it, so its whole decode stays single-threaded. Default is unchanged;
+     * NT_QMV_THREAD_MIN lets a consumer set the floor for its own shape after
+     * measuring (the eye engine runs at 256K: 3.7 -> 7.3 tok/s, same output). */
+    if (nt <= 1 || (long)m * k < nt_qmv_thread_floor()) { fn(out, Wq, x, 0, m, k); return 0; }
 
+#ifdef _OPENMP
+    /* When the consumer is an OpenMP program, private pthreads are actively harmful, not
+     * merely redundant: libgomp parks its idle team in a SPIN wait by default, so six
+     * spinning OpenMP threads and six pthreads land on six cores and fight. Measured on a
+     * 151936x2048 head inside such an engine: 23.19 ms/tok with private pthreads against
+     * 12.47 ms once the spinning stopped — the kernel was never the problem, the
+     * oversubscription was. Reusing the caller's team removes the cause instead of asking
+     * every consumer to remember OMP_WAIT_POLICY=passive. Row ranges are identical to the
+     * pthread split, so results are bit-identical. */
+    int per_omp = (m + nt - 1) / nt;
+    #pragma omp parallel for schedule(static)
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per_omp, r1 = (r0 + per_omp > m) ? m : r0 + per_omp;
+        if (r0 < m) fn(out, Wq, x, r0, r1, k);
+    }
+    return 0;
+#else
     pthread_t th[NT_QMV_MAX_THREADS];
     nt_qjob   jobs[NT_QMV_MAX_THREADS];
     int per = (m + nt - 1) / nt, launched = 0;
@@ -4937,6 +5520,14 @@ int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
         int r0 = t * per, r1 = (r0 + per > m) ? m : r0 + per;
         if (r0 >= m) break;
         jobs[t] = (nt_qjob){ fn, out, Wq, x, r0, r1, k };
+        launched++;
+    }
+    if (nt_qpool_run(jobs, launched) == 0) return 0;
+
+    launched = 0;
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per;
+        if (r0 >= m) break;
         if (pthread_create(&th[t], NULL, nt_qworker, &jobs[t]) != 0) {
             fn(out, Wq, x, r0, m, k);   // create failed: run the rest inline
             break;
@@ -4945,6 +5536,7 @@ int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
     }
     for (int t = 0; t < launched; t++) pthread_join(th[t], NULL);
     return 0;
+#endif
 }
 
 // ── int8 dynamic-activation-quant matvec (the llama.cpp / MNN fast path) ─────────
@@ -5027,15 +5619,809 @@ static void nt_q4_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
 }
 #endif
 
+// Q8_0 int8-dot rows: packed weights (34 B/32) × pre-quantized int8 activation.
+// Block layout (per dequant_q8_0): 2 B f16 scale, then 32 raw int8 weights — the
+// weights are already integers, so unlike Q4_0 there is nothing to unpack: the
+// dot is int8 x int8 straight through, per-block result scaled by d_w * d_a.
+#if defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+static void nt_q8_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 34;
+        float acc = 0.0f;
+        for (int b = 0; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 34;
+            float d_w = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            const int8_t *wq  = (const int8_t *)(blk + 2);
+            const int8_t *qab = qa + (long)b * 32;
+            int32x4_t s4 = vdupq_n_s32(0);
+            s4 = vdotq_s32(s4, vld1q_s8(wq),      vld1q_s8(qab));         // elems 0..15
+            s4 = vdotq_s32(s4, vld1q_s8(wq + 16), vld1q_s8(qab + 16));    // elems 16..31
+            acc += d_w * da[b] * (float)vaddvq_s32(s4);
+        }
+        out[row] = acc;
+    }
+}
+#else
+static void nt_q8_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 34;
+        float acc = 0.0f;
+        for (int b = 0; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 34;
+            float d_w = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            const int8_t *wq  = (const int8_t *)(blk + 2);
+            const int8_t *qab = qa + (long)b * 32;
+            int32_t s = 0;
+            for (int i = 0; i < 32; i++) s += (int32_t)wq[i] * (int32_t)qab[i];
+            acc += d_w * da[b] * (float)s;
+        }
+        out[row] = acc;
+    }
+}
+#endif
+
+// Q5_0 int8-dot rows: 22 B/32 vals — an f16 scale, a 32-bit mask carrying one high bit
+// per value, then 16 nibble-bytes. The value is (nibble | high<<4) - 16.
+//
+// Two properties keep this cheap. The reconstructed q is [0,31], representable as signed
+// int8, so SDOT applies with no sign handling — unlike the Q4_0 path there is nothing to
+// bias into range first. And the -16 lifts out of the dot the way Q4_K's minimum does:
+// SUM((q-16)*x) is SUM(q*x) - 16*SUM(x), so the per-block activation sum is computed once
+// per call and the subtraction never touches a vector lane.
+//
+// The high bits need no lookup table, which is the usual approach. Broadcasting a mask
+// byte across eight lanes and testing it against the powers of two expands one bit per
+// lane in a single vtstq_u8; masking with 0x10 puts each bit straight into position four,
+// where the nibble expects it. Block bytes 2-3 cover lanes 0-15 and bytes 4-5 cover 16-31,
+// the same split the nibble halves already use.
+// byte -> eight lanes, each 0x10 where the bit is set. Two loads from this replace the
+// vdup/vcombine/vtst/and quartet the high-bit expansion used to cost per half-block. The
+// table is 2 KB and stays resident; entries are pre-shifted to position four, which is
+// where the nibble expects the bit, so no shift is needed after the load.
+#if defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+static const uint64_t nt_q5_hi[256] = {
+    0x0000000000000000ULL, 0x0000000000000010ULL, 0x0000000000001000ULL, 0x0000000000001010ULL,
+    0x0000000000100000ULL, 0x0000000000100010ULL, 0x0000000000101000ULL, 0x0000000000101010ULL,
+    0x0000000010000000ULL, 0x0000000010000010ULL, 0x0000000010001000ULL, 0x0000000010001010ULL,
+    0x0000000010100000ULL, 0x0000000010100010ULL, 0x0000000010101000ULL, 0x0000000010101010ULL,
+    0x0000001000000000ULL, 0x0000001000000010ULL, 0x0000001000001000ULL, 0x0000001000001010ULL,
+    0x0000001000100000ULL, 0x0000001000100010ULL, 0x0000001000101000ULL, 0x0000001000101010ULL,
+    0x0000001010000000ULL, 0x0000001010000010ULL, 0x0000001010001000ULL, 0x0000001010001010ULL,
+    0x0000001010100000ULL, 0x0000001010100010ULL, 0x0000001010101000ULL, 0x0000001010101010ULL,
+    0x0000100000000000ULL, 0x0000100000000010ULL, 0x0000100000001000ULL, 0x0000100000001010ULL,
+    0x0000100000100000ULL, 0x0000100000100010ULL, 0x0000100000101000ULL, 0x0000100000101010ULL,
+    0x0000100010000000ULL, 0x0000100010000010ULL, 0x0000100010001000ULL, 0x0000100010001010ULL,
+    0x0000100010100000ULL, 0x0000100010100010ULL, 0x0000100010101000ULL, 0x0000100010101010ULL,
+    0x0000101000000000ULL, 0x0000101000000010ULL, 0x0000101000001000ULL, 0x0000101000001010ULL,
+    0x0000101000100000ULL, 0x0000101000100010ULL, 0x0000101000101000ULL, 0x0000101000101010ULL,
+    0x0000101010000000ULL, 0x0000101010000010ULL, 0x0000101010001000ULL, 0x0000101010001010ULL,
+    0x0000101010100000ULL, 0x0000101010100010ULL, 0x0000101010101000ULL, 0x0000101010101010ULL,
+    0x0010000000000000ULL, 0x0010000000000010ULL, 0x0010000000001000ULL, 0x0010000000001010ULL,
+    0x0010000000100000ULL, 0x0010000000100010ULL, 0x0010000000101000ULL, 0x0010000000101010ULL,
+    0x0010000010000000ULL, 0x0010000010000010ULL, 0x0010000010001000ULL, 0x0010000010001010ULL,
+    0x0010000010100000ULL, 0x0010000010100010ULL, 0x0010000010101000ULL, 0x0010000010101010ULL,
+    0x0010001000000000ULL, 0x0010001000000010ULL, 0x0010001000001000ULL, 0x0010001000001010ULL,
+    0x0010001000100000ULL, 0x0010001000100010ULL, 0x0010001000101000ULL, 0x0010001000101010ULL,
+    0x0010001010000000ULL, 0x0010001010000010ULL, 0x0010001010001000ULL, 0x0010001010001010ULL,
+    0x0010001010100000ULL, 0x0010001010100010ULL, 0x0010001010101000ULL, 0x0010001010101010ULL,
+    0x0010100000000000ULL, 0x0010100000000010ULL, 0x0010100000001000ULL, 0x0010100000001010ULL,
+    0x0010100000100000ULL, 0x0010100000100010ULL, 0x0010100000101000ULL, 0x0010100000101010ULL,
+    0x0010100010000000ULL, 0x0010100010000010ULL, 0x0010100010001000ULL, 0x0010100010001010ULL,
+    0x0010100010100000ULL, 0x0010100010100010ULL, 0x0010100010101000ULL, 0x0010100010101010ULL,
+    0x0010101000000000ULL, 0x0010101000000010ULL, 0x0010101000001000ULL, 0x0010101000001010ULL,
+    0x0010101000100000ULL, 0x0010101000100010ULL, 0x0010101000101000ULL, 0x0010101000101010ULL,
+    0x0010101010000000ULL, 0x0010101010000010ULL, 0x0010101010001000ULL, 0x0010101010001010ULL,
+    0x0010101010100000ULL, 0x0010101010100010ULL, 0x0010101010101000ULL, 0x0010101010101010ULL,
+    0x1000000000000000ULL, 0x1000000000000010ULL, 0x1000000000001000ULL, 0x1000000000001010ULL,
+    0x1000000000100000ULL, 0x1000000000100010ULL, 0x1000000000101000ULL, 0x1000000000101010ULL,
+    0x1000000010000000ULL, 0x1000000010000010ULL, 0x1000000010001000ULL, 0x1000000010001010ULL,
+    0x1000000010100000ULL, 0x1000000010100010ULL, 0x1000000010101000ULL, 0x1000000010101010ULL,
+    0x1000001000000000ULL, 0x1000001000000010ULL, 0x1000001000001000ULL, 0x1000001000001010ULL,
+    0x1000001000100000ULL, 0x1000001000100010ULL, 0x1000001000101000ULL, 0x1000001000101010ULL,
+    0x1000001010000000ULL, 0x1000001010000010ULL, 0x1000001010001000ULL, 0x1000001010001010ULL,
+    0x1000001010100000ULL, 0x1000001010100010ULL, 0x1000001010101000ULL, 0x1000001010101010ULL,
+    0x1000100000000000ULL, 0x1000100000000010ULL, 0x1000100000001000ULL, 0x1000100000001010ULL,
+    0x1000100000100000ULL, 0x1000100000100010ULL, 0x1000100000101000ULL, 0x1000100000101010ULL,
+    0x1000100010000000ULL, 0x1000100010000010ULL, 0x1000100010001000ULL, 0x1000100010001010ULL,
+    0x1000100010100000ULL, 0x1000100010100010ULL, 0x1000100010101000ULL, 0x1000100010101010ULL,
+    0x1000101000000000ULL, 0x1000101000000010ULL, 0x1000101000001000ULL, 0x1000101000001010ULL,
+    0x1000101000100000ULL, 0x1000101000100010ULL, 0x1000101000101000ULL, 0x1000101000101010ULL,
+    0x1000101010000000ULL, 0x1000101010000010ULL, 0x1000101010001000ULL, 0x1000101010001010ULL,
+    0x1000101010100000ULL, 0x1000101010100010ULL, 0x1000101010101000ULL, 0x1000101010101010ULL,
+    0x1010000000000000ULL, 0x1010000000000010ULL, 0x1010000000001000ULL, 0x1010000000001010ULL,
+    0x1010000000100000ULL, 0x1010000000100010ULL, 0x1010000000101000ULL, 0x1010000000101010ULL,
+    0x1010000010000000ULL, 0x1010000010000010ULL, 0x1010000010001000ULL, 0x1010000010001010ULL,
+    0x1010000010100000ULL, 0x1010000010100010ULL, 0x1010000010101000ULL, 0x1010000010101010ULL,
+    0x1010001000000000ULL, 0x1010001000000010ULL, 0x1010001000001000ULL, 0x1010001000001010ULL,
+    0x1010001000100000ULL, 0x1010001000100010ULL, 0x1010001000101000ULL, 0x1010001000101010ULL,
+    0x1010001010000000ULL, 0x1010001010000010ULL, 0x1010001010001000ULL, 0x1010001010001010ULL,
+    0x1010001010100000ULL, 0x1010001010100010ULL, 0x1010001010101000ULL, 0x1010001010101010ULL,
+    0x1010100000000000ULL, 0x1010100000000010ULL, 0x1010100000001000ULL, 0x1010100000001010ULL,
+    0x1010100000100000ULL, 0x1010100000100010ULL, 0x1010100000101000ULL, 0x1010100000101010ULL,
+    0x1010100010000000ULL, 0x1010100010000010ULL, 0x1010100010001000ULL, 0x1010100010001010ULL,
+    0x1010100010100000ULL, 0x1010100010100010ULL, 0x1010100010101000ULL, 0x1010100010101010ULL,
+    0x1010101000000000ULL, 0x1010101000000010ULL, 0x1010101000001000ULL, 0x1010101000001010ULL,
+    0x1010101000100000ULL, 0x1010101000100010ULL, 0x1010101000101000ULL, 0x1010101000101010ULL,
+    0x1010101010000000ULL, 0x1010101010000010ULL, 0x1010101010001000ULL, 0x1010101010001010ULL,
+    0x1010101010100000ULL, 0x1010101010100010ULL, 0x1010101010101000ULL, 0x1010101010101010ULL,
+};
+#endif
+
+#if defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+static void nt_q5_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    int32_t asum[NT_QMV_ASUM_MAX];
+    const int8x16_t one8 = vdupq_n_s8(1);
+    for (int b = 0; b < nb; b++) {
+        const int8_t *p = qa + (long)b * 32;
+        int32x4_t t = vdotq_s32(vdupq_n_s32(0), one8, vld1q_s8(p));
+        t = vdotq_s32(t, one8, vld1q_s8(p + 16));
+        asum[b] = vaddvq_s32(t);
+    }
+    const uint8x16_t m4 = vdupq_n_u8(0x0F);
+    // Four blocks retired together: vaddvq_s32 is a full horizontal reduction in the
+    // dependency chain, and four of them collapse into two pairwise vpaddq_s32. The float
+    // accumulation order is unchanged, block by block ascending, so this stays exact.
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 22;
+        float acc = 0.0f; int b = 0;
+        for (; b + 4 <= nb; b += 4) {
+            int32x4_t s0, s1, s2, s3; float dv[4]; int32x4_t *sp[4] = { &s0, &s1, &s2, &s3 };
+            for (int j = 0; j < 4; j++) {
+                const uint8_t *blk = rb + (long)(b + j) * 22;
+                dv[j] = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+                uint8x16_t h0 = vreinterpretq_u8_u64(vcombine_u64(
+                    vcreate_u64(nt_q5_hi[blk[2]]), vcreate_u64(nt_q5_hi[blk[3]])));
+                uint8x16_t h1 = vreinterpretq_u8_u64(vcombine_u64(
+                    vcreate_u64(nt_q5_hi[blk[4]]), vcreate_u64(nt_q5_hi[blk[5]])));
+                uint8x16_t pk = vld1q_u8(blk + 6);
+                int8x16_t lo = vreinterpretq_s8_u8(vorrq_u8(vandq_u8(pk, m4), h0));
+                int8x16_t hi = vreinterpretq_s8_u8(vorrq_u8(vshrq_n_u8(pk, 4), h1));
+                const int8_t *qab = qa + (long)(b + j) * 32;
+                int32x4_t t = vdupq_n_s32(0);
+                t = vdotq_s32(t, lo, vld1q_s8(qab));
+                t = vdotq_s32(t, hi, vld1q_s8(qab + 16));
+                *sp[j] = t;
+            }
+            int32_t sums[4]; vst1q_s32(sums, vpaddq_s32(vpaddq_s32(s0, s1), vpaddq_s32(s2, s3)));
+            acc += dv[0] * da[b+0] * (float)(sums[0] - 16 * asum[b+0]);
+            acc += dv[1] * da[b+1] * (float)(sums[1] - 16 * asum[b+1]);
+            acc += dv[2] * da[b+2] * (float)(sums[2] - 16 * asum[b+2]);
+            acc += dv[3] * da[b+3] * (float)(sums[3] - 16 * asum[b+3]);
+        }
+        for (; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 22;
+            float d = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            uint8x16_t h0 = vreinterpretq_u8_u64(vcombine_u64(
+                vcreate_u64(nt_q5_hi[blk[2]]), vcreate_u64(nt_q5_hi[blk[3]])));
+            uint8x16_t h1 = vreinterpretq_u8_u64(vcombine_u64(
+                vcreate_u64(nt_q5_hi[blk[4]]), vcreate_u64(nt_q5_hi[blk[5]])));
+            uint8x16_t pk = vld1q_u8(blk + 6);
+            int8x16_t lo = vreinterpretq_s8_u8(vorrq_u8(vandq_u8(pk, m4), h0));
+            int8x16_t hi = vreinterpretq_s8_u8(vorrq_u8(vshrq_n_u8(pk, 4), h1));
+            const int8_t *qab = qa + (long)b * 32;
+            int32x4_t t = vdupq_n_s32(0);
+            t = vdotq_s32(t, lo, vld1q_s8(qab));
+            t = vdotq_s32(t, hi, vld1q_s8(qab + 16));
+            acc += d * da[b] * (float)(vaddvq_s32(t) - 16 * asum[b]);
+        }
+        out[row] = acc;
+    }
+}
+#else
+static void nt_q5_0_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 32;
+    int32_t asum[NT_QMV_ASUM_MAX];
+    for (int b = 0; b < nb; b++) {
+        const int8_t *p = qa + (long)b * 32;
+        int32_t t = 0;
+        for (int i = 0; i < 32; i++) t += p[i];
+        asum[b] = t;
+    }
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 22;
+        float acc = 0.0f;
+        for (int b = 0; b < nb; b++) {
+            const uint8_t *blk = rb + (long)b * 22;
+            float d = nt_f16_to_f32((uint16_t)(blk[0] | (blk[1] << 8)));
+            uint32_t qh = (uint32_t)blk[2] | ((uint32_t)blk[3] << 8)
+                        | ((uint32_t)blk[4] << 16) | ((uint32_t)blk[5] << 24);
+            const uint8_t *qs = blk + 6;
+            const int8_t *qab = qa + (long)b * 32;
+            int32_t s = 0;
+            for (int j = 0; j < 16; j++) {
+                int q0 = (qs[j] & 0x0F) | (((qh >> j) & 1) << 4);
+                int q1 = (qs[j] >> 4)   | (((qh >> (j + 16)) & 1) << 4);
+                s += q0 * qab[j]; s += q1 * qab[j + 16];
+            }
+            acc += d * da[b] * (float)(s - 16 * asum[b]);
+        }
+        out[row] = acc;
+    }
+}
+#endif
+
+// Q6_K int8-dot rows: 210 B/256 vals against the per-32 int8 activation.
+// The two block grids line up, which is what makes this path exact-by-subblock: a weight
+// sub-scale covers 16 values, an activation block covers 32, and 16j..16j+15 always sits
+// inside activation block j/2 — never straddles. So the integer accumulator is per weight
+// sub-block, and d * sc[j] * da[j/2] is applied once after it, never per value.
+// A group of 32 consecutive positions therefore shares ONE activation scale and spans
+// exactly TWO sub-scales; _mm256_maddubs_epi16 splits along 128-bit lanes, i.e. exactly on
+// that 16/16 boundary, so one instruction covers the group and its halves fall out already
+// separated. Sign trick as in the Q4_0 path: |w| is unsigned-safe because Q6 lands in
+// [-32,31], and |w|*|x| <= 32*127, two of them still clear int16.
+#if defined(__AVX2__) && defined(__FMA__)
+static void nt_q6_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256;
+    const __m256i m4 = _mm256_set1_epi8(0x0F), m3 = _mm256_set1_epi8(3),
+                  b32 = _mm256_set1_epi8(32), ones = _mm256_set1_epi16(1);
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 210;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 210, *ql = b, *qh = b + 128;
+            const int8_t *sc = (const int8_t *)(b + 192);
+            float d = nt_f16_to_f32((uint16_t)(b[208] | (b[209] << 8)));
+            const int8_t *qab = qa + (long)blk * 256;
+            const float  *dab = da + (long)blk * 8;
+            /* Same lane treatment the Q4_K path got. This kernel drained TWICE per group —
+             * four dependent hadds and two extracts, sixteen drains per 256-value block —
+             * because each group carries two 16-value sub-blocks, one per 128-bit half.
+             * That is exactly what a hadd tree resolves for free: hadd works within halves,
+             * so folding four groups yields the four lower sub-block sums in lanes 0-3 and
+             * the four upper ones in lanes 4-7 of a single vector. Two trees cover a block.
+             * Accumulation order is preserved group by group, lower sub-block then upper,
+             * so this is an integer re-order and the greedy vector must not move. */
+            for (int n = 0; n < 256; n += 128) {
+                const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
+                __m256i qhv = _mm256_loadu_si256((const __m256i *)qhh);
+                __m256i s[4];
+                for (int g = 0; g < 4; g++) {
+                    __m256i qlv = _mm256_loadu_si256((const __m256i *)(qlh + (g & 1) * 32));
+                    __m256i lo  = (g < 2) ? _mm256_and_si256(qlv, m4)
+                                          : _mm256_and_si256(_mm256_srli_epi16(qlv, 4), m4);
+                    __m256i hi2 = _mm256_and_si256(_mm256_srli_epi16(qhv, 2 * g), m3);
+                    __m256i w   = _mm256_sub_epi8(_mm256_or_si256(lo, _mm256_slli_epi16(hi2, 4)), b32);
+                    __m256i xv  = _mm256_loadu_si256((const __m256i *)(qab + n + g * 32));
+                    s[g] = _mm256_madd_epi16(_mm256_maddubs_epi16(_mm256_sign_epi8(w, w),
+                                                                  _mm256_sign_epi8(xv, w)), ones);
+                }
+                /* lanes 0-3: lower sub-block of groups 0..3; lanes 4-7: their upper one */
+                __m256i T = _mm256_hadd_epi32(_mm256_hadd_epi32(s[0], s[1]),
+                                              _mm256_hadd_epi32(s[2], s[3]));
+                int32_t t[8];
+                _mm256_storeu_si256((__m256i *)t, T);
+                for (int g = 0; g < 4; g++) {
+                    int j0 = n / 16 + g * 2;
+                    acc += d * dab[(n + g * 32) / 32]
+                         * ((float)sc[j0]     * (float)t[g]
+                          + (float)sc[j0 + 1] * (float)t[g + 4]);
+                }
+            }
+        }
+        out[row] = acc;
+    }
+}
+#elif defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+// The 16/32 seam that costs AVX2 a lane argument costs NEON nothing: a Q6 sub-scale
+// covers 16 values and SDOT consumes exactly 16 int8 lanes, so one sub-block is one
+// vdotq_s32 and ssum[j] is written once rather than accumulated. Q6 lands in [-32,31]
+// after the -32 bias, which is signed int8, so SDOT applies directly — none of the
+// unsigned/sign-flip choreography _mm256_maddubs_epi16 forces on the x86 path.
+// The float tail below is character-for-character the scalar one: the integer dots are
+// exact, so keeping the same expression and the same ascending j order makes this kernel
+// bit-identical to the fallback it replaces, and that is what the micro-bench asserts.
+static void nt_q6_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256;
+    const uint8x16_t m4 = vdupq_n_u8(0x0F), m3 = vdupq_n_u8(3);
+    const int8x16_t  b32 = vdupq_n_s8(32);
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 210;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 210, *ql = b, *qh = b + 128;
+            const int8_t *sc = (const int8_t *)(b + 192);
+            float d = nt_f16_to_f32((uint16_t)(b[208] | (b[209] << 8)));
+            const int8_t *qab = qa + (long)blk * 256;
+            const float  *dab = da + (long)blk * 8;
+            int32_t ssum[16];
+            for (int n = 0; n < 256; n += 128) {
+                const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
+                int base = (n / 128) * 8;
+                for (int is = 0; is < 2; is++) {
+                    uint8x16_t la = vld1q_u8(qlh + is * 16);        /* elems l      */
+                    uint8x16_t lb = vld1q_u8(qlh + 32 + is * 16);   /* elems l + 32 */
+                    uint8x16_t hv = vld1q_u8(qhh + is * 16);        /* four 2-bit tops */
+                    int8x16_t w1 = vsubq_s8(vreinterpretq_s8_u8(vorrq_u8(
+                        vandq_u8(la, m4), vshlq_n_u8(vandq_u8(hv, m3), 4))), b32);
+                    int8x16_t w2 = vsubq_s8(vreinterpretq_s8_u8(vorrq_u8(
+                        vandq_u8(lb, m4), vshlq_n_u8(vandq_u8(vshrq_n_u8(hv, 2), m3), 4))), b32);
+                    int8x16_t w3 = vsubq_s8(vreinterpretq_s8_u8(vorrq_u8(
+                        vshrq_n_u8(la, 4), vshlq_n_u8(vandq_u8(vshrq_n_u8(hv, 4), m3), 4))), b32);
+                    int8x16_t w4 = vsubq_s8(vreinterpretq_s8_u8(vorrq_u8(
+                        vshrq_n_u8(lb, 4), vshlq_n_u8(vshrq_n_u8(hv, 6), 4))), b32);
+                    const int8_t *x = qab + n + is * 16;
+                    const int32x4_t z = vdupq_n_s32(0);
+                    ssum[base + is + 0] = vaddvq_s32(vdotq_s32(z, w1, vld1q_s8(x)));
+                    ssum[base + is + 2] = vaddvq_s32(vdotq_s32(z, w2, vld1q_s8(x + 32)));
+                    ssum[base + is + 4] = vaddvq_s32(vdotq_s32(z, w3, vld1q_s8(x + 64)));
+                    ssum[base + is + 6] = vaddvq_s32(vdotq_s32(z, w4, vld1q_s8(x + 96)));
+                }
+            }
+            for (int j = 0; j < 16; j++)
+                acc += d * (float)sc[j] * dab[j / 2] * (float)ssum[j];
+        }
+        out[row] = acc;
+    }
+}
+#else
+static void nt_q6_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256;
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 210;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 210, *ql = b, *qh = b + 128;
+            const int8_t *sc = (const int8_t *)(b + 192);
+            float d = nt_f16_to_f32((uint16_t)(b[208] | (b[209] << 8)));
+            const int8_t *qab = qa + (long)blk * 256;
+            const float  *dab = da + (long)blk * 8;
+            int32_t ssum[16];
+            for (int j = 0; j < 16; j++) ssum[j] = 0;
+            for (int n = 0; n < 256; n += 128) {
+                const uint8_t *qlh = ql + (n / 128) * 64, *qhh = qh + (n / 128) * 32;
+                int base = (n / 128) * 8;
+                for (int l = 0; l < 32; l++) {
+                    int is = l / 16;
+                    int q1 = (int)((qlh[l]      & 0x0F) | (((qhh[l] >> 0) & 3) << 4)) - 32;
+                    int q2 = (int)((qlh[l + 32] & 0x0F) | (((qhh[l] >> 2) & 3) << 4)) - 32;
+                    int q3 = (int)((qlh[l]      >> 4)   | (((qhh[l] >> 4) & 3) << 4)) - 32;
+                    int q4 = (int)((qlh[l + 32] >> 4)   | (((qhh[l] >> 6) & 3) << 4)) - 32;
+                    ssum[base + is + 0] += q1 * (int)qab[n + l];
+                    ssum[base + is + 2] += q2 * (int)qab[n + l + 32];
+                    ssum[base + is + 4] += q3 * (int)qab[n + l + 64];
+                    ssum[base + is + 6] += q4 * (int)qab[n + l + 96];
+                }
+            }
+            for (int j = 0; j < 16; j++)
+                acc += d * (float)sc[j] * dab[j / 2] * (float)ssum[j];
+        }
+        out[row] = acc;
+    }
+}
+#endif
+
+/* Rows are independent and write disjoint out[], exactly as in nt_qmatvec, so the i8 path
+ * fans out the same way and under the same NT_QMV_THREAD_MIN floor. The activation is
+ * quantized ONCE before the fan-out and shared read-only by every worker — it is per-call
+ * state, not per-row. Without this a 151936-row head ran single-threaded and the integer
+ * kernel lost to the f32 one it was meant to replace. */
+typedef void (*nt_qrows_i8_fn)(float *, const uint8_t *, const int8_t *, const float *,
+                               int, int, int);
+typedef struct {
+    nt_qrows_i8_fn fn; float *out; const uint8_t *Wq;
+    const int8_t *qa; const float *da; int r0, r1, k;
+} nt_qjob_i8;
+
+#ifndef _OPENMP   /* only the pthread fan-out uses a worker entry point */
+static void *nt_qworker_i8(void *p) {
+    nt_qjob_i8 *j = (nt_qjob_i8 *)p;
+    j->fn(j->out, j->Wq, j->qa, j->da, j->r0, j->r1, j->k);
+    return NULL;
+}
+
+// Separate i8 pool keeps the shared per-call activation quant buffers typed and
+// avoids a tagged union in the hot dispatch path.
+typedef struct {
+    pthread_mutex_t mu;
+    pthread_cond_t cv_work;
+    pthread_cond_t cv_done;
+    pthread_t threads[NT_QMV_MAX_THREADS];
+    int ids[NT_QMV_MAX_THREADS];
+    int nthreads;
+    int ready;
+    int shutdown;
+    long generation;
+    int active;
+    int done;
+    nt_qjob_i8 jobs[NT_QMV_MAX_THREADS];
+    nt_qjob_i8 shared;
+    int lo, hi, chunk, next;
+} nt_qpool_i8;
+
+static nt_qpool_i8 g_nt_qpool_i8 = {
+    PTHREAD_MUTEX_INITIALIZER,
+    PTHREAD_COND_INITIALIZER,
+    PTHREAD_COND_INITIALIZER,
+    {0},
+    {0},
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    {{0}},
+    {0},              /* shared           */
+    0, 0, 0, 0,       /* lo hi chunk next */
+};
+static pthread_once_t g_nt_qpool_i8_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t g_nt_qpool_i8_dispatch_mu = PTHREAD_MUTEX_INITIALIZER;
+
+/* Same on-demand hand-out as the f32 pool above; see the note there for why. */
+static void nt_qpool_i8_drain(void) {
+    for (;;) {
+        pthread_mutex_lock(&g_nt_qpool_i8.mu);
+        int r0 = g_nt_qpool_i8.next, hi = g_nt_qpool_i8.hi, ch = g_nt_qpool_i8.chunk;
+        nt_qjob_i8 j = g_nt_qpool_i8.shared;
+        if (r0 < hi) g_nt_qpool_i8.next = r0 + ch;
+        pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+        if (r0 >= hi) return;
+        int r1 = r0 + ch; if (r1 > hi) r1 = hi;
+        j.fn(j.out, j.Wq, j.qa, j.da, r0, r1, j.k);
+    }
+}
+
+static void *nt_qpool_i8_loop(void *p) {
+    int id = *(int *)p;
+    long seen = 0;
+    pthread_mutex_lock(&g_nt_qpool_i8.mu);
+    for (;;) {
+        while (!g_nt_qpool_i8.shutdown && g_nt_qpool_i8.generation == seen)
+            pthread_cond_wait(&g_nt_qpool_i8.cv_work, &g_nt_qpool_i8.mu);
+        if (g_nt_qpool_i8.shutdown) break;
+
+        seen = g_nt_qpool_i8.generation;
+        int has_job = id < g_nt_qpool_i8.active;
+        pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+
+        if (has_job) nt_qpool_i8_drain();
+
+        pthread_mutex_lock(&g_nt_qpool_i8.mu);
+        if (has_job) {
+            g_nt_qpool_i8.done++;
+            if (g_nt_qpool_i8.done >= g_nt_qpool_i8.active)
+                pthread_cond_signal(&g_nt_qpool_i8.cv_done);
+        }
+    }
+    pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+    return NULL;
+}
+
+static void nt_qpool_i8_shutdown(void) {
+    pthread_mutex_lock(&g_nt_qpool_i8.mu);
+    g_nt_qpool_i8.shutdown = 1;
+    g_nt_qpool_i8.generation++;
+    pthread_cond_broadcast(&g_nt_qpool_i8.cv_work);
+    pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+    for (int i = 0; i < g_nt_qpool_i8.nthreads; i++)
+        pthread_join(g_nt_qpool_i8.threads[i], NULL);
+}
+
+static void nt_qpool_i8_init_once(void) {
+    int nt = nt_qmv_host_threads(NT_QMV_MAX_THREADS);
+    for (int i = 0; i < nt; i++) {
+        g_nt_qpool_i8.ids[i] = i;
+        if (pthread_create(&g_nt_qpool_i8.threads[i], NULL, nt_qpool_i8_loop, &g_nt_qpool_i8.ids[i]) != 0)
+            break;
+        g_nt_qpool_i8.nthreads++;
+    }
+    g_nt_qpool_i8.ready = g_nt_qpool_i8.nthreads > 0;
+    if (g_nt_qpool_i8.ready) atexit(nt_qpool_i8_shutdown);
+}
+
+static int nt_qpool_i8_run(const nt_qjob_i8 *jobs, int nt) {
+    if (!nt_qmv_pool_enabled()) return -1;
+    pthread_once(&g_nt_qpool_i8_once, nt_qpool_i8_init_once);
+    if (!g_nt_qpool_i8.ready) return -1;
+    int worker_nt = nt - 1;
+    if (worker_nt <= 0 || worker_nt > g_nt_qpool_i8.nthreads) return -1;
+
+    int lo = jobs[0].r0, hi = jobs[worker_nt].r1;
+    int chunk = (hi - lo) / (nt * 16); if (chunk < 1) chunk = 1;
+
+    pthread_mutex_lock(&g_nt_qpool_i8_dispatch_mu);
+    pthread_mutex_lock(&g_nt_qpool_i8.mu);
+    g_nt_qpool_i8.shared = jobs[0];
+    g_nt_qpool_i8.lo = lo; g_nt_qpool_i8.hi = hi; g_nt_qpool_i8.chunk = chunk;
+    g_nt_qpool_i8.next = lo;
+    g_nt_qpool_i8.active = worker_nt;
+    g_nt_qpool_i8.done = 0;
+    g_nt_qpool_i8.generation++;
+    pthread_cond_broadcast(&g_nt_qpool_i8.cv_work);
+    pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+
+    nt_qpool_i8_drain();                 /* the caller is a worker too */
+
+    pthread_mutex_lock(&g_nt_qpool_i8.mu);
+    while (g_nt_qpool_i8.done < g_nt_qpool_i8.active)
+        pthread_cond_wait(&g_nt_qpool_i8.cv_done, &g_nt_qpool_i8.mu);
+    pthread_mutex_unlock(&g_nt_qpool_i8.mu);
+    pthread_mutex_unlock(&g_nt_qpool_i8_dispatch_mu);
+    return 0;
+}
+#endif
+
+// Q4_K int8-dot rows: 144 B / 256 values against the per-32 int8 activation.
+// The two grids COINCIDE here — a Q4_K sub-block is 32 values and so is an activation
+// block — which makes the split exact and the bookkeeping simpler than Q6_K's 16/32 seam.
+// Per sub-block s the affine format gives w = d*ls*q - dmin*lm, so
+//     sum_p w*x  =  da[s] * ( d*ls * SUM(q*qa)  -  dmin*lm * SUM(qa) )
+// The minus term depends only on the activation, so SUM(qa) is precomputed once per call
+// and lifted straight out of the integer dot — no per-weight subtraction anywhere.
+// q is already unsigned [0,15], so _mm256_maddubs_epi16 applies directly with no sign
+// trick, and 15*127*2 = 3810 clears int16 with room to spare.
+#if defined(__AVX2__) && defined(__FMA__)
+static void nt_q4_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256, nsub = k / 32;
+    int32_t asum[NT_QMV_ASUM_MAX];
+    const __m256i m4 = _mm256_set1_epi8(0x0F), ones = _mm256_set1_epi16(1);
+    /* SUM(qa) per 32-value block. Scalar it is 32 dependent adds per block and it is paid on
+     * every call — in a fused MoE that is 24 calls per layer per thread. maddubs against a
+     * vector of ones turns the same sum into a handful of instructions: unsigned 1 times a
+     * signed activation is exactly the activation, so the pairwise adds come for free. */
+    { const __m256i one8 = _mm256_set1_epi8(1);
+      for (int s = 0; s < nsub; s++) {
+        __m256i v = _mm256_loadu_si256((const __m256i *)(qa + (long)s * 32));
+        __m256i w = _mm256_madd_epi16(_mm256_maddubs_epi16(one8, v), ones);
+        __m128i lo = _mm_add_epi32(_mm256_castsi256_si128(w), _mm256_extracti128_si256(w, 1));
+        lo = _mm_hadd_epi32(lo, lo); lo = _mm_hadd_epi32(lo, lo);
+        asum[s] = _mm_cvtsi128_si32(lo);
+      } }
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 144;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 144;
+            float d    = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            float dmin = nt_f16_to_f32((uint16_t)(b[2] | (b[3] << 8)));
+            const uint8_t *sc = b + 4, *qs = b + 16;
+            /* Four sub-blocks per pass. A per-sub-block horizontal reduction costs two
+             * dependent hadds plus an extract, and at 32 values per sub-block that drain
+             * dominates on the small matrices this body is made of (an expert is 768x2048;
+             * measured 41% of stream bandwidth against 59% for the 151936-row head, where
+             * the same drain amortises). One hadd cascade retires four sub-blocks instead
+             * of one, so the drain is paid 3 times per 4 instead of 8.
+             * The float accumulation ORDER is deliberately unchanged — contributions are
+             * still added sub-block by sub-block ascending — so this stays a pure integer
+             * re-order and the consumer's greedy vector must not move. */
+            /* Whole block in one pass. Two things the four-at-a-time form still paid for:
+             * qs was loaded EIGHT times though sub-blocks 2p and 2p+1 share one 32-byte load
+             * (low nibbles feed the even sub-block, high nibbles the odd one), and the 6-bit
+             * (scale,min) unpack sat inside the hot loop. Now: four loads, one unpack pass,
+             * and the eight sub-block dots land in the lanes of a single vector through one
+             * hadd tree instead of a drain per sub-block.
+             * The float accumulation order is unchanged — still ascending by sub-block — so
+             * this remains an integer re-order and the consumer's greedy vector must not move. */
+            uint8_t ls[8], lm[8];
+            for (int j = 0; j < 8; j++) nt_get_scale_min_k4(j, sc, &ls[j], &lm[j]);
+            __m256i s[8];
+            for (int p = 0; p < 4; p++) {
+                __m256i qsv = _mm256_loadu_si256((const __m256i *)(qs + p * 32));
+                __m256i lo  = _mm256_and_si256(qsv, m4);
+                __m256i hi  = _mm256_and_si256(_mm256_srli_epi16(qsv, 4), m4);
+                __m256i a0  = _mm256_loadu_si256((const __m256i *)(qa + (long)(blk * 8 + 2*p) * 32));
+                __m256i a1  = _mm256_loadu_si256((const __m256i *)(qa + (long)(blk * 8 + 2*p + 1) * 32));
+                s[2*p]     = _mm256_madd_epi16(_mm256_maddubs_epi16(lo, a0), ones);
+                s[2*p + 1] = _mm256_madd_epi16(_mm256_maddubs_epi16(hi, a1), ones);
+            }
+            __m256i A = _mm256_hadd_epi32(_mm256_hadd_epi32(s[0], s[1]),
+                                          _mm256_hadd_epi32(s[2], s[3]));
+            __m256i B = _mm256_hadd_epi32(_mm256_hadd_epi32(s[4], s[5]),
+                                          _mm256_hadd_epi32(s[6], s[7]));
+            __m256i sums = _mm256_add_epi32(_mm256_permute2x128_si256(A, B, 0x20),
+                                            _mm256_permute2x128_si256(A, B, 0x31));
+            /* The scalar tail stays scalar on purpose. GCC contracts
+             * d * scale * dot - dmin * min * asum into an FMA under -march=native, and that
+             * single rounding is part of every number this kernel has ever been accepted on.
+             * Intrinsics cannot express the compiler's contraction choice: a hand-vectorised
+             * tail was measured against this one and differed on 521 of 768 rows, worst 4.8e-4
+             * relative, which moved the perplexity of an untouched container in the fourth
+             * decimal while every argmax and every six-digit probe stayed put. The dots are
+             * vectorised because they are integers and exact; the float tail is not. */
+            int32_t dots[8];
+            _mm256_storeu_si256((__m256i *)dots, sums);
+            for (int j = 0; j < 8; j++) {
+                int sub = blk * 8 + j;
+                acc += da[sub] * (d * (float)ls[j] * (float)dots[j]
+                                - dmin * (float)lm[j] * (float)asum[sub]);
+            }
+        }
+        out[row] = acc;
+    }
+}
+#elif defined(__ARM_NEON) && defined(__ARM_FEATURE_DOTPROD)
+// Q4_K on NEON needs no sign trick either, for a different reason than Q6_K: the nibble is
+// already unsigned [0,15], and 15 is representable in int8, so reinterpreting it as signed
+// is the identity and plain SDOT is exact. USDOT would also serve, but it is an i8mm
+// instruction and this kernel has no reason to demand the wider baseline.
+// SUM(qa) is a dot against a vector of ones — the same lift the x86 path takes, minus the
+// maddubs detour. Two 16-lane SDOTs cover a 32-value sub-block, so a whole 256-value block
+// is eight of them plus eight drains, against 256 scalar multiply-adds in the fallback.
+// The float tail is the scalar one verbatim, ascending by sub-block: integer dots are exact,
+// so this kernel and the fallback must agree bit for bit.
+static void nt_q4_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256, nsub = k / 32;
+    int32_t asum[NT_QMV_ASUM_MAX];
+    const uint8x16_t m4 = vdupq_n_u8(0x0F);
+    const int8x16_t  one8 = vdupq_n_s8(1);
+    for (int s = 0; s < nsub; s++) {
+        const int8_t *p = qa + (long)s * 32;
+        int32x4_t t = vdotq_s32(vdupq_n_s32(0), one8, vld1q_s8(p));
+        t = vdotq_s32(t, one8, vld1q_s8(p + 16));
+        asum[s] = vaddvq_s32(t);
+    }
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 144;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 144;
+            float d    = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            float dmin = nt_f16_to_f32((uint16_t)(b[2] | (b[3] << 8)));
+            const uint8_t *sc = b + 4, *qs = b + 16;
+            /* One 32-byte weight load feeds two sub-blocks: low nibbles the even one, high
+             * nibbles the odd one — the same pairing the fallback expresses as (j >> 1). */
+            int32_t dots[8];
+            for (int p = 0; p < 4; p++) {
+                uint8x16_t q0 = vld1q_u8(qs + p * 32);
+                uint8x16_t q1 = vld1q_u8(qs + p * 32 + 16);
+                const int8_t *a0 = qa + (long)(blk * 8 + 2 * p) * 32;
+                const int8_t *a1 = qa + (long)(blk * 8 + 2 * p + 1) * 32;
+                const int32x4_t z = vdupq_n_s32(0);
+                int32x4_t e = vdotq_s32(z, vreinterpretq_s8_u8(vandq_u8(q0, m4)), vld1q_s8(a0));
+                e = vdotq_s32(e, vreinterpretq_s8_u8(vandq_u8(q1, m4)), vld1q_s8(a0 + 16));
+                int32x4_t o = vdotq_s32(z, vreinterpretq_s8_u8(vshrq_n_u8(q0, 4)), vld1q_s8(a1));
+                o = vdotq_s32(o, vreinterpretq_s8_u8(vshrq_n_u8(q1, 4)), vld1q_s8(a1 + 16));
+                dots[2 * p]     = vaddvq_s32(e);
+                dots[2 * p + 1] = vaddvq_s32(o);
+            }
+            for (int j = 0; j < 8; j++) {
+                uint8_t s6, m6; nt_get_scale_min_k4(j, sc, &s6, &m6);
+                int sub = blk * 8 + j;
+                acc += da[sub] * (d * (float)s6 * (float)dots[j]
+                                - dmin * (float)m6 * (float)asum[sub]);
+            }
+        }
+        out[row] = acc;
+    }
+}
+#else
+static void nt_q4_k_rows_i8(float *out, const uint8_t *W, const int8_t *qa,
+                            const float *da, int r0, int r1, int k) {
+    int nb = k / 256, nsub = k / 32;
+    int32_t asum[NT_QMV_ASUM_MAX];
+    for (int s = 0; s < nsub; s++) {
+        const int8_t *p = qa + (long)s * 32;
+        int32_t t = 0;
+        for (int i = 0; i < 32; i++) t += p[i];
+        asum[s] = t;
+    }
+    for (int row = r0; row < r1; row++) {
+        const uint8_t *rb = W + (long)row * nb * 144;
+        float acc = 0.0f;
+        for (int blk = 0; blk < nb; blk++) {
+            const uint8_t *b = rb + (long)blk * 144;
+            float d    = nt_f16_to_f32((uint16_t)(b[0] | (b[1] << 8)));
+            float dmin = nt_f16_to_f32((uint16_t)(b[2] | (b[3] << 8)));
+            const uint8_t *sc = b + 4, *qs = b + 16;
+            for (int j = 0; j < 8; j++) {
+                uint8_t s6, m6; nt_get_scale_min_k4(j, sc, &s6, &m6);
+                int sub = blk * 8 + j;
+                const uint8_t *qsp = qs + (j >> 1) * 32;
+                const int8_t  *qab = qa + (long)sub * 32;
+                int32_t dot = 0;
+                if (j & 1) for (int l = 0; l < 32; l++) dot += (int32_t)(qsp[l] >> 4)   * qab[l];
+                else       for (int l = 0; l < 32; l++) dot += (int32_t)(qsp[l] & 0x0F) * qab[l];
+                acc += da[sub] * (d * (float)s6 * (float)dot
+                                - dmin * (float)m6 * (float)asum[sub]);
+            }
+        }
+        out[row] = acc;
+    }
+}
+#endif
+
+/* Pick the i8 row kernel for a dtype, or NULL. Shared by the fan-out entry and the
+ * caller-parallel one so the two can never drift apart. */
+static nt_qrows_i8_fn nt_qrows_i8_for(int dtype, int k) {
+    if (k % 32) return NULL;
+    switch (dtype) {
+    case 2:  return nt_q4_0_rows_i8;
+    case 6:  return nt_q5_0_rows_i8;
+    case 8:  return nt_q8_0_rows_i8;
+    case 12: return (k % 256) ? NULL : nt_q4_k_rows_i8;
+    case 14: return (k % 256) ? NULL : nt_q6_k_rows_i8;
+    default: return NULL;
+    }
+}
+
+void nt_quant_act(const float *x, int k, int8_t *qa, float *da) {
+    nt_quant_act_q8(x, k, qa, da);
+}
+
+int nt_qmatvec_i8_rows(float *out, const uint8_t *Wq, int dtype,
+                       const int8_t *qa, const float *da, int r0, int r1, int k) {
+    nt_qrows_i8_fn fn = nt_qrows_i8_for(dtype, k);
+    if (!fn) return -1;
+    if (k / 32 > NT_QMV_ASUM_MAX) return -1;
+    if (r1 > r0) fn(out, Wq, qa, da, r0, r1, k);
+    return 0;
+}
+
 int nt_qmatvec_i8(float *out, const uint8_t *Wq, int dtype,
                   const float *x, int m, int k) {
-    if (dtype != 2 || (k % 32)) return -1;   /* Phase 2b: Q4_0 only for now */
+    if (dtype != 2 && dtype != 6 && dtype != 8 && dtype != 12 && dtype != 14)
+        return -1;                                       /* Q4_0/Q5_0/Q8_0/Q4_K/Q6_K */
+    if (k % 32) return -1;
+    if ((dtype == 12 || dtype == 14) && (k % 256)) return -1;
+    if (k / 32 > NT_QMV_ASUM_MAX) return -1;      /* per-call activation sums are stack-held */
     int nb = k / 32;
     int8_t *qa = (int8_t *)malloc((size_t)k);
     float  *da = (float *)malloc((size_t)nb * sizeof(float));
     if (!qa || !da) { free(qa); free(da); return -1; }
     nt_quant_act_q8(x, k, qa, da);
-    nt_q4_0_rows_i8(out, Wq, qa, da, 0, m, k);
+
+    /* Selected by table, not by a ternary chain whose last arm is a default. That shape
+     * is why widening the guard above without touching this line sent Q5_0 into the Q6_K
+     * kernel and read 210-byte blocks out of a 22-byte-block buffer. */
+    nt_qrows_i8_fn fn = nt_qrows_i8_for(dtype, k);
+    if (!fn) { free(qa); free(da); return -1; }
+    int nt = nt_qmv_host_threads(m);
+    if (nt <= 1 || (long)m * k < nt_qmv_thread_floor()) {
+        fn(out, Wq, qa, da, 0, m, k);
+        free(qa); free(da);
+        return 0;
+    }
+#ifdef _OPENMP
+    /* Same reasoning as nt_qmatvec: reuse the caller's OpenMP team rather than opening a
+     * second, competing set of threads. The activation stays quantized once, before the
+     * region, and is read-only inside it. */
+    int per_omp = (m + nt - 1) / nt;
+    #pragma omp parallel for schedule(static)
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per_omp, r1 = (r0 + per_omp > m) ? m : r0 + per_omp;
+        if (r0 < m) fn(out, Wq, qa, da, r0, r1, k);
+    }
+#else
+    pthread_t th[NT_QMV_MAX_THREADS];
+    nt_qjob_i8 jobs[NT_QMV_MAX_THREADS];
+    int per = (m + nt - 1) / nt, launched = 0;
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per, r1 = (r0 + per > m) ? m : r0 + per;
+        if (r0 >= m) break;
+        jobs[t] = (nt_qjob_i8){ fn, out, Wq, qa, da, r0, r1, k };
+        launched++;
+    }
+    if (nt_qpool_i8_run(jobs, launched) == 0) {
+        free(qa);
+        free(da);
+        return 0;
+    }
+
+    launched = 0;
+    for (int t = 0; t < nt; t++) {
+        int r0 = t * per;
+        if (r0 >= m) break;
+        if (pthread_create(&th[t], NULL, nt_qworker_i8, &jobs[t]) != 0) {
+            fn(out, Wq, qa, da, r0, m, k);   /* create failed: run the rest inline */
+            break;
+        }
+        launched++;
+    }
+    for (int t = 0; t < launched; t++) pthread_join(th[t], NULL);
+#endif
     free(qa); free(da);
     return 0;
 }
@@ -5078,9 +6464,15 @@ int nt_conv2d(float *out, const float *in, const float *weight, const float *bia
     int Hout = (Hin + 2 * padding - kH) / stride + 1;
     int Wout = (Win + 2 * padding - kW) / stride + 1;
     if (Hout <= 0 || Wout <= 0) return -1;
-    int K = Cin * kH * kW;
-    int N = Hout * Wout;
-    float *col = nt_calloc2_float(K, N);
+    /* K and N are matmul dims for nt_blas_mm and must stay int; validate the
+     * geometry products in a wide type first, so a wrapped int32 can't mis-size
+     * the im2col buffer (Cin*kH*kW or Hout*Wout beyond INT_MAX is rejected). */
+    long K_l = (long)Cin * kH * kW;
+    long N_l = (long)Hout * Wout;
+    if (Cin <= 0 || kH <= 0 || kW <= 0 || K_l > INT_MAX || N_l > INT_MAX) return -1;
+    int K = (int)K_l;
+    int N = (int)N_l;
+    float *col = (float *)malloc((size_t)K * N * sizeof(float));
     if (!col) return -1;
     nt_im2col(col, in, Cin, Hin, Win, kH, kW, stride, padding);
     nt_blas_mm(out, weight, col, Cout, K, N);   /* [Cout,K] @ [K,N] -> [Cout,N] */
@@ -5146,7 +6538,7 @@ void nt_upsample_nearest(float *out, const float *in, int C, int H, int W, int s
 // tokens) — the conditioning path of a diffusion UNet. -1 on bad args / alloc failure.
 int nt_attention(float *out, const float *Q, const float *K, const float *V, int T, int S, int d) {
     if (T <= 0 || S <= 0 || d <= 0) return -1;
-    float *scores = nt_calloc2_float(T, S);
+    float *scores = (float *)malloc((size_t)T * S * sizeof(float));
     if (!scores) return -1;
     nt_blas_mmT(scores, Q, K, T, d, S);          /* scores[T,S] = Q[T,d] @ K[S,d]^T */
     float scale = 1.0f / sqrtf((float)d);
@@ -5390,7 +6782,7 @@ void nt_lora_merge_into(float* W_dst, const float* W_frozen,
     // W_dst[i,j] = W_frozen[i,j] + scale * sum_k B[i,k] * A[k,j]
     // Compute Δ = B @ A first (out × in), then add to W_frozen → W_dst.
     // Use existing nt_blas_mm: C[m,n] = A[m,k] @ B[k,n].
-    float* delta = nt_calloc2_float(out_dim, in_dim);
+    float* delta = (float*)malloc((size_t)out_dim * in_dim * sizeof(float));
     if (!delta) return;
     nt_blas_mm(delta, lora->B->data, lora->A->data, out_dim, rank, in_dim);
     for (int i = 0; i < out_dim; i++) {

@@ -39,7 +39,7 @@ typedef struct {
 } nt_tensor;
 
 // Create a 1D tensor of given length, zeroed
-nt_tensor* nt_tensor_new(int len);
+nt_tensor* nt_tensor_new(size_t len);
 
 // Create a 2D tensor (rows × cols), zeroed
 nt_tensor* nt_tensor_new2d(int rows, int cols);
@@ -123,6 +123,8 @@ void nt_tensor_print(const nt_tensor* t, const char* name);
 #define NT_OP_SEQ_CROSSENT_MASKED 32  // masked sequence cross-entropy (parent3 = mask)
 #define NT_OP_RRPRAM_LR     33   // low-rank RRPRAM (Wr = Wr_a × Wr_b packed in one tensor)
 #define NT_OP_RRPRAM_BCAST  34   // broadcast RRPRAM — mid[h,r] = Σ_t x[t]·Wr_a[h] (canonical Janus pattern, sc=1/sqrt(D))
+#define NT_OP_RELU          35   // y = max(0, x) — rectified linear unit
+#define NT_OP_SEQ_GATE      36   // out[t,d] = x[t,d] * gate[t,gi] — per-position mechanism gate
 
 typedef struct {
     nt_tensor* output;          // forward result
@@ -353,6 +355,15 @@ int nt_silu(int x_idx);
 // Sigmoid activation: y = 1 / (1 + exp(-x))
 int nt_sigmoid(int x_idx);
 
+// ReLU activation: y = max(0, x)
+int nt_relu(int x_idx);
+
+// Per-position mechanism gate (q triple-attention): out[t,d] = x[t,d] * gate[t*nm+gi].
+// x is [T, B] (B = x.len/T), gate is [T, nm]; gi selects which gate column scales this
+// mechanism's block. Backward flows to x (dout*gate) and to gate column gi
+// (Σ_d dout[t,d]*x[t,d]); other gate columns get zero gradient.
+int nt_seq_gate(int x_idx, int g_idx, int T, int nm, int gi);
+
 // Broadcast scale: y[i] = a[0] * x[i], where a is a scalar tensor (shape [1]).
 // Grad flows to both x (gx = a*gy) and a (ga = sum(gy*x)).
 int nt_scale_by_t(int x_idx, int a_idx);
@@ -443,8 +454,15 @@ int nt_rrpram_lowrank_attention(int wr_combined_idx, int x_idx, int v_idx,
 // score[h,j] = Σ_r mid[h,r] · Wr_b[h,r,j] * sc with sc = 1/sqrt(D) (canonical scale).
 // attn[h,i,j] = softmax_causal(scores[h])[i,j] for j ≤ i.
 // out[i, h_off+d] = Σ_{j≤i} attn[h,i,j] · v[j, h_off+d].
+//
+// Use this when training/inferring against weights produced by canonical Janus models —
+// nt_rrpram_lowrank_attention's per-position pattern is a function-class-different op
+// and DoE LoRA training against it plateaus near uniform-distribution loss.
+// rank is REQUIRED — packed weight is H*R*(E + ctx_T), and ctx_T is derived from
+// combined_len / (H*rank) - n_embd. Caller passes the model's rank from JANU header.
+// head_dim must satisfy nr_heads*head_dim == n_embd (Janus invariant).
 int nt_rrpram_broadcast_attention(int wr_combined_idx, int x_idx, int v_idx,
-                                   int T, int n_embd, int nr_heads, int head_dim);
+                                   int T, int n_embd, int nr_heads, int head_dim, int rank);
 
 // Concatenate per-position: out[t] = [a[t], b[t]]. a: [T, D_a], b: [T, D_b] → out: [T, D_a+D_b]
 int nt_concat(int a_idx, int b_idx, int T);
@@ -506,11 +524,37 @@ void nt_blas_matvec(float *out, const float *W, const float *x, int m, int n);
 int nt_qmatvec(float *out, const uint8_t *Wq, int dtype,
                const float *x, int m, int k);
 
+// Quantize one activation row to the layout the i8 matvecs expect: per-32 symmetric int8.
+// qa needs k bytes, da needs k/32 floats. Split out so a consumer that dots the SAME row
+// against many matrices — a MoE layer against its top-k experts — quantizes it once.
+void nt_quant_act(const float *x, int k, int8_t *qa, float *da);
+
+// Row-range packed matvec against a PRE-quantized activation, with NO threading inside:
+// the caller owns the parallel region. nt_qmatvec_i8 owns its one-off dispatch, which is
+// right for one big matrix and wrong for a MoE — 3 matmuls x 8 experts x 48 layers is
+// 1152 dispatches per token. With this entry the engine opens one region per layer and
+// hands out row ranges.
+// Returns 0, or -1 if the dtype has no i8 kernel or the shape does not fit it.
+int nt_qmatvec_i8_rows(float *out, const uint8_t *Wq, int dtype,
+                       const int8_t *qa, const float *da, int r0, int r1, int k);
+
+// Threading floor for the packed matvecs, in weight elements (m*k). Below it a call stays
+// single-threaded, because fan-out costs more than it saves on small shapes. Non-OpenMP
+// builds reuse persistent pthread workers by default (`NT_QMV_POOL=0` restores per-call
+// pthread create/join); OpenMP builds reuse the caller/runtime team. The default 4M was
+// measured on a 360M-class decoder; other shapes differ by an order of magnitude — a 30B
+// MoE expert is 768x2048 = 1.57M and sits UNDER the default, so an engine that does not
+// lower the floor runs every expert on one core. Consumers set it once at startup;
+// NT_QMV_THREAD_MIN still works and is read only if the API was never called.
+void nt_qmv_set_thread_min(long elems);
+
 // int8 dynamic-activation-quant matvec — the llama.cpp / MNN fast path. Quantizes
 // the activation to per-block int8 and dots it against the packed weights with
 // INTEGER accumulation (SDOT/VNNI-friendly). APPROXIMATE: a little accuracy traded
 // for speed; nt_qmatvec (f32 dequant) stays the exact reference. dtype = GGUF type
-// code. Returns 0 on success, -1 if no int8 kernel for the dtype yet.
+// code: Q4_0 (2), Q5_0 (6), Q8_0 (8), Q4_K (12), Q6_K (14). The K-quants need k
+// divisible by 256, the others by 32.
+// Returns 0 on success, -1 if no int8 kernel for the dtype yet.
 int nt_qmatvec_i8(float *out, const uint8_t *Wq, int dtype,
                   const float *x, int m, int k);
 
