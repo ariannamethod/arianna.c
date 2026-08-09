@@ -13,6 +13,14 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-10 - DoE qmatvec parity joined body-smoke
+
+`make body-smoke` now runs `doe_qmatvec_test` before the runtime smoke script,
+so the body harness automatically catches drift in Arianna's vendored DoE
+packed-matvec/parliament layer. The guard covers exact packed parity, DOE_INT8
+approximation bounds, and threaded vs single exact identity for the supported
+GGUF formats.
+
 ## 2026-08-10 - DoE parliament matvec sync
 
 The vendored DoE runtime now carries the canonical DoE v1.5.0 packed-matvec

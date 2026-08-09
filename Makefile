@@ -663,5 +663,5 @@ admission_qloop_sweep_broad: chorus metabolism
 
 body-smoke: body_smoke
 
-body_smoke: all nano chorus metabolism kk doe_field harvest_delta
+body_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
 	bash tools/body_smoke.sh
