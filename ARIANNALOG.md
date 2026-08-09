@@ -13,6 +13,22 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-10 - DoE parliament matvec sync
+
+The vendored DoE runtime now carries the canonical DoE v1.5.0 packed-matvec
+parliament layer from commit `7265af0`: persistent row-worker pool, dynamic
+row claiming, activation quant cache, Q4_0/Q5_0/Q8_0/Q4_K/Q6_K exact packed
+paths, and the DOE_INT8 approximate fast path for the same packed formats. This
+is a targeted sync, not a full `doe.c` replacement: Arianna keeps her local
+hardening and pre-vision runtime fork, imports no Pixtral/BLAS surface, and
+leaves `notorch_metal.h` unchanged.
+
+Validation: `make doe-qmatvec-test` proves exact packed parity against an
+independent dequant reference, DOE_INT8 approximation bounds, and threaded vs
+single exact identity; `make notorch-qmatvec-test` remains green; `go test
+./...` passes from `golib`; `make body-smoke` passes with explicit shared Janus,
+Resonance, and nano weights.
+
 ## 2026-08-09 - Live route chat smoke moved into Go
 
 The chat dry-run route smoke now owns its scratch/log path, shadow admission
