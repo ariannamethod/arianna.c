@@ -113,6 +113,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_boundary_report_assert_full_chain_smoke admission-live-route-boundary-report-assert-full-chain-smoke
 .PHONY: admission_live_route_boundary_report_failed_diagnostics_assert_smoke admission-live-route-boundary-report-failed-diagnostics-assert-smoke
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
+.PHONY: notorch_qmatvec_test notorch-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
 
 # ── notorch (CPU + BLAS, plus CUDA when USE_CUDA=1) ────────────────────────
@@ -127,6 +128,18 @@ $(LIBNOTORCH): ariannamethod/notorch/notorch.c ariannamethod/notorch/notorch.h \
 	    -c ariannamethod/notorch/gguf.c -o ariannamethod/notorch/gguf.o
 	$(AR) rcs $@ ariannamethod/notorch/notorch.o ariannamethod/notorch/gguf.o \
 	    $(if $(filter 1,$(USE_CUDA)),ariannamethod/notorch/notorch_cuda.o,)
+
+notorch-qmatvec-test: notorch_qmatvec_test
+
+notorch_qmatvec_test: $(LIBNOTORCH) tools/test_notorch_qmatvec.c tools/test_notorch_qpool.c
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) -Iariannamethod/notorch \
+	    tools/test_notorch_qmatvec.c $(LIBNOTORCH) $(BLAS_LIBS) $(LDFLAGS) \
+	    -o /tmp/arianna-test-notorch-qmatvec
+	/tmp/arianna-test-notorch-qmatvec
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) -Iariannamethod/notorch \
+	    tools/test_notorch_qpool.c $(LIBNOTORCH) $(BLAS_LIBS) $(LDFLAGS) \
+	    -o /tmp/arianna-test-notorch-qpool
+	/tmp/arianna-test-notorch-qpool
 
 ariannamethod/notorch/notorch_cuda.o: ariannamethod/notorch/notorch_cuda.cu \
                                       ariannamethod/notorch/notorch_cuda.h
