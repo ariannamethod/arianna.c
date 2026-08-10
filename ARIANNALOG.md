@@ -47,6 +47,18 @@ weighted readiness report passes the Go assertion contract. The receipt records
 admission, and mutation closed. `make admission-weighted-readiness-precondition`
 proves the full weighted producer -> precondition path.
 
+Follow-up 3: the weighted precondition now feeds a closed admission contract
+receipt. `metabolism --admission-live-route-weighted-admission-contract
+PRECONDITION CONTRACT` first structurally revalidates
+`arianna.live_route_weighted_readiness_precondition.v1`, then writes
+`arianna.live_route_weighted_admission_contract.v1` with
+`weighted_admission_contract_ready=true` and
+`next_step_blocked_without_precondition=true`. The global live flags remain
+closed (`contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`). `make admission-weighted-admission-contract` proves the
+producer -> precondition -> contract path without opening live admission.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
