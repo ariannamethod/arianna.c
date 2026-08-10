@@ -28,6 +28,15 @@ The receipt is deliberately closed: `contracts_ready=false`,
 single command to prove the weighted pre-live path before any future live
 admission work is allowed to approach mutation.
 
+Follow-up: the weighted readiness receipt is now consumed by a Go-backed
+assertion path instead of only shell-grep checks. `metabolism
+--admission-live-route-weighted-readiness-assert REPORT` decodes
+`arianna.live_route_weighted_readiness.v1`, rejects missing/mismatched schemas,
+open live/mutation flags, incomplete weighted lanes, and missing provenance
+paths. `make admission-weighted-readiness-consumer` produces the weighted receipt
+and immediately reconsumes it as the precondition for later live-route admission
+work.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
