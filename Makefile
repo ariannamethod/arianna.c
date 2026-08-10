@@ -133,6 +133,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_boundary_report_assert_smoke admission-live-route-boundary-report-assert-smoke
 .PHONY: admission_live_route_boundary_report_assert_full_chain_smoke admission-live-route-boundary-report-assert-full-chain-smoke
 .PHONY: admission_live_route_boundary_report_failed_diagnostics_assert_smoke admission-live-route-boundary-report-failed-diagnostics-assert-smoke
+.PHONY: admission_live_route_weighted_readiness_smoke admission-live-route-weighted-readiness-smoke admission_weighted_readiness admission-weighted-readiness
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
 .PHONY: notorch_qmatvec_test notorch-qmatvec-test doe_qmatvec_test doe-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
@@ -660,6 +661,15 @@ admission-qloop-sweep-broad: admission_qloop_sweep_broad
 admission_qloop_sweep_broad: chorus metabolism
 	A2A_QLOOP_SWEEP_LIMIT=$${A2A_QLOOP_SWEEP_LIMIT:-6} \
 	    bash tools/admission_qloop_sweep.sh
+
+admission-live-route-weighted-readiness-smoke: admission_live_route_weighted_readiness_smoke
+
+admission-weighted-readiness: admission_weighted_readiness
+
+admission_weighted_readiness: admission_live_route_weighted_readiness_smoke
+
+admission_live_route_weighted_readiness_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_readiness_smoke.sh
 
 body-smoke: body_smoke
 
