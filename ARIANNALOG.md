@@ -13,6 +13,16 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-10 - Weighted nano-direct body-smoke gate
+
+`body_smoke.sh` now has an explicit weighted lane: set
+`A2A_BODY_SMOKE_NANO_DIRECT=1` to run live nano-direct candidate runner,
+chat-shadow, final-gate, and Resonance graft admission-proof smokes after the
+ordinary Janus/Resonance/nano/chorus runtime probes. The default portable
+`make body-smoke` path stays light and still skips runtime when GGUFs are
+absent; the new `make body-smoke-weighted` target requires weights and opens
+the heavier nano-direct admission proof chain from the same scratch body.
+
 ## 2026-08-10 - DoE qmatvec parity joined body-smoke
 
 `make body-smoke` now runs `doe_qmatvec_test` before the runtime smoke script,
