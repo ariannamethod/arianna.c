@@ -37,6 +37,16 @@ paths. `make admission-weighted-readiness-consumer` produces the weighted receip
 and immediately reconsumes it as the precondition for later live-route admission
 work.
 
+Follow-up 2: the consumed weighted receipt now becomes an explicit precondition
+receipt for the next admission layer. `metabolism
+--admission-live-route-weighted-readiness-precondition READINESS PRECONDITION`
+writes `arianna.live_route_weighted_readiness_precondition.v1` only after the
+weighted readiness report passes the Go assertion contract. The receipt records
+`weighted_readiness_required=true`, `weighted_readiness_consumed=true`, and
+`next_step_blocked_without_readiness=true`, while keeping contracts, writes, live
+admission, and mutation closed. `make admission-weighted-readiness-precondition`
+proves the full weighted producer -> precondition path.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set

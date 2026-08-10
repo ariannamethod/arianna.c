@@ -37,6 +37,10 @@ func runAdmissionLiveRouteWeightedReadinessAssert(args []string) error {
 	if err != nil {
 		return err
 	}
+	return admissionLiveRouteWeightedReadinessReportError(report, root)
+}
+
+func admissionLiveRouteWeightedReadinessReportError(report admissionLiveRouteWeightedReadinessReport, root map[string]json.RawMessage) error {
 	if _, ok := root["schema"]; !ok {
 		return fmt.Errorf("weighted readiness report schema missing")
 	}
