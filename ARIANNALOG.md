@@ -13,6 +13,21 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-10 - Weighted admission readiness gate
+
+`make admission-weighted-readiness` now names the heavy GGUF lane as a pre-live
+admission readiness surface instead of leaving it only inside body-smoke. The
+new wrapper runs weighted body-smoke in its own scratch, requires Janus,
+Resonance, and nano GGUFs, reasserts the full boundary-report chain, checks the
+nano-direct final gate and Resonance graft admission proof receipts, and writes
+`arianna.live_route_weighted_readiness.v1` with `ready_closed_dry_run`.
+
+The receipt is deliberately closed: `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, and `mutates_state=false`. This gives the body a
+single command to prove the weighted pre-live path before any future live
+admission work is allowed to approach mutation.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
