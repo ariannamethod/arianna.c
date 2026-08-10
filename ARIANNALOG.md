@@ -59,6 +59,15 @@ closed (`contracts_ready=false`, `write_allowed=false`,
 `mutates_state=false`). `make admission-weighted-admission-contract` proves the
 producer -> precondition -> contract path without opening live admission.
 
+Follow-up 4: the weighted admission contract is now consumable through a
+Go-backed assertion command. `metabolism
+--admission-live-route-weighted-admission-contract-assert REPORT` rejects
+missing/mismatched schemas, broken source-precondition fields, incomplete
+weighted lanes, opened live/write/mutation flags, and missing provenance paths.
+`make admission-weighted-admission-contract-consumer` proves the heavy weighted
+producer -> precondition -> contract -> assert chain and leaves live admission
+closed.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
