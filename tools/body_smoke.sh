@@ -13,6 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROMPT="${A2A_BODY_SMOKE_PROMPT:-Who are you?}"
 TOKENS="${A2A_BODY_SMOKE_TOKENS:-2}"
 REQUIRE_WEIGHTS="${A2A_BODY_SMOKE_REQUIRE_WEIGHTS:-0}"
+RUN_NANO_DIRECT="${A2A_BODY_SMOKE_NANO_DIRECT:-0}"
 
 JANUS_MODEL="${A2A_JANUS_MODEL:-$ROOT/weights/arianna_v4_sft_f16.gguf}"
 RESONANCE_MODEL="${A2A_RESONANCE_MODEL:-$ROOT/weights/arianna_resonance_v3_f16.gguf}"
@@ -173,7 +174,7 @@ A2A_ADMISSION_SAMPLE_WORKDIR="$WORKDIR/admission-sample" \
     bash "$ROOT/tools/admission_shadow_sample.sh"
 
 if [[ ! -f "$JANUS_MODEL" || ! -f "$RESONANCE_MODEL" || ! -f "$NANO_MODEL" ]]; then
-    if [[ "$REQUIRE_WEIGHTS" == "1" ]]; then
+    if [[ "$REQUIRE_WEIGHTS" == "1" || "$RUN_NANO_DIRECT" == "1" ]]; then
         die "missing one or more GGUFs: $JANUS_MODEL | $RESONANCE_MODEL | $NANO_MODEL"
     fi
     echo "[body-smoke] runtime skipped: GGUF weights not all present"
@@ -205,5 +206,27 @@ require_log chorus 'NEOX rope' "chorus NEOX rope for nano GGUF"
 require_log chorus '=== δ-field done' "chorus field completed"
 
 "$ROOT/doe_field" --help >"$WORKDIR/doe_help.log" 2>&1 || die "doe_field --help failed"
+
+if [[ "$RUN_NANO_DIRECT" == "1" ]]; then
+    echo "[body-smoke] weighted nano-direct candidate runner"
+    A2A_NANO_MODEL="$NANO_MODEL" \
+    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RUNNER_WORKDIR="$WORKDIR/nano-direct-runner" \
+        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_runner_smoke.sh"
+
+    echo "[body-smoke] weighted nano-direct chat shadow"
+    A2A_NANO_MODEL="$NANO_MODEL" \
+    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_CHAT_SHADOW_WORKDIR="$WORKDIR/nano-direct-chat-shadow" \
+        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_chat_shadow_smoke.sh"
+
+    echo "[body-smoke] weighted nano-direct final gate"
+    A2A_NANO_MODEL="$NANO_MODEL" \
+    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_FINAL_GATE_WORKDIR="$WORKDIR/nano-direct-final-gate" \
+        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_final_gate_smoke.sh"
+
+    echo "[body-smoke] weighted nano-direct Resonance graft admission proof"
+    A2A_NANO_MODEL="$NANO_MODEL" \
+    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RESONANCE_GRAFT_ADMISSION_PROOF_WORKDIR="$WORKDIR/nano-direct-resonance-graft-admission-proof" \
+        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_resonance_graft_admission_proof_smoke.sh"
+fi
 
 echo "[body-smoke] pass: runtime scratch=$WORKDIR"

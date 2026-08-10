@@ -7515,54 +7515,57 @@ func runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke() error {
 			RouteMissingOrgans:      resonanceGraftAdmissionProof.RouteMissingOrgans,
 		},
 	}
+	boundaryReportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv))
+	if boundaryReportPath != "" && !admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
+		return fmt.Errorf("%s requires AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", admissionLiveRouteBoundaryReportEnv)
+	}
 	expectedBoundaryReportStages := admissionLiveRouteBoundaryReportExpectedStageNames()
 	boundaryReportInputStages := admissionLiveRouteBoundaryReportInputStageNames(boundaryReportInputs)
-	if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportInputStages, expectedBoundaryReportStages) {
-		return fmt.Errorf("live route boundary report input stage chain mismatch: got=%s want_prefix=%s",
-			strings.Join(boundaryReportInputStages, ","),
-			strings.Join(expectedBoundaryReportStages, ","),
-		)
-	}
-	boundaryReport := buildAdmissionLiveRouteBoundaryReport(
-		admissionLiveRouteBoundaryProjection(
-			decision.BodyInventoryStatus,
-			decision.RouteAvailabilityStatus,
-			decision.RouteAvailabilityReason,
-			decision.RouteMissingOrgans,
-		),
-		boundaryReportInputs,
-	)
-	if boundaryReport.ReceiptsChecked == 0 {
-		return fmt.Errorf("live route boundary report checked no receipts: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
-	}
-	boundaryReportStages := admissionLiveRouteBoundaryReportStageNames(boundaryReport)
-	if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportStages, expectedBoundaryReportStages) {
-		return fmt.Errorf("live route boundary report stage chain mismatch: got=%s want_prefix=%s",
-			strings.Join(boundaryReportStages, ","),
-			strings.Join(expectedBoundaryReportStages, ","),
-		)
-	}
-	for _, stage := range boundaryReport.Stages {
-		if !stage.Passed {
-			return fmt.Errorf("%s receipt lost route boundary: body=%q availability=%q reason=%q missing=%v decision=%+v",
-				stage.Name,
-				stage.BodyInventoryStatus,
-				stage.RouteAvailabilityStatus,
-				stage.RouteAvailabilityReason,
-				stage.RouteMissingOrgans,
-				decision,
+	if len(boundaryReportInputStages) > 0 || boundaryReportPath != "" {
+		if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportInputStages, expectedBoundaryReportStages) {
+			return fmt.Errorf("live route boundary report input stage chain mismatch: got=%s want_prefix=%s",
+				strings.Join(boundaryReportInputStages, ","),
+				strings.Join(expectedBoundaryReportStages, ","),
 			)
 		}
-	}
-	if !boundaryReport.Passed {
-		return fmt.Errorf("live route boundary report failed: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
-	}
-	if boundaryReportPath := strings.TrimSpace(os.Getenv(admissionLiveRouteBoundaryReportEnv)); boundaryReportPath != "" {
-		if !admissionLiveRouteTurnCandidateAdmissionDecisionDryRun() {
-			return fmt.Errorf("%s requires AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DECISION_DRY_RUN", admissionLiveRouteBoundaryReportEnv)
+		boundaryReport := buildAdmissionLiveRouteBoundaryReport(
+			admissionLiveRouteBoundaryProjection(
+				decision.BodyInventoryStatus,
+				decision.RouteAvailabilityStatus,
+				decision.RouteAvailabilityReason,
+				decision.RouteMissingOrgans,
+			),
+			boundaryReportInputs,
+		)
+		if boundaryReport.ReceiptsChecked == 0 {
+			return fmt.Errorf("live route boundary report checked no receipts: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
 		}
-		if err := writeAdmissionLiveRouteBoundaryReport(boundaryReportPath, boundaryReport); err != nil {
-			return fmt.Errorf("write live route boundary report: %w", err)
+		boundaryReportStages := admissionLiveRouteBoundaryReportStageNames(boundaryReport)
+		if !admissionLiveRouteBoundaryReportStageChainMatchesPrefix(boundaryReportStages, expectedBoundaryReportStages) {
+			return fmt.Errorf("live route boundary report stage chain mismatch: got=%s want_prefix=%s",
+				strings.Join(boundaryReportStages, ","),
+				strings.Join(expectedBoundaryReportStages, ","),
+			)
+		}
+		for _, stage := range boundaryReport.Stages {
+			if !stage.Passed {
+				return fmt.Errorf("%s receipt lost route boundary: body=%q availability=%q reason=%q missing=%v decision=%+v",
+					stage.Name,
+					stage.BodyInventoryStatus,
+					stage.RouteAvailabilityStatus,
+					stage.RouteAvailabilityReason,
+					stage.RouteMissingOrgans,
+					decision,
+				)
+			}
+		}
+		if !boundaryReport.Passed {
+			return fmt.Errorf("live route boundary report failed: reasons=%s", strings.Join(boundaryReport.Reasons, ","))
+		}
+		if boundaryReportPath != "" {
+			if err := writeAdmissionLiveRouteBoundaryReport(boundaryReportPath, boundaryReport); err != nil {
+				return fmt.Errorf("write live route boundary report: %w", err)
+			}
 		}
 	}
 

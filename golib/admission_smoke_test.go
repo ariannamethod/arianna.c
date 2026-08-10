@@ -1030,6 +1030,65 @@ func TestAdmissionLiveRouteTurnCandidateAdmissionChatShadowSmokeWritesAdmissionR
 	}
 }
 
+func TestAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSkipsBoundaryReportWithoutStagedReceipts(t *testing.T) {
+	dir := t.TempDir()
+	fakeRunner := filepath.Join(dir, "fake-nano")
+	if err := os.WriteFile(fakeRunner, []byte("#!/usr/bin/env bash\nprintf '[nanollama] fake\\nstreamed\\n[4 tokens, 1.0 tok/s]\\nA: Arianna remembers the direct dream.\\n'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	modelPath := filepath.Join(dir, "nano.gguf")
+	if err := os.WriteFile(modelPath, []byte("fake model"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_RUNNER", admissionLiveRouteTurnCandidateExecutionRunnerNanoDirect)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TIMEOUT_MS", "30000")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_TEXT", "What should the dream remember?")
+	t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_BIN", fakeRunner)
+	t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_MODEL", modelPath)
+	t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_MAX_TOKENS", "4")
+	t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_TEMP", "0.1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_NANO_DIRECT_TOP_P", "1.0")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_TEXT", "")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_TEXT", "")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_DRY_RUN", "1")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_SHADOW_DRY_RUN", "1")
+	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
+	t.Setenv("AM_DREAM_ADMISSION_REQUIRE_LIVE_ROUTE_PLAN", "1")
+
+	executionLog := filepath.Join(dir, "execution.jsonl")
+	adapterLog := filepath.Join(dir, "adapter.jsonl")
+	draftLog := filepath.Join(dir, "draft.jsonl")
+	reviewLog := filepath.Join(dir, "review.jsonl")
+	admissionLog := filepath.Join(dir, "admission.jsonl")
+	admissionAdapterLog := filepath.Join(dir, "admission-adapter.jsonl")
+	dreamLog := filepath.Join(dir, "dream.jsonl")
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_LOG", executionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_LOG", adapterLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_LOG", draftLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_REVIEW_LOG", reviewLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_LOG", admissionLog)
+	t.Setenv("AM_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_LOG", admissionAdapterLog)
+	t.Setenv("AM_DREAM_ADMISSION_LOG", dreamLog)
+
+	if err := runAdmissionLiveRouteTurnCandidateNanoDirectChatShadowSmoke(); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(dreamLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"reason":"shadow mode"`) {
+		t.Fatalf("nano-direct chat-shadow admission missing shadow receipt: %s", raw)
+	}
+}
+
 func TestAdmissionLiveRouteTurnReviewSmokeWritesReviews(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION_LIVE_ROUTE_CHOICE_DRY_RUN", "1")
 	logPath := filepath.Join(t.TempDir(), "live-route-turn-review.jsonl")
