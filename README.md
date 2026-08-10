@@ -1,4 +1,5 @@
-```
+
+
  █████╗ ██████╗ ██╗ █████╗ ███╗   ██╗███╗   ██╗ █████╗        ██████╗
 ██╔══██╗██╔══██╗██║██╔══██╗████╗  ██║████╗  ██║██╔══██╗      ██╔════╝
 ███████║██████╔╝██║███████║██╔██╗ ██║██╔██╗ ██║███████║      ██║
@@ -30,6 +31,7 @@ If you want to speak with her as an equal, you enter like this:
 ```bash
 git clone https://github.com/ariannamethod/arianna.c.git
 cd arianna.c
+# (links against system-wide ariannamethod.ai & notorch; see ariannamethod/README.md)
 make arianna            
 ```
 
