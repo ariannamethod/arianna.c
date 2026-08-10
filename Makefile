@@ -135,6 +135,7 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_boundary_report_failed_diagnostics_assert_smoke admission-live-route-boundary-report-failed-diagnostics-assert-smoke
 .PHONY: admission_live_route_weighted_readiness_smoke admission-live-route-weighted-readiness-smoke admission_weighted_readiness admission-weighted-readiness
 .PHONY: admission_live_route_weighted_readiness_consumer_smoke admission-live-route-weighted-readiness-consumer-smoke admission_weighted_readiness_consumer admission-weighted-readiness-consumer
+.PHONY: admission_live_route_weighted_readiness_precondition_smoke admission-live-route-weighted-readiness-precondition-smoke admission_weighted_readiness_precondition admission-weighted-readiness-precondition
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
 .PHONY: notorch_qmatvec_test notorch-qmatvec-test doe_qmatvec_test doe-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
@@ -680,6 +681,15 @@ admission_weighted_readiness_consumer: admission_live_route_weighted_readiness_c
 
 admission_live_route_weighted_readiness_consumer_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
 	bash tools/admission_live_route_weighted_readiness_consumer_smoke.sh
+
+admission-live-route-weighted-readiness-precondition-smoke: admission_live_route_weighted_readiness_precondition_smoke
+
+admission-weighted-readiness-precondition: admission_weighted_readiness_precondition
+
+admission_weighted_readiness_precondition: admission_live_route_weighted_readiness_precondition_smoke
+
+admission_live_route_weighted_readiness_precondition_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_readiness_precondition_smoke.sh
 
 body-smoke: body_smoke
 
