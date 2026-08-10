@@ -130,4 +130,6 @@ require_grep '"boundary_report_full_chain": true' "$READINESS_REPORT" "readiness
 require_grep '"live_admission_enabled": false' "$READINESS_REPORT" "readiness report closed live flag"
 require_grep '"mutates_state": false' "$READINESS_REPORT" "readiness report non-mutation flag"
 
+bash "$ROOT/tools/admission_live_route_weighted_readiness_assert.sh" "$READINESS_REPORT"
+
 echo "[admission-live-route-weighted-readiness-smoke] pass: readiness_report=$READINESS_REPORT boundary_report=$BOUNDARY_REPORT proof=$PROOF_LOG final_gate=$FINAL_GATE_LOG"
