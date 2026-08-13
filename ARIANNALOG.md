@@ -68,6 +68,18 @@ weighted lanes, opened live/write/mutation flags, and missing provenance paths.
 producer -> precondition -> contract -> assert chain and leaves live admission
 closed.
 
+Follow-up 5: the consumed weighted admission contract now produces a closed
+authority receipt before any live route can claim permission. `metabolism
+--admission-live-route-weighted-admission-authority CONTRACT AUTHORITY`
+structurally revalidates `arianna.live_route_weighted_admission_contract.v1`,
+then writes `arianna.live_route_weighted_admission_authority.v1` with
+`weighted_admission_contract_consumed=true`, `authority_granted=false`, and all
+live/write/mutation flags still closed. The paired Go assertion
+`--admission-live-route-weighted-admission-authority-assert REPORT` rejects
+missing provenance, incomplete weighted lanes, or opened authority. `make
+admission-weighted-admission-authority-consumer` proves the full producer ->
+precondition -> contract -> authority -> assert chain.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
