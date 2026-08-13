@@ -4788,3 +4788,15 @@ boundary report, proof log, and final-gate log. It still refuses raw dream text,
 delta harvest, writes, live admission, and mutation; rollback plus pre/post state hashes remain required. `make
 admission-weighted-admission-resonance-intent-consumer` proves producer -> precondition -> contract -> authority ->
 permit -> seal -> final gate -> resonance intent -> assert while keeping the body closed.
+
+**Follow-up, 2026-08-13 - weighted admission now lets Resonance receive the sealed intent.**
+`arianna.live_route_weighted_admission_resonance_receiver.v1` consumes only a passed weighted Resonance intent and
+previews the first internal receiver without opening the body. The report is still a dry-run proof:
+`status=receiver_previewed_dry_run`, `target=resonance`, `target_kind=weighted_live_route_first_receiver`,
+`target_mode=bounded_direction_preview_dry_run`, `action=preview_weighted_resonance_receive_dry_run`,
+`receiver=resonance`, `receiver_kind=internal_world`, `influence_kind=bounded_direction`, `max_influence=0.05`,
+`ttl_turns=1`, and `state_hash_mode=sealed_metadata_preview`. It carries causal/pre/post/delta hashes plus a receiver
+ID, while raw dream text, Janus surface admission, cooc learning, delta harvest, body mutation, writes, live admission,
+and authority remain closed. `make admission-weighted-admission-resonance-receiver-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+assert with sealed metadata only.
