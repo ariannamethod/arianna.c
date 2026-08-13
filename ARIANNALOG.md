@@ -4827,3 +4827,21 @@ weighted graft-boundary ID. `shadow_only=true`, `graft_allowed=false`, `raw_drea
 the next dry-run proof may consume this boundary. `make admission-weighted-admission-resonance-graft-boundary-consumer`
 proves producer -> precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent ->
 resonance receiver -> observation -> graft boundary -> assert.
+
+**Follow-up, 2026-08-14 - weighted admission now preflights the Resonance graft boundary.**
+`arianna.live_route_weighted_admission_resonance_graft_preflight.v1` consumes the weighted graft boundary and prepares
+the next closed shadow-graft proof without opening the body. The receipt carries
+`status=shadow_graft_preflight_ready_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft_preflight`,
+`target_mode=receipt_only_closed_preflight_dry_run`,
+`action=prepare_weighted_resonance_shadow_graft_preflight_dry_run`,
+`receipt_shape=weighted_resonance_shadow_graft_preflight_contract`, `preflight_kind=shadow_graft_preflight`,
+`preflight_mode=no_mutation_preflight`, `preflight_stage=pre_live_graft_admission`,
+causal/preflight/read-back hashes, and a weighted graft-preflight ID. It revalidates and carries the source boundary,
+observation, receiver, intent, final-gate, seal, permit, authority, contract, precondition, and readiness chain while
+keeping `graft_allowed=false`, `raw_dream_text_allowed=false`, `janus_surface_allowed=false`,
+`cooc_learning_allowed=false`, `delta_harvest_allowed=false`, `body_mutation_allowed=false`,
+`live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-resonance-graft-preflight-consumer` proves producer -> precondition -> contract ->
+authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> graft boundary
+-> graft preflight -> assert.
