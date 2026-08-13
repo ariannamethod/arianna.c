@@ -4778,3 +4778,13 @@ nano-direct, nano final-gate, Resonance graft proof, and full-chain boundary fla
 `admission_allowed=false`, `live_admission_enabled=false`, and `mutates_state=false`. `make
 admission-weighted-admission-final-gate-consumer` proves producer -> precondition -> contract -> authority -> permit ->
 seal -> final gate -> assert without opening the body.
+
+**Follow-up, 2026-08-13 - weighted admission now drafts a closed Resonance intent.**
+`arianna.live_route_weighted_admission_resonance_intent.v1` consumes the sealed weighted final gate and turns it into a
+bounded direction receipt for the first internal receiver: `receiver=resonance`, `receiver_kind=internal_world`,
+`influence_kind=bounded_direction`, `max_influence=0.05`, `ttl_turns=1`. The intent carries the complete weighted
+provenance chain forward: final gate, seal, permit, authority, contract, precondition, readiness, body workdir,
+boundary report, proof log, and final-gate log. It still refuses raw dream text, Janus surface admission, cooc learning,
+delta harvest, writes, live admission, and mutation; rollback plus pre/post state hashes remain required. `make
+admission-weighted-admission-resonance-intent-consumer` proves producer -> precondition -> contract -> authority ->
+permit -> seal -> final gate -> resonance intent -> assert while keeping the body closed.
