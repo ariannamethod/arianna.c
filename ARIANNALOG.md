@@ -4800,3 +4800,15 @@ ID, while raw dream text, Janus surface admission, cooc learning, delta harvest,
 and authority remain closed. `make admission-weighted-admission-resonance-receiver-consumer` proves producer ->
 precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
 assert with sealed metadata only.
+
+**Follow-up, 2026-08-13 - weighted admission now records the Resonance observation.**
+`arianna.live_route_weighted_admission_resonance_observation.v1` consumes the weighted receiver report and records an
+append-only/read-back dry-run observation of the sealed receiver state proof. It carries
+`status=observation_recorded_dry_run`, `target=resonance`, `target_kind=weighted_internal_world_observation`,
+`target_mode=append_only_read_back_dry_run`, `action=record_weighted_resonance_receiver_observation_dry_run`,
+`observer=resonance`, `observation_kind=weighted_receiver_state_proof`, `observation_mode=sealed_metadata_observation`,
+causal/append/read-back hashes, and an observation ID. Raw dream text, Janus surface admission, cooc learning, delta
+harvest, body mutation, writes, live admission, and authority remain closed. `make
+admission-weighted-admission-resonance-observation-consumer` proves producer -> precondition -> contract -> authority
+-> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> assert with sealed metadata
+only.
