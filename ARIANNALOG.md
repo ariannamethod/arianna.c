@@ -4767,3 +4767,14 @@ The full body harness also caught a test-isolation issue: negative route-invento
 scratch body. Those smokes now override the model paths to deliberately-missing relative files before checking the
 fail-closed `chorus-binary,nano-weight` boundary. With real shared GGUFs passed explicitly, `make body-smoke` reaches
 Janus, Resonance, nano, and chorus runtime probes from scratch and passes.
+
+**Follow-up, 2026-08-13 - weighted admission now has a sealed final gate.**
+`arianna.live_route_weighted_admission_final_gate.v1` consumes only a passed
+`arianna.live_route_weighted_admission_seal.v1` receipt and rechecks the closed provenance chain before any future live
+admission layer can use it. The report carries seal, permit, authority, contract, precondition, weighted readiness,
+body workdir, boundary report, proof log, and source final-gate log paths forward, plus the weighted body-smoke,
+nano-direct, nano final-gate, Resonance graft proof, and full-chain boundary flags. It is deliberately
+`ready_closed_dry_run`: `authority_granted=false`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-final-gate-consumer` proves producer -> precondition -> contract -> authority -> permit ->
+seal -> final gate -> assert without opening the body.
