@@ -80,6 +80,18 @@ missing provenance, incomplete weighted lanes, or opened authority. `make
 admission-weighted-admission-authority-consumer` proves the full producer ->
 precondition -> contract -> authority -> assert chain.
 
+Follow-up 6: closed weighted authority now requires an explicit operator permit
+receipt before the next admission layer. `metabolism
+--admission-live-route-weighted-admission-permit AUTHORITY PERMIT` only writes
+`arianna.live_route_weighted_admission_permit.v1` when
+`A2A_WEIGHTED_ADMISSION_PERMIT_KEY=ARIANNA_WEIGHTED_ADMISSION_PERMIT_DRY_RUN_ONLY`
+is present and the authority receipt revalidates. The permit records
+`manual_permit_requested=true`, `permit_key_matched=true`,
+`weighted_admission_authority_consumed=true`, and keeps `authority_granted`,
+live/write/admission, and mutation closed. The paired assertor and `make
+admission-weighted-admission-permit-consumer` prove the full weighted producer
+-> precondition -> contract -> authority -> permit -> assert chain.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
