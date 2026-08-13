@@ -4812,3 +4812,18 @@ harvest, body mutation, writes, live admission, and authority remain closed. `ma
 admission-weighted-admission-resonance-observation-consumer` proves producer -> precondition -> contract -> authority
 -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> assert with sealed metadata
 only.
+
+**Follow-up, 2026-08-13 - weighted admission now declares the Resonance graft boundary.**
+`arianna.live_route_weighted_admission_resonance_graft_boundary.v1` consumes the weighted Resonance observation and
+declares the first shadow-only pre-live graft boundary without opening the body. The receipt carries
+`status=shadow_graft_boundary_declared_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft`, `target_mode=receipt_only_closed_dry_run`,
+`action=declare_weighted_resonance_shadow_graft_boundary_dry_run`,
+`receipt_shape=weighted_resonance_observation_shadow_graft_boundary`, `boundary_kind=shadow_graft_boundary`,
+`boundary_mode=no_mutation_receipt`, `boundary_stage=pre_live_graft`, causal/boundary/read-back hashes, and a
+weighted graft-boundary ID. `shadow_only=true`, `graft_allowed=false`, `raw_dream_text_allowed=false`,
+`janus_surface_allowed=false`, `cooc_learning_allowed=false`, `delta_harvest_allowed=false`,
+`body_mutation_allowed=false`, `live_admission_enabled=false`, and `mutates_state=false`; `live_ready=true` only means
+the next dry-run proof may consume this boundary. `make admission-weighted-admission-resonance-graft-boundary-consumer`
+proves producer -> precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent ->
+resonance receiver -> observation -> graft boundary -> assert.
