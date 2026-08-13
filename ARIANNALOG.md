@@ -92,6 +92,18 @@ live/write/admission, and mutation closed. The paired assertor and `make
 admission-weighted-admission-permit-consumer` prove the full weighted producer
 -> precondition -> contract -> authority -> permit -> assert chain.
 
+Follow-up 7: the explicit weighted permit now feeds an immutable seal receipt.
+`metabolism --admission-live-route-weighted-admission-seal PERMIT SEAL`
+revalidates `arianna.live_route_weighted_admission_permit.v1`, records
+`weighted_admission_permit_consumed=true`,
+`source_manual_permit_requested=true`, and `source_permit_key_matched=true`,
+then writes `arianna.live_route_weighted_admission_seal.v1` as
+`sealed_closed_dry_run`. The seal carries the weighted provenance back through
+authority, contract, precondition, readiness, body, boundary, proof, and final
+gate logs while keeping authority, live/write/admission, and mutation closed.
+`make admission-weighted-admission-seal-consumer` proves the weighted producer
+-> precondition -> contract -> authority -> permit -> seal -> assert chain.
+
 ## 2026-08-10 - Weighted nano-direct body-smoke gate
 
 `body_smoke.sh` now has an explicit weighted lane: set
