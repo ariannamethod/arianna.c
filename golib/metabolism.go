@@ -536,6 +536,20 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-weighted-admission-permit" {
+		if err := runAdmissionLiveRouteWeightedAdmissionPermit(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-weighted-admission-permit:", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-weighted-admission-permit-assert" {
+		if err := runAdmissionLiveRouteWeightedAdmissionPermitAssert(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-weighted-admission-permit-assert:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-failed-diagnostics-assert" {
 		if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(os.Args[2:]); err != nil {
 			fmt.Println("admission-live-route-boundary-report-failed-diagnostics-assert:", err)
