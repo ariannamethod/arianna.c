@@ -144,6 +144,8 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_weighted_admission_permit_consumer_smoke admission-live-route-weighted-admission-permit-consumer-smoke admission_weighted_admission_permit_consumer admission-weighted-admission-permit-consumer
 .PHONY: admission_live_route_weighted_admission_seal_smoke admission-live-route-weighted-admission-seal-smoke admission_weighted_admission_seal admission-weighted-admission-seal
 .PHONY: admission_live_route_weighted_admission_seal_consumer_smoke admission-live-route-weighted-admission-seal-consumer-smoke admission_weighted_admission_seal_consumer admission-weighted-admission-seal-consumer
+.PHONY: admission_live_route_weighted_admission_final_gate_smoke admission-live-route-weighted-admission-final-gate-smoke admission_weighted_admission_final_gate admission-weighted-admission-final-gate
+.PHONY: admission_live_route_weighted_admission_final_gate_consumer_smoke admission-live-route-weighted-admission-final-gate-consumer-smoke admission_weighted_admission_final_gate_consumer admission-weighted-admission-final-gate-consumer
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
 .PHONY: notorch_qmatvec_test notorch-qmatvec-test doe_qmatvec_test doe-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
@@ -770,6 +772,24 @@ admission_weighted_admission_seal_consumer: admission_live_route_weighted_admiss
 
 admission_live_route_weighted_admission_seal_consumer_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
 	bash tools/admission_live_route_weighted_admission_seal_consumer_smoke.sh
+
+admission-live-route-weighted-admission-final-gate-smoke: admission_live_route_weighted_admission_final_gate_smoke
+
+admission-weighted-admission-final-gate: admission_weighted_admission_final_gate
+
+admission_weighted_admission_final_gate: admission_live_route_weighted_admission_final_gate_smoke
+
+admission_live_route_weighted_admission_final_gate_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_admission_final_gate_smoke.sh
+
+admission-live-route-weighted-admission-final-gate-consumer-smoke: admission_live_route_weighted_admission_final_gate_consumer_smoke
+
+admission-weighted-admission-final-gate-consumer: admission_weighted_admission_final_gate_consumer
+
+admission_weighted_admission_final_gate_consumer: admission_live_route_weighted_admission_final_gate_consumer_smoke
+
+admission_live_route_weighted_admission_final_gate_consumer_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_admission_final_gate_consumer_smoke.sh
 
 body-smoke: body_smoke
 
