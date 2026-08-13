@@ -138,6 +138,8 @@ VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/l
 .PHONY: admission_live_route_weighted_readiness_precondition_smoke admission-live-route-weighted-readiness-precondition-smoke admission_weighted_readiness_precondition admission-weighted-readiness-precondition
 .PHONY: admission_live_route_weighted_admission_contract_smoke admission-live-route-weighted-admission-contract-smoke admission_weighted_admission_contract admission-weighted-admission-contract
 .PHONY: admission_live_route_weighted_admission_contract_consumer_smoke admission-live-route-weighted-admission-contract-consumer-smoke admission_weighted_admission_contract_consumer admission-weighted-admission-contract-consumer
+.PHONY: admission_live_route_weighted_admission_authority_smoke admission-live-route-weighted-admission-authority-smoke admission_weighted_admission_authority admission-weighted-admission-authority
+.PHONY: admission_live_route_weighted_admission_authority_consumer_smoke admission-live-route-weighted-admission-authority-consumer-smoke admission_weighted_admission_authority_consumer admission-weighted-admission-authority-consumer
 .PHONY: admission_live_route_boundary_report_drift_artifact_smoke admission-live-route-boundary-report-drift-artifact-smoke
 .PHONY: notorch_qmatvec_test notorch-qmatvec-test doe_qmatvec_test doe-qmatvec-test
 all: $(LIBNOTORCH) $(LIBAML) $(AMLC) arianna arianna_resonance
@@ -710,6 +712,24 @@ admission_weighted_admission_contract_consumer: admission_live_route_weighted_ad
 
 admission_live_route_weighted_admission_contract_consumer_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
 	bash tools/admission_live_route_weighted_admission_contract_consumer_smoke.sh
+
+admission-live-route-weighted-admission-authority-smoke: admission_live_route_weighted_admission_authority_smoke
+
+admission-weighted-admission-authority: admission_weighted_admission_authority
+
+admission_weighted_admission_authority: admission_live_route_weighted_admission_authority_smoke
+
+admission_live_route_weighted_admission_authority_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_admission_authority_smoke.sh
+
+admission-live-route-weighted-admission-authority-consumer-smoke: admission_live_route_weighted_admission_authority_consumer_smoke
+
+admission-weighted-admission-authority-consumer: admission_weighted_admission_authority_consumer
+
+admission_weighted_admission_authority_consumer: admission_live_route_weighted_admission_authority_consumer_smoke
+
+admission_live_route_weighted_admission_authority_consumer_smoke: all nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test
+	bash tools/admission_live_route_weighted_admission_authority_consumer_smoke.sh
 
 body-smoke: body_smoke
 
