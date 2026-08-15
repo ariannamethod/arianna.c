@@ -4861,3 +4861,21 @@ seal, permit, authority, contract, precondition, and readiness chain while keepi
 `mutates_state=false`. `make admission-weighted-admission-resonance-graft-gate-consumer` proves producer ->
 precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
 observation -> graft boundary -> graft preflight -> graft gate -> assert.
+
+**Follow-up, 2026-08-16 - weighted admission now drafts the Resonance graft candidate.**
+`arianna.live_route_weighted_admission_resonance_graft_candidate.v1` consumes the weighted graft gate and turns it into
+the next closed shadow-graft candidate receipt without opening the body. The receipt carries
+`status=shadow_graft_candidate_ready_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft_candidate`,
+`target_mode=receipt_only_closed_candidate_dry_run`,
+`action=draft_weighted_resonance_shadow_graft_candidate_dry_run`,
+`receipt_shape=weighted_resonance_shadow_graft_candidate_contract`, `candidate_kind=shadow_graft_candidate`,
+`candidate_mode=no_mutation_candidate`, `candidate_stage=pre_live_graft_candidate`,
+causal/candidate/read-back hashes, and a weighted graft-candidate ID. It revalidates and carries the source gate,
+preflight, boundary, observation, receiver, intent, final-gate, seal, permit, authority, contract, precondition, and
+readiness chain while keeping `graft_allowed=false`, `raw_dream_text_allowed=false`,
+`janus_surface_allowed=false`, `cooc_learning_allowed=false`, `delta_harvest_allowed=false`,
+`body_mutation_allowed=false`, `live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-resonance-graft-candidate-consumer` proves producer -> precondition -> contract ->
+authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> graft boundary
+-> graft preflight -> graft gate -> graft candidate -> assert.
