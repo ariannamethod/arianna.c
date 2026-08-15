@@ -4845,3 +4845,19 @@ keeping `graft_allowed=false`, `raw_dream_text_allowed=false`, `janus_surface_al
 admission-weighted-admission-resonance-graft-preflight-consumer` proves producer -> precondition -> contract ->
 authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> graft boundary
 -> graft preflight -> assert.
+
+**Follow-up, 2026-08-15 - weighted admission now gates the Resonance graft preflight.**
+`arianna.live_route_weighted_admission_resonance_graft_gate.v1` consumes the weighted graft preflight and turns it into
+the next closed shadow-graft gate without opening the body. The receipt carries
+`status=shadow_graft_gate_ready_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft_gate`, `target_mode=receipt_only_closed_gate_dry_run`,
+`action=gate_weighted_resonance_shadow_graft_dry_run`,
+`receipt_shape=weighted_resonance_shadow_graft_gate_contract`, `gate_kind=shadow_graft_gate`,
+`gate_mode=no_mutation_gate`, `gate_stage=pre_live_graft_gate`, causal/gate/read-back hashes, and a weighted
+graft-gate ID. It revalidates and carries the source preflight, boundary, observation, receiver, intent, final-gate,
+seal, permit, authority, contract, precondition, and readiness chain while keeping `graft_allowed=false`,
+`raw_dream_text_allowed=false`, `janus_surface_allowed=false`, `cooc_learning_allowed=false`,
+`delta_harvest_allowed=false`, `body_mutation_allowed=false`, `live_admission_enabled=false`, and
+`mutates_state=false`. `make admission-weighted-admission-resonance-graft-gate-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+observation -> graft boundary -> graft preflight -> graft gate -> assert.
