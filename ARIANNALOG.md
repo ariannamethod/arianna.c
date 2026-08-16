@@ -4917,3 +4917,23 @@ admission-weighted-admission-resonance-graft-candidate-store-reader-consumer` pr
 contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation ->
 graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft candidate store
 reader -> assert.
+
+**Follow-up, 2026-08-17 - weighted admission now seals the Resonance graft admission proof.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_proof.v1` consumes the weighted graft
+candidate-store-reader receipt and seals the next closed proof receipt. The receipt carries
+`status=shadow_graft_admission_proof_ready_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft_admission_proof`,
+`target_mode=receipt_only_closed_admission_proof_dry_run`,
+`action=prove_weighted_resonance_shadow_graft_admission_dry_run`,
+`receipt_shape=weighted_resonance_shadow_graft_admission_proof_receipt`,
+`proof_kind=shadow_graft_admission_proof`, `proof_mode=closed_read_back_admission_proof`,
+`proof_stage=pre_live_graft_admission_proof`, causal/proof/read-back hashes, and a weighted
+graft-admission-proof ID. It revalidates and carries the source reader, store, candidate, gate, preflight,
+boundary, observation, receiver, intent, final-gate, seal, permit, and authority chain while keeping
+`graft_allowed=false`, `raw_dream_text_allowed=false`, `janus_surface_allowed=false`,
+`cooc_learning_allowed=false`, `delta_harvest_allowed=false`, `body_mutation_allowed=false`,
+`live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-resonance-graft-admission-proof-consumer` proves producer -> precondition ->
+contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation ->
+graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft candidate store
+reader -> graft admission proof -> assert.
