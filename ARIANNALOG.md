@@ -4897,3 +4897,23 @@ seal, permit, and authority chain while keeping `graft_allowed=false`, `raw_drea
 admission-weighted-admission-resonance-graft-candidate-store-consumer` proves producer -> precondition -> contract ->
 authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation -> graft boundary
 -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> assert.
+
+**Follow-up, 2026-08-16 - weighted admission now reads back the Resonance graft candidate store.**
+`arianna.live_route_weighted_admission_resonance_graft_candidate_store_reader.v1` consumes the weighted graft
+candidate store and turns it into the next closed read-only/replay receipt. The receipt carries
+`status=shadow_graft_candidate_store_read_back_dry_run`, `target=resonance`,
+`target_kind=weighted_internal_world_shadow_graft_candidate_store_reader`,
+`target_mode=read_only_replay_dry_run`,
+`action=read_weighted_resonance_shadow_graft_candidate_store_dry_run`,
+`receipt_shape=weighted_resonance_shadow_graft_candidate_store_reader_receipt`,
+`reader_kind=shadow_graft_candidate_store_reader`, `reader_mode=read_only_replay`,
+`reader_stage=pre_live_graft_candidate_store_reader`, causal/reader/replay/read-back hashes, and a weighted
+graft-candidate-store-reader ID. It revalidates and carries the source store, candidate, gate, preflight, boundary,
+observation, receiver, intent, final-gate, seal, permit, and authority chain while keeping
+`graft_allowed=false`, `raw_dream_text_allowed=false`, `janus_surface_allowed=false`,
+`cooc_learning_allowed=false`, `delta_harvest_allowed=false`, `body_mutation_allowed=false`,
+`live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-resonance-graft-candidate-store-reader-consumer` proves producer -> precondition ->
+contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation ->
+graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft candidate store
+reader -> assert.
