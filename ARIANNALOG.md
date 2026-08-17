@@ -4937,3 +4937,26 @@ admission-weighted-admission-resonance-graft-admission-proof-consumer` proves pr
 contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver -> observation ->
 graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft candidate store
 reader -> graft admission proof -> assert.
+
+**Follow-up, 2026-08-17 - weighted admission now consumes the Resonance graft admission proof as a precondition.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_proof_precondition.v1` consumes the weighted
+graft-admission-proof receipt and turns it into the next closed precondition receipt before any live-route admission
+step can rely on the graft proof. The receipt carries
+`status=shadow_graft_admission_proof_precondition_satisfied_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_proof_precondition`,
+`target_mode=closed_receipt_precondition_dry_run`,
+`action=consume_weighted_resonance_shadow_graft_admission_proof_before_live_route_admission`,
+`receipt_shape=weighted_resonance_shadow_graft_admission_proof_precondition_receipt`,
+`precondition_kind=shadow_graft_admission_proof_precondition`,
+`precondition_mode=closed_receipt_consumption`,
+`precondition_stage=pre_live_graft_admission_proof_precondition`, causal/precondition/read-back hashes, and a
+weighted graft-admission-proof-precondition ID. It revalidates and carries the source proof, reader, store,
+candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit, and authority chain
+while keeping `graft_allowed=false`, `raw_dream_text_allowed=false`, `janus_surface_allowed=false`,
+`cooc_learning_allowed=false`, `delta_harvest_allowed=false`, `body_mutation_allowed=false`,
+`live_admission_enabled=false`, and `mutates_state=false`. `make
+admission-weighted-admission-resonance-graft-admission-proof-precondition-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+observation -> graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft
+candidate store reader -> graft admission proof -> graft admission proof precondition -> assert.
