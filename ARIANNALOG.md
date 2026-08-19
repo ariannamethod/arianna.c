@@ -5026,3 +5026,28 @@ contract -> authority -> permit -> seal -> final gate -> resonance intent -> res
 graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store -> graft candidate store
 reader -> graft admission proof -> graft admission proof precondition -> graft admission decision -> graft admission
 promotion -> graft admission switch -> assert.
+
+**Follow-up, 2026-08-20 - weighted admission now keeps the Resonance graft admission switch behind a disabled enable gate.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_enable_gate.v1` consumes the weighted
+graft-admission-switch receipt and turns it into a closed enable-gate receipt. The receipt carries
+`status=shadow_graft_admission_enable_gate_disabled_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_enable_gate`,
+`target_mode=closed_enable_gate_dry_run`,
+`action=hold_weighted_resonance_shadow_graft_admission_switch_disabled_dry_run`,
+`enable_state=disabled`, `enable_action=require_operator_key`,
+`switch_state=disabled`, `switch_action=hold_pending_live_admission`, `promotion=pending_live_admission`,
+`receipt_shape=weighted_resonance_shadow_graft_admission_enable_gate_receipt`,
+`enable_gate_kind=shadow_graft_admission_enable_gate`, `enable_gate_mode=closed_switch_enable_guard`,
+`enable_gate_stage=pre_live_graft_admission_enable_gate`, causal/enable-gate/read-back hashes, and a weighted
+graft-admission-enable-gate ID. It revalidates and carries the source switch, promotion, decision, proof
+precondition, proof, reader, store, candidate, gate, preflight, boundary, observation, receiver, intent,
+final-gate, seal, permit, and authority chain while keeping `graft_allowed=false`,
+`raw_dream_text_allowed=false`, `janus_surface_allowed=false`, `cooc_learning_allowed=false`,
+`delta_harvest_allowed=false`, `body_mutation_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `write_allowed=false`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-enable-gate-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+observation -> graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store ->
+graft candidate store reader -> graft admission proof -> graft admission proof precondition -> graft admission
+decision -> graft admission promotion -> graft admission switch -> graft admission enable gate -> assert.
