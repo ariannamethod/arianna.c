@@ -5240,3 +5240,32 @@ final-gate, seal, permit, and authority chain while keeping `contracts_ready=fal
 and `mutates_state=false`.
 `make admission-weighted-admission-resonance-graft-admission-ledger-implementation-consumer` proves producer ->
 writer contract -> ledger -> ledger implementation -> assert.
+
+**Follow-up, 2026-08-20 - weighted admission now blocks Resonance graft admission ledger persistence.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_ledger_persistence.v1` consumes the blocked
+weighted graft-admission-ledger-implementation receipt and emits a closed ledger-persistence receipt. The receipt
+carries `status=shadow_graft_admission_ledger_persistence_blocked_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_ledger_persistence`,
+`target_mode=closed_ledger_persistence_guard_dry_run`,
+`action=block_weighted_resonance_shadow_graft_admission_ledger_implementation_blocked_dry_run`,
+`writer_action=reject_blocked_ledger_implementation`,
+`rollback_action=reject_blocked_ledger_implementation`,
+`ledger_state=blocked`, `ledger_action=reject_blocked_ledger_implementation`,
+`ledger_contract=none`, `ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`, `ledger_append_allowed=false`,
+`ledger_persistence_state=blocked`, `ledger_persistence_action=reject_blocked_ledger_implementation`,
+`ledger_persistence_target=admission_ledger_receipt`,
+`ledger_persistence_target_kind=weighted_internal_world_shadow_graft_admission_ledger_implementation`,
+`ledger_persistence_target_mode=closed_persistence_guard_dry_run`,
+`ledger_persistence_receipt_shape=none`, `ledger_persistence_write_scope=none`,
+`ledger_persistence_append_only=false`, `ledger_persistence_dry_run_only=true`,
+`ledger_persistence_receipt_persisted=false`, `ledger_persistence_ready=false`,
+causal/ledger-persistence/read-back hashes, and a weighted graft-admission-ledger-persistence ID. It revalidates
+and carries the source ledger implementation, source ledger, source writer contract, source writer inventory,
+writer preflight, live stage, enable gate, switch, promotion, decision, proof precondition, proof, reader, store,
+candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit, and authority chain
+while keeping `contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-ledger-persistence-consumer` proves producer ->
+writer contract -> ledger -> ledger implementation -> ledger persistence -> assert.
