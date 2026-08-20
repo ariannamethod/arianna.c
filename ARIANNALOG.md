@@ -5269,3 +5269,32 @@ while keeping `contracts_ready=false`, `write_allowed=false`, `admission_allowed
 `live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and `mutates_state=false`.
 `make admission-weighted-admission-resonance-graft-admission-ledger-persistence-consumer` proves producer ->
 writer contract -> ledger -> ledger implementation -> ledger persistence -> assert.
+
+**Follow-up, 2026-08-21 - weighted admission now blocks Resonance graft admission ledger verification.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_ledger_verification.v1` consumes the blocked
+weighted graft-admission-ledger-persistence receipt and emits a closed ledger-verification receipt. The receipt carries
+`status=shadow_graft_admission_ledger_verification_blocked_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_ledger_verification`,
+`target_mode=closed_ledger_verification_guard_dry_run`,
+`action=block_weighted_resonance_shadow_graft_admission_ledger_persistence_blocked_dry_run`,
+`writer_action=reject_blocked_ledger_persistence`,
+`rollback_action=reject_blocked_ledger_persistence`,
+`ledger_state=blocked`, `ledger_action=reject_blocked_ledger_persistence`,
+`ledger_contract=none`, `ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`, `ledger_append_allowed=false`,
+`ledger_verification_state=blocked`, `ledger_verification_action=reject_blocked_ledger_persistence`,
+`ledger_verification_target=admission_ledger_receipt`,
+`ledger_verification_target_kind=weighted_internal_world_shadow_graft_admission_ledger_persistence`,
+`ledger_verification_target_mode=closed_read_back_guard_dry_run`,
+`ledger_verification_receipt_shape=none`, `ledger_verification_append_only=false`,
+`ledger_verification_dry_run_only=true`, `ledger_verification_receipt_read_back=false`,
+`ledger_verification_receipt_verified=false`, `ledger_verification_ready=false`,
+causal/ledger-verification/read-back hashes, and a weighted graft-admission-ledger-verification ID. It revalidates
+and carries the source ledger persistence, source ledger implementation, source ledger, source writer contract,
+source writer inventory, writer preflight, live stage, enable gate, switch, promotion, decision, proof precondition,
+proof, reader, store, candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit,
+and authority chain while keeping `contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-ledger-verification-consumer` proves producer ->
+writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> assert.
