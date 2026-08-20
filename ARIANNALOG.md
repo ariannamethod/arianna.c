@@ -5141,3 +5141,39 @@ observation -> graft boundary -> graft preflight -> graft gate -> graft candidat
 graft candidate store reader -> graft admission proof -> graft admission proof precondition -> graft admission
 decision -> graft admission promotion -> graft admission switch -> graft admission enable gate -> graft admission
 live stage -> graft admission writer preflight -> graft admission writer inventory -> assert.
+
+**Follow-up, 2026-08-20 - weighted admission now blocks the Resonance graft admission writer contract.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_writer_contract.v1` consumes the blocked
+weighted graft-admission-writer-inventory receipt and emits a closed writer-contract receipt. The receipt carries
+`status=shadow_graft_admission_writer_contract_blocked_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_writer_contract`,
+`target_mode=closed_writer_contract_guard_dry_run`,
+`action=block_weighted_resonance_shadow_graft_admission_writer_inventory_blocked_dry_run`,
+`writer_state=blocked`, `writer_action=reject_blocked_writer_inventory`,
+`rollback_state=blocked`, `rollback_action=reject_blocked_writer_inventory`,
+`inventory_state=blocked`, `inventory_action=reject_blocked_writer_preflight`,
+`contract_state=blocked`, `contract_action=reject_blocked_writer_inventory`,
+`writer_contract=none`, `rollback_contract=none`, `admission_ledger_contract=none`,
+`writer_contract_shape=none`, `rollback_contract_shape=none`, `ledger_contract_shape=none`,
+`write_scope=none`, `rollback_scope=none`, `ledger_mode=none`,
+`writer_contract_present=false`, `rollback_contract_present=false`, `ledger_contract_present=false`,
+`contracts_ready=false`,
+`receipt_shape=weighted_resonance_shadow_graft_admission_writer_contract_receipt`,
+`writer_contract_kind=shadow_graft_admission_writer_contract`,
+`writer_contract_mode=closed_writer_inventory_contract_guard`,
+`writer_contract_stage=pre_admission_ledger_graft_admission_writer_contract`, causal/writer-contract/read-back
+hashes, and a weighted graft-admission-writer-contract ID. It revalidates and carries the source writer inventory
+plus the source writer preflight, live stage, enable gate, switch, promotion, decision, proof precondition, proof,
+reader, store, candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit,
+and authority chain while keeping `requires_writer=true`, `writer_ready=false`, `rollback_required=true`,
+`requires_rollback=true`, `rollback_ready=false`, `graft_allowed=false`, `body_mutation_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `write_allowed=false`, `body_target=none`, and
+`mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-writer-contract-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+observation -> graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store ->
+graft candidate store reader -> graft admission proof -> graft admission proof precondition -> graft admission
+decision -> graft admission promotion -> graft admission switch -> graft admission enable gate -> graft admission
+live stage -> graft admission writer preflight -> graft admission writer inventory -> graft admission writer
+contract -> assert.
