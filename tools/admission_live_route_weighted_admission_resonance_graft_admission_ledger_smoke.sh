@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# admission_live_route_weighted_admission_resonance_graft_admission_ledger_smoke.sh - block weighted Resonance graft admission ledger behind blocked writer contract.
+
+set -euo pipefail
+export LC_ALL=C
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tmp_root="${TMPDIR:-/private/tmp}"
+if [[ ! -d "$tmp_root" ]]; then tmp_root="/tmp"; fi
+
+WORKDIR="${A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_LEDGER_WORKDIR:-$(mktemp -d "${tmp_root%/}/arianna-live-route-weighted-admission-resonance-graft-admission-ledger.XXXXXX")}"
+WRITER_CONTRACT_WORKDIR="$WORKDIR/writer_contract"
+GRAFT_ADMISSION_WRITER_CONTRACT_REPORT="$WORKDIR/live_route_weighted_admission_resonance_graft_admission_writer_contract.json"
+GRAFT_ADMISSION_LEDGER_REPORT="${A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_LEDGER_REPORT:-$WORKDIR/live_route_weighted_admission_resonance_graft_admission_ledger.json}"
+WRITER_CONTRACT_LOG="$WORKDIR/weighted_admission_resonance_graft_admission_writer_contract.log"
+ADMISSION_LEDGER_LOG="$WORKDIR/weighted_admission_resonance_graft_admission_ledger.log"
+
+die() {
+    echo "[admission-live-route-weighted-admission-resonance-graft-admission-ledger-smoke] FAIL: $*" >&2
+    if [[ -f "$WRITER_CONTRACT_LOG" ]]; then
+        tail -n 500 "$WRITER_CONTRACT_LOG" >&2 || true
+    fi
+    if [[ -f "$ADMISSION_LEDGER_LOG" ]]; then
+        tail -n 240 "$ADMISSION_LEDGER_LOG" >&2 || true
+    fi
+    exit 1
+}
+
+require_grep() {
+    local pattern="$1"
+    local file="$2"
+    local label="$3"
+    if ! grep -q "$pattern" "$file"; then
+        die "$label missing in $file"
+    fi
+}
+
+mkdir -p "$WORKDIR"
+
+if ! A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_WRITER_CONTRACT_WORKDIR="$WRITER_CONTRACT_WORKDIR" \
+    A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_WRITER_CONTRACT_REPORT="$GRAFT_ADMISSION_WRITER_CONTRACT_REPORT" \
+    bash "$ROOT/tools/admission_live_route_weighted_admission_resonance_graft_admission_writer_contract_smoke.sh" >"$WRITER_CONTRACT_LOG" 2>&1; then
+    die "weighted admission resonance graft admission writer contract producer failed"
+fi
+
+[[ -s "$GRAFT_ADMISSION_WRITER_CONTRACT_REPORT" ]] || die "weighted admission resonance graft admission writer contract report not written: $GRAFT_ADMISSION_WRITER_CONTRACT_REPORT"
+
+if ! bash "$ROOT/tools/admission_live_route_weighted_admission_resonance_graft_admission_ledger.sh" "$GRAFT_ADMISSION_WRITER_CONTRACT_REPORT" "$GRAFT_ADMISSION_LEDGER_REPORT" >"$ADMISSION_LEDGER_LOG" 2>&1; then
+    die "weighted admission resonance graft admission ledger rejected writer contract report"
+fi
+
+[[ -s "$GRAFT_ADMISSION_LEDGER_REPORT" ]] || die "weighted admission resonance graft admission ledger report not written: $GRAFT_ADMISSION_LEDGER_REPORT"
+
+require_grep '"schema": "arianna.live_route_weighted_admission_resonance_graft_admission_ledger.v1"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger schema"
+require_grep '"status": "shadow_graft_admission_ledger_blocked_dry_run"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger status"
+require_grep '"target_kind": "weighted_internal_world_shadow_graft_admission_ledger"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger target kind"
+require_grep '"target_mode": "closed_admission_ledger_guard_dry_run"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger target mode"
+require_grep '"action": "block_weighted_resonance_shadow_graft_admission_writer_contract_blocked_dry_run"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger action"
+require_grep '"writer_action": "reject_blocked_writer_contract"' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer action"
+require_grep '"rollback_action": "reject_blocked_writer_contract"' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback action"
+require_grep '"inventory_action": "reject_blocked_writer_preflight"' "$GRAFT_ADMISSION_LEDGER_REPORT" "inventory action"
+require_grep '"contract_state": "blocked"' "$GRAFT_ADMISSION_LEDGER_REPORT" "contract state"
+require_grep '"contract_action": "reject_blocked_writer_inventory"' "$GRAFT_ADMISSION_LEDGER_REPORT" "contract action"
+require_grep '"ledger_state": "blocked"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger state"
+require_grep '"ledger_action": "reject_blocked_writer_contract"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger action"
+require_grep '"writer_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer contract"
+require_grep '"rollback_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback contract"
+require_grep '"admission_ledger_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger contract"
+require_grep '"writer_contract_shape": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer contract shape"
+require_grep '"rollback_contract_shape": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback contract shape"
+require_grep '"ledger_contract_shape": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger contract shape"
+require_grep '"ledger_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger contract field"
+require_grep '"ledger_entrypoint": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger entrypoint"
+require_grep '"ledger_receipt_shape": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger receipt shape"
+require_grep '"ledger_write_scope": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger write scope"
+require_grep '"ledger_ready": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger ready flag"
+require_grep '"ledger_append_allowed": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger append flag"
+require_grep '"write_scope": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "write scope"
+require_grep '"rollback_scope": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback scope"
+require_grep '"ledger_mode": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger mode"
+require_grep '"writer_contract_present": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer contract present flag"
+require_grep '"rollback_contract_present": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback contract present flag"
+require_grep '"ledger_contract_present": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "ledger contract present flag"
+require_grep '"weighted_admission_resonance_graft_admission_ledger_ready": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger ready"
+require_grep '"weighted_admission_resonance_graft_admission_writer_contract_consumed": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer contract consumed"
+require_grep '"weighted_admission_resonance_graft_admission_writer_contract_required": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer contract required"
+require_grep '"next_step_blocked_without_resonance_graft_admission_ledger": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "next-step block"
+require_grep '"weighted_admission_resonance_graft_admission_ledger_id": "weighted-resonance-graft-admission-ledger-id-' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger id"
+require_grep '"admission_ledger_kind": "shadow_graft_admission_ledger"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger kind"
+require_grep '"admission_ledger_mode": "closed_writer_contract_ledger_guard"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger mode"
+require_grep '"admission_ledger_stage": "pre_ledger_append_graft_admission_ledger"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger stage"
+require_grep '"admission_ledger_hash": "weighted-resonance-graft-admission-ledger-' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger hash"
+require_grep '"source_schema": "arianna.live_route_weighted_admission_resonance_graft_admission_writer_contract.v1"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract schema"
+require_grep '"source_status": "shadow_graft_admission_writer_contract_blocked_dry_run"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract status"
+require_grep '"source_weighted_admission_resonance_graft_admission_writer_contract_id": "weighted-resonance-graft-admission-writer-contract-id-' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract id"
+require_grep '"source_weighted_admission_resonance_graft_admission_writer_contract_hash": "weighted-resonance-graft-admission-writer-contract-' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract hash"
+require_grep '"source_writer_contract_kind": "shadow_graft_admission_writer_contract"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract kind"
+require_grep '"source_writer_contract_writer_action": "reject_blocked_writer_inventory"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract writer action"
+require_grep '"source_writer_contract_writer_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract contract"
+require_grep '"source_writer_contract_contracts_ready": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer contract contracts flag"
+require_grep '"source_weighted_admission_resonance_graft_admission_writer_inventory_id": "weighted-resonance-graft-admission-writer-inventory-id-' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer inventory id"
+require_grep '"source_writer_inventory_kind": "shadow_graft_admission_writer_inventory"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer inventory kind"
+require_grep '"source_writer_inventory_writer_action": "reject_blocked_writer_preflight"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer inventory writer action"
+require_grep '"source_writer_inventory_writer_contract": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer inventory writer contract"
+require_grep '"source_weighted_admission_resonance_graft_admission_writer_preflight_id": "weighted-resonance-graft-admission-writer-preflight-id-' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer preflight id"
+require_grep '"source_writer_preflight_kind": "shadow_graft_admission_writer_preflight"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer preflight kind"
+require_grep '"source_writer_preflight_writer_action": "reject_blocked_live_stage"' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer preflight writer action"
+require_grep '"source_writer_preflight_live_admission_enabled": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "source writer preflight live guard"
+require_grep '"requires_writer": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer requirement"
+require_grep '"writer_ready": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "writer closed flag"
+require_grep '"rollback_required": true' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback requirement"
+require_grep '"rollback_ready": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "rollback closed flag"
+require_grep '"contracts_ready": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "closed contracts flag"
+require_grep '"write_allowed": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "closed writer flag"
+require_grep '"admission_allowed": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "closed admission flag"
+require_grep '"live_admission_enabled": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "closed live flag"
+require_grep '"mutates_state": false' "$GRAFT_ADMISSION_LEDGER_REPORT" "non-mutation flag"
+require_grep '"body_target": "none"' "$GRAFT_ADMISSION_LEDGER_REPORT" "body target"
+require_grep '"reason": "weighted resonance shadow graft admission ledger blocked by blocked writer contract; ledger receipt append remains closed"' "$GRAFT_ADMISSION_LEDGER_REPORT" "admission ledger reason"
+require_grep '\[admission-live-route-weighted-admission-resonance-graft-admission-ledger\] pass:' "$ADMISSION_LEDGER_LOG" "admission ledger pass line"
+
+echo "[admission-live-route-weighted-admission-resonance-graft-admission-ledger-smoke] pass: resonance_graft_admission_writer_contract_report=$GRAFT_ADMISSION_WRITER_CONTRACT_REPORT resonance_graft_admission_ledger_report=$GRAFT_ADMISSION_LEDGER_REPORT"
