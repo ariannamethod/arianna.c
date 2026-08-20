@@ -5051,3 +5051,31 @@ precondition -> contract -> authority -> permit -> seal -> final gate -> resonan
 observation -> graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store ->
 graft candidate store reader -> graft admission proof -> graft admission proof precondition -> graft admission
 decision -> graft admission promotion -> graft admission switch -> graft admission enable gate -> assert.
+
+**Follow-up, 2026-08-20 - weighted admission now blocks the Resonance graft admission live stage.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_live_stage.v1` consumes the disabled weighted
+graft-admission-enable-gate receipt and emits a closed live-stage receipt. The receipt carries
+`status=shadow_graft_admission_live_stage_blocked_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_live_stage`,
+`target_mode=closed_live_stage_guard_dry_run`,
+`action=block_weighted_resonance_shadow_graft_admission_enable_gate_disabled_dry_run`,
+`stage_state=blocked`, `stage_action=reject_disabled_enable_gate`,
+`enable_state=disabled`, `enable_action=require_operator_key`,
+`switch_state=disabled`, `switch_action=hold_pending_live_admission`, `promotion=pending_live_admission`,
+`receipt_shape=weighted_resonance_shadow_graft_admission_live_stage_receipt`,
+`live_stage_kind=shadow_graft_admission_live_stage`,
+`live_stage_mode=closed_enable_gate_live_stage_guard`,
+`live_stage_stage=pre_writer_graft_admission_live_stage`, causal/live-stage/read-back hashes, and a weighted
+graft-admission-live-stage ID. It revalidates and carries the source enable gate plus the source switch,
+promotion, decision, proof precondition, proof, reader, store, candidate, gate, preflight, boundary,
+observation, receiver, intent, final-gate, seal, permit, and authority chain while keeping
+`requires_writer=true`, `writer_ready=false`, `requires_rollback=true`, `rollback_ready=false`,
+`graft_allowed=false`, `body_mutation_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `write_allowed=false`, `body_target=none`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-live-stage-consumer` proves producer ->
+precondition -> contract -> authority -> permit -> seal -> final gate -> resonance intent -> resonance receiver ->
+observation -> graft boundary -> graft preflight -> graft gate -> graft candidate -> graft candidate store ->
+graft candidate store reader -> graft admission proof -> graft admission proof precondition -> graft admission
+decision -> graft admission promotion -> graft admission switch -> graft admission enable gate -> graft admission
+live stage -> assert.
