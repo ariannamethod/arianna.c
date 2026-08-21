@@ -5383,3 +5383,31 @@ receiver, intent, final-gate, seal, permit, and authority chain while keeping `c
 `make admission-weighted-admission-resonance-graft-admission-authority-consumer` proves producer ->
 writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> readiness ->
 permit -> authority -> assert.
+
+**Follow-up, 2026-08-21 - weighted admission now seals Resonance graft admission authority.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_seal.v1` consumes the blocked
+weighted graft-admission-authority receipt and emits a closed admission-seal receipt. The receipt carries
+`status=shadow_graft_admission_seal_blocked_dry_run`, `target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_seal`, `target_mode=closed_seal_guard_dry_run`,
+`action=seal_weighted_resonance_shadow_graft_admission_authority_blocked_dry_run`,
+`writer_action=reject_blocked_admission_authority`, `rollback_action=reject_blocked_admission_authority`,
+`ledger_state=blocked`, `ledger_action=reject_blocked_admission_authority`,
+`ledger_contract=none`, `ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`, `ledger_append_allowed=false`,
+`admission_seal_state=sealed`, `admission_seal_action=seal_blocked_admission_authority`,
+`admission_seal_target=live_admission_authority`,
+`admission_seal_target_kind=weighted_internal_world_shadow_graft_admission_authority`,
+`admission_seal_target_mode=closed_seal_guard_dry_run`, `admission_seal_dry_run_only=true`,
+`admission_seal_authority_verified=false`, `admission_seal_permit_verified=false`,
+`admission_seal_ledger_verified=false`, `admission_seal_ready=false`,
+`admission_seal_immutable_receipt=true`, causal/seal/read-back hashes, and a weighted
+graft-admission-seal ID. It revalidates and carries the source authority, source permit, source readiness,
+source ledger verification, source ledger persistence, source ledger implementation, source ledger, source writer
+contract, source writer inventory, writer preflight, live stage, enable gate, switch, promotion, decision, proof
+precondition, proof, reader, store, candidate, gate, preflight, boundary, observation, receiver, intent, final-gate,
+seal, permit, and authority chain while keeping `authority_granted=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`, `live_admission_enabled=false`, `body_mutation_allowed=false`,
+`body_target=none`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-seal-consumer` proves producer ->
+writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> readiness ->
+permit -> authority -> seal -> assert.
