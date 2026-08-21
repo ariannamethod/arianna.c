@@ -5298,3 +5298,30 @@ and authority chain while keeping `contracts_ready=false`, `write_allowed=false`
 `live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and `mutates_state=false`.
 `make admission-weighted-admission-resonance-graft-admission-ledger-verification-consumer` proves producer ->
 writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> assert.
+
+**Follow-up, 2026-08-21 - weighted admission now blocks Resonance graft admission readiness.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_readiness.v1` consumes the blocked
+weighted graft-admission-ledger-verification receipt and emits a closed admission-readiness receipt. The receipt carries
+`status=shadow_graft_admission_readiness_blocked_dry_run`, `target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_readiness`,
+`target_mode=closed_readiness_guard_dry_run`,
+`action=block_weighted_resonance_shadow_graft_admission_ledger_verification_blocked_dry_run`,
+`writer_action=reject_blocked_ledger_verification`, `rollback_action=reject_blocked_ledger_verification`,
+`ledger_state=blocked`, `ledger_action=reject_blocked_ledger_verification`,
+`ledger_contract=none`, `ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`, `ledger_append_allowed=false`,
+`admission_readiness_state=blocked`, `admission_readiness_action=reject_blocked_ledger_verification`,
+`admission_readiness_target=live_admission`,
+`admission_readiness_target_kind=weighted_internal_world_shadow_graft_admission_ledger_verification`,
+`admission_readiness_target_mode=closed_readiness_guard_dry_run`,
+`admission_readiness_dry_run_only=true`, `admission_readiness_ledger_verified=false`,
+`admission_readiness_writer_ready=false`, `admission_readiness_rollback_ready=false`,
+`admission_readiness_ledger_ready=false`, `admission_readiness_ready=false`,
+causal/readiness/read-back hashes, and a weighted graft-admission-readiness ID. It revalidates and carries the source
+ledger verification, source ledger persistence, source ledger implementation, source ledger, source writer contract,
+source writer inventory, writer preflight, live stage, enable gate, switch, promotion, decision, proof precondition,
+proof, reader, store, candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit,
+and authority chain while keeping `contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and `mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-readiness-consumer` proves producer ->
+writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> readiness -> assert.
