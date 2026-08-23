@@ -5559,3 +5559,43 @@ authority chain while keeping `authority_granted=false`, `contracts_ready=false`
 writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification -> readiness ->
 permit -> authority -> seal -> final-gate -> final-gate-intent -> final-gate-receiver -> final-gate-observation ->
 assert.
+
+**Follow-up, 2026-08-24 - weighted admission now declares Resonance graft admission final-gate observation boundary.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary.v1` consumes the
+recorded weighted graft-admission-final-gate-observation receipt and emits a closed final-gate-observation-boundary
+receipt. The receipt carries `status=shadow_graft_admission_final_gate_observation_boundary_declared_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_final_gate_observation_boundary`,
+`target_mode=receipt_only_closed_dry_run`,
+`action=declare_weighted_resonance_shadow_graft_admission_final_gate_observation_boundary_dry_run`,
+`writer_action=reject_blocked_admission_final_gate_observation_boundary`,
+`rollback_action=reject_blocked_admission_final_gate_observation_boundary`, `ledger_state=blocked`,
+`ledger_action=reject_blocked_admission_final_gate_observation_boundary`, `ledger_contract=none`,
+`ledger_entrypoint=none`, `ledger_receipt_shape=none`, `ledger_write_scope=none`,
+`ledger_ready=false`, `ledger_append_allowed=false`,
+`admission_final_gate_observation_boundary_state=declared`,
+`admission_final_gate_observation_boundary_action=declare_blocked_final_gate_observation_boundary`,
+`admission_final_gate_observation_boundary_target=resonance`,
+`admission_final_gate_observation_boundary_target_kind=weighted_internal_world_shadow_graft_admission_final_gate_observation`,
+`admission_final_gate_observation_boundary_target_mode=receipt_only_closed_dry_run`,
+`admission_final_gate_observation_boundary_dry_run_only=true`,
+`admission_final_gate_observation_boundary_observation_verified=true`,
+`admission_final_gate_observation_boundary_read_back_verified=true`,
+`admission_final_gate_observation_boundary_ready=false`,
+`final_gate_observation_boundary_kind=blocked_final_gate_observation_boundary`,
+`final_gate_observation_boundary_mode=no_mutation_closed_boundary_receipt`,
+`final_gate_observation_boundary_stage=post_observation_pre_live_admission`,
+raw dream text, Janus surface, cooc learning, delta harvest, and body mutation boundary flags closed,
+boundary/read-back hashes, and a weighted graft-admission-final-gate-observation-boundary ID. It revalidates and
+carries the source final-gate observation, source final-gate receiver, source final-gate intent, source final gate,
+source seal, source authority, source permit, source readiness, source ledger verification, source ledger
+persistence, source ledger implementation, source ledger, source writer contract, source writer inventory, writer
+preflight, live stage, enable gate, switch, promotion, decision, proof precondition, proof, reader, store,
+candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit, and authority chain
+while keeping `authority_granted=false`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and
+`mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-consumer` proves
+producer -> writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification ->
+readiness -> permit -> authority -> seal -> final-gate -> final-gate-intent -> final-gate-receiver ->
+final-gate-observation -> final-gate-observation-boundary -> assert.
