@@ -984,6 +984,20 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-weighted-admission-resonance-graft-admission-final-gate-receiver" {
+		if err := runAdmissionLiveRouteWeightedAdmissionResonanceGraftAdmissionFinalGateReceiver(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-weighted-admission-resonance-graft-admission-final-gate-receiver:", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-weighted-admission-resonance-graft-admission-final-gate-receiver-assert" {
+		if err := runAdmissionLiveRouteWeightedAdmissionResonanceGraftAdmissionFinalGateReceiverAssert(os.Args[2:]); err != nil {
+			fmt.Println("admission-live-route-weighted-admission-resonance-graft-admission-final-gate-receiver-assert:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--admission-live-route-boundary-report-failed-diagnostics-assert" {
 		if err := runAdmissionLiveRouteBoundaryReportFailedDiagnosticsAssert(os.Args[2:]); err != nil {
 			fmt.Println("admission-live-route-boundary-report-failed-diagnostics-assert:", err)
