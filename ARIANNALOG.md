@@ -13,6 +13,24 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store
+
+The post-merge preflight-gate candidate now has a separate store receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store.v1`.
+It consumes the blocked candidate receipt, records candidate/gate/preflight/
+boundary/observation provenance, writes store/read-back/id hashes, and marks the
+receipt as append-only/read-back. It still does not open the real ledger path:
+`ledger_append_allowed=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`, and `body_mutation_allowed=false`.
+
+Added metabolism CLI entrypoints, Makefile aliases, shell wrappers, smoke and
+consumer-smoke, plus Go producer/assert tests. Verification: `bash -n` on the
+new scripts, targeted `go test -run 'PreflightGateCandidateStore'`, full
+`go test` in `golib`, `make all nano chorus metabolism kk doe_field
+harvest_delta doe_qmatvec_test`, full weighted candidate-store consumer smoke
+with shared GGUF weights, and `git diff --check` all pass.
+
 ## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate
 
 Recovered the interrupted post-`preflight_gate` candidate layer from fresh
