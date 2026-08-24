@@ -5599,3 +5599,44 @@ while keeping `authority_granted=false`, `contracts_ready=false`, `write_allowed
 producer -> writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification ->
 readiness -> permit -> authority -> seal -> final-gate -> final-gate-intent -> final-gate-receiver ->
 final-gate-observation -> final-gate-observation-boundary -> assert.
+
+**Follow-up, 2026-08-24 - weighted admission now preflights Resonance graft admission final-gate observation boundary.**
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight.v1`
+consumes the declared weighted graft-admission-final-gate-observation-boundary receipt and emits a closed preflight
+receipt. The receipt carries `status=shadow_graft_admission_final_gate_observation_boundary_preflight_blocked_dry_run`,
+`target=live_route_admission_next_step`,
+`target_kind=weighted_internal_world_shadow_graft_admission_final_gate_observation_boundary_preflight`,
+`target_mode=closed_preflight_guard_dry_run`,
+`action=check_weighted_resonance_shadow_graft_admission_final_gate_observation_boundary_preflight_dry_run`,
+`writer_action=reject_blocked_admission_final_gate_observation_boundary_preflight`,
+`rollback_action=reject_blocked_admission_final_gate_observation_boundary_preflight`, `ledger_state=blocked`,
+`ledger_action=reject_blocked_admission_final_gate_observation_boundary_preflight`, `ledger_contract=none`,
+`ledger_entrypoint=none`, `ledger_receipt_shape=none`, `ledger_write_scope=none`,
+`ledger_ready=false`, `ledger_append_allowed=false`,
+`admission_final_gate_observation_boundary_preflight_state=blocked`,
+`admission_final_gate_observation_boundary_preflight_action=check_blocked_final_gate_observation_boundary_preflight`,
+`admission_final_gate_observation_boundary_preflight_target=resonance`,
+`admission_final_gate_observation_boundary_preflight_target_kind=weighted_internal_world_shadow_graft_admission_final_gate_observation_boundary`,
+`admission_final_gate_observation_boundary_preflight_target_mode=closed_preflight_guard_dry_run`,
+`admission_final_gate_observation_boundary_preflight_dry_run_only=true`,
+`admission_final_gate_observation_boundary_preflight_boundary_verified=true`,
+`admission_final_gate_observation_boundary_preflight_observation_verified=true`,
+`admission_final_gate_observation_boundary_preflight_read_back_verified=true`,
+`admission_final_gate_observation_boundary_preflight_ready=false`,
+`final_gate_observation_boundary_preflight_kind=blocked_final_gate_observation_boundary_preflight`,
+`final_gate_observation_boundary_preflight_mode=no_mutation_preflight`,
+`final_gate_observation_boundary_preflight_stage=post_observation_boundary_pre_live_admission`, raw dream text,
+Janus surface, cooc learning, delta harvest, and body mutation preflight flags closed, preflight/read-back hashes,
+and a weighted graft-admission-final-gate-observation-boundary-preflight ID. It revalidates and carries the source
+final-gate-observation-boundary, source final-gate observation, source final-gate receiver, source final-gate
+intent, source final gate, source seal, source authority, source permit, source readiness, source ledger
+verification, source ledger persistence, source ledger implementation, source ledger, source writer contract,
+source writer inventory, writer preflight, live stage, enable gate, switch, promotion, decision, proof precondition,
+proof, reader, store, candidate, gate, preflight, boundary, observation, receiver, intent, final-gate, seal, permit,
+and authority chain while keeping `authority_granted=false`, `contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`, `body_mutation_allowed=false`, `body_target=none`, and
+`mutates_state=false`.
+`make admission-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-consumer`
+proves producer -> writer contract -> ledger -> ledger implementation -> ledger persistence -> ledger verification
+-> readiness -> permit -> authority -> seal -> final-gate -> final-gate-intent -> final-gate-receiver ->
+final-gate-observation -> final-gate-observation-boundary -> final-gate-observation-boundary-preflight -> assert.
