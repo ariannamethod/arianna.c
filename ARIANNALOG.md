@@ -13,6 +13,24 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate
+
+Recovered the interrupted post-`preflight_gate` candidate layer from fresh
+`origin/main`. The new Go surface writes
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate.v1`
+from a structurally valid blocked preflight-gate receipt, consumes the gate
+proof, and drafts the next admission candidate as blocked/dry-run only. It keeps
+ledger append, write, live admission, body mutation, raw dream text forwarding,
+and authority closed.
+
+Added the metabolism CLI entrypoints and shell wrappers for candidate production,
+assertion, smoke, and consumer-smoke. Verification: `go test` in `golib`,
+`go test -run 'PreflightGateCandidate'`, `make metabolism`, `bash -n` on the
+new scripts, and `git diff --check` all pass. After building the local binary
+prerequisites, the full weighted candidate consumer smoke also passes when
+pointed at the shared GGUF weights through `A2A_JANUS_MODEL`,
+`A2A_RESONANCE_MODEL`, and `A2A_NANO_MODEL`.
+
 ## 2026-08-10 - Weighted admission readiness gate
 
 `make admission-weighted-readiness` now names the heavy GGUF lane as a pre-live
