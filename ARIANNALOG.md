@@ -13,6 +13,29 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch
+
+The reader-proof precondition decision promotion now feeds a closed disabled
+switch receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch.v1`.
+It consumes the promotion, verifies promotion hash/read-back identity, carries
+decision/precondition/proof plus reader/store/candidate/gate provenance, and
+keeps `switch_state=disabled`, `switch_action=hold_pending_live_admission`, and
+`promotion=pending_live_admission`.
+
+This is a switch guard only. It preserves `ledger_append_allowed=false`,
+`graft_allowed=false`, `read_only=true`, `replay_only=true`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; source promotion and source decision guards stay
+closed. Added metabolism CLI entrypoints, Makefile aliases, shell wrappers,
+smoke and consumer-smoke, plus Go producer/assert tests.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'DecisionPromotionSwitch'`, full `go test` in `golib`, `make all nano chorus
+metabolism kk doe_field harvest_delta doe_qmatvec_test`, full weighted
+decision-promotion-switch consumer smoke with shared GGUF weights, and `git
+diff --check` all pass.
+
 ## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion
 
 The reader-proof precondition decision now feeds a closed promotion receipt:
