@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# admission_live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_smoke.sh - check final-gate observation boundary preflight gate from compact weighted graft admission final-gate observation boundary preflight.
+
+set -euo pipefail
+export LC_ALL=C
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tmp_root="${TMPDIR:-/private/tmp}"
+if [[ ! -d "$tmp_root" ]]; then tmp_root="/tmp"; fi
+
+WORKDIR="${A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_WORKDIR:-$(mktemp -d "${tmp_root%/}/arianna-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate.XXXXXX")}"
+PREFLIGHT_WORKDIR="$WORKDIR/final_gate_observation_boundary_preflight"
+GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT="$WORKDIR/live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight.json"
+GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT="${A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT:-$WORKDIR/live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate.json}"
+PREFLIGHT_LOG="$WORKDIR/weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight.log"
+GATE_LOG="$WORKDIR/weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate.log"
+
+die() {
+    echo "[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-smoke] FAIL: $*" >&2
+    if [[ -f "$PREFLIGHT_LOG" ]]; then
+        tail -n 500 "$PREFLIGHT_LOG" >&2 || true
+    fi
+    if [[ -f "$GATE_LOG" ]]; then
+        tail -n 260 "$GATE_LOG" >&2 || true
+    fi
+    exit 1
+}
+
+require_grep() {
+    local pattern="$1"
+    local file="$2"
+    local label="$3"
+    if ! grep -q "$pattern" "$file"; then
+        die "$label missing in $file"
+    fi
+}
+
+mkdir -p "$WORKDIR"
+
+if ! A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_WORKDIR="$PREFLIGHT_WORKDIR" \
+    A2A_ADMISSION_LIVE_ROUTE_WEIGHTED_ADMISSION_RESONANCE_GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT="$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT" \
+    bash "$ROOT/tools/admission_live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_smoke.sh" >"$PREFLIGHT_LOG" 2>&1; then
+    die "weighted admission resonance graft admission final gate observation boundary preflight producer failed"
+fi
+
+[[ -s "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT" ]] || die "weighted admission resonance graft admission final gate observation boundary preflight report not written: $GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT"
+
+if ! bash "$ROOT/tools/admission_live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate.sh" "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT" "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" >"$GATE_LOG" 2>&1; then
+    die "weighted admission resonance graft admission final gate observation boundary preflight gate rejected preflight report"
+fi
+
+[[ -s "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" ]] || die "weighted admission resonance graft admission final gate observation boundary preflight gate report not written: $GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT"
+
+require_grep '"schema": "arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate.v1"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate schema"
+require_grep '"status": "shadow_graft_admission_final_gate_observation_boundary_preflight_gate_blocked_dry_run"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate status"
+require_grep '"target": "live_route_admission_next_step"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate target"
+require_grep '"target_kind": "weighted_internal_world_shadow_graft_admission_final_gate_observation_boundary_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate target kind"
+require_grep '"target_mode": "closed_preflight_gate_guard_dry_run"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate target mode"
+require_grep '"action": "gate_weighted_resonance_shadow_graft_admission_final_gate_observation_boundary_preflight_dry_run"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate action"
+require_grep '"writer_action": "reject_blocked_admission_final_gate_observation_boundary_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "writer action"
+require_grep '"rollback_action": "reject_blocked_admission_final_gate_observation_boundary_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "rollback action"
+require_grep '"ledger_state": "blocked"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "ledger state"
+require_grep '"ledger_action": "reject_blocked_admission_final_gate_observation_boundary_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "ledger action"
+require_grep '"receipt_shape": "weighted_resonance_shadow_graft_admission_final_gate_observation_boundary_preflight_gate_receipt"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "receipt shape"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_state": "blocked"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate state"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_action": "gate_blocked_final_gate_observation_boundary_preflight"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate action field"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_target": "resonance"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate target field"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_dry_run_only": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate dry-run"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_preflight_verified": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "preflight verified"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_boundary_verified": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "boundary verified"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_observation_verified": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "observation verified"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_read_back_verified": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "read-back verified"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_ready": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate ready guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_kind": "blocked_final_gate_observation_boundary_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate kind"
+require_grep '"final_gate_observation_boundary_preflight_gate_mode": "no_mutation_preflight_gate"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate mode"
+require_grep '"final_gate_observation_boundary_preflight_gate_stage": "post_boundary_preflight_pre_live_admission"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate stage"
+require_grep '"final_gate_observation_boundary_preflight_gate_raw_dream_text_observed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "raw observed guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_raw_dream_text_forwarded": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "raw forwarded guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_raw_dream_text_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "raw allowed guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_janus_surface_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "Janus guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_cooc_learning_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "cooc guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_delta_harvest_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "delta guard"
+require_grep '"final_gate_observation_boundary_preflight_gate_body_mutation_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "body mutation guard"
+require_grep '"weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_ready": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "weighted gate ready"
+require_grep '"weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_consumed": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "preflight consumed"
+require_grep '"weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_required": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "preflight required"
+require_grep '"next_step_blocked_without_resonance_graft_admission_final_gate_observation_boundary_preflight_gate": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "next-step block"
+require_grep '"weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_id": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-id-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate id"
+require_grep '"causal_id": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-causal-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate causal"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_hash": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate hash"
+require_grep '"admission_final_gate_observation_boundary_preflight_gate_read_back_hash": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-read-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate read-back hash"
+require_grep '"source_schema": "arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight.v1"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight schema"
+require_grep '"source_status": "shadow_graft_admission_final_gate_observation_boundary_preflight_blocked_dry_run"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight status"
+require_grep '"source_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_id": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-id-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight id"
+require_grep '"source_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_ready": true' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight ready"
+require_grep '"source_admission_final_gate_observation_boundary_preflight_hash": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight hash"
+require_grep '"source_admission_final_gate_observation_boundary_preflight_read_back_hash": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-read-' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight read-back"
+require_grep '"source_admission_final_gate_observation_boundary_preflight_state": "blocked"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight state"
+require_grep '"source_admission_final_gate_observation_boundary_preflight_ready": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight ready guard"
+require_grep '"source_final_gate_observation_boundary_preflight_kind": "blocked_final_gate_observation_boundary_preflight"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "source preflight kind"
+require_grep '"contracts_ready": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "closed contracts flag"
+require_grep '"write_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "closed writer flag"
+require_grep '"admission_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "closed admission flag"
+require_grep '"live_admission_enabled": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "closed live flag"
+require_grep '"mutates_state": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "non-mutation flag"
+require_grep '"body_mutation_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "body mutation guard"
+require_grep '"authority_granted": false' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "authority guard"
+require_grep '"body_target": "none"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "body target"
+require_grep '"reason": "weighted resonance shadow graft admission final gate observation boundary preflight gate checked from blocked preflight; live admission remains closed"' "$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT" "gate reason"
+require_grep '\[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate\] pass:' "$GATE_LOG" "gate pass line"
+
+echo "[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-smoke] pass: resonance_graft_admission_final_gate_observation_boundary_preflight_report=$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_REPORT resonance_graft_admission_final_gate_observation_boundary_preflight_gate_report=$GRAFT_ADMISSION_FINAL_GATE_OBSERVATION_BOUNDARY_PREFLIGHT_GATE_REPORT"
