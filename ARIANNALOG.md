@@ -13,6 +13,25 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store reader
+
+The closed preflight-gate candidate store now has a read-only replay receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader.v1`.
+It consumes the candidate-store receipt, revalidates the store/candidate/gate/
+preflight/boundary/observation chain, records reader/read-back/replay hashes,
+and names the next step as blocked until this reader receipt exists.
+
+The layer is deliberately not authority: `ledger_append_allowed=false`,
+`read_only=true`, `replay_only=true`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`, and `body_mutation_allowed=false`. Added metabolism CLI
+entrypoints, Makefile aliases, shell wrappers, smoke and consumer-smoke, plus
+Go producer/assert tests. Verification: `bash -n` on the new scripts, targeted
+`go test -run 'PreflightGateCandidateStoreReader'`, full `go test` in `golib`,
+`make all nano chorus metabolism kk doe_field harvest_delta
+doe_qmatvec_test`, full weighted reader consumer smoke with shared GGUF
+weights, and `git diff --check` all pass.
+
 ## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store
 
 The post-merge preflight-gate candidate now has a separate store receipt:
