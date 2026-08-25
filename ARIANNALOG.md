@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-25 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage writer preflight
+
+The blocked switch-enable-gate live-stage now feeds a closed writer-preflight
+receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_writer_preflight.v1`.
+It consumes and verifies the live-stage receipt, carries source live-stage,
+enable-gate, switch, promotion, decision, precondition/proof/reader/store/
+candidate/gate provenance, and keeps `writer_state=blocked`,
+`writer_action=reject_blocked_live_stage`, `rollback_state=blocked`,
+`rollback_action=reject_blocked_live_stage`, `stage_state=blocked`,
+`enable_state=disabled`, and `switch_state=disabled`.
+
+This is a writer preflight guard only. It preserves
+`ledger_append_allowed=false`, `graft_allowed=false`, `read_only=true`,
+`replay_only=true`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; source live-stage and upstream enable/switch/
+promotion/decision guards stay closed. Added metabolism CLI entrypoints,
+Makefile aliases, shell wrappers, smoke and consumer-smoke, plus Go
+producer/assert tests.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'LiveStageWriterPreflight'`, full `go test ./...` in `golib`, `make all nano
+chorus metabolism kk doe_field harvest_delta doe_qmatvec_test`, full weighted
+live-stage-writer-preflight consumer smoke with shared GGUF weights, and
+`git diff --check` all pass.
+
 ## 2026-08-25 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage
 
 The disabled switch enable-gate now feeds a closed live-stage receipt:
