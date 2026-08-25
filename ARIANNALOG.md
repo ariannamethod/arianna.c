@@ -13,6 +13,30 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate
+
+The disabled decision-promotion switch now feeds a closed enable-gate receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate.v1`.
+It consumes and verifies the switch receipt, carries switch/promotion/decision
+plus precondition/proof/reader/store/candidate/gate provenance, and keeps
+`enable_state=disabled`, `enable_action=require_operator_key`,
+`switch_state=disabled`, and `promotion=pending_live_admission`.
+
+This is an enable guard only. It requires an operator key before any next live
+admission step, and preserves `ledger_append_allowed=false`,
+`graft_allowed=false`, `read_only=true`, `replay_only=true`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; source switch, source promotion, and source
+decision guards stay closed. Added metabolism CLI entrypoints, Makefile
+aliases, shell wrappers, smoke and consumer-smoke, plus Go producer/assert
+tests.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'DecisionPromotionSwitchEnableGate'`, full `go test` in `golib`, `make all
+nano chorus metabolism kk doe_field harvest_delta doe_qmatvec_test`, full
+weighted decision-promotion-switch-enable-gate consumer smoke with shared GGUF
+weights, and `git diff --check` all pass.
+
 ## 2026-08-24 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch
 
 The reader-proof precondition decision promotion now feeds a closed disabled
