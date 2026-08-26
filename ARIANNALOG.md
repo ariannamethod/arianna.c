@@ -13,6 +13,39 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-26 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage writer contract
+
+The blocked live-stage writer-inventory now feeds a closed writer-contract
+receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_writer_contract.v1`.
+It consumes and verifies the writer-inventory receipt, carries source
+writer-inventory, writer-preflight, live-stage, enable-gate, switch,
+promotion, decision, precondition/proof/reader/store/candidate/gate
+provenance, and keeps `writer_state=blocked`,
+`writer_action=reject_blocked_writer_inventory`,
+`rollback_state=blocked`, `rollback_action=reject_blocked_writer_inventory`,
+`inventory_state=blocked`, `inventory_action=reject_blocked_writer_preflight`,
+`contract_state=blocked`, and
+`contract_action=reject_blocked_writer_inventory`.
+
+This is a writer-contract guard only. It formalizes the absence of writer,
+rollback, and admission-ledger contracts: `writer_contract=none`,
+`rollback_contract=none`, `admission_ledger_contract=none`, with all contract
+shape/scope fields set to `none` and all contract-present flags false. It
+preserves `graft_allowed=false`, `read_only=true`, `replay_only=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; source writer-inventory/writer-preflight/live
+stage and upstream enable/switch/promotion guards stay closed. Added
+metabolism CLI entrypoints, Makefile aliases, shell wrappers, smoke and
+consumer-smoke, plus Go producer/assert tests. The contract stage is
+`post_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_writer_inventory_pre_admission_ledger_writer_contract`.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'LiveStageWriterContract'`, full `go test ./...` in `golib`, `make all nano
+chorus metabolism kk doe_field harvest_delta doe_qmatvec_test`, full weighted
+live-stage-writer-contract consumer smoke with shared GGUF weights, and
+`git diff --check` all pass.
+
 ## 2026-08-25 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage writer inventory
 
 The blocked live-stage writer-preflight now feeds a closed writer-inventory
