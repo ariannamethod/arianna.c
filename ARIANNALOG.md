@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-25 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage writer inventory
+
+The blocked live-stage writer-preflight now feeds a closed writer-inventory
+receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_writer_inventory.v1`.
+It consumes and verifies the writer-preflight receipt, carries source
+writer-preflight, live-stage, enable-gate, switch, promotion, decision,
+precondition/proof/reader/store/candidate/gate provenance, and keeps
+`writer_state=blocked`, `writer_action=reject_blocked_writer_preflight`,
+`rollback_state=blocked`, `rollback_action=reject_blocked_writer_preflight`,
+`inventory_state=blocked`, and
+`inventory_action=reject_blocked_writer_preflight`.
+
+This is an inventory guard only. It names absent contracts explicitly:
+`writer_contract=none`, `rollback_contract=none`, and
+`admission_ledger_contract=none`, with all contract-present flags false. It
+preserves `graft_allowed=false`, `read_only=true`, `replay_only=true`,
+`contracts_ready=false`, `write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; source writer-preflight/live-stage and upstream
+enable/switch/promotion guards stay closed. Added metabolism CLI entrypoints,
+Makefile aliases, shell wrappers, smoke and consumer-smoke, plus Go
+producer/assert tests.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'LiveStageWriterInventory'`, full `go test ./...` in `golib`, `make all nano
+chorus metabolism kk doe_field harvest_delta doe_qmatvec_test`, full weighted
+live-stage-writer-inventory consumer smoke with shared GGUF weights, and
+`git diff --check` all pass.
+
 ## 2026-08-25 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage writer preflight
 
 The blocked switch-enable-gate live-stage now feeds a closed writer-preflight
