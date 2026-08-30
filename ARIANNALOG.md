@@ -13,6 +13,47 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-30 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage readiness
+
+The blocked live-stage ledger-verification receipt now feeds a closed
+admission-readiness receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_readiness.v1`.
+It consumes and verifies the ledger-verification receipt, carries source
+ledger-verification, ledger-persistence, ledger-implementation,
+admission-ledger, writer-contract, writer-inventory, writer-preflight,
+live-stage, enable-gate, switch, promotion, decision,
+precondition/proof/reader/store/candidate/gate provenance, and keeps
+`writer_state=blocked`, `writer_action=reject_blocked_ledger_verification`,
+`rollback_state=blocked`,
+`rollback_action=reject_blocked_ledger_verification`,
+`ledger_state=blocked`, and
+`ledger_action=reject_blocked_ledger_verification`.
+
+This is an admission-readiness guard only. It proves live admission readiness
+remains closed: `admission_readiness_state=blocked`,
+`admission_readiness_action=reject_blocked_ledger_verification`,
+`admission_readiness_target=live_admission`,
+`admission_readiness_dry_run_only=true`,
+`admission_readiness_ledger_verified=false`,
+`admission_readiness_writer_ready=false`,
+`admission_readiness_rollback_ready=false`,
+`admission_readiness_ledger_ready=false`, and
+`admission_readiness_ready=false`. It preserves `ledger_contract=none`,
+`ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`,
+`ledger_append_allowed=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`; all source ledger-verification, persistence,
+implementation, ledger, and upstream writer/live-stage guards stay closed.
+Added metabolism CLI entrypoints, Makefile aliases, shell wrappers, smoke and
+consumer-smoke, plus Go producer/assert tests.
+Verification: `bash -n` on the new scripts, targeted `go test -run
+'Readiness'`, full `go test ./... -count=1` in `golib`, `make all nano chorus
+metabolism kk doe_field harvest_delta doe_qmatvec_test`, full weighted
+live-stage-readiness consumer smoke with shared GGUF weights, and
+`git diff --check` all pass.
+
 ## 2026-08-30 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage ledger verification
 
 The blocked live-stage ledger-persistence receipt now feeds a closed
