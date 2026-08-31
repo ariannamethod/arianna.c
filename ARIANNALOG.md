@@ -13,6 +13,41 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-31 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage seal
+
+The blocked live-stage admission-authority receipt now feeds a sealed
+admission-authority provenance receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_seal.v1`.
+It consumes and verifies the authority receipt, carries source authority,
+permit, readiness, ledger, writer, live-stage, enable-gate, switch, promotion,
+decision, precondition/proof/reader/store/candidate/gate provenance, and keeps
+the seal closed: `admission_seal_state=sealed`,
+`admission_seal_action=seal_blocked_admission_authority`,
+`admission_seal_target=live_admission_authority`,
+`admission_seal_target_mode=closed_seal_guard_dry_run`,
+`admission_seal_dry_run_only=true`,
+`admission_seal_authority_verified=false`,
+`admission_seal_permit_verified=false`,
+`admission_seal_ledger_verified=false`,
+`admission_seal_ready=false`, and
+`admission_seal_immutable_receipt=true`.
+
+This is an immutable receipt guard only. It does not grant authority, does not
+open admission, and does not mutate the body. It preserves
+`ledger_contract=none`, `ledger_entrypoint=none`,
+`ledger_receipt_shape=none`, `ledger_write_scope=none`,
+`ledger_ready=false`, `ledger_append_allowed=false`,
+`contracts_ready=false`, `write_allowed=false`,
+`admission_allowed=false`, `live_admission_enabled=false`,
+`mutates_state=false`, `body_mutation_allowed=false`, and
+`authority_granted=false`. Added metabolism CLI entrypoints, Makefile aliases,
+shell wrappers, smoke and consumer-smoke, plus Go producer/assert tests. The
+new shell smoke uses short scratch path names so the already-deep weighted chain
+does not exceed macOS path limits. Verification: `bash -n` on the new scripts,
+targeted `go test -run 'LiveStage(Seal|Authority|Permit)|Seal'`, full
+`go test ./... -count=1` in `golib`, and full weighted live-stage-seal consumer
+smoke with shared GGUF weights all pass.
+
 ## 2026-08-31 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage authority
 
 The blocked live-stage admission-permit receipt now feeds a closed
