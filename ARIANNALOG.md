@@ -13,6 +13,39 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-31 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage authority
+
+The blocked live-stage admission-permit receipt now feeds a closed
+admission-authority receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_authority.v1`.
+It consumes and verifies the permit receipt, carries source permit and
+readiness provenance, and keeps the admission authority closed:
+`admission_authority_state=blocked`,
+`admission_authority_action=reject_blocked_admission_permit`,
+`admission_authority_target=live_admission_authority`,
+`admission_authority_target_mode=closed_authority_guard_dry_run`,
+`admission_authority_dry_run_only=true`,
+`admission_authority_permit_verified=false`,
+`admission_authority_ledger_verified=false`,
+`admission_authority_writer_ready=false`,
+`admission_authority_rollback_ready=false`,
+`admission_authority_ready=false`, and
+`admission_authority_granted=false`.
+
+This is an authority guard only. It does not grant operator authority and does
+not open live admission. It preserves `ledger_contract=none`,
+`ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`,
+`ledger_append_allowed=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`, and
+`body_mutation_allowed=false`. Added metabolism CLI entrypoints, Makefile
+aliases, shell wrappers, smoke and consumer-smoke, plus Go producer/assert
+tests. Verification: `bash -n` on the new scripts, targeted
+`go test -run 'LiveStage(Authority|Permit)|Authority'`, full
+`go test ./... -count=1` in `golib`, and full weighted live-stage-authority
+consumer smoke with shared GGUF weights all pass.
+
 ## 2026-08-30 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage permit
 
 The blocked live-stage admission-readiness receipt now feeds a closed
