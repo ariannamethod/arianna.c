@@ -30,7 +30,7 @@ require_grep() {
     local pattern="$1"
     local file="$2"
     local label="$3"
-    if ! grep -q "$pattern" "$file"; then
+    if ! grep -Fq "$pattern" "$file"; then
         die "$label missing in $file"
     fi
 }
@@ -131,6 +131,6 @@ require_grep '"body_mutation_allowed": false' "$GRAFT_ADMISSION_FINAL_GATE_RECEI
 require_grep '"authority_granted": false' "$GRAFT_ADMISSION_FINAL_GATE_RECEIVER_REPORT" "base authority guard"
 require_grep '"body_target": "none"' "$GRAFT_ADMISSION_FINAL_GATE_RECEIVER_REPORT" "body target"
 require_grep '"reason": "weighted resonance shadow graft admission final gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate receiver previewed from blocked final gate intent; live admission remains closed"' "$GRAFT_ADMISSION_FINAL_GATE_RECEIVER_REPORT" "receiver reason"
-require_grep '\[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver\] pass:' "$RECEIVER_LOG" "receiver pass line"
+require_grep '[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver] pass:' "$RECEIVER_LOG" "receiver pass line"
 
 echo "[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-smoke] pass: resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_final_gate_intent_report=$GRAFT_ADMISSION_FINAL_GATE_INTENT_REPORT resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_final_gate_receiver_report=$GRAFT_ADMISSION_FINAL_GATE_RECEIVER_REPORT"
