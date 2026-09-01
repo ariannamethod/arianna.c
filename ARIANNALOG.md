@@ -13,6 +13,43 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-08-31 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate
+
+The sealed live-stage admission-authority provenance now feeds a closed
+admission final-gate receipt:
+`arianna.live_route_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_final_gate.v1`.
+It consumes and verifies the live-stage seal receipt, carries source seal,
+authority, permit, readiness, ledger, writer, live-stage, enable-gate, switch,
+promotion, decision, precondition/proof/reader/store/candidate/gate
+provenance, and keeps the final gate closed:
+`admission_final_gate_state=blocked`,
+`admission_final_gate_action=reject_blocked_admission_seal`,
+`admission_final_gate_target=live_admission_final_gate`,
+`admission_final_gate_target_kind=weighted_internal_world_shadow_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_seal`,
+`admission_final_gate_target_mode=closed_final_gate_guard_dry_run`,
+`admission_final_gate_dry_run_only=true`,
+`admission_final_gate_seal_verified=false`,
+`admission_final_gate_authority_verified=false`,
+`admission_final_gate_permit_verified=false`,
+`admission_final_gate_ledger_verified=false`, and
+`admission_final_gate_ready=false`.
+
+This is a final-gate guard only. It consumes the immutable seal as proof that
+the authority door stayed shut; it does not grant authority, open admission, or
+mutate the body. It preserves `ledger_contract=none`,
+`ledger_entrypoint=none`, `ledger_receipt_shape=none`,
+`ledger_write_scope=none`, `ledger_ready=false`,
+`ledger_append_allowed=false`, `contracts_ready=false`,
+`write_allowed=false`, `admission_allowed=false`,
+`live_admission_enabled=false`, `mutates_state=false`,
+`body_mutation_allowed=false`, and `authority_granted=false`. Added
+metabolism CLI entrypoints, Makefile aliases, shell wrappers, smoke and
+consumer-smoke, plus Go producer/assert tests. The new smoke scripts keep
+scratch report/log names short for macOS path limits. Verification: `bash -n`
+on the new scripts, full `go test ./... -count=1` in `golib`, and full
+weighted live-stage-final-gate consumer smoke with shared GGUF weights all
+pass.
+
 ## 2026-08-31 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage seal
 
 The blocked live-stage admission-authority receipt now feeds a sealed
