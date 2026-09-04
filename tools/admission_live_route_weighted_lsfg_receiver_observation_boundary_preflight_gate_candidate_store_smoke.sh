@@ -30,7 +30,7 @@ require_grep() {
     local pattern="$1"
     local file="$2"
     local label="$3"
-    if ! grep -q "$pattern" "$file"; then
+    if ! grep -Fq "$pattern" "$file"; then
         die "$label missing in $file"
     fi
 }
@@ -122,6 +122,6 @@ require_grep '"source_weighted_admission_resonance_graft_admission_final_gate_ob
 require_grep '"source_writer_inventory_verified": true' "$CANDIDATE_STORE_REPORT" "source writer inventory"
 require_grep '"source_writer_preflight_verified": true' "$CANDIDATE_STORE_REPORT" "source writer preflight"
 require_grep '"source_ledger_append_allowed": false' "$CANDIDATE_STORE_REPORT" "source ledger append guard"
-require_grep '\[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store\] pass:' "$STORE_LOG" "candidate-store pass line"
+require_grep '[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store] pass:' "$STORE_LOG" "candidate-store pass line"
 
 echo "[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store-smoke] pass: resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_report=$CANDIDATE_REPORT resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_report=$CANDIDATE_STORE_REPORT"
