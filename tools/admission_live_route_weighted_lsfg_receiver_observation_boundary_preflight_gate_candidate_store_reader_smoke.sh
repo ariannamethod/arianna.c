@@ -30,7 +30,7 @@ require_grep() {
     local pattern="$1"
     local file="$2"
     local label="$3"
-    if ! grep -q "$pattern" "$file"; then
+    if ! grep -Fq "$pattern" "$file"; then
         die "$label missing in $file"
     fi
 }
@@ -94,6 +94,6 @@ require_grep '"source_weighted_admission_resonance_graft_admission_final_gate_ob
 require_grep '"source_candidate_opened": false' "$READER_REPORT" "source candidate closed flag"
 require_grep '"source_weighted_admission_resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_proof_precondition_decision_promotion_switch_enable_gate_live_stage_final_gate_receiver_observation_boundary_preflight_gate_id": "weighted-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-id-' "$READER_REPORT" "source gate id"
 require_grep '"source_admission_final_gate_observation_boundary_preflight_gate_ready": false' "$READER_REPORT" "source gate closed"
-require_grep '\[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store-reader\] pass:' "$READER_LOG" "reader pass line"
+require_grep '[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store-reader] pass:' "$READER_LOG" "reader pass line"
 
 echo "[admission-live-route-weighted-admission-resonance-graft-admission-final-gate-observation-boundary-preflight-gate-candidate-store-reader-proof-precondition-decision-promotion-switch-enable-gate-live-stage-final-gate-receiver-observation-boundary-preflight-gate-candidate-store-reader-smoke] pass: resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_report=$STORE_REPORT resonance_graft_admission_final_gate_observation_boundary_preflight_gate_candidate_store_reader_report=$READER_REPORT"
