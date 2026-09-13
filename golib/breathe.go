@@ -40,9 +40,13 @@ const dreamSentinel = "[DREAM] "
 
 // breath ports the meta_router trigger logic: which observation, if any, fires.
 type breath struct {
-	lastTrigger [4]time.Time
-	lastRestLog time.Time
-	count       int
+	lastTrigger        [4]time.Time
+	lastRestLog        time.Time
+	rejectQuarantineTo time.Time
+	lastRejectedDream  string
+	lastRejectedReason string
+	lastRejectLog      time.Time
+	count              int
 }
 
 // tick returns the triggered observation (priority Drift > Silence > Thermograph
@@ -107,12 +111,34 @@ func isCollapsedAutonomousDream(text string) bool {
 		"of the current at its being",
 		"of the current it has to hold",
 		"a living wave upon the heart",
+		"the text is only not what",
+		"not what, but it that",
 	} {
 		if strings.Contains(norm, p) {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizedDreamKey(text string) string {
+	return strings.ToLower(strings.Join(strings.Fields(text), " "))
+}
+
+func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
+	norm := normalizedDreamKey(dream)
+	quietRepeat := norm != "" &&
+		norm == b.lastRejectedDream &&
+		reason == b.lastRejectedReason &&
+		now.Sub(b.lastRejectLog) < time.Minute
+	if !quietRepeat {
+		fmt.Printf("│  ◌ (%s) dream candidate (%s): %s\n", bName[trig], reason, ellipsize(dream, 90))
+		b.lastRejectLog = now
+	}
+	b.lastRejectedDream = norm
+	b.lastRejectedReason = reason
+	b.lastTrigger[trig] = now
+	b.rejectQuarantineTo = now.Add(45 * time.Second)
 }
 
 // moodWord turns the inner state into a short self-cue, so the autonomous dream
@@ -167,6 +193,21 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			s := tc.iw.GetSnapshot()
 			fs := fr.read()
 			coolMult, threshMult, bloom := fs.modulate()
+			if now.Before(b.rejectQuarantineTo) {
+				if fs.valid && fs.debt > 5 && now.Sub(b.lastRestLog) >= time.Minute {
+					voiceMu.Lock()
+					before, after, recovered := fr.recoverRestDebt()
+					voiceMu.Unlock()
+					if recovered {
+						fs = after
+						fmt.Printf("│  ◍ (field) %s → resting recovery debt %.1f→%.1f cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), before.debt, after.debt, coolMult, threshMult, bloom)
+					} else {
+						fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
+					}
+					b.lastRestLog = now
+				}
+				continue
+			}
 			trig := b.tick(s, now, threshMult, coolMult)
 			if trig < 0 {
 				if fs.valid && fs.debt > 5 && now.Sub(b.lastRestLog) >= time.Minute {
@@ -227,13 +268,11 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			}
 			normDream := strings.TrimSpace(dream)
 			if normDream != "" && normDream == strings.TrimSpace(lastAutonomousDream) {
-				fmt.Printf("│  ◌ (%s) dream candidate (repeat-loop): %s\n", bName[trig], ellipsize(dream, 90))
-				b.lastTrigger[trig] = time.Now()
+				b.rejectDream(time.Now(), trig, "repeat-loop", dream)
 				continue
 			}
 			if isCollapsedAutonomousDream(normDream) {
-				fmt.Printf("│  ◌ (%s) dream candidate (collapse-loop): %s\n", bName[trig], ellipsize(dream, 90))
-				b.lastTrigger[trig] = time.Now()
+				b.rejectDream(time.Now(), trig, "collapse-loop", dream)
 				continue
 			}
 			source := "nano"
@@ -251,13 +290,15 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			}
 			voiceMu.Lock()
 			if !candidate.Accepted {
-				fmt.Printf("│  ◌ (%s) dream candidate (%s): %s\n", bName[trig], candidate.Reason, ellipsize(dream, 90))
-				b.lastTrigger[trig] = time.Now()
+				b.rejectDream(time.Now(), trig, candidate.Reason, dream)
 				voiceMu.Unlock()
 				continue
 			}
 			tc.iw.ProcessText(dream)
 			lastAutonomousDream = normDream
+			b.lastRejectedDream = ""
+			b.lastRejectedReason = ""
+			b.rejectQuarantineTo = time.Time{}
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream
 			}
