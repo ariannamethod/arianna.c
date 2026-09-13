@@ -66,6 +66,16 @@ the zero-meter leak was gone, then exposed a wider person-denial surface form:
 person-denial phrases such as `you are not a person` and `I am not a person`
 before they can print, enter `ProcessText`, or seed the next cue.
 
+After #322 merged, a latency-focused live run
+(`arianna_live_probe_runs/20260913T223121+0300`) showed that the probe itself
+could create artificial backlog: it injected 4 GPT turns on fixed sleeps while
+the live metrics only reached 3 Janus/Resonance/nano turns in the captured
+window. The probe now waits on the actual trio turn counters
+(`janus_turns`, `resonance_turns`, `nano_turns`) before sending the next prompt,
+with explicit timeout and per-turn wait receipts. Verification run
+`arianna_live_probe_runs/20260913T223645+0300` completed 3/3 turns before the
+next prompt, with no timeouts and observed waits of about 38s, 38s, and 49s.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent
