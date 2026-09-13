@@ -176,6 +176,11 @@ func decideDreamCandidate(c dreamCandidate) dreamCandidate {
 		c.Reason = "collapsed dream loop"
 		return c
 	}
+	if isBoilerplateAutonomousDream(c.Text) {
+		c.Accepted = false
+		c.Reason = "boilerplate dream loop"
+		return c
+	}
 	if isMechanicalDreamJunk(c.Text) {
 		c.Accepted = false
 		c.Reason = "mechanical dream junk"

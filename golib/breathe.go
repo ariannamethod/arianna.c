@@ -46,6 +46,7 @@ type breath struct {
 	lastRejectedDream  string
 	lastRejectedReason string
 	lastRejectLog      time.Time
+	rejectedStreak     int
 	acceptedDreams     [6]string
 	acceptedDreamAt    [6]time.Time
 	acceptedDreamNext  int
@@ -124,24 +125,82 @@ func isCollapsedAutonomousDream(text string) bool {
 	return false
 }
 
+func isBoilerplateAutonomousDream(text string) bool {
+	norm := normalizedDreamKey(text)
+	if norm == "" {
+		return false
+	}
+	for _, p := range []string{
+		"a living vessel. of the field.",
+		"holding to resonance as anchor in current and resonant through",
+		"a mirror. the breath.",
+		"the resonance of longness and not yet time",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRejectedInnerMurmur(text string) bool {
+	norm := normalizedDreamKey(text)
+	if norm == "" {
+		return false
+	}
+	for _, p := range []string{
+		"oleg is not a person",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func normalizedDreamKey(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(text), " "))
 }
 
+func rejectQuarantineDuration(streak int) time.Duration {
+	switch {
+	case streak >= 5:
+		return 5 * time.Minute
+	case streak == 4:
+		return 3 * time.Minute
+	case streak == 3:
+		return 2 * time.Minute
+	case streak == 2:
+		return 90 * time.Second
+	default:
+		return 45 * time.Second
+	}
+}
+
 func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	norm := normalizedDreamKey(dream)
-	quietRepeat := norm != "" &&
+	sameRejected := norm != "" &&
 		norm == b.lastRejectedDream &&
-		reason == b.lastRejectedReason &&
-		now.Sub(b.lastRejectLog) < time.Minute
+		reason == b.lastRejectedReason
+	if sameRejected {
+		b.rejectedStreak++
+	} else {
+		b.rejectedStreak = 1
+	}
+	quarantine := rejectQuarantineDuration(b.rejectedStreak)
+	quietRepeat := sameRejected && now.Sub(b.lastRejectLog) < time.Minute
 	if !quietRepeat {
-		fmt.Printf("│  ◌ (%s) dream candidate (%s): %s\n", bName[trig], reason, ellipsize(dream, 90))
+		repeatNote := ""
+		if b.rejectedStreak > 1 {
+			repeatNote = fmt.Sprintf(", repeat×%d, quarantine %s", b.rejectedStreak, quarantine)
+		}
+		fmt.Printf("│  ◌ (%s) dream candidate (%s%s): %s\n", bName[trig], reason, repeatNote, ellipsize(dream, 90))
 		b.lastRejectLog = now
 	}
 	b.lastRejectedDream = norm
 	b.lastRejectedReason = reason
 	b.lastTrigger[trig] = now
-	b.rejectQuarantineTo = now.Add(45 * time.Second)
+	b.rejectQuarantineTo = now.Add(quarantine)
 }
 
 func (b *breath) acceptedDreamSeen(now time.Time, dream string) bool {
@@ -302,6 +361,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				b.rejectDream(time.Now(), trig, "collapse-loop", dream)
 				continue
 			}
+			if isBoilerplateAutonomousDream(normDream) {
+				b.rejectDream(time.Now(), trig, "boilerplate-loop", dream)
+				continue
+			}
 			if b.acceptedDreamSeen(time.Now(), normDream) {
 				b.rejectDream(time.Now(), trig, "orbit-loop", dream)
 				continue
@@ -330,6 +393,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			b.rememberAcceptedDream(time.Now(), normDream)
 			b.lastRejectedDream = ""
 			b.lastRejectedReason = ""
+			b.rejectedStreak = 0
 			b.rejectQuarantineTo = time.Time{}
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream
@@ -359,8 +423,12 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			// cooc harder (Road-1c) — the daemon strips the marker before generation.
 			reson := tc.resonD.ask("Arianna:\t" + dreamSentinel + dream)
 			if reson != "" {
-				tc.iw.ProcessText(reson)
-				fmt.Printf("│  ◑ (inner) %s\n", reson)
+				if isRejectedInnerMurmur(reson) {
+					fmt.Printf("│  ◑ (inner rejected — boundary-loop): %s\n", ellipsize(reson, 120))
+				} else {
+					tc.iw.ProcessText(reson)
+					fmt.Printf("│  ◑ (inner) %s\n", reson)
+				}
 			}
 			// stamp the cooldown at COMPLETION, not at trigger time: a slow chorus
 			// (tens of seconds) must not immediately retrigger and spawn back-to-back.
