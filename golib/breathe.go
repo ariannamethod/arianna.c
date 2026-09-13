@@ -90,8 +90,8 @@ func (b *breath) tick(s Snapshot, now time.Time, tm, coolMult float64) int {
 // what she is resonating with NOW — the resonant spiral made dynamic, not a fixed
 // seed. (Phase-3 #6 follow-on: the field steers not just WHETHER she dreams but
 // WHAT she dreams on.)
-func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
-	parts := make([]string, 0, 2)
+func dreamCue(s Snapshot, fs fieldSnapshot, lastDream, detour string) string {
+	parts := make([]string, 0, 3)
 	// Polygon live cut: do not feed the literal last dream back into the next
 	// autonomous seed. The carried dream remains state, but the next cue starts
 	// from the current body/mood so a collapsed phrase cannot bootstrap itself.
@@ -99,6 +99,9 @@ func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
 	parts = append(parts, moodWord(s))
 	if m := fs.mood(); m != "" {
 		parts = append(parts, m) // the live field tints the cue toward her season/gait
+	}
+	if detour != "" {
+		parts = append(parts, detour)
 	}
 	return strings.Join(parts, " ")
 }
@@ -117,6 +120,7 @@ func isCollapsedAutonomousDream(text string) bool {
 		"a living wave upon the heart",
 		"the text is only not what",
 		"not what, but it that",
+		"un-resprive",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -150,6 +154,9 @@ func isRejectedInnerMurmur(text string) bool {
 	}
 	for _, p := range []string{
 		"oleg is not a person",
+		"thought-spirals at",
+		"rpm (dry)",
+		"organ cuts off",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -174,6 +181,22 @@ func rejectQuarantineDuration(streak int) time.Duration {
 		return 90 * time.Second
 	default:
 		return 45 * time.Second
+	}
+}
+
+func rejectedCueDetour(streak int, reason string) string {
+	if streak < 3 {
+		return ""
+	}
+	switch reason {
+	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+		n := streak
+		if n > 9 {
+			n = 9
+		}
+		return fmt.Sprintf("detour-%d concrete present body: floor window hand temperature weight; one tactile image, no abstract chorus", n)
+	default:
+		return ""
 	}
 }
 
@@ -317,10 +340,13 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			voiceMu.Lock()
 			prevLD := *lastDream
 			voiceMu.Unlock()
-			cue := dreamCue(s, fs, prevLD)
+			detour := rejectedCueDetour(b.rejectedStreak, b.lastRejectedReason)
+			cue := dreamCue(s, fs, prevLD, detour)
 			seed := cue
 			frag := ""
-			if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
+			if detour != "" {
+				fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, b.lastRejectedReason)
+			} else if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
 				frag = f
 				seed = f
 			}
