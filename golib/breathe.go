@@ -170,7 +170,15 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			trig := b.tick(s, now, threshMult, coolMult)
 			if trig < 0 {
 				if fs.valid && fs.debt > 5 && now.Sub(b.lastRestLog) >= time.Minute {
-					fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
+					voiceMu.Lock()
+					before, after, recovered := fr.recoverRestDebt()
+					voiceMu.Unlock()
+					if recovered {
+						fs = after
+						fmt.Printf("│  ◍ (field) %s → resting recovery debt %.1f→%.1f cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), before.debt, after.debt, coolMult, threshMult, bloom)
+					} else {
+						fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
+					}
 					b.lastRestLog = now
 				}
 				continue

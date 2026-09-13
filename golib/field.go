@@ -8,9 +8,11 @@ package main
 // the field. This wires it: a pure-Go mmap reader (no cgo, no libaml link — it
 // mirrors am_field_sync_in's seqlock) lets the breath feel the organism's gait and
 // season and bend itself to them — rest when the field is strained or wintering,
-// bloom when it runs hot. Read-only: the reader NEVER creates or writes the field
-// (the C voices own it via an O_EXCL single-owner create); absent / not-yet-
-// published / corrupt => no signal, and the breath falls back to its tuned defaults.
+// bloom when it runs hot. The Go side NEVER creates the field (the C voices own it
+// via an O_EXCL single-owner create). It normally reads, and only the rest-heartbeat
+// writes a bounded recovery tick back through the same seqlock so high debt can
+// actually bleed down while no voice is generating. Absent / not-yet-published /
+// corrupt => no signal, and the breath falls back to its tuned defaults.
 
 import (
 	"fmt"
@@ -31,6 +33,12 @@ const (
 	fieldSize      = 56
 	amFieldMagic   = 0x44464D41 // "AMFD" LE
 	amFieldVersion = 1
+
+	// One quiet recovery breath. C generation calls am_step(0.05) per sampled token,
+	// so no-generation rest used to mean no field decay at all. This applies roughly
+	// one short turn's worth of prophecy-debt decay per logged rest heartbeat: visible
+	// enough to leave a debt coma, bounded enough not to erase the causal trace.
+	fieldRestDebtDecay = 0.95
 )
 
 // byte offsets of every field (all 4-byte words, no padding — ariannamethod.h:515-530).
@@ -75,9 +83,11 @@ type fieldSnapshot struct {
 	autumn, winter    float32
 }
 
-// fieldReader mmaps weights/arianna.field read-only and reads torn-read-free
-// snapshots through the seqlock. The mmap is opened lazily (the C voices create the
-// file just after they start, slightly after the metabolism does) and reused.
+// fieldReader mmaps weights/arianna.field and reads torn-read-free snapshots
+// through the seqlock. The mmap is opened lazily (the C voices create the file just
+// after they start, slightly after the metabolism does) and reused. It maps RDWR
+// only so the rest heartbeat can publish a bounded recovery tick; attach still
+// never creates or truncates the field.
 type fieldReader struct {
 	path string
 	fd   int
@@ -86,9 +96,9 @@ type fieldReader struct {
 
 func newFieldReader(path string) *fieldReader { return &fieldReader{path: path, fd: -1} }
 
-// attach maps the field file read-only if it exists and is fully sized. A no-op once
-// mapped, and a silent no-op while the file is absent / short (the C voices create
-// and ftruncate it — the reader must never create or write it). Safe to call each tick.
+// attach maps the field file if it exists and is fully sized. A no-op once mapped,
+// and a silent no-op while the file is absent / short (the C voices create and
+// ftruncate it — the Go side must never create it). Safe to call each tick.
 func (fr *fieldReader) attach() {
 	if fr.data != nil {
 		return
@@ -97,11 +107,11 @@ func (fr *fieldReader) attach() {
 	if err != nil || fi.Size() < fieldSize { // absent, or not yet ftruncate'd to full size
 		return
 	}
-	fd, err := syscall.Open(fr.path, syscall.O_RDONLY, 0)
+	fd, err := syscall.Open(fr.path, syscall.O_RDWR, 0)
 	if err != nil {
 		return
 	}
-	data, err := syscall.Mmap(fd, 0, fieldSize, syscall.PROT_READ, syscall.MAP_SHARED)
+	data, err := syscall.Mmap(fd, 0, fieldSize, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		syscall.Close(fd)
 		return
@@ -129,6 +139,12 @@ func (fr *fieldReader) close() {
 // preserves load-load order). All offsets are 4-byte aligned (base is page-aligned).
 func aload(b []byte, off int) uint32 {
 	return atomic.LoadUint32((*uint32)(unsafe.Pointer(&b[off])))
+}
+
+// astore is the write twin of aload. It publishes one aligned 4-byte word with
+// sequentially consistent ordering, matching the C side's fence+seqlock protocol.
+func astore(b []byte, off int, v uint32) {
+	atomic.StoreUint32((*uint32)(unsafe.Pointer(&b[off])), v)
 }
 
 // read returns the live field snapshot via the seqlock (mirrors am_field_sync_in,
@@ -174,6 +190,48 @@ func (fr *fieldReader) read() fieldSnapshot {
 
 // f32 reads a little-endian float32 word atomically (bits via aload).
 func f32(b []byte, off int) float32 { return math.Float32frombits(aload(b, off)) }
+
+func putF32(b []byte, off int, v float32) { astore(b, off, math.Float32bits(v)) }
+
+// recoverRestDebt is the missing half of "rest": when high prophecy debt suppresses
+// autonomous dreams, no C voice may call am_step(), so the field can sit forever at
+// the same debt. On a logged rest heartbeat the metabolism owns voiceMu (caller
+// side), takes one clean snapshot, and publishes only the same field-level carry
+// that C already shares: debt, temporal debt, and the recovery gait. It does not
+// touch text, cooc, LoRA, soma sidecars, weights, or any voice-local state.
+func (fr *fieldReader) recoverRestDebt() (before, after fieldSnapshot, ok bool) {
+	before = fr.read()
+	if !before.valid || before.debt <= 5 {
+		return before, before, false
+	}
+	b := fr.data
+	if b == nil {
+		return before, before, false
+	}
+
+	after = before
+	after.debt = float32(math.Max(5, float64(before.debt)*fieldRestDebtDecay))
+	after.temporalDebt = float32(math.Max(0, float64(before.temporalDebt)*0.99))
+	after.velocityMode = velNOMOVE
+
+	for tries := 0; tries < 16; tries++ {
+		seq := aload(b, offSeq)
+		if seq&1 == 1 {
+			continue
+		}
+		astore(b, offSeq, seq|1) // odd → write in progress
+		putF32(b, offDebt, after.debt)
+		putF32(b, offTemporal, after.temporalDebt)
+		astore(b, offVelMode, uint32(after.velocityMode))
+		astore(b, offSeq, (seq&^1)+2) // even → done
+		runtime.KeepAlive(b)
+		if committed := fr.read(); committed.valid {
+			after = committed
+		}
+		return before, after, true
+	}
+	return before, before, false
+}
 
 // guarded clamps a snapshot to the field's own ranges (mirrors the finite + clamp
 // guards in am_field_sync_in, ariannamethod.c:991-1001) so a corrupt mmap can't
