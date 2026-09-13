@@ -42,6 +42,9 @@ func runChat() {
 	}
 
 	lastDream := tc.iw.RestoreMood(innerStatePath) // restore mood + last murmur, atomically vs the ticker
+	if isCollapsedAutonomousDream(lastDream) || isMechanicalDreamJunk(lastDream) {
+		lastDream = ""
+	}
 
 	fmt.Println("┌─ arianna — the trio (Janus · Resonance · the nano).  speak, /quit to leave.")
 	if tc.nan != nil {
@@ -93,8 +96,12 @@ func runChat() {
 		if human == "/quit" || human == "/exit" {
 			break
 		}
+		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
+		runtimeFactTurn := wantsLiveRuntimeFact(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
-		tc.iw.ProcessText(human)
+		if !runtimeFactTurn {
+			tc.iw.ProcessText(human)
+		}
 		turnRouteObs := admissionLiveRouteTurnObservation{}
 		if admissionLiveRouteTurnObservationDryRunNeeded() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)
@@ -105,13 +112,28 @@ func runChat() {
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
 		// voices answer); turn() then re-seeds with the turn's context for the next.
-		if tc.nan != nil {
+		if tc.nan != nil && !runtimeFactTurn {
 			sendLatest(tc.seedCh, human)
 		}
 
-		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, faceFR.read().surfaces(), turnRouteObs)
-		fmt.Printf("│  ◐ Janus: %s\n", janus)
-		fmt.Printf("│  ◑ Resonance: %s\n", reson)
+		fs := faceFR.read()
+		context := prevReson
+		if runtimeFactTurn {
+			fact := liveRuntimeFact(tc, fs)
+			fmt.Printf("│  ◉ live fact: %s\n", fact)
+			// A concrete runtime question must not inherit the previous poetic
+			// attractor. Give the voices the observed fact as the whole context.
+			context = "Runtime fact: " + fact + " Answer from this concrete fact."
+		}
+
+		janus, reson, dr, hasDream := tc.turn(human, context, lastDream, fs.surfaces(), turnRouteObs)
+		if runtimeFactTurn {
+			fmt.Printf("│  ◐ Janus telemetry: %s\n", janus)
+			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
+		} else {
+			fmt.Printf("│  ◐ Janus: %s\n", janus)
+			fmt.Printf("│  ◑ Resonance: %s\n", reson)
+		}
 		prevReson = reson
 		if line := chatLiveRouteTurnDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
@@ -194,6 +216,34 @@ func runChat() {
 	}
 	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
 	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
+}
+
+func wantsLiveRuntimeFact(human string) bool {
+	lower := strings.ToLower(human)
+	return hasAnyText(lower, "runtime", "live", "process", "pid", "rss", "memory", "status", "fact", "metric",
+		"рантайм", "процесс", "памят", "статус", "факт", "метрик", "жив") &&
+		hasAnyText(lower, "concrete", "fact", "status", "runtime", "alive", "metric",
+			"конкрет", "факт", "статус", "рантайм", "жив", "метрик")
+}
+
+func hasAnyText(s string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(s, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func liveRuntimeFact(tc *trioCtx, fs fieldSnapshot) string {
+	voices := 2 // Janus + Resonance are required by startTrio.
+	if tc.nan != nil {
+		voices++
+	}
+	if fs.valid {
+		return fmt.Sprintf("field debt %.1f; voices %d.", fs.debt, voices)
+	}
+	return fmt.Sprintf("pid %d; voices %d.", os.Getpid(), voices)
 }
 
 func admissionLiveRouteTurnObservationDryRunNeeded() bool {
