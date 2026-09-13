@@ -406,6 +406,7 @@ def summarise_metrics(lines: list[str]) -> dict[str, Any]:
 
 
 TRIO_TURN_KEYS = ("janus_turns", "resonance_turns", "nano_turns")
+PRIMARY_TURN_KEYS = ("janus_turns", "resonance_turns")
 
 
 def latest_metric_obj(lines: list[str]) -> dict[str, Any]:
@@ -439,6 +440,52 @@ def trio_turn_advanced(before: dict[str, int | None], after: dict[str, int | Non
     return True
 
 
+def turn_counters_advanced(keys: tuple[str, ...], before: dict[str, int | None], after: dict[str, int | None]) -> bool:
+    for key in keys:
+        after_value = after.get(key)
+        before_value = before.get(key)
+        if after_value is None:
+            return False
+        if before_value is not None and after_value <= before_value:
+            return False
+    return True
+
+
+def turn_counters_not_advanced(
+    keys: tuple[str, ...], before: dict[str, int | None], after: dict[str, int | None]
+) -> list[str]:
+    missing: list[str] = []
+    for key in keys:
+        after_value = after.get(key)
+        before_value = before.get(key)
+        if after_value is None or (before_value is not None and after_value <= before_value):
+            missing.append(key)
+    return missing
+
+
+def live_prompt_returned(delta: str) -> bool:
+    # The nano can complete as a rejected candidate, in which case nano_turns does
+    # not advance. A sanitized/withheld voice can similarly complete without its
+    # counter moving. The user-facing readiness signal is that the live screen has
+    # echoed this turn's human line and returned to the input prompt afterwards.
+    human_index = delta.rfind("◇ human:")
+    if human_index < 0:
+        return False
+    return "\n└▶ " in delta[human_index:]
+
+
+def live_turn_ready(before: dict[str, int | None], after: dict[str, int | None], live_delta: str) -> tuple[bool, str]:
+    if trio_turn_advanced(before, after):
+        return True, "trio-counters"
+    if live_prompt_returned(live_delta):
+        if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after):
+            return True, "primary-counters-and-prompt"
+        if not turn_counters_not_advanced(TRIO_TURN_KEYS, before, after):
+            return True, "prompt-returned"
+        return True, "prompt-returned-partial-counters"
+    return False, ""
+
+
 def sleep_with_progress(seconds: int) -> None:
     remaining = seconds
     while remaining > 0:
@@ -467,7 +514,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--turn-timeout-seconds",
         type=int,
         default=120,
-        help="max seconds to wait for janus/resonance/nano turn counters to advance",
+        help="max seconds to wait for a live turn to return to the prompt",
     )
     parser.add_argument("--poll-seconds", type=int, default=5, help="metrics poll cadence while waiting for a trio turn")
     parser.add_argument(
@@ -660,12 +707,16 @@ def main(argv: list[str]) -> int:
                         timeout=args.ssh_timeout,
                     )
                 after_counts = trio_turn_counts(state["metrics"]["tail"])
+                missing_counters = turn_counters_not_advanced(TRIO_TURN_KEYS, before_counts, after_counts)
                 wait_info.update({
                     "after_counts": after_counts,
+                    "missing_counters": missing_counters,
                     "elapsed_seconds": round(elapsed, 3),
                 })
-                if trio_turn_advanced(before_counts, after_counts):
+                ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                if ready:
                     wait_info["completed"] = True
+                    wait_info["completion_reason"] = ready_reason
                     if args.post_completion_settle_seconds > 0:
                         sleep_with_progress(args.post_completion_settle_seconds)
                         state = remote_state(
@@ -676,6 +727,11 @@ def main(argv: list[str]) -> int:
                             max_delta_bytes=args.max_delta_bytes,
                             metrics_tail_lines=args.metrics_tail_lines,
                             timeout=args.ssh_timeout,
+                        )
+                        after_counts = trio_turn_counts(state["metrics"]["tail"])
+                        wait_info["after_counts"] = after_counts
+                        wait_info["missing_counters"] = turn_counters_not_advanced(
+                            TRIO_TURN_KEYS, before_counts, after_counts
                         )
                     break
                 remaining = deadline - time.monotonic()

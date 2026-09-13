@@ -131,10 +131,18 @@ func runChat() {
 			fmt.Printf("│  ◐ Janus telemetry: %s\n", janus)
 			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
 		} else {
-			fmt.Printf("│  ◐ Janus: %s\n", janus)
-			fmt.Printf("│  ◑ Resonance: %s\n", reson)
+			if liveVoiceTextVisible(janus) {
+				fmt.Printf("│  ◐ Janus: %s\n", janus)
+			}
+			if liveVoiceTextVisible(reson) {
+				fmt.Printf("│  ◑ Resonance: %s\n", reson)
+			}
 		}
-		prevReson = reson
+		if liveVoiceTextVisible(reson) {
+			prevReson = reson
+		} else {
+			prevReson = ""
+		}
 		if line := chatLiveRouteTurnDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
 		}
@@ -160,11 +168,19 @@ func runChat() {
 					lastDream = displayDream
 				}
 				if dr.frag != "" {
-					fmt.Printf("│  ◌ from the books: %s\n", ellipsize(sanitizeLiveVoiceText(dr.frag), 90))
+					displayFrag := sanitizeLiveVoiceText(dr.frag)
+					if liveVoiceTextVisible(displayFrag) {
+						fmt.Printf("│  ◌ from the books: %s\n", ellipsize(displayFrag, 90))
+					}
 				}
-				fmt.Printf("│  ◓ nano (subconscious): %s\n", displayDream)
+				if liveVoiceTextVisible(displayDream) {
+					fmt.Printf("│  ◓ nano (subconscious): %s\n", displayDream)
+				}
 			} else {
-				fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(sanitizeLiveVoiceText(dr.dream), 90))
+				displayDream := sanitizeLiveVoiceText(dr.dream)
+				if liveVoiceTextVisible(displayDream) {
+					fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(displayDream, 90))
+				}
 			}
 			if line := chatLiveRouteChoiceDryRunLine(dr.candidate); line != "" {
 				fmt.Println(line)

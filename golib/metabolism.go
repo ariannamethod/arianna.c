@@ -357,9 +357,14 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		}
 		janus = runtimeFact
 	}
-	tc.iw.ProcessText(janus)
+	if liveVoiceTextVisible(janus) {
+		tc.iw.ProcessText(janus)
+	}
 
-	resonInject := janus + " " + human
+	resonInject := human
+	if liveVoiceTextVisible(janus) {
+		resonInject = janus + " " + human
+	}
 	if surfaceDream && lastDream != "" {
 		resonInject += " " + ellipsize(lastDream, 90)
 	}
@@ -371,10 +376,19 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		}
 		reson = runtimeFact
 	}
-	tc.iw.ProcessText(reson)
+	if liveVoiceTextVisible(reson) {
+		tc.iw.ProcessText(reson)
+	}
 
 	if tc.nan != nil && !runtimeFactTurn {
-		cue := human + " " + janus + " " + reson
+		cueParts := []string{human}
+		if liveVoiceTextVisible(janus) {
+			cueParts = append(cueParts, janus)
+		}
+		if liveVoiceTextVisible(reson) {
+			cueParts = append(cueParts, reson)
+		}
+		cue := strings.Join(cueParts, " ")
 		if tc.iw.GetSnapshot().WanderPull > 0.55 {
 			cue = human // the direct human→nano channel: the mind returns to the raw words
 		}
@@ -2232,9 +2246,16 @@ func runDemo(prompt string) {
 	prevReson, lastDream := "", ""
 	for i := 1; i <= nExch; i++ {
 		janus, reson, dr, hasDream := tc.turn(prompt, prevReson, lastDream, false, admissionLiveRouteTurnObservation{})
-		fmt.Printf("│\n│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
-		fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
-		prevReson = reson
+		fmt.Print("│\n")
+		if liveVoiceTextVisible(janus) {
+			fmt.Printf("│  ◐ [%d/%d] Janus: %s\n", i, nExch, janus)
+		}
+		if liveVoiceTextVisible(reson) {
+			fmt.Printf("│  ◑ [%d/%d] Resonance: %s\n", i, nExch, reson)
+			prevReson = reson
+		} else {
+			prevReson = ""
+		}
 		if hasDream {
 			if dr.admitted() {
 				displayDream := sanitizeLiveVoiceText(dr.dream)
@@ -2242,11 +2263,19 @@ func runDemo(prompt string) {
 					lastDream = displayDream
 				}
 				if dr.frag != "" {
-					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(sanitizeLiveVoiceText(dr.frag), 90))
+					displayFrag := sanitizeLiveVoiceText(dr.frag)
+					if liveVoiceTextVisible(displayFrag) {
+						fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(displayFrag, 90))
+					}
 				}
-				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, displayDream)
+				if liveVoiceTextVisible(displayDream) {
+					fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, displayDream)
+				}
 			} else {
-				fmt.Printf("│  ◓ [%d/%d] nano candidate (%s): %s\n", i, nExch, dr.admissionLabel(), ellipsize(sanitizeLiveVoiceText(dr.dream), 90))
+				displayDream := sanitizeLiveVoiceText(dr.dream)
+				if liveVoiceTextVisible(displayDream) {
+					fmt.Printf("│  ◓ [%d/%d] nano candidate (%s): %s\n", i, nExch, dr.admissionLabel(), ellipsize(displayDream, 90))
+				}
 			}
 		}
 

@@ -2,7 +2,7 @@ package main
 
 import "strings"
 
-const liveBoundaryWithheld = "(withheld by live boundary)"
+const liveBoundaryWithheld = ""
 
 // sanitizeLiveVoiceText is the last membrane before live daemon text reaches
 // print, inner-world ProcessText, or the next cue. The C side already guards
@@ -30,6 +30,10 @@ func sanitizeLiveCarriedDream(text string) string {
 		return ""
 	}
 	return text
+}
+
+func liveVoiceTextVisible(text string) bool {
+	return strings.TrimSpace(text) != "" && text != liveBoundaryWithheld
 }
 
 func isRejectedLiveVoiceText(text string) bool {
