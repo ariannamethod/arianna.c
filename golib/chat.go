@@ -127,8 +127,13 @@ func runChat() {
 		}
 
 		janus, reson, dr, hasDream := tc.turn(human, context, lastDream, fs.surfaces(), turnRouteObs)
-		fmt.Printf("│  ◐ Janus: %s\n", janus)
-		fmt.Printf("│  ◑ Resonance: %s\n", reson)
+		if runtimeFactTurn {
+			fmt.Printf("│  ◐ Janus telemetry: %s\n", janus)
+			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
+		} else {
+			fmt.Printf("│  ◐ Janus: %s\n", janus)
+			fmt.Printf("│  ◑ Resonance: %s\n", reson)
+		}
 		prevReson = reson
 		if line := chatLiveRouteTurnDryRunLine(turnRouteObs); line != "" {
 			fmt.Println(line)
