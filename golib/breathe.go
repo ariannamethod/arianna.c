@@ -414,15 +414,21 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				voiceMu.Unlock()
 				continue
 			}
-			tc.iw.ProcessText(dream)
-			lastAutonomousDream = normDream
-			b.rememberAcceptedDream(time.Now(), normDream)
+			carriedDream := sanitizeLiveCarriedDream(dream)
+			if carriedDream == "" {
+				b.rejectDream(time.Now(), trig, "live-boundary", dream)
+				voiceMu.Unlock()
+				continue
+			}
+			tc.iw.ProcessText(carriedDream)
+			lastAutonomousDream = strings.TrimSpace(carriedDream)
+			b.rememberAcceptedDream(time.Now(), lastAutonomousDream)
 			b.lastRejectedDream = ""
 			b.lastRejectedReason = ""
 			b.rejectedStreak = 0
 			b.rejectQuarantineTo = time.Time{}
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
-				*lastDream = dream
+				*lastDream = carriedDream
 			}
 			if tag := fs.describe(); tag != "" { // the live field bending the breath, made visible
 				fmt.Printf("│  ◍ (field) %s → cooldown×%.2f threshold×%.2f bloom=%d\n", tag, coolMult, threshMult, bloom)

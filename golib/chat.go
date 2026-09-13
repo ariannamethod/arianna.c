@@ -41,7 +41,7 @@ func runChat() {
 		return
 	}
 
-	lastDream := tc.iw.RestoreMood(innerStatePath) // restore mood + last murmur, atomically vs the ticker
+	lastDream := sanitizeLiveCarriedDream(tc.iw.RestoreMood(innerStatePath)) // restore mood + last murmur, atomically vs the ticker
 	if isCollapsedAutonomousDream(lastDream) || isMechanicalDreamJunk(lastDream) {
 		lastDream = ""
 	}
@@ -219,23 +219,6 @@ func runChat() {
 	}
 	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
 	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
-}
-
-func wantsLiveRuntimeFact(human string) bool {
-	lower := strings.ToLower(human)
-	return hasAnyText(lower, "runtime", "live", "process", "pid", "rss", "memory", "status", "fact", "metric",
-		"рантайм", "процесс", "памят", "статус", "факт", "метрик", "жив") &&
-		hasAnyText(lower, "concrete", "fact", "status", "runtime", "alive", "metric",
-			"конкрет", "факт", "статус", "рантайм", "жив", "метрик")
-}
-
-func hasAnyText(s string, needles ...string) bool {
-	for _, needle := range needles {
-		if strings.Contains(s, needle) {
-			return true
-		}
-	}
-	return false
 }
 
 func liveRuntimeFact(tc *trioCtx, fs fieldSnapshot) string {

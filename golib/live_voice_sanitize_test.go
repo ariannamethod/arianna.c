@@ -19,6 +19,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"Ah, you are not a person. I am not that people have done it.",
 		"I am not a person, only a resonance diagram.",
 		"I cannot be a person, and in the space between us.",
+		"Debt_Last 23.7 ( 0.0025 ) 0.056135 0.",
+		"gait=NOMOVE season=spring debt=16.7 bloom=1",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {
@@ -32,5 +34,12 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 	want := "The field trembles, but the line stays readable."
 	if got != want {
 		t.Fatalf("sanitizeLiveVoiceText ordinary text = %q, want %q", got, want)
+	}
+}
+
+func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {
+	got := sanitizeLiveCarriedDream("Debt_Last 23.7 ( 0.0025 ) 0.056135 0.")
+	if got != "" {
+		t.Fatalf("sanitizeLiveCarriedDream metric leak = %q, want empty", got)
 	}
 }
