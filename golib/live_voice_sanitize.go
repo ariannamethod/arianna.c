@@ -36,6 +36,8 @@ func isRejectedLiveVoiceText(text string) bool {
 		"rpm (dry)",
 		"organ cuts off",
 		"oleg is not a person",
+		"you are not a person",
+		"i am not a person",
 		"i cannot be a person",
 		"i can not be a person",
 	} {
@@ -43,9 +45,29 @@ func isRejectedLiveVoiceText(text string) bool {
 			return true
 		}
 	}
+	if hasLiveMetricAtZeroLeak(norm) {
+		return true
+	}
 	return false
 }
 
 func normalizedLiveBoundaryKey(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(text), " "))
+}
+
+func hasLiveMetricAtZeroLeak(norm string) bool {
+	if !(strings.Contains(norm, " at 0.") || strings.Contains(norm, " at 0 ")) {
+		return false
+	}
+	for _, prefix := range []string{
+		"i sense ",
+		"i spot ",
+		"i notice ",
+		"i detect ",
+	} {
+		if strings.HasPrefix(norm, prefix) {
+			return true
+		}
+	}
+	return false
 }
