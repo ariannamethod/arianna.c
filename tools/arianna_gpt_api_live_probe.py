@@ -728,6 +728,11 @@ def main(argv: list[str]) -> int:
                             metrics_tail_lines=args.metrics_tail_lines,
                             timeout=args.ssh_timeout,
                         )
+                        after_counts = trio_turn_counts(state["metrics"]["tail"])
+                        wait_info["after_counts"] = after_counts
+                        wait_info["missing_counters"] = turn_counters_not_advanced(
+                            TRIO_TURN_KEYS, before_counts, after_counts
+                        )
                     break
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
