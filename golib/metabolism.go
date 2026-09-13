@@ -76,12 +76,13 @@ func (v *voice) respawn() error {
 	return nil
 }
 
-// voiceTimeout bounds one ask: our voices emit a fixed token budget (-n 28). On an idle
-// machine that frames <END> in seconds, but a 176M CPU voice under heavy contention (other
-// jobs saturating the cores) can legitimately take far longer — 30s treated a merely-slow
-// voice as wedged and killed it, silencing the trio. The ceiling is generous so a slow-but-
-// alive voice finishes its turn; a genuine wedge is still caught (and a real death is handled
-// by respawn). Tunable via AM_VOICE_TIMEOUT (seconds).
+// voiceTimeout bounds one ask: our voices emit a bounded token budget. On an idle
+// machine that frames <END> in seconds, but a 176M CPU voice under heavy contention
+// (other jobs saturating the cores) can legitimately take far longer — 30s treated a
+// merely-slow voice as wedged and killed it, silencing the trio. The ceiling is
+// generous so a slow-but-alive voice finishes its turn; a genuine wedge is still
+// caught (and a real death is handled by respawn). Tunable via AM_VOICE_TIMEOUT
+// (seconds).
 var voiceTimeout = func() time.Duration {
 	if s := os.Getenv("AM_VOICE_TIMEOUT"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 && n <= 3600 {
@@ -203,13 +204,15 @@ func startTrio() (*trioCtx, error) {
 		}
 	}()
 
-	janusD, err := startVoice("./arianna", []string{"-t", "0.8", "--top-p", "0.9", "-n", "28"})
+	janusN := strconv.Itoa(liveVoiceTokenBudget("janus"))
+	resonanceN := strconv.Itoa(liveVoiceTokenBudget("resonance"))
+	janusD, err := startVoice("./arianna", []string{"-t", "0.8", "--top-p", "0.9", "-n", janusN})
 	if err != nil {
 		close(tickerDone)
 		iw.Stop()
 		return nil, fmt.Errorf("janus daemon: %w", err)
 	}
-	resonD, err := startVoice("./arianna_resonance", []string{"--alpha", "5", "-t", "0.7", "--top-p", "1.0", "-n", "28"})
+	resonD, err := startVoice("./arianna_resonance", []string{"--alpha", "5", "-t", "0.7", "--top-p", "1.0", "-n", resonanceN})
 	if err != nil {
 		janusD.close()
 		close(tickerDone)
