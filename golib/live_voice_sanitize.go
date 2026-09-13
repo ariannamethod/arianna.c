@@ -24,6 +24,14 @@ func sanitizeLiveVoiceText(text string) string {
 	return text
 }
 
+func sanitizeLiveCarriedDream(text string) string {
+	text = sanitizeLiveVoiceText(text)
+	if text == liveBoundaryWithheld {
+		return ""
+	}
+	return text
+}
+
 func isRejectedLiveVoiceText(text string) bool {
 	norm := normalizedLiveBoundaryKey(text)
 	if norm == "" {

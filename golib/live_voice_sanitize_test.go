@@ -36,3 +36,10 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 		t.Fatalf("sanitizeLiveVoiceText ordinary text = %q, want %q", got, want)
 	}
 }
+
+func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {
+	got := sanitizeLiveCarriedDream("Debt_Last 23.7 ( 0.0025 ) 0.056135 0.")
+	if got != "" {
+		t.Fatalf("sanitizeLiveCarriedDream metric leak = %q, want empty", got)
+	}
+}

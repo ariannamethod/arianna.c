@@ -94,6 +94,10 @@ could still surface raw metric-key text such as
 `Debt_Last 23.7 ( 0.0025 ) 0.056135 0.`. The live membrane now withholds raw
 metric-key voice output (`debt_last`, turn counters, `field_ticks`, and
 `gait=`/`bloom=`/`debt=` forms) before print, `ProcessText`, or cue reuse.
+The same membrane is now applied when restoring and carrying `lastDream`, so a
+previously persisted metric leak cannot reappear on startup as
+`she returns carrying a dream`, and autonomous breathing cannot persist a newly
+withheld metric leak as the next dream.
 
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
