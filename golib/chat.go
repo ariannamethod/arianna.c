@@ -42,6 +42,9 @@ func runChat() {
 	}
 
 	lastDream := tc.iw.RestoreMood(innerStatePath) // restore mood + last murmur, atomically vs the ticker
+	if isCollapsedAutonomousDream(lastDream) || isMechanicalDreamJunk(lastDream) {
+		lastDream = ""
+	}
 
 	fmt.Println("┌─ arianna — the trio (Janus · Resonance · the nano).  speak, /quit to leave.")
 	if tc.nan != nil {
@@ -93,6 +96,7 @@ func runChat() {
 		if human == "/quit" || human == "/exit" {
 			break
 		}
+		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
@@ -109,7 +113,17 @@ func runChat() {
 			sendLatest(tc.seedCh, human)
 		}
 
-		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, faceFR.read().surfaces(), turnRouteObs)
+		fs := faceFR.read()
+		context := prevReson
+		if wantsLiveRuntimeFact(human) {
+			fact := liveRuntimeFact(tc, fs)
+			fmt.Printf("│  ◉ live fact: %s\n", fact)
+			// A concrete runtime question must not inherit the previous poetic
+			// attractor. Give the voices the observed fact as the whole context.
+			context = "Runtime fact: " + fact + " Answer from this concrete fact."
+		}
+
+		janus, reson, dr, hasDream := tc.turn(human, context, lastDream, fs.surfaces(), turnRouteObs)
 		fmt.Printf("│  ◐ Janus: %s\n", janus)
 		fmt.Printf("│  ◑ Resonance: %s\n", reson)
 		prevReson = reson
@@ -194,6 +208,34 @@ func runChat() {
 	}
 	tc.stop()      // close the voices — Resonance saves her co-occurrence sidecar
 	harvestField() // Phase 2 (A): fold what surfaced into δ; report the growth
+}
+
+func wantsLiveRuntimeFact(human string) bool {
+	lower := strings.ToLower(human)
+	return hasAnyText(lower, "runtime", "live", "process", "pid", "rss", "memory", "status", "fact", "metric",
+		"рантайм", "процесс", "памят", "статус", "факт", "метрик", "жив") &&
+		hasAnyText(lower, "concrete", "fact", "status", "runtime", "alive", "metric",
+			"конкрет", "факт", "статус", "рантайм", "жив", "метрик")
+}
+
+func hasAnyText(s string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(s, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func liveRuntimeFact(tc *trioCtx, fs fieldSnapshot) string {
+	voices := 2 // Janus + Resonance are required by startTrio.
+	if tc.nan != nil {
+		voices++
+	}
+	if fs.valid {
+		return fmt.Sprintf("field debt %.1f; voices %d.", fs.debt, voices)
+	}
+	return fmt.Sprintf("pid %d; voices %d.", os.Getpid(), voices)
 }
 
 func admissionLiveRouteTurnObservationDryRunNeeded() bool {

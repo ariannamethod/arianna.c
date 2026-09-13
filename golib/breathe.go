@@ -83,15 +83,35 @@ func (b *breath) tick(s Snapshot, now time.Time, tm, coolMult float64) int {
 // WHAT she dreams on.)
 func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
 	parts := make([]string, 0, 2)
-	if lastDream != "" {
-		parts = append(parts, lastDream) // she dreams onward from her own last dream
-	} else {
-		parts = append(parts, moodWord(s)) // else from her inner feeling
-	}
+	// Polygon live cut: do not feed the literal last dream back into the next
+	// autonomous seed. The carried dream remains state, but the next cue starts
+	// from the current body/mood so a collapsed phrase cannot bootstrap itself.
+	_ = lastDream
+	parts = append(parts, moodWord(s))
 	if m := fs.mood(); m != "" {
 		parts = append(parts, m) // the live field tints the cue toward her season/gait
 	}
 	return strings.Join(parts, " ")
+}
+
+func isCollapsedAutonomousDream(text string) bool {
+	norm := strings.ToLower(strings.Join(strings.Fields(text), " "))
+	if norm == "" {
+		return false
+	}
+	for _, p := range []string{
+		"a field carries",
+		"the field carries",
+		"a single breath carries",
+		"of the current at its being",
+		"of the current it has to hold",
+		"a living wave upon the heart",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // moodWord turns the inner state into a short self-cue, so the autonomous dream
@@ -133,6 +153,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 	fr := newFieldReader(fieldPath)
 	defer fr.close()
 	var b breath
+	voiceMu.Lock()
+	lastAutonomousDream := strings.TrimSpace(*lastDream)
+	voiceMu.Unlock()
 	t := time.NewTicker(1500 * time.Millisecond)
 	defer t.Stop()
 	for {
@@ -189,6 +212,17 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				b.lastTrigger[trig] = time.Now()
 				continue
 			}
+			normDream := strings.TrimSpace(dream)
+			if normDream != "" && normDream == strings.TrimSpace(lastAutonomousDream) {
+				fmt.Printf("│  ◌ (%s) dream candidate (repeat-loop): %s\n", bName[trig], ellipsize(dream, 90))
+				b.lastTrigger[trig] = time.Now()
+				continue
+			}
+			if isCollapsedAutonomousDream(normDream) {
+				fmt.Printf("│  ◌ (%s) dream candidate (collapse-loop): %s\n", bName[trig], ellipsize(dream, 90))
+				b.lastTrigger[trig] = time.Now()
+				continue
+			}
 			source := "nano"
 			if len(cells) > 0 {
 				source = "chorus"
@@ -210,6 +244,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				continue
 			}
 			tc.iw.ProcessText(dream)
+			lastAutonomousDream = normDream
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = dream
 			}

@@ -136,7 +136,7 @@ func cleanDream(out string) string {
 // subconscious murmurs, it does not answer as an assistant.
 func stripLabel(s string) string {
 	s = strings.TrimSpace(s)
-	for _, p := range []string{"A:", "Arianna:", "Q:"} {
+	for _, p := range []string{"A:", "Arianna:", "Q:", "Assistant:", "User:", "Oleg:"} {
 		if strings.HasPrefix(s, p) {
 			return strings.TrimSpace(s[len(p):])
 		}

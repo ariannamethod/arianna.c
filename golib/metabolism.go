@@ -122,7 +122,7 @@ func (v *voice) ask(line string) string {
 			b.WriteString(t)
 			b.WriteByte(' ')
 		}
-		ch <- reply{cutSentence(strings.Join(strings.Fields(b.String()), " ")), sawEnd}
+		ch <- reply{cutSentence(stripLabel(strings.Join(strings.Fields(b.String()), " "))), sawEnd}
 	}()
 	select {
 	case r := <-ch:
@@ -328,6 +328,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	// the end feeds nothing back into generation (that wiring is a separate,
 	// deliberate step).
 	before := tc.iw.GetSnapshot()
+	runtimeFact, runtimeFactTurn := runtimeFactFromContext(context)
 	janusPrompt := human
 	if context != "" {
 		janusPrompt = human + " " + context
@@ -339,14 +340,28 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	if surfaceDream && lastDream != "" {
 		janusPrompt += " " + ellipsize(lastDream, 60)
 	}
-	janus = tc.janusD.ask(janusPrompt)
+	janusRaw := tc.janusD.ask(janusPrompt)
+	janus = janusRaw
+	if runtimeFactTurn && !responseCarriesRuntimeFact(janusRaw, runtimeFact) {
+		if strings.TrimSpace(janusRaw) != "" {
+			fmt.Printf("│  ◐ Janus candidate (missed runtime fact): %s\n", janusRaw)
+		}
+		janus = runtimeFact
+	}
 	tc.iw.ProcessText(janus)
 
 	resonInject := janus + " " + human
-	if lastDream != "" {
-		resonInject += " " + lastDream
+	if surfaceDream && lastDream != "" {
+		resonInject += " " + ellipsize(lastDream, 90)
 	}
-	reson = tc.resonD.ask("Arianna:\t" + resonInject)
+	resonRaw := tc.resonD.ask("Arianna:\t" + resonInject)
+	reson = resonRaw
+	if runtimeFactTurn && !responseCarriesRuntimeFact(resonRaw, runtimeFact) {
+		if strings.TrimSpace(resonRaw) != "" {
+			fmt.Printf("│  ◑ Resonance candidate (missed runtime fact): %s\n", resonRaw)
+		}
+		reson = runtimeFact
+	}
 	tc.iw.ProcessText(reson)
 
 	if tc.nan != nil {
@@ -368,6 +383,37 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	dC := after.Coherence - before.Coherence
 	tc.lastMoved = float32(math.Sqrt(float64(dV*dV + dA*dA + dC*dC)))
 	return
+}
+
+func runtimeFactFromContext(context string) (string, bool) {
+	const prefix = "Runtime fact:"
+	i := strings.Index(context, prefix)
+	if i < 0 {
+		return "", false
+	}
+	fact := strings.TrimSpace(context[i+len(prefix):])
+	if j := strings.Index(fact, " Answer "); j >= 0 {
+		fact = strings.TrimSpace(fact[:j])
+	}
+	return fact, fact != ""
+}
+
+func responseCarriesRuntimeFact(response, fact string) bool {
+	response = strings.ToLower(response)
+	fact = strings.ToLower(fact)
+	hits := 0
+	for _, token := range strings.FieldsFunc(fact, func(r rune) bool {
+		return r == ' ' || r == ';' || r == ',' || r == '.' || r == ':' || r == '=' || r == '(' || r == ')'
+	}) {
+		token = strings.TrimSpace(token)
+		if len(token) < 2 || token == "field" {
+			continue
+		}
+		if strings.Contains(response, token) {
+			hits++
+		}
+	}
+	return hits >= 2
 }
 
 func main() {

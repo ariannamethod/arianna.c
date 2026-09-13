@@ -171,6 +171,16 @@ func decideDreamCandidate(c dreamCandidate) dreamCandidate {
 		c.Reason = "empty dream"
 		return c
 	}
+	if isCollapsedAutonomousDream(c.Text) {
+		c.Accepted = false
+		c.Reason = "collapsed dream loop"
+		return c
+	}
+	if isMechanicalDreamJunk(c.Text) {
+		c.Accepted = false
+		c.Reason = "mechanical dream junk"
+		return c
+	}
 	if c.Mode == dreamAdmissionShadow {
 		c.Accepted = false
 		c.Reason = "shadow mode"
@@ -179,6 +189,47 @@ func decideDreamCandidate(c dreamCandidate) dreamCandidate {
 	c.Accepted = true
 	c.Reason = "live admission"
 	return c
+}
+
+func isMechanicalDreamJunk(text string) bool {
+	norm := strings.ToLower(strings.Join(strings.Fields(text), " "))
+	for _, phrase := range []string{
+		"runtime error",
+		"segmentation fault",
+		"traceback",
+	} {
+		if strings.Contains(norm, phrase) {
+			return true
+		}
+	}
+	fields := strings.Fields(text)
+	if len(fields) < 4 {
+		return false
+	}
+	letterTokens := 0
+	dashTokens := 0
+	for _, field := range fields {
+		hasLetter := false
+		onlyDash := true
+		for _, r := range field {
+			if unicode.IsLetter(r) {
+				hasLetter = true
+			}
+			if r != '-' && r != '—' && r != '–' {
+				onlyDash = false
+			}
+		}
+		if hasLetter {
+			letterTokens++
+		}
+		if onlyDash {
+			dashTokens++
+		}
+	}
+	if letterTokens == 0 {
+		return true
+	}
+	return dashTokens >= 4 && letterTokens <= 1
 }
 
 func recordDreamCandidate(c dreamCandidate) error {

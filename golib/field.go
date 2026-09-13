@@ -221,6 +221,7 @@ func clampFinite(x, lo, hi float32) float32 {
 //   - thresholdMult: harder to trigger when strained/wintering, readier when hot.
 //   - bloom        : how many chorus cells — the engine's own collapse↔bloom axis
 //     (n_cells) as the heat analog (the field has no per-cell temperature knob).
+//
 // valid=false (no field) returns the identity (1, 1, 4) = today's tuned behaviour.
 func (s fieldSnapshot) modulate() (cooldownMult, thresholdMult float64, bloom int) {
 	if !s.valid {
@@ -258,19 +259,18 @@ func (s fieldSnapshot) modulate() (cooldownMult, thresholdMult float64, bloom in
 	// already encode season_intensity, so they are used directly, like seasonMod).
 	quiet := clamp01f((float64(s.autumn) + float64(s.winter)) * 0.5)
 
-	// COOLDOWN is the primary rest lever: longer between dreams when strained
-	// (debt>5) or consolidating (autumn/winter), shorter when the field runs hot.
-	cooldownMult = clampf64(1.0+debtStrain*1.0+quiet*0.5-(heat-0.85)*0.4, 0.6, 2.5)
-	// THRESHOLD only ever LOWERS (a hot field dreams readily). It is NEVER raised
-	// above the base — the idle operating point (WanderPull ~0.55, base bar 0.45)
-	// sits so close to the bar that any upward scaling would mute the breath
-	// entirely. Resting when strained is the cooldown's + bloom's job, not
-	// suppression: a strained organism dreams less and sparser, never goes silent.
-	thresholdMult = clampf64(1.0-(heat-0.85)*0.5, 0.75, 1.0)
-	b := 4.0 + (heat-0.85)*4.0 - debtStrain*2.0
+	// COOLDOWN is the primary rest lever: live polygon showed that ×2.5 still
+	// let a high-debt field spawn a chorus every few seconds. Debt past the
+	// recovery cliff must be audible as real rest, not merely a slower loop.
+	cooldownMult = clampf64(1.0+debtStrain*7.0+quiet*2.0-(heat-0.85)*0.4, 0.6, 10.0)
+	// THRESHOLD rises when strained/wintering. The previous live build never
+	// raised it above 1.0, so a debt≈40 organism still fired on idle wander.
+	hotAssist := math.Max(heat-0.85, 0) * 0.5
+	thresholdMult = clampf64(1.0+debtStrain*1.5+quiet*0.75-hotAssist, 0.75, 2.75)
+	b := 4.0 + (heat-0.85)*4.0 - debtStrain*3.0 - quiet*1.5
 	bloom = int(b + 0.5)
-	if bloom < 2 {
-		bloom = 2
+	if bloom < 1 {
+		bloom = 1
 	}
 	if bloom > 6 {
 		bloom = 6
