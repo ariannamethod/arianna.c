@@ -405,6 +405,40 @@ def summarise_metrics(lines: list[str]) -> dict[str, Any]:
     return summary
 
 
+TRIO_TURN_KEYS = ("janus_turns", "resonance_turns", "nano_turns")
+
+
+def latest_metric_obj(lines: list[str]) -> dict[str, Any]:
+    for line in reversed(lines):
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return {}
+
+
+def trio_turn_counts(lines: list[str]) -> dict[str, int | None]:
+    latest = latest_metric_obj(lines)
+    counts: dict[str, int | None] = {}
+    for key in TRIO_TURN_KEYS:
+        value = latest.get(key)
+        counts[key] = value if isinstance(value, int) else None
+    return counts
+
+
+def trio_turn_advanced(before: dict[str, int | None], after: dict[str, int | None]) -> bool:
+    for key in TRIO_TURN_KEYS:
+        after_value = after.get(key)
+        before_value = before.get(key)
+        if after_value is None:
+            return False
+        if before_value is not None and after_value <= before_value:
+            return False
+    return True
+
+
 def sleep_with_progress(seconds: int) -> None:
     remaining = seconds
     while remaining > 0:
@@ -424,6 +458,24 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"OpenAI model (default: OPENAI_MODEL or {DEFAULT_MODEL})")
     parser.add_argument("--turns", type=int, default=8, help="number of live turns to send")
     parser.add_argument("--settle-seconds", type=int, default=45, help="seconds to collect live output after each turn")
+    parser.add_argument(
+        "--no-wait-for-trio",
+        action="store_true",
+        help="disable metrics-based waiting and use fixed --settle-seconds sleeps only",
+    )
+    parser.add_argument(
+        "--turn-timeout-seconds",
+        type=int,
+        default=120,
+        help="max seconds to wait for janus/resonance/nano turn counters to advance",
+    )
+    parser.add_argument("--poll-seconds", type=int, default=5, help="metrics poll cadence while waiting for a trio turn")
+    parser.add_argument(
+        "--post-completion-settle-seconds",
+        type=int,
+        default=5,
+        help="extra seconds to collect tail output after trio counters advance",
+    )
     parser.add_argument("--max-output-tokens", type=int, default=90, help="GPT tokens for each generated probe turn")
     parser.add_argument("--temperature", type=float, default=0.7, help="GPT temperature; retried without it on unsupported-model errors")
     parser.add_argument("--max-prompt-chars", type=int, default=220, help="hard cap for each injected user turn")
@@ -464,6 +516,10 @@ def main(argv: list[str]) -> int:
         "model": args.model,
         "turns": args.turns,
         "settle_seconds": args.settle_seconds,
+        "wait_for_trio": not args.no_wait_for_trio,
+        "turn_timeout_seconds": args.turn_timeout_seconds,
+        "poll_seconds": args.poll_seconds,
+        "post_completion_settle_seconds": args.post_completion_settle_seconds,
     })
     write_text(
         transcript_path,
@@ -504,10 +560,12 @@ def main(argv: list[str]) -> int:
     prior_prompts: list[str] = []
     usage_totals = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     all_metric_lines: list[str] = []
+    turn_waits: list[dict[str, Any]] = []
     recent_log_context = state["live_log"]["delta"]
     recent_metrics_tail = state["metrics"]["tail"]
 
     for turn in range(1, args.turns + 1):
+        before_counts = trio_turn_counts(recent_metrics_tail)
         api_input = build_api_input(
             turn_index=turn,
             turns=args.turns,
@@ -565,7 +623,67 @@ def main(argv: list[str]) -> int:
         )
         prior_prompts.append(prompt)
 
-        sleep_with_progress(args.settle_seconds)
+        wait_info: dict[str, Any] = {
+            "mode": "fixed_sleep" if args.no_wait_for_trio else "wait_for_trio",
+            "before_counts": before_counts,
+            "completed": False,
+            "timed_out": False,
+            "elapsed_seconds": 0.0,
+        }
+        if args.no_wait_for_trio:
+            sleep_with_progress(args.settle_seconds)
+        else:
+            wait_started = time.monotonic()
+            turn_timeout_seconds = max(args.turn_timeout_seconds, 1)
+            deadline = wait_started + turn_timeout_seconds
+            poll_seconds = max(args.poll_seconds, 1)
+            while True:
+                elapsed = max(time.monotonic() - wait_started, 0.0)
+                state = remote_state(
+                    host=args.host,
+                    live_dir=args.live_dir,
+                    log_offset=log_offset,
+                    metrics_line_offset=metrics_line_offset,
+                    max_delta_bytes=args.max_delta_bytes,
+                    metrics_tail_lines=args.metrics_tail_lines,
+                    timeout=args.ssh_timeout,
+                )
+                if state["metrics"]["abs_path"] != current_metrics_file:
+                    current_metrics_file = state["metrics"]["abs_path"]
+                    state = remote_state(
+                        host=args.host,
+                        live_dir=args.live_dir,
+                        log_offset=log_offset,
+                        metrics_line_offset=0,
+                        max_delta_bytes=args.max_delta_bytes,
+                        metrics_tail_lines=args.metrics_tail_lines,
+                        timeout=args.ssh_timeout,
+                    )
+                after_counts = trio_turn_counts(state["metrics"]["tail"])
+                wait_info.update({
+                    "after_counts": after_counts,
+                    "elapsed_seconds": round(elapsed, 3),
+                })
+                if trio_turn_advanced(before_counts, after_counts):
+                    wait_info["completed"] = True
+                    if args.post_completion_settle_seconds > 0:
+                        sleep_with_progress(args.post_completion_settle_seconds)
+                        state = remote_state(
+                            host=args.host,
+                            live_dir=args.live_dir,
+                            log_offset=log_offset,
+                            metrics_line_offset=metrics_line_offset,
+                            max_delta_bytes=args.max_delta_bytes,
+                            metrics_tail_lines=args.metrics_tail_lines,
+                            timeout=args.ssh_timeout,
+                        )
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    wait_info["timed_out"] = True
+                    break
+                time.sleep(min(poll_seconds, remaining))
+        turn_waits.append(wait_info)
 
         # If the metrics file rotated, reset the line offset for that file.
         state = remote_state(
@@ -602,6 +720,7 @@ def main(argv: list[str]) -> int:
 
         metrics_summary = summarise_metrics(metric_delta_lines)
         append_text(transcript_path, "### Live log delta\n\n```text\n" + log_delta + "\n```\n\n")
+        append_text(transcript_path, "### Turn wait\n\n```json\n" + json.dumps(wait_info, ensure_ascii=False, indent=2) + "\n```\n\n")
         append_text(transcript_path, "### Metrics summary\n\n```json\n" + json.dumps(metrics_summary, ensure_ascii=False, indent=2) + "\n```\n\n")
         append_jsonl(events_path, {
             "event": "observed",
@@ -610,6 +729,7 @@ def main(argv: list[str]) -> int:
             "live_log": {k: v for k, v in state["live_log"].items() if k != "delta"},
             "metrics": {k: v for k, v in state["metrics"].items() if k not in {"delta", "tail"}},
             "metrics_summary": metrics_summary,
+            "wait": wait_info,
             "processes": state.get("processes", []),
         })
 
@@ -627,6 +747,11 @@ def main(argv: list[str]) -> int:
         "model": args.model,
         "turns": args.turns,
         "settle_seconds": args.settle_seconds,
+        "wait_for_trio": not args.no_wait_for_trio,
+        "turn_timeout_seconds": args.turn_timeout_seconds,
+        "turn_waits": turn_waits,
+        "turns_completed_before_next_prompt": sum(1 for item in turn_waits if item.get("completed")),
+        "turn_timeouts": sum(1 for item in turn_waits if item.get("timed_out")),
         "usage_totals": usage_totals,
         "metrics_summary": summarise_metrics(all_metric_lines),
         "out_dir": str(out_dir),
