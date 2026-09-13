@@ -13,6 +13,20 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-13 - GPT API live probe harness
+
+Added `tools/arianna_gpt_api_live_probe.py` for the live polygon phase. The
+script does not start, stop, or fork Arianna; it feeds GPT-generated user turns
+into the already-running `screen -S arianna-live` session, then archives each
+turn's live-log delta, metrics JSONL delta, process/screen snapshot, transcript,
+and OpenAI usage totals under ignored `arianna_live_probe_runs/`.
+
+This gives live-first debugging a durable trace: user turn, Arianna generation,
+field/debt/repeat/inner metrics, and process state are captured together.
+Verification in this chunk was limited to Python syntax and CLI help. No live
+turns were injected because `OPENAI_API_KEY` was not present in the local or
+remote environment.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent
