@@ -87,6 +87,14 @@ out by counters. Runtime facts are now explicit slash commands only
 (`/status`, `/runtime`, `/live-status`, `/live-fact`) so ordinary metric
 questions remain live conversation turns.
 
+The explicit-gate binary was hot-deployed and the same `debt_last` prompt then
+completed as a normal trio turn in about 27s, with counters advancing and no
+`live fact` / telemetry labels. That run exposed the next boundary leak: nano
+could still surface raw metric-key text such as
+`Debt_Last 23.7 ( 0.0025 ) 0.056135 0.`. The live membrane now withholds raw
+metric-key voice output (`debt_last`, turn counters, `field_ticks`, and
+`gait=`/`bloom=`/`debt=` forms) before print, `ProcessText`, or cue reuse.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent

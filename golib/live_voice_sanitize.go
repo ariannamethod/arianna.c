@@ -48,6 +48,9 @@ func isRejectedLiveVoiceText(text string) bool {
 	if hasLiveMetricAtZeroLeak(norm) {
 		return true
 	}
+	if hasLiveMetricKeyLeak(norm) {
+		return true
+	}
 	return false
 }
 
@@ -66,6 +69,27 @@ func hasLiveMetricAtZeroLeak(norm string) bool {
 		"i detect ",
 	} {
 		if strings.HasPrefix(norm, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasLiveMetricKeyLeak(norm string) bool {
+	for _, p := range []string{
+		"debt_last",
+		"debt_min",
+		"debt_max",
+		"field_ticks",
+		"bloom_counts",
+		"janus_turns",
+		"resonance_turns",
+		"nano_turns",
+		"gait=",
+		"bloom=",
+		"debt=",
+	} {
+		if strings.Contains(norm, p) {
 			return true
 		}
 	}
