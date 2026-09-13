@@ -406,6 +406,7 @@ def summarise_metrics(lines: list[str]) -> dict[str, Any]:
 
 
 TRIO_TURN_KEYS = ("janus_turns", "resonance_turns", "nano_turns")
+PRIMARY_TURN_KEYS = ("janus_turns", "resonance_turns")
 
 
 def latest_metric_obj(lines: list[str]) -> dict[str, Any]:
@@ -439,6 +440,32 @@ def trio_turn_advanced(before: dict[str, int | None], after: dict[str, int | Non
     return True
 
 
+def turn_counters_advanced(keys: tuple[str, ...], before: dict[str, int | None], after: dict[str, int | None]) -> bool:
+    for key in keys:
+        after_value = after.get(key)
+        before_value = before.get(key)
+        if after_value is None:
+            return False
+        if before_value is not None and after_value <= before_value:
+            return False
+    return True
+
+
+def live_prompt_returned(delta: str) -> bool:
+    # The nano can complete as a rejected candidate, in which case nano_turns does
+    # not advance. The user-facing readiness signal is that the live screen has
+    # returned to the input prompt after Janus/Resonance printed.
+    return "\n└▶ " in delta or delta.startswith("└▶ ")
+
+
+def live_turn_ready(before: dict[str, int | None], after: dict[str, int | None], live_delta: str) -> tuple[bool, str]:
+    if trio_turn_advanced(before, after):
+        return True, "trio-counters"
+    if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after) and live_prompt_returned(live_delta):
+        return True, "primary-counters-and-prompt"
+    return False, ""
+
+
 def sleep_with_progress(seconds: int) -> None:
     remaining = seconds
     while remaining > 0:
@@ -467,7 +494,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--turn-timeout-seconds",
         type=int,
         default=120,
-        help="max seconds to wait for janus/resonance/nano turn counters to advance",
+        help="max seconds to wait for a live turn to return to the prompt",
     )
     parser.add_argument("--poll-seconds", type=int, default=5, help="metrics poll cadence while waiting for a trio turn")
     parser.add_argument(
@@ -664,8 +691,10 @@ def main(argv: list[str]) -> int:
                     "after_counts": after_counts,
                     "elapsed_seconds": round(elapsed, 3),
                 })
-                if trio_turn_advanced(before_counts, after_counts):
+                ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                if ready:
                     wait_info["completed"] = True
+                    wait_info["completion_reason"] = ready_reason
                     if args.post_completion_settle_seconds > 0:
                         sleep_with_progress(args.post_completion_settle_seconds)
                         state = remote_state(
