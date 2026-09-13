@@ -97,6 +97,7 @@ func runChat() {
 			break
 		}
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
+		runtimeFactTurn := wantsLiveRuntimeFact(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
 		tc.iw.ProcessText(human)
 		turnRouteObs := admissionLiveRouteTurnObservation{}
@@ -109,13 +110,13 @@ func runChat() {
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
 		// voices answer); turn() then re-seeds with the turn's context for the next.
-		if tc.nan != nil {
+		if tc.nan != nil && !runtimeFactTurn {
 			sendLatest(tc.seedCh, human)
 		}
 
 		fs := faceFR.read()
 		context := prevReson
-		if wantsLiveRuntimeFact(human) {
+		if runtimeFactTurn {
 			fact := liveRuntimeFact(tc, fs)
 			fmt.Printf("│  ◉ live fact: %s\n", fact)
 			// A concrete runtime question must not inherit the previous poetic

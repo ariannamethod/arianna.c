@@ -364,7 +364,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	}
 	tc.iw.ProcessText(reson)
 
-	if tc.nan != nil {
+	if tc.nan != nil && !runtimeFactTurn {
 		cue := human + " " + janus + " " + reson
 		if tc.iw.GetSnapshot().WanderPull > 0.55 {
 			cue = human // the direct human→nano channel: the mind returns to the raw words
