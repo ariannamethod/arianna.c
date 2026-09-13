@@ -46,6 +46,9 @@ type breath struct {
 	lastRejectedDream  string
 	lastRejectedReason string
 	lastRejectLog      time.Time
+	acceptedDreams     [6]string
+	acceptedDreamAt    [6]time.Time
+	acceptedDreamNext  int
 	count              int
 }
 
@@ -139,6 +142,30 @@ func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	b.lastRejectedReason = reason
 	b.lastTrigger[trig] = now
 	b.rejectQuarantineTo = now.Add(45 * time.Second)
+}
+
+func (b *breath) acceptedDreamSeen(now time.Time, dream string) bool {
+	norm := normalizedDreamKey(dream)
+	if norm == "" {
+		return false
+	}
+	for i, seen := range b.acceptedDreams {
+		if seen == norm && now.Sub(b.acceptedDreamAt[i]) < 20*time.Minute {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *breath) rememberAcceptedDream(now time.Time, dream string) {
+	norm := normalizedDreamKey(dream)
+	if norm == "" {
+		return
+	}
+	slot := b.acceptedDreamNext % len(b.acceptedDreams)
+	b.acceptedDreams[slot] = norm
+	b.acceptedDreamAt[slot] = now
+	b.acceptedDreamNext++
 }
 
 // moodWord turns the inner state into a short self-cue, so the autonomous dream
@@ -275,6 +302,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				b.rejectDream(time.Now(), trig, "collapse-loop", dream)
 				continue
 			}
+			if b.acceptedDreamSeen(time.Now(), normDream) {
+				b.rejectDream(time.Now(), trig, "orbit-loop", dream)
+				continue
+			}
 			source := "nano"
 			if len(cells) > 0 {
 				source = "chorus"
@@ -296,6 +327,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			}
 			tc.iw.ProcessText(dream)
 			lastAutonomousDream = normDream
+			b.rememberAcceptedDream(time.Now(), normDream)
 			b.lastRejectedDream = ""
 			b.lastRejectedReason = ""
 			b.rejectQuarantineTo = time.Time{}
