@@ -41,6 +41,7 @@ const dreamSentinel = "[DREAM] "
 // breath ports the meta_router trigger logic: which observation, if any, fires.
 type breath struct {
 	lastTrigger [4]time.Time
+	lastRestLog time.Time
 	count       int
 }
 
@@ -168,6 +169,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			coolMult, threshMult, bloom := fs.modulate()
 			trig := b.tick(s, now, threshMult, coolMult)
 			if trig < 0 {
+				if fs.valid && fs.debt > 5 && now.Sub(b.lastRestLog) >= time.Minute {
+					fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
+					b.lastRestLog = now
+				}
 				continue
 			}
 			// seed from her own LIVE state (carried dream / inner mood, tinted by the
