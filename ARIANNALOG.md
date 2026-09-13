@@ -76,6 +76,17 @@ with explicit timeout and per-turn wait receipts. Verification run
 `arianna_live_probe_runs/20260913T223645+0300` completed 3/3 turns before the
 next prompt, with no timeouts and observed waits of about 38s, 38s, and 49s.
 
+The first clean pressure run after that (`arianna_live_probe_runs/
+20260913T224054+0300`) completed 5/5 turns with no runner timeouts and exposed
+real live latency spikes. A follow-up `AM_VOICE_N=64` run
+(`arianna_live_probe_runs/20260913T224706+0300`) showed that natural prompts
+mentioning `debt_last`, metrics, and facts could accidentally trigger the
+special runtime telemetry surface: `live fact`, `Janus telemetry`, and
+`Resonance telemetry` printed instead of a normal trio turn, and the turn timed
+out by counters. Runtime facts are now explicit slash commands only
+(`/status`, `/runtime`, `/live-status`, `/live-fact`) so ordinary metric
+questions remain live conversation turns.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent
