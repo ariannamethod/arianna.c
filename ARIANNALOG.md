@@ -52,6 +52,14 @@ at `-n 28`, causing mid-sentence cuts under real user pressure (`you can't`,
 default (`AM_VOICE_N`, or `AM_JANUS_N` / `AM_RESONANCE_N` for per-body override)
 so the polygon can let the voices finish their thought without code edits.
 
+The next live pressure pass on the deployed `-n 80` binary
+(`arianna_live_probe_runs/20260913T213602+0300`) confirmed the old explicit
+mid-cut signatures were gone and the boundary still blocked the previous
+diagnostic strings. It also exposed the broader diagnostic meter shape
+`I sense ... at 0.` on the human surface. The live membrane now withholds
+`I sense` / `I spot` / `I notice` / `I detect` zero-meter leaks generically
+instead of only named legacy phrases.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent
