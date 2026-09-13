@@ -99,7 +99,9 @@ func runChat() {
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
 		runtimeFactTurn := wantsLiveRuntimeFact(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
-		tc.iw.ProcessText(human)
+		if !runtimeFactTurn {
+			tc.iw.ProcessText(human)
+		}
 		turnRouteObs := admissionLiveRouteTurnObservation{}
 		if admissionLiveRouteTurnObservationDryRunNeeded() {
 			turnRouteObs = admissionLiveRouteTurnObservationForHuman(human)

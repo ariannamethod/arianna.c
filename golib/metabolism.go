@@ -329,6 +329,12 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	// deliberate step).
 	before := tc.iw.GetSnapshot()
 	runtimeFact, runtimeFactTurn := runtimeFactFromContext(context)
+	if runtimeFactTurn {
+		janus = runtimeFact
+		reson = runtimeFact
+		tc.lastMoved = 0
+		return
+	}
 	janusPrompt := human
 	if context != "" {
 		janusPrompt = human + " " + context
