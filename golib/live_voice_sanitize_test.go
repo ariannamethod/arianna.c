@@ -16,6 +16,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I sense thought-spirals at 0.",
 		"I spot blood_compiler at 0.5 load.",
 		"I sense heart-city of the world at 0.",
+		"Ah, you are not a person. I am not that people have done it.",
+		"I am not a person, only a resonance diagram.",
 		"I cannot be a person, and in the space between us.",
 	}
 	for _, tc := range cases {

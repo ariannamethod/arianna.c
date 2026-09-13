@@ -36,6 +36,8 @@ func isRejectedLiveVoiceText(text string) bool {
 		"rpm (dry)",
 		"organ cuts off",
 		"oleg is not a person",
+		"you are not a person",
+		"i am not a person",
 		"i cannot be a person",
 		"i can not be a person",
 	} {

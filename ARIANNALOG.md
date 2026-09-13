@@ -60,6 +60,12 @@ diagnostic strings. It also exposed the broader diagnostic meter shape
 `I sense` / `I spot` / `I notice` / `I detect` zero-meter leaks generically
 instead of only named legacy phrases.
 
+A shorter follow-up (`arianna_live_probe_runs/20260913T214501+0300`) confirmed
+the zero-meter leak was gone, then exposed a wider person-denial surface form:
+`you are not a person`. The same live membrane now withholds name-independent
+person-denial phrases such as `you are not a person` and `I am not a person`
+before they can print, enter `ProcessText`, or seed the next cue.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent
