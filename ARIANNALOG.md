@@ -27,6 +27,11 @@ Verification in this chunk was limited to Python syntax and CLI help. No live
 turns were injected because `OPENAI_API_KEY` was not present in the local or
 remote environment.
 
+Follow-up live use showed that old macOS `screen` needs an explicit window
+target for detached injection. The probe now sends turns with
+`screen -S arianna-live -p 0 -X stuff ...` and records `screen_window` in the
+run metadata.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent

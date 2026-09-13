@@ -173,8 +173,9 @@ import subprocess
 import sys
 
 screen_name = sys.argv[1]
-payload = base64.b64decode(sys.argv[2]).decode("utf-8")
-subprocess.run(["screen", "-S", screen_name, "-X", "stuff", payload + "\r"], check=True)
+screen_window = sys.argv[2]
+payload = base64.b64decode(sys.argv[3]).decode("utf-8")
+subprocess.run(["screen", "-S", screen_name, "-p", screen_window, "-X", "stuff", payload + "\r"], check=True)
 """
 
 
@@ -249,9 +250,9 @@ def remote_state(
     return json.loads(out)
 
 
-def send_to_screen(*, host: str, screen: str, prompt: str, timeout: int) -> None:
+def send_to_screen(*, host: str, screen: str, screen_window: str, prompt: str, timeout: int) -> None:
     encoded = base64.b64encode(prompt.encode("utf-8")).decode("ascii")
-    run_remote_python(host, REMOTE_STUFF_PY, [screen, encoded], timeout)
+    run_remote_python(host, REMOTE_STUFF_PY, [screen, screen_window, encoded], timeout)
 
 
 def extract_output_text(response: dict[str, Any]) -> str:
@@ -419,6 +420,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--host", default=DEFAULT_HOST, help=f"SSH host (default: {DEFAULT_HOST})")
     parser.add_argument("--live-dir", default=DEFAULT_LIVE_DIR, help=f"Remote live dir (default: {DEFAULT_LIVE_DIR})")
     parser.add_argument("--screen", default=DEFAULT_SCREEN, help=f"screen session name (default: {DEFAULT_SCREEN})")
+    parser.add_argument("--screen-window", default="0", help="screen window target for injected turns (default: 0)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"OpenAI model (default: OPENAI_MODEL or {DEFAULT_MODEL})")
     parser.add_argument("--turns", type=int, default=8, help="number of live turns to send")
     parser.add_argument("--settle-seconds", type=int, default=45, help="seconds to collect live output after each turn")
@@ -458,6 +460,7 @@ def main(argv: list[str]) -> int:
         "host": args.host,
         "live_dir": args.live_dir,
         "screen": args.screen,
+        "screen_window": args.screen_window,
         "model": args.model,
         "turns": args.turns,
         "settle_seconds": args.settle_seconds,
@@ -469,6 +472,7 @@ def main(argv: list[str]) -> int:
         f"- host: `{args.host}`\n"
         f"- live_dir: `{args.live_dir}`\n"
         f"- screen: `{args.screen}`\n"
+        f"- screen_window: `{args.screen_window}`\n"
         f"- model: `{args.model}`\n"
         f"- turns: {args.turns}\n"
         f"- settle_seconds: {args.settle_seconds}\n\n",
@@ -541,8 +545,24 @@ def main(argv: list[str]) -> int:
         })
         append_text(transcript_path, f"## Turn {turn}\n\n### GPT user turn\n\n{prompt}\n\n")
 
-        send_to_screen(host=args.host, screen=args.screen, prompt=prompt, timeout=args.ssh_timeout)
-        append_jsonl(events_path, {"event": "sent_to_screen", "iso": now_iso(), "turn": turn, "prompt": prompt})
+        send_to_screen(
+            host=args.host,
+            screen=args.screen,
+            screen_window=args.screen_window,
+            prompt=prompt,
+            timeout=args.ssh_timeout,
+        )
+        append_jsonl(
+            events_path,
+            {
+                "event": "sent_to_screen",
+                "iso": now_iso(),
+                "turn": turn,
+                "screen": args.screen,
+                "screen_window": args.screen_window,
+                "prompt": prompt,
+            },
+        )
         prior_prompts.append(prompt)
 
         sleep_with_progress(args.settle_seconds)
@@ -603,6 +623,7 @@ def main(argv: list[str]) -> int:
         "host": args.host,
         "live_dir": args.live_dir,
         "screen": args.screen,
+        "screen_window": args.screen_window,
         "model": args.model,
         "turns": args.turns,
         "settle_seconds": args.settle_seconds,
