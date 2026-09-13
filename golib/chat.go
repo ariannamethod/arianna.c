@@ -155,13 +155,16 @@ func runChat() {
 		}
 		if hasDream {
 			if dr.admitted() {
-				lastDream = dr.dream
-				if dr.frag != "" {
-					fmt.Printf("│  ◌ from the books: %s\n", ellipsize(dr.frag, 90))
+				displayDream := sanitizeLiveVoiceText(dr.dream)
+				if displayDream != liveBoundaryWithheld {
+					lastDream = displayDream
 				}
-				fmt.Printf("│  ◓ nano (subconscious): %s\n", dr.dream)
+				if dr.frag != "" {
+					fmt.Printf("│  ◌ from the books: %s\n", ellipsize(sanitizeLiveVoiceText(dr.frag), 90))
+				}
+				fmt.Printf("│  ◓ nano (subconscious): %s\n", displayDream)
 			} else {
-				fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(dr.dream, 90))
+				fmt.Printf("│  ◓ nano candidate (%s): %s\n", dr.admissionLabel(), ellipsize(sanitizeLiveVoiceText(dr.dream), 90))
 			}
 			if line := chatLiveRouteChoiceDryRunLine(dr.candidate); line != "" {
 				fmt.Println(line)

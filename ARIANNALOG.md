@@ -27,6 +27,22 @@ Verification in this chunk was limited to Python syntax and CLI help. No live
 turns were injected because `OPENAI_API_KEY` was not present in the local or
 remote environment.
 
+Follow-up live use showed that old macOS `screen` needs an explicit window
+target for detached injection. The probe now sends turns with
+`screen -S arianna-live -p 0 -X stuff ...` and records `screen_window` in the
+run metadata.
+
+The first corrected GPT-driven live pass (`arianna_live_probe_runs/
+20260913T165148+0300`) reached all three voices and exposed live boundary
+defects: diagnostic phrases such as `thought-spirals at` and
+`blood_compiler at` could still surface in human-turn Resonance output, valid
+control bytes could leak through printed voice text, and prophecy debt rose
+sharply under constrained prompts. Added a live voice text membrane before
+print, `ProcessText`, and cue propagation: invalid UTF-8 is dropped, control
+bytes are normalized away, and known diagnostic boilerplate is withheld by the
+live boundary. Admitted nano dreams are passed through the same membrane before
+being printed or retained as `lastDream`.
+
 ## 2026-09-01 - Weighted admission final-gate observation boundary preflight gate candidate store reader proof precondition decision promotion switch enable gate live stage final gate intent
 
 The closed live-stage final-gate receipt now feeds a bounded final-gate intent

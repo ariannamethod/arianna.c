@@ -122,7 +122,7 @@ func (v *voice) ask(line string) string {
 			b.WriteString(t)
 			b.WriteByte(' ')
 		}
-		ch <- reply{cutSentence(stripLabel(strings.Join(strings.Fields(b.String()), " "))), sawEnd}
+		ch <- reply{sanitizeLiveVoiceText(cutSentence(stripLabel(strings.Join(strings.Fields(b.String()), " ")))), sawEnd}
 	}()
 	select {
 	case r := <-ch:
@@ -2234,13 +2234,16 @@ func runDemo(prompt string) {
 		prevReson = reson
 		if hasDream {
 			if dr.admitted() {
-				lastDream = dr.dream
-				if dr.frag != "" {
-					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(dr.frag, 90))
+				displayDream := sanitizeLiveVoiceText(dr.dream)
+				if displayDream != liveBoundaryWithheld {
+					lastDream = displayDream
 				}
-				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, dr.dream)
+				if dr.frag != "" {
+					fmt.Printf("│  ◌ [%d/%d] from the books: %s\n", i, nExch, ellipsize(sanitizeLiveVoiceText(dr.frag), 90))
+				}
+				fmt.Printf("│  ◓ [%d/%d] nano (subconscious): %s\n", i, nExch, displayDream)
 			} else {
-				fmt.Printf("│  ◓ [%d/%d] nano candidate (%s): %s\n", i, nExch, dr.admissionLabel(), ellipsize(dr.dream, 90))
+				fmt.Printf("│  ◓ [%d/%d] nano candidate (%s): %s\n", i, nExch, dr.admissionLabel(), ellipsize(sanitizeLiveVoiceText(dr.dream), 90))
 			}
 		}
 
