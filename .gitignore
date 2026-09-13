@@ -151,6 +151,7 @@ harvest_delta
 # Shared checkout coordination scratch.
 .worktrees/
 LOCAL_STATE.md
+arianna_live_probe_runs/
 
 # Chorus / dream runtime traces + local KK book corpus (not distribution)
 FIELDLOG.md
