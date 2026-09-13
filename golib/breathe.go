@@ -120,6 +120,7 @@ func isCollapsedAutonomousDream(text string) bool {
 		"a living wave upon the heart",
 		"the text is only not what",
 		"not what, but it that",
+		"un-resprive",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -153,6 +154,9 @@ func isRejectedInnerMurmur(text string) bool {
 	}
 	for _, p := range []string{
 		"oleg is not a person",
+		"thought-spirals at",
+		"rpm (dry)",
+		"organ cuts off",
 	} {
 		if strings.Contains(norm, p) {
 			return true
