@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -210,14 +212,58 @@ func containsAny(text string, patterns []string) bool {
 	return false
 }
 
+type liveProcessSnapshot struct {
+	valid      bool
+	cpuPct     string
+	rssKiB     string
+	uptime     string
+	errorCause string
+}
+
+func readLiveProcessSnapshot(pid int) liveProcessSnapshot {
+	if pid <= 0 {
+		return liveProcessSnapshot{errorCause: "invalid pid"}
+	}
+	out, err := exec.Command("ps", "-o", "%cpu=", "-o", "rss=", "-o", "etime=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return liveProcessSnapshot{errorCause: err.Error()}
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) < 3 {
+		return liveProcessSnapshot{errorCause: "ps output missing cpu/rss/etime fields"}
+	}
+	return liveProcessSnapshot{
+		valid:  true,
+		cpuPct: fields[0],
+		rssKiB: fields[1],
+		uptime: fields[2],
+	}
+}
+
+func formatLiveProcessSnapshot(pid int, ps liveProcessSnapshot) string {
+	if ps.valid {
+		return fmt.Sprintf("process_snapshot=ps pid=%d cpu_percent=%s rss_kib=%s uptime=%s; CPU/RSS/uptime come from process audit, not field mmap or voice memory", pid, ps.cpuPct, ps.rssKiB, ps.uptime)
+	}
+	reason := strings.TrimSpace(ps.errorCause)
+	if reason == "" {
+		reason = "unknown"
+	}
+	return fmt.Sprintf("process_snapshot=unavailable pid=%d reason=%s; exact CPU%%/RSS/uptime require process audit, not field mmap or voice memory", pid, reason)
+}
+
 func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
+	return formatLiveRuntimeFactWithProcess(fs, voices, pid, readLiveProcessSnapshot(pid))
+}
+
+func formatLiveRuntimeFactWithProcess(fs fieldSnapshot, voices, pid int, ps liveProcessSnapshot) string {
 	if voices < 0 {
 		voices = 0
 	}
+	process := formatLiveProcessSnapshot(pid, ps)
 	if fs.valid {
 		_, _, bloom := fs.modulate()
 		return fmt.Sprintf(
-			"runtime_observed_at=%s; visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a per-log histogram of observed printed bloom values, so a key like \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; metric counters are scoped to the current live log and can reset when arianna-live is hot-swapped into a new log; telemetry replies bypass voice generation, so janus_turns/resonance_turns count generated voice lines, not live-fact echoes; Janus fell silent — revived is a runtime service event: a voice daemon missed the END frame and was respawned; it is not biography, memory, witness metaphysics, or an inner dimension; exact CPU%%/RSS/uptime and prior voice lines, timestamps, commands, and signals are not in the field mmap and must come from the log/probe archive or process audit, never from voice memory; pid=%d voices=%d.",
+			"runtime_observed_at=%s; visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a per-log histogram of observed printed bloom values, so a key like \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; metric counters are scoped to the current live log and can reset when arianna-live is hot-swapped into a new log; telemetry replies bypass voice generation, so janus_turns/resonance_turns count generated voice lines, not live-fact echoes; Janus fell silent — revived is a runtime service event: a voice daemon missed the END frame and was respawned; it is not biography, memory, witness metaphysics, or an inner dimension; %s; prior voice lines, timestamps, commands, and signals are not in the field mmap and must come from the log/probe archive or process audit, never from voice memory; voices=%d.",
 			time.Now().Format(time.RFC3339),
 			fs.describe(),
 			fs.temporalDebt,
@@ -228,9 +274,9 @@ func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
 			fs.autumn,
 			fs.winter,
 			bloom,
-			pid,
+			process,
 			voices,
 		)
 	}
-	return fmt.Sprintf("runtime_observed_at=%s; pid=%d; field mmap not available; voices=%d; exact CPU%%/RSS/uptime must come from an external process snapshot, not voice memory; Janus fell silent — revived is a runtime service event, not biography or an inner dimension.", time.Now().Format(time.RFC3339), pid, voices)
+	return fmt.Sprintf("runtime_observed_at=%s; field mmap not available; voices=%d; %s; Janus fell silent — revived is a runtime service event, not biography or an inner dimension.", time.Now().Format(time.RFC3339), voices, process)
 }
