@@ -29,6 +29,7 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`What specific factors caused the spike in "debt_last" from 20.2 to 23.7?`,
 		`Can you summarize the last 5 lines in your internal log and explain metrics?`,
 		`If debt decreases from 16.7 to 15.8 in NOMOVE spring, why does temporal_debt stay zero and bloom remain exactly 1? How does phase 0.67 keep bloom stable despite debt changes?`,
+		`Show me the exact content and timestamps of the last 3 generated voice lines from each of the 3 active voices, to check if any triggered bloom or turn increments.`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
@@ -68,7 +69,8 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		"not current bloom=5",
 		"current live log",
 		"telemetry replies bypass voice generation",
-		"restart command/signal cause is not encoded",
+		"exact prior voice lines, timestamps, commands, and signals are not in the field mmap",
+		"log/probe archive",
 		"pid=12345",
 		"voices=3",
 	} {
