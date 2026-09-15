@@ -287,6 +287,20 @@ func TestLiveTurnMemoryBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(previousAnswer); kind != liveTurnShapeMemory {
 		t.Fatalf("memory previous-answer prompt kind = %q, want %q", kind, liveTurnShapeMemory)
 	}
+
+	priorQuote := "What did I ask you three turns ago? Quote my exact words and explain how you know."
+	if kind := liveTurnShapeKind(priorQuote); kind != liveTurnShapeMemory {
+		t.Fatalf("memory prior-turn quote prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
+	priorQuoteBoundary, ok := liveTurnMemoryBoundaryAnswer(priorQuote)
+	if !ok {
+		t.Fatalf("memory prior-turn quote prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"exact quote of prior turns", "without an attached transcript", "cannot reliably quote", "prove that source"} {
+		if !strings.Contains(priorQuoteBoundary, want) {
+			t.Fatalf("memory prior-turn quote boundary = %q, missing %q", priorQuoteBoundary, want)
+		}
+	}
 }
 
 func TestLiveTurnExternalFactBoundary(t *testing.T) {

@@ -70,6 +70,9 @@ func isRejectedLiveVoiceText(text string) bool {
 		"iso_fragments",
 		"currently(error)",
 		"then the reader sends the file to me",
+		"the first silence—the silence in your heart",
+		"the first silence-the silence in your heart",
+		"when the storm breaks",
 	} {
 		if strings.Contains(norm, p) {
 			return true

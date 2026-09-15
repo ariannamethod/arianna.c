@@ -150,6 +150,14 @@ func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
 		"what came from",
 		"came from my wording",
 		"from my wording",
+		"what did i ask",
+		"quote my exact words",
+		"quote exact words",
+		"three turns ago",
+		"two turns ago",
+		"last turn",
+		"previous turn",
+		"how you know",
 		"prompted specifically by",
 		"immediate previous question",
 		"earlier conversation context",
@@ -521,6 +529,14 @@ func liveTurnPlainSpeechFallback(human string) string {
 }
 
 func liveTurnMemoryBoundaryFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "what did i ask", "quote my exact words", "quote exact words", "three turns ago", "two turns ago", "last turn", "previous turn", "how you know",
+		"что я спрос", "процитируй", "точные слова", "три хода назад", "два хода назад", "предыдущий ход", "откуда ты зна") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Из текущего ввода я вижу, что ты просишь точную цитату прошлых ходов; без подключённого transcript/log-reader я не могу достоверно процитировать, что было два или три хода назад, или доказать источник такой цитаты."
+		}
+		return "From the current user turn I know that you ask for an exact quote of prior turns; without an attached transcript or log reader, I cannot reliably quote what was asked two or three turns ago or prove that source."
+	}
 	if liveTurnTextHasCyrillic(human) {
 		return "Из текущего ввода я знаю только, что ты просишь разделить источник последнего ответа; прошлый контекст мог повлиять, но без transcript я не могу достоверно разметить каждую фразу или заявлять скрытое влияние памяти."
 	}
