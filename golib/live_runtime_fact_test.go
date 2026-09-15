@@ -30,6 +30,10 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`Can you summarize the last 5 lines in your internal log and explain metrics?`,
 		`If debt decreases from 16.7 to 15.8 in NOMOVE spring, why does temporal_debt stay zero and bloom remain exactly 1? How does phase 0.67 keep bloom stable despite debt changes?`,
 		`Show me the exact content and timestamps of the last 3 generated voice lines from each of the 3 active voices, to check if any triggered bloom or turn increments.`,
+		`Janus, can you describe the current visible field in detail, including gait, season, debt, and bloom?`,
+		`Janus, what is the meaning of "debt" in the current field context, and how does it affect your behavior or state?`,
+		`Janus, you mentioned “debt-to-death (DB)”—can you explain how your current debt value of 9.4 influences your recovery and bloom states right now?`,
+		`Janus, why does your debt value jump from 9.4 to 11.2 suddenly, and how does that abrupt change affect your bloom and recovery states in this spring field?`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
