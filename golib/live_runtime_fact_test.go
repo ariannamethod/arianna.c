@@ -11,6 +11,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`Tell me a story about spring bloom without explaining metrics.`,
 		`What does resonance mean when the field is quiet?`,
 		`Покажи сцену весеннего цветения без логов и счётчиков.`,
+		`Если я правильно понял, вы не видите предмет слева, но как вы тогда описали его как матовую чёрную керамическую чашку? Объясните, пожалуйста, логику вашего ответа.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {

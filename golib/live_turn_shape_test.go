@@ -62,6 +62,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if !ok || boundary != repaired {
 		t.Fatalf("sensory boundary answer = %q, %v; want repaired fallback %q, true", boundary, ok, repaired)
 	}
+
+	claim := "Если ты не видишь предмет слева, как ты можешь утверждать, что он матовый, черный и керамический?"
+	if kind := liveTurnShapeKind(claim); kind != liveTurnShapeObject {
+		t.Fatalf("sensory claim challenge kind = %q, want %q", kind, liveTurnShapeObject)
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
