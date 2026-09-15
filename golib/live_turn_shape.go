@@ -128,6 +128,13 @@ func liveTurnNanoSeed(human string) string {
 	return human
 }
 
+func liveTurnSensoryBoundaryAnswer(human string) (string, bool) {
+	if liveTurnShapeKind(human) != liveTurnShapeObject {
+		return "", false
+	}
+	return liveTurnPhysicalObjectFallback(human), true
+}
+
 func liveTurnRepairSpokenText(role, human, text string) string {
 	kind := liveTurnShapeKind(human)
 	if kind == "" || liveTurnShapeSatisfied(kind, text) {

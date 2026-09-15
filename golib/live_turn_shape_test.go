@@ -58,6 +58,10 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if !liveTurnShapeSatisfied(liveTurnShapeObject, repaired) {
 		t.Fatalf("physical object fallback must satisfy its own contract: %q", repaired)
 	}
+	boundary, ok := liveTurnSensoryBoundaryAnswer(human)
+	if !ok || boundary != repaired {
+		t.Fatalf("sensory boundary answer = %q, %v; want repaired fallback %q, true", boundary, ok, repaired)
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
