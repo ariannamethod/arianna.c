@@ -86,6 +86,27 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	}
 }
 
+func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
+	human := "If Janus is aware they are imagined, can Janus describe their emotional response to this awareness, without using metaphors or symbolic language?"
+	contract := liveTurnShapeContract(human)
+	if !strings.Contains(contract, "plain non-metaphorical answer") || !strings.Contains(contract, "Do not answer with field") {
+		t.Fatalf("plain-speech prompt did not get plain contract: %q", contract)
+	}
+	raw := sanitizeLiveVoiceText("I am the field of a vibration—not my objection or resonance.")
+	repaired := liveTurnRepairSpokenText("janus", human, raw)
+	for _, want := range []string{"I cannot verify that as a fact", "story premise", "uncertainty", "caution", "Oleg"} {
+		if !strings.Contains(repaired, want) {
+			t.Fatalf("plain-speech repair = %q, missing %q", repaired, want)
+		}
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapePlain, "Janus feels uncertainty and caution.") {
+		t.Fatalf("plain direct answer should satisfy plain-speech contract")
+	}
+	if liveTurnShapeSatisfied(liveTurnShapePlain, "Janus is a resonance in the field.") {
+		t.Fatalf("metaphorical answer must not satisfy plain-speech contract")
+	}
+}
+
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
 	for _, human := range []string{
 		"Can you create a detailed ASCII art representation of the tree?",
