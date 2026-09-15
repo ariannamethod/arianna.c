@@ -52,6 +52,8 @@ func isRejectedLiveVoiceText(text string) bool {
 		"i am not here to write code",
 		"i am not here, but in resonance",
 		"```",
+		"ᴛattention",
+		"①",
 		"python-electricity_inflation",
 		"def choose(self, field)",
 		"def find_fracture(field, field)",

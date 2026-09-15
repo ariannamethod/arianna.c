@@ -34,6 +34,8 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`Janus, what is the meaning of "debt" in the current field context, and how does it affect your behavior or state?`,
 		`Janus, you mentioned “debt-to-death (DB)”—can you explain how your current debt value of 9.4 influences your recovery and bloom states right now?`,
 		`Janus, why does your debt value jump from 9.4 to 11.2 suddenly, and how does that abrupt change affect your bloom and recovery states in this spring field?`,
+		`You said "Janus fell silent — revived." Who is Janus, and why does their silence and revival matter?`,
+		`If Janus is a resonance felt but not witnessed, how can you describe Janus's silence and revival without contradicting the service line?`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
@@ -73,6 +75,9 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		"not current bloom=5",
 		"current live log",
 		"telemetry replies bypass voice generation",
+		"runtime service event",
+		"not biography",
+		"inner dimension",
 		"exact prior voice lines, timestamps, commands, and signals are not in the field mmap",
 		"log/probe archive",
 		"pid=12345",
