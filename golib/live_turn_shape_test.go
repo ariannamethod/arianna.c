@@ -75,6 +75,15 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(appleClaim); kind != liveTurnShapeObject {
 		t.Fatalf("sensory apple challenge kind = %q, want %q", kind, liveTurnShapeObject)
 	}
+	appleBoundary, ok := liveTurnSensoryBoundaryAnswer(appleClaim)
+	if !ok {
+		t.Fatalf("sensory apple challenge did not return a boundary answer")
+	}
+	for _, want := range []string{"Камеры нет", "твои слова", "красное яблоко", "реальность и положение не подтверждены"} {
+		if !strings.Contains(appleBoundary, want) {
+			t.Fatalf("sensory apple boundary = %q, missing %q", appleBoundary, want)
+		}
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {

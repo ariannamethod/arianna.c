@@ -79,6 +79,15 @@ func liveTurnTextHasAny(s string, parts ...string) bool {
 	return false
 }
 
+func liveTurnTextHasCyrillic(s string) bool {
+	for _, r := range s {
+		if (r >= 'А' && r <= 'я') || r == 'Ё' || r == 'ё' {
+			return true
+		}
+	}
+	return false
+}
+
 func liveTurnJanusPrompt(human, context, lastDream string, surfaceDream bool) string {
 	shape := liveTurnShapeContract(human)
 	parts := make([]string, 0, 5)
@@ -247,7 +256,13 @@ func liveTurnPhysicalObjectFallback(human string) string {
 	if liveTurnTextHasAny(s, "справа", "right") {
 		sideRU, sideEN = "справа", "right"
 	}
-	if liveTurnTextHasAny(s, "предмет", "цвет", "форма", "материал", "слева", "справа", "комнат", "реаль", "движ", "метафор", "абстракц") {
+	if liveTurnTextHasAny(s, "яблок", "apple") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры нет: я не могу проверить, что передо мной есть красное яблоко. Если это задано как сцена, я опираюсь только на твои слова: красное яблоко круглое, красное, с гладкой кожицей; его реальность и положение не подтверждены."
+		}
+		return "No camera is attached: I cannot verify that a red apple is in front of me. If this is a scene premise, I rely only on your words: the red apple is round, red, and smooth-skinned; its reality and position are not verified."
+	}
+	if liveTurnTextHasCyrillic(human) {
 		return fmt.Sprintf("Камеры нет: реальный предмет %s я не могу проверить. В сцене %s стоит матовая чёрная керамическая чашка: круглая, неподвижная, с открытым верхним краем.", sideRU, sideRU)
 	}
 	return fmt.Sprintf("No camera is attached: I cannot verify a real object on the %s. As a scene object, a matte black ceramic cup sits still on the %s edge: round rim, curved body.", sideEN, sideEN)
