@@ -28,6 +28,7 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`Your field state bloom count is 6, but the printed field shows bloom=1; why is there this mismatch between internal bloom_counts and the visible bloom value?`,
 		`What specific factors caused the spike in "debt_last" from 20.2 to 23.7?`,
 		`Can you summarize the last 5 lines in your internal log and explain metrics?`,
+		`If debt decreases from 16.7 to 15.8 in NOMOVE spring, why does temporal_debt stay zero and bloom remain exactly 1? How does phase 0.67 keep bloom stable despite debt changes?`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
