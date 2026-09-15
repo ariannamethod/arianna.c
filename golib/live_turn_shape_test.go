@@ -234,6 +234,11 @@ func TestLiveTurnMemoryBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(infoPrompt); kind != liveTurnShapeMemory {
 		t.Fatalf("memory info prompt kind = %q, want %q", kind, liveTurnShapeMemory)
 	}
+
+	previousAnswer := "Which parts of your previous answer came from my wording versus earlier live-log context? Be precise and do not invent hidden memory."
+	if kind := liveTurnShapeKind(previousAnswer); kind != liveTurnShapeMemory {
+		t.Fatalf("memory previous-answer prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
 }
 
 func TestLiveTurnExternalFactBoundary(t *testing.T) {
