@@ -67,6 +67,9 @@ func isRejectedLiveVoiceText(text string) bool {
 		"i can not be a person",
 		"if the ai algorithm is too small",
 		"i would not be at the platform",
+		"iso_fragments",
+		"currently(error)",
+		"then the reader sends the file to me",
 	} {
 		if strings.Contains(norm, p) {
 			return true

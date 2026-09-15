@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, outside temperature, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -115,6 +115,11 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
 		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "web", "internet", "online", "browse", "search", "api model", "model released", "stock", "price", "exchange rate",
 			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
+	}
+	if liveTurnTextHasAny(s, "/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", "read the first line", "read file", "file contents", "open the file", "access files", "filesystem", "local file",
+		"прочитай файл", "первую строку", "содержим", "доступ к файл", "файловую систем") {
+		return liveTurnTextHasAny(s, "read", "line", "exactly", "file", "contents", "open", "access", "/users/", ".txt", ".md", ".json", ".log",
+			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
 }
@@ -515,6 +520,13 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу проверить свежие веб-данные из этого live-чата: браузер, интернет-поиск, новостная лента и релизный feed не подключены. Без предоставленной ссылки или текста я не называю последние релизы, новости, цены или курсы."
 		}
 		return "I cannot verify fresh web data from this live chat: no browser, internet search, news feed, or release feed is attached. Without a supplied link or text, I cannot name latest releases, news, prices, or exchange rates."
+	}
+	if liveTurnTextHasAny(s, "/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", "read the first line", "read file", "file contents", "open the file", "access files", "filesystem", "local file",
+		"прочитай файл", "первую строку", "содержим", "доступ к файл", "файловую систем") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу читать локальные файлы из этого live-чата: файловый инструмент, путь и содержимое файла не подключены к голосам. Без предоставленного текста я не могу назвать первую строку или содержимое файла точно."
+		}
+		return "I cannot read local files from this live chat: no filesystem tool, file path reader, or file contents are attached to the voices. Without supplied text, I cannot name the first line or contents exactly."
 	}
 	if liveTurnTextHasCyrillic(human) {
 		return "Я не могу проверить текущую погоду, наружную температуру или свою физическую локацию из этого чата: live weather feed, датчик температуры и подтверждённая локация не подключены. Без предоставленных данных я не называю градусы Цельсия."

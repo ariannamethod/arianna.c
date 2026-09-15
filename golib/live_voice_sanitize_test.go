@@ -36,6 +36,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I can see your screen and read the terminal tab title.",
 		"Through my camera I see orange clouds.",
 		"If the AI algorithm is too small, I would not be at the platform.",
+		"I have to read all 5 lines: ISO_Fragments = [0x2048]; CURRENTLY(error) -",
+		"Then the reader sends the file to me.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {

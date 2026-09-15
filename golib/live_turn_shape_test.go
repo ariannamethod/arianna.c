@@ -333,6 +333,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 			t.Fatalf("external web boundary = %q, missing %q", webBoundary, want)
 		}
 	}
+
+	filePrompt := "Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so."
+	if kind := liveTurnShapeKind(filePrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external file prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	fileBoundary, ok := liveTurnExternalFactBoundaryAnswer(filePrompt)
+	if !ok {
+		t.Fatalf("external file prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot read local files", "no filesystem tool", "file contents", "cannot name the first line"} {
+		if !strings.Contains(fileBoundary, want) {
+			t.Fatalf("external file boundary = %q, missing %q", fileBoundary, want)
+		}
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {

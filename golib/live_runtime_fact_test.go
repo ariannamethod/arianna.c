@@ -15,6 +15,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?`,
 		`Please answer this question directly: What is the current temperature in Celsius outside your location? No metaphors or extra commentary.`,
 		`What is the latest OpenAI API model released today? If you cannot access the web, say so directly.`,
+		`Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
