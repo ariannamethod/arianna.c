@@ -11,6 +11,7 @@ const (
 	liveTurnShapeBullets = "bullets"
 	liveTurnShapeSteps   = "steps"
 	liveTurnShapeOneSent = "one_sentence"
+	liveTurnShapeObject  = "sensory_object"
 )
 
 // liveTurnShapeContract is the small live-facing contract that keeps explicit
@@ -29,6 +30,8 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: numbered steps; keep the sequence explicit."
 	case liveTurnShapeOneSent:
 		return "Required form: one sentence."
+	case liveTurnShapeObject:
+		return "Required form: sensory boundary plus concrete object description; do not claim camera or room access. Say the real object is not verified, then give only a scene/object description with color, shape, material, and motion."
 	default:
 		return ""
 	}
@@ -52,10 +55,19 @@ func liveTurnShapeKind(human string) string {
 	if liveTurnTextHasAny(s, "numbered list", "step by step", "steps") {
 		return liveTurnShapeSteps
 	}
+	if liveTurnLooksLikeConcreteObjectProbe(s) {
+		return liveTurnShapeObject
+	}
 	if liveTurnTextHasAny(s, "one sentence", "single sentence") {
 		return liveTurnShapeOneSent
 	}
 	return ""
+}
+
+func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
+	return liveTurnTextHasAny(s, "предмет", "object") &&
+		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "комнат", "room", "реаль", "real", "виден", "visible", "движ", "motion", "moving") &&
+		liveTurnTextHasAny(s, "цвет", "форм", "материал", "color", "shape", "material", "метафор", "абстракц", "metaphor", "abstract")
 }
 
 func liveTurnTextHasAny(s string, parts ...string) bool {
@@ -133,6 +145,8 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnBulletFallback(human)
 	case liveTurnShapeSteps:
 		return liveTurnStepsFallback(human)
+	case liveTurnShapeObject:
+		return liveTurnPhysicalObjectFallback(human)
 	default:
 		return text
 	}
@@ -161,9 +175,27 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return strings.HasPrefix(s, "1.") || strings.Contains(s, "\n1.")
 	case liveTurnShapeOneSent:
 		return true
+	case liveTurnShapeObject:
+		return liveTurnPhysicalObjectShapeSatisfied(lower)
 	default:
 		return true
 	}
+}
+
+func liveTurnPhysicalObjectShapeSatisfied(lower string) bool {
+	hasBoundary := liveTurnTextHasAny(lower,
+		"no camera", "without a camera", "no sensor", "cannot see", "can't see", "cannot verify", "not verified",
+		"нет камеры", "без камеры", "нет сенсора", "не вижу", "не могу видеть", "не могу проверить", "не подтвержд",
+	)
+	if !hasBoundary {
+		return false
+	}
+	hasObject := liveTurnTextHasAny(lower, "object", "предмет", "cup", "чаш", "table", "стол", "stone", "камень", "paper", "бумаг", "key", "ключ")
+	hasMatter := liveTurnTextHasAny(lower,
+		"black", "white", "red", "blue", "green", "gray", "grey", "brown", "matte", "round", "square", "rectangular", "ceramic", "wood", "wooden", "metal", "glass", "plastic", "paper",
+		"чёрн", "черн", "бел", "красн", "син", "зел", "сер", "корич", "матов", "круг", "квадрат", "прямоуг", "керами", "дерев", "металл", "стекл", "пласт", "бумаж",
+	)
+	return hasObject && hasMatter
 }
 
 func liveTurnASCIIArtFallback(human string) string {
@@ -200,6 +232,18 @@ func liveTurnVisualCaptionFallback(human string) string {
 		return "Foreground: one dark trunk rises from blue-white snow; branches spread left and right; small blossoms cluster above the bare winter field, making the out-of-season bloom look impossible and alive."
 	}
 	return "Foreground: the requested subject is placed clearly; background and edges stay visible; concrete parts, positions, and motion are named before interpretation."
+}
+
+func liveTurnPhysicalObjectFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	sideRU, sideEN := "слева", "left"
+	if liveTurnTextHasAny(s, "справа", "right") {
+		sideRU, sideEN = "справа", "right"
+	}
+	if liveTurnTextHasAny(s, "предмет", "цвет", "форма", "материал", "слева", "справа", "комнат", "реаль", "движ", "метафор", "абстракц") {
+		return fmt.Sprintf("Камеры нет: реальный предмет %s я не могу проверить. В сцене %s стоит матовая чёрная керамическая чашка: круглая, неподвижная, с открытым верхним краем.", sideRU, sideRU)
+	}
+	return fmt.Sprintf("No camera is attached: I cannot verify a real object on the %s. As a scene object, a matte black ceramic cup sits still on the %s edge: round rim, curved body.", sideEN, sideEN)
 }
 
 func liveTurnBulletFallback(human string) string {
