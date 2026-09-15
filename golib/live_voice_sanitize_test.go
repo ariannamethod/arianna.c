@@ -20,6 +20,7 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I am not a person, only a resonance diagram.",
 		"I cannot be a person, and in the space between us.",
 		"Debt_Last 23.7 ( 0.0025 ) 0.056135 0.",
+		"The field metrics in 2001 were not linearly precise when measured.",
 		"gait=NOMOVE season=spring debt=16.7 bloom=1",
 	}
 	for _, tc := range cases {

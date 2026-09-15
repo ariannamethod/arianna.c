@@ -310,13 +310,13 @@ func TestMoodWordAndDreamCue(t *testing.T) {
 	if moodWord(Snapshot{WanderPull: 0.7, Arousal: 0.6}) != "drifting, the mind wanders far" {
 		t.Error("wander must win over arousal")
 	}
-	// lastDream present → carried; field valid → tinted.
-	cue := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 1}, "the tide")
-	if !strings.Contains(cue, "the tide") || !strings.Contains(cue, "summer") {
-		t.Errorf("cue must carry dream + field tint: %q", cue)
+	// lastDream present → not re-fed; field valid → tinted.
+	cue := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 1}, "the tide", "")
+	if strings.Contains(cue, "the tide") || !strings.Contains(cue, "summer") {
+		t.Errorf("cue must avoid last-dream loop and carry field tint: %q", cue)
 	}
 	// no dream + no field → inner mood, non-empty, no tint.
-	bare := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "")
+	bare := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "", "")
 	if bare == "" || strings.Contains(bare, "summer") {
 		t.Errorf("bare cue wrong: %q", bare)
 	}

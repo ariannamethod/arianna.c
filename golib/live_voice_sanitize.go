@@ -47,6 +47,7 @@ func isRejectedLiveVoiceText(text string) bool {
 		"blood compiler at",
 		"rpm (dry)",
 		"organ cuts off",
+		"field metrics",
 		"oleg is not a person",
 		"you are not a person",
 		"i am not a person",

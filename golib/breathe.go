@@ -115,6 +115,8 @@ func isCollapsedAutonomousDream(text string) bool {
 		"a field carries",
 		"the field carries",
 		"a single breath carries",
+		"of words; the sound is resonance",
+		"of words; the surface is porous",
 		"of the current at its being",
 		"of the current it has to hold",
 		"a living wave upon the heart",
