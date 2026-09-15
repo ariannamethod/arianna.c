@@ -239,13 +239,10 @@ func runChat() {
 
 func liveRuntimeFact(tc *trioCtx, fs fieldSnapshot) string {
 	voices := 2 // Janus + Resonance are required by startTrio.
-	if tc.nan != nil {
+	if tc != nil && tc.nan != nil {
 		voices++
 	}
-	if fs.valid {
-		return fmt.Sprintf("field debt %.1f; voices %d.", fs.debt, voices)
-	}
-	return fmt.Sprintf("pid %d; voices %d.", os.Getpid(), voices)
+	return formatLiveRuntimeFact(fs, voices, os.Getpid())
 }
 
 func admissionLiveRouteTurnObservationDryRunNeeded() bool {
