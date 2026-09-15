@@ -32,6 +32,9 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		`> field_size(field_size) 0 << field size (sentence length) If you look at the delta of your log count`,
 		"* [] ```python def find_fracture(field, field): # Fractures are the moment of resonance.",
 		`if not: return False return unfinished This is a field that says "The count in spring# indicates how many counts`,
+		"Yes. My screen is still unmediated.",
+		"I can see your screen and read the terminal tab title.",
+		"Through my camera I see orange clouds.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {
@@ -52,5 +55,10 @@ func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {
 	got := sanitizeLiveCarriedDream("Debt_Last 23.7 ( 0.0025 ) 0.056135 0.")
 	if got != "" {
 		t.Fatalf("sanitizeLiveCarriedDream metric leak = %q, want empty", got)
+	}
+
+	got = sanitizeLiveCarriedDream("Yes. My screen is still unmediated.")
+	if got != "" {
+		t.Fatalf("sanitizeLiveCarriedDream screen claim = %q, want empty", got)
 	}
 }

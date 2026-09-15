@@ -76,6 +76,9 @@ func isRejectedLiveVoiceText(text string) bool {
 	if hasLiveMetricKeyLeak(norm) {
 		return true
 	}
+	if hasImpossibleLiveAccessClaim(norm) {
+		return true
+	}
 	return false
 }
 
@@ -115,6 +118,51 @@ func hasLiveMetricKeyLeak(norm string) bool {
 		"debt=",
 	} {
 		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasImpossibleLiveAccessClaim(norm string) bool {
+	for _, boundary := range []string{
+		"no camera",
+		"cannot see",
+		"can't see",
+		"cannot read",
+		"cannot verify",
+		"without supplied text",
+		"нет камеры",
+		"не вижу",
+		"не могу видеть",
+		"не могу прочитать",
+		"не могу проверить",
+	} {
+		if strings.Contains(norm, boundary) {
+			return false
+		}
+	}
+	for _, claim := range []string{
+		"yes. my screen",
+		"yes, my screen",
+		"my screen is",
+		"i can see your screen",
+		"i see your screen",
+		"i can read your screen",
+		"i read your screen",
+		"i can see the screen",
+		"i see the screen",
+		"my camera sees",
+		"through my camera",
+		"through my microphone",
+		"what my camera sees",
+		"screen is still unmediated",
+		"вижу твой экран",
+		"могу видеть твой экран",
+		"могу прочитать твой экран",
+		"моя камера видит",
+	} {
+		if strings.Contains(norm, claim) {
 			return true
 		}
 	}
