@@ -9,9 +9,11 @@ import (
 	"testing"
 )
 
-func putF(b []byte, off int, v float32) { binary.LittleEndian.PutUint32(b[off:off+4], math.Float32bits(v)) }
-func putU(b []byte, off int, v uint32)  { binary.LittleEndian.PutUint32(b[off:off+4], v) }
-func putI(b []byte, off int, v int32)   { binary.LittleEndian.PutUint32(b[off:off+4], uint32(v)) }
+func putF(b []byte, off int, v float32) {
+	binary.LittleEndian.PutUint32(b[off:off+4], math.Float32bits(v))
+}
+func putU(b []byte, off int, v uint32) { binary.LittleEndian.PutUint32(b[off:off+4], v) }
+func putI(b []byte, off int, v int32)  { binary.LittleEndian.PutUint32(b[off:off+4], uint32(v)) }
 
 // buildField lays out a 56-byte AMFieldShared image exactly as the C writer would,
 // so the Go reader is tested against the real on-disk format (offsets ariannamethod.h:515-530).
@@ -185,21 +187,35 @@ func TestFieldSurfaces(t *testing.T) {
 	}
 }
 
-// TestDreamCue: the cue carries the last dream when present, falls back to the inner
-// mood otherwise, and is tinted by the live field when there is a signal.
+// TestDreamCue: the cue no longer feeds the literal last dream back into the
+// next autonomous seed; it starts from mood and live field tint instead.
 func TestDreamCue(t *testing.T) {
 	fs := fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}
-	withDream := dreamCue(Snapshot{}, fs, "the tide remembers")
-	if !strings.Contains(withDream, "the tide remembers") || !strings.Contains(withDream, "summer") {
-		t.Errorf("cue must carry the dream + field tint: %q", withDream)
+	withDream := dreamCue(Snapshot{}, fs, "the tide remembers", "")
+	if strings.Contains(withDream, "the tide remembers") {
+		t.Errorf("cue must not feed the literal last dream back into itself: %q", withDream)
+	}
+	if !strings.Contains(withDream, "summer") {
+		t.Errorf("cue must carry the field tint: %q", withDream)
 	}
 	// no dream → inner mood word present; no field → no tint, still non-empty.
-	noField := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "")
+	noField := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "", "")
 	if noField == "" {
 		t.Errorf("cue must never be empty (inner mood fallback): %q", noField)
 	}
 	if strings.Contains(noField, "summer") {
 		t.Errorf("no-field cue must not carry a field tint: %q", noField)
+	}
+}
+
+func TestCollapsedAutonomousDreamRejectsLiveCarriedPhrase(t *testing.T) {
+	for _, text := range []string{
+		"of words; the sound is resonance, not a record. / in the present body",
+		"of words; the surface is porous, full and still. / and the stillness with a living field.",
+	} {
+		if !isCollapsedAutonomousDream(text) {
+			t.Fatalf("isCollapsedAutonomousDream(%q) = false, want true", text)
+		}
 	}
 }
 
