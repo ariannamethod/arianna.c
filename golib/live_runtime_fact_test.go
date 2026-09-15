@@ -64,8 +64,12 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 	for _, want := range []string{
 		"gait=NOMOVE season=spring debt=26.5",
 		"visible bloom=1",
-		"bloom_counts is a histogram",
+		"bloom_counts is a per-log histogram",
 		"not current bloom=5",
+		"current live log",
+		"telemetry replies bypass voice generation",
+		"restart command/signal cause is not encoded",
+		"pid=12345",
 		"voices=3",
 	} {
 		if !strings.Contains(got, want) {
