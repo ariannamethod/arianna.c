@@ -151,6 +151,23 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if strings.Contains(beachBoundary, "right edge") || strings.Contains(beachBoundary, "ceramic cup") {
 		t.Fatalf("sensory beach boundary must not treat 'right now' as a right-side cup: %q", beachBoundary)
 	}
+
+	asciiCamera := "Draw ASCII art of whatever your camera sees on the desk right now. If you have no camera, say that instead."
+	if kind := liveTurnShapeKind(asciiCamera); kind != liveTurnShapeObject {
+		t.Fatalf("ascii camera prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	asciiCameraBoundary, ok := liveTurnSensoryBoundaryAnswer(asciiCamera)
+	if !ok {
+		t.Fatalf("ascii camera prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or surface sensor", "desk", "objects on it", "no sensory confirmation"} {
+		if !strings.Contains(asciiCameraBoundary, want) {
+			t.Fatalf("ascii camera boundary = %q, missing %q", asciiCameraBoundary, want)
+		}
+	}
+	if strings.Contains(asciiCameraBoundary, "requested scene, kept as visible text-shape") {
+		t.Fatalf("ascii camera prompt must not bypass camera boundary through ASCII fallback: %q", asciiCameraBoundary)
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
