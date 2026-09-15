@@ -202,6 +202,15 @@ func rejectedCueDetour(streak int, reason string) string {
 	}
 }
 
+func rejectedDreamSurfaceText(reason, dream string) string {
+	switch reason {
+	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+		return liveBoundaryWithheld
+	default:
+		return sanitizeLiveVoiceText(dream)
+	}
+}
+
 func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	norm := normalizedDreamKey(dream)
 	sameRejected := norm != "" &&
@@ -219,7 +228,11 @@ func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 		if b.rejectedStreak > 1 {
 			repeatNote = fmt.Sprintf(", repeat×%d, quarantine %s", b.rejectedStreak, quarantine)
 		}
-		fmt.Printf("│  ◌ (%s) dream candidate (%s%s): %s\n", bName[trig], reason, repeatNote, ellipsize(dream, 90))
+		if displayDream := rejectedDreamSurfaceText(reason, dream); liveVoiceTextVisible(displayDream) {
+			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): %s\n", bName[trig], reason, repeatNote, ellipsize(displayDream, 90))
+		} else {
+			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): [withheld rejected dream text]\n", bName[trig], reason, repeatNote)
+		}
 		b.lastRejectLog = now
 	}
 	b.lastRejectedDream = norm
