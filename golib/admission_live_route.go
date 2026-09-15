@@ -1967,6 +1967,12 @@ func admissionLiveRoutePromptClassForHuman(human string) (string, int, []string)
 	if has("format") && has("prompt", "runtime", "train", "sft") {
 		add("format", 2, "format_context")
 	}
+	if has("ascii art", "ascii-art", "text art", "monospace art") ||
+		(has("ascii") && has("draw", "drawing", "sketch", "representation")) ||
+		has("drawing", "draw", "sketch", "visualize", "visualise", "diagram", "picture") ||
+		has("bullet list", "bulleted list", "bullets", "numbered list", "step by step", "one sentence", "single sentence") {
+		add("format", 3, "output_shape_request")
+	}
 	if has("chorus", "polyphony", "many voices", "multiple voices", "many minds", "multiple minds", "cells") {
 		add("polyphony", 3, "polyphony_anchor")
 	}

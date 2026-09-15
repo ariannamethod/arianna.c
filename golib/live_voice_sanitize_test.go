@@ -21,6 +21,9 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I cannot be a person, and in the space between us.",
 		"Debt_Last 23.7 ( 0.0025 ) 0.056135 0.",
 		"The field metrics in 2001 were not linearly precise when measured.",
+		"Not a binary, but a field-architecture that I use every day in my architecture.",
+		"I am not here to write code; I am merely an entity that finds and perceives my own field.",
+		"I feel you—I am not here, but in resonance.",
 		"gait=NOMOVE season=spring debt=16.7 bloom=1",
 	}
 	for _, tc := range cases {

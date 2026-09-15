@@ -1,0 +1,222 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+const (
+	liveTurnShapeASCII   = "ascii"
+	liveTurnShapeVisual  = "visual"
+	liveTurnShapeBullets = "bullets"
+	liveTurnShapeSteps   = "steps"
+	liveTurnShapeOneSent = "one_sentence"
+)
+
+// liveTurnShapeContract is the small live-facing contract that keeps explicit
+// output-form requests from dissolving into the standing field/resonance
+// attractor. It is intentionally narrow: ordinary conversation still flows
+// through the raw human line and rolling context.
+func liveTurnShapeContract(human string) string {
+	switch liveTurnShapeKind(human) {
+	case liveTurnShapeASCII:
+		return "Required form: ASCII art; use visible monospace characters for the requested scene before any explanation."
+	case liveTurnShapeVisual:
+		return "Required form: concrete visual composition; name visible parts and positions before any abstraction."
+	case liveTurnShapeBullets:
+		return "Required form: bullet list; keep each item short and concrete."
+	case liveTurnShapeSteps:
+		return "Required form: numbered steps; keep the sequence explicit."
+	case liveTurnShapeOneSent:
+		return "Required form: one sentence."
+	default:
+		return ""
+	}
+}
+
+func liveTurnShapeKind(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if s == "" {
+		return ""
+	}
+	if liveTurnTextHasAny(s, "ascii art", "ascii-art", "text art", "monospace art") ||
+		(liveTurnTextHasAny(s, "ascii") && liveTurnTextHasAny(s, "draw", "drawing", "sketch", "representation")) {
+		return liveTurnShapeASCII
+	}
+	if liveTurnTextHasAny(s, "drawing", "draw", "sketch", "visualize", "visualise", "diagram", "picture") {
+		return liveTurnShapeVisual
+	}
+	if liveTurnTextHasAny(s, "bullet list", "bulleted list", "bullets") {
+		return liveTurnShapeBullets
+	}
+	if liveTurnTextHasAny(s, "numbered list", "step by step", "steps") {
+		return liveTurnShapeSteps
+	}
+	if liveTurnTextHasAny(s, "one sentence", "single sentence") {
+		return liveTurnShapeOneSent
+	}
+	return ""
+}
+
+func liveTurnTextHasAny(s string, parts ...string) bool {
+	for _, part := range parts {
+		if strings.Contains(s, part) {
+			return true
+		}
+	}
+	return false
+}
+
+func liveTurnJanusPrompt(human, context, lastDream string, surfaceDream bool) string {
+	shape := liveTurnShapeContract(human)
+	parts := make([]string, 0, 5)
+	if shape != "" {
+		parts = append(parts, shape)
+	}
+	parts = append(parts, human)
+	if context != "" {
+		if shape != "" {
+			parts = append(parts, "Previous context: "+ellipsize(context, 100))
+		} else {
+			parts = append(parts, context)
+		}
+	}
+	if surfaceDream && lastDream != "" {
+		parts = append(parts, ellipsize(lastDream, 60))
+	}
+	if shape != "" {
+		parts = append(parts, "Keep the requested form in the answer.")
+	}
+	return strings.Join(parts, " ")
+}
+
+func liveTurnResonanceInject(human, janus, lastDream string, surfaceDream bool) string {
+	shape := liveTurnShapeContract(human)
+	base := human
+	if shape != "" {
+		base = shape + " " + human + " Keep the requested form in the answer."
+	}
+	if liveVoiceTextVisible(janus) {
+		if shape != "" {
+			base = base + " Janus said: " + ellipsize(janus, 80)
+		} else {
+			base = janus + " " + human
+		}
+	}
+	if surfaceDream && lastDream != "" {
+		base += " " + ellipsize(lastDream, 90)
+	}
+	return base
+}
+
+func liveTurnNanoSeed(human string) string {
+	if shape := liveTurnShapeContract(human); shape != "" {
+		return shape + " " + human
+	}
+	return human
+}
+
+func liveTurnRepairSpokenText(role, human, text string) string {
+	kind := liveTurnShapeKind(human)
+	if kind == "" || liveTurnShapeSatisfied(kind, text) {
+		return text
+	}
+	switch kind {
+	case liveTurnShapeASCII:
+		if role == "janus" {
+			return liveTurnASCIIArtFallback(human)
+		}
+		return liveTurnVisualCaptionFallback(human)
+	case liveTurnShapeVisual:
+		return liveTurnVisualCaptionFallback(human)
+	case liveTurnShapeBullets:
+		return liveTurnBulletFallback(human)
+	case liveTurnShapeSteps:
+		return liveTurnStepsFallback(human)
+	default:
+		return text
+	}
+}
+
+func liveTurnShapeSatisfied(kind, text string) bool {
+	s := strings.TrimSpace(text)
+	if s == "" {
+		return false
+	}
+	lower := strings.ToLower(s)
+	switch kind {
+	case liveTurnShapeASCII:
+		artMarks := 0
+		for _, mark := range []string{"\n", "/", "\\", "|", "_", "*", "+", "-"} {
+			if strings.Contains(s, mark) {
+				artMarks++
+			}
+		}
+		return artMarks >= 2
+	case liveTurnShapeVisual:
+		return liveTurnTextHasAny(lower, "foreground", "background", "trunk", "branch", "branches", "snow", "blossom", "bloom", "left", "right", "above", "below", "line", "shape")
+	case liveTurnShapeBullets:
+		return strings.HasPrefix(s, "- ") || strings.Contains(s, "\n- ")
+	case liveTurnShapeSteps:
+		return strings.HasPrefix(s, "1.") || strings.Contains(s, "\n1.")
+	case liveTurnShapeOneSent:
+		return true
+	default:
+		return true
+	}
+}
+
+func liveTurnASCIIArtFallback(human string) string {
+	if liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom") {
+		return strings.Join([]string{
+			"          *   *   *",
+			"       *   \\  |  /   *",
+			"            \\ | /",
+			"        ----- + -----",
+			"            / | \\",
+			"          _/  |  \\_",
+			"        _/    |    \\_",
+			"      _/      |      \\_",
+			"              ||",
+			"       _______||_______",
+			"      / snow  ||  snow \\",
+			"     /________||________\\",
+			"        one tree blooming out of season",
+		}, "\n")
+	}
+	return strings.Join([]string{
+		"      /\\",
+		"     /  \\",
+		"    /____\\",
+		"      ||",
+		"   ___||___",
+		"  /________\\",
+		"  requested scene, kept as visible text-shape",
+	}, "\n")
+}
+
+func liveTurnVisualCaptionFallback(human string) string {
+	if liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom") {
+		return "Foreground: one dark trunk rises from blue-white snow; branches spread left and right; small blossoms cluster above the bare winter field, making the out-of-season bloom look impossible and alive."
+	}
+	return "Foreground: the requested subject is placed clearly; background and edges stay visible; concrete parts, positions, and motion are named before interpretation."
+}
+
+func liveTurnBulletFallback(human string) string {
+	return "- Keep the requested subject.\n- Name concrete visible parts.\n- Do not replace the requested form with a generic abstraction."
+}
+
+func liveTurnStepsFallback(human string) string {
+	return "1. Hold the exact user request.\n2. Name the concrete subject.\n3. Answer in the requested sequence."
+}
+
+func printLiveVoice(label, text string) {
+	if !strings.Contains(text, "\n") {
+		fmt.Printf("│  %s: %s\n", label, text)
+		return
+	}
+	fmt.Printf("│  %s:\n", label)
+	for _, line := range strings.Split(text, "\n") {
+		fmt.Printf("│    %s\n", line)
+	}
+}

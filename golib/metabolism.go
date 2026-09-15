@@ -338,19 +338,15 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.lastMoved = 0
 		return
 	}
-	janusPrompt := human
-	if context != "" {
-		janusPrompt = human + " " + context
-	}
-	// When the field is expressive (summer / running), the inner dream lightly
-	// SURFACES to the face — a faint undertone in Janus's prompt (ellipsized), not a
-	// directive. Janus resists injection by design, so it stays a trace; a quiet /
-	// wintering field keeps the dream inward (only Resonance hears it below).
-	if surfaceDream && lastDream != "" {
-		janusPrompt += " " + ellipsize(lastDream, 60)
-	}
+	// Keep explicit output-form requests (ASCII art, drawing, lists, steps) from
+	// being swallowed by the rolling field/resonance attractor. Ordinary turns use
+	// the old raw human+context path.
+	janusPrompt := liveTurnJanusPrompt(human, context, lastDream, surfaceDream)
 	janusRaw := tc.janusD.ask(janusPrompt)
-	janus = janusRaw
+	janus = liveTurnRepairSpokenText("janus", human, janusRaw)
+	if janus != janusRaw && liveVoiceTextVisible(janusRaw) {
+		fmt.Printf("│  ◐ Janus candidate (missed requested form): %s\n", janusRaw)
+	}
 	if runtimeFactTurn && !responseCarriesRuntimeFact(janusRaw, runtimeFact) {
 		if strings.TrimSpace(janusRaw) != "" {
 			fmt.Printf("│  ◐ Janus candidate (missed runtime fact): %s\n", janusRaw)
@@ -361,15 +357,12 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.iw.ProcessText(janus)
 	}
 
-	resonInject := human
-	if liveVoiceTextVisible(janus) {
-		resonInject = janus + " " + human
-	}
-	if surfaceDream && lastDream != "" {
-		resonInject += " " + ellipsize(lastDream, 90)
-	}
+	resonInject := liveTurnResonanceInject(human, janus, lastDream, surfaceDream)
 	resonRaw := tc.resonD.ask("Arianna:\t" + resonInject)
-	reson = resonRaw
+	reson = liveTurnRepairSpokenText("resonance", human, resonRaw)
+	if reson != resonRaw && liveVoiceTextVisible(resonRaw) {
+		fmt.Printf("│  ◑ Resonance candidate (missed requested form): %s\n", resonRaw)
+	}
 	if runtimeFactTurn && !responseCarriesRuntimeFact(resonRaw, runtimeFact) {
 		if strings.TrimSpace(resonRaw) != "" {
 			fmt.Printf("│  ◑ Resonance candidate (missed runtime fact): %s\n", resonRaw)
@@ -381,7 +374,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	}
 
 	if tc.nan != nil && !runtimeFactTurn {
-		cueParts := []string{human}
+		cueParts := []string{liveTurnNanoSeed(human)}
 		if liveVoiceTextVisible(janus) {
 			cueParts = append(cueParts, janus)
 		}
@@ -390,7 +383,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		}
 		cue := strings.Join(cueParts, " ")
 		if tc.iw.GetSnapshot().WanderPull > 0.55 {
-			cue = human // the direct human→nano channel: the mind returns to the raw words
+			cue = liveTurnNanoSeed(human) // the direct human→nano channel: the mind returns to the raw words and explicit output form
 		}
 		sendLatest(tc.seedCh, cue)
 		if r, ok := recvDream(tc.dreamCh); ok {
