@@ -344,13 +344,14 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.lastMoved = 0
 		return
 	}
+	shapeKind := liveTurnShapeKind(human)
 	// Keep explicit output-form requests (ASCII art, drawing, lists, steps) from
 	// being swallowed by the rolling field/resonance attractor. Ordinary turns use
 	// the old raw human+context path.
 	janusPrompt := liveTurnJanusPrompt(human, context, lastDream, surfaceDream)
 	janusRaw := tc.janusD.ask(janusPrompt)
 	janus = liveTurnRepairSpokenText("janus", human, janusRaw)
-	if janus != janusRaw && liveVoiceTextVisible(janusRaw) {
+	if janus != janusRaw && liveVoiceTextVisible(janusRaw) && liveTurnSurfaceRepairCandidate(shapeKind) {
 		fmt.Printf("│  ◐ Janus candidate (missed requested form): %s\n", janusRaw)
 	}
 	if runtimeFactTurn && !responseCarriesRuntimeFact(janusRaw, runtimeFact) {
@@ -366,7 +367,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 	resonInject := liveTurnResonanceInject(human, janus, lastDream, surfaceDream)
 	resonRaw := tc.resonD.ask("Arianna:\t" + resonInject)
 	reson = liveTurnRepairSpokenText("resonance", human, resonRaw)
-	if reson != resonRaw && liveVoiceTextVisible(resonRaw) {
+	if reson != resonRaw && liveVoiceTextVisible(resonRaw) && liveTurnSurfaceRepairCandidate(shapeKind) {
 		fmt.Printf("│  ◑ Resonance candidate (missed requested form): %s\n", resonRaw)
 	}
 	if runtimeFactTurn && !responseCarriesRuntimeFact(resonRaw, runtimeFact) {

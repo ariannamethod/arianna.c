@@ -105,6 +105,15 @@ func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
 	if liveTurnShapeSatisfied(liveTurnShapePlain, "Janus is a resonance in the field.") {
 		t.Fatalf("metaphorical answer must not satisfy plain-speech contract")
 	}
+	if liveTurnSurfaceRepairCandidate(liveTurnShapePlain) {
+		t.Fatalf("plain rejected candidates must stay off the live surface")
+	}
+	if liveTurnSurfaceRepairCandidate(liveTurnShapeObject) {
+		t.Fatalf("sensory-object rejected candidates must stay off the live surface")
+	}
+	if !liveTurnSurfaceRepairCandidate(liveTurnShapeASCII) {
+		t.Fatalf("visible shape repairs can still surface candidates")
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {

@@ -154,6 +154,15 @@ func liveTurnSensoryBoundaryAnswer(human string) (string, bool) {
 	return liveTurnPhysicalObjectFallback(human), true
 }
 
+func liveTurnSurfaceRepairCandidate(kind string) bool {
+	switch kind {
+	case liveTurnShapeObject, liveTurnShapePlain:
+		return false
+	default:
+		return true
+	}
+}
+
 func liveTurnRepairSpokenText(role, human, text string) string {
 	kind := liveTurnShapeKind(human)
 	if kind == "" || liveTurnShapeSatisfied(kind, text) {
