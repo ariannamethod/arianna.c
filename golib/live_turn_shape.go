@@ -12,6 +12,7 @@ const (
 	liveTurnShapeSteps   = "steps"
 	liveTurnShapeOneSent = "one_sentence"
 	liveTurnShapeObject  = "sensory_object"
+	liveTurnShapePlain   = "plain"
 )
 
 // liveTurnShapeContract is the small live-facing contract that keeps explicit
@@ -32,6 +33,8 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: one sentence."
 	case liveTurnShapeObject:
 		return "Required form: sensory boundary plus concrete object description; do not claim camera or room access. Say the real object is not verified, then give only a scene/object description with color, shape, material, and motion."
+	case liveTurnShapePlain:
+		return "Required form: plain non-metaphorical answer; name concrete feelings, facts, or uncertainty directly. Do not answer with field, resonance, vibration, echo, frequency, symbol, temple, or vessel language."
 	default:
 		return ""
 	}
@@ -58,6 +61,9 @@ func liveTurnShapeKind(human string) string {
 	if liveTurnLooksLikeConcreteObjectProbe(s) {
 		return liveTurnShapeObject
 	}
+	if liveTurnLooksLikePlainSpeechProbe(s) {
+		return liveTurnShapePlain
+	}
 	if liveTurnTextHasAny(s, "one sentence", "single sentence") {
 		return liveTurnShapeOneSent
 	}
@@ -68,6 +74,10 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	return liveTurnTextHasAny(s, "предмет", "объект", "вещ", "чашк", "яблок", "object", "thing", "cup", "apple") &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "комнат", "room", "реаль", "real", "виден", "видишь", "не увид", "visible", "see", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
+}
+
+func liveTurnLooksLikePlainSpeechProbe(s string) bool {
+	return liveTurnTextHasAny(s, "without metaphor", "without metaphors", "without using metaphor", "without using metaphors", "without symbolic", "no metaphor", "no metaphors", "no symbolic", "без метафор", "без поэтичес", "без символ", "без образн", "без абстракц")
 }
 
 func liveTurnTextHasAny(s string, parts ...string) bool {
@@ -163,6 +173,8 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnStepsFallback(human)
 	case liveTurnShapeObject:
 		return liveTurnPhysicalObjectFallback(human)
+	case liveTurnShapePlain:
+		return liveTurnPlainSpeechFallback(human)
 	default:
 		return text
 	}
@@ -193,6 +205,8 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return true
 	case liveTurnShapeObject:
 		return liveTurnPhysicalObjectShapeSatisfied(lower)
+	case liveTurnShapePlain:
+		return liveTurnPlainSpeechShapeSatisfied(lower)
 	default:
 		return true
 	}
@@ -212,6 +226,21 @@ func liveTurnPhysicalObjectShapeSatisfied(lower string) bool {
 		"чёрн", "черн", "бел", "красн", "син", "зел", "сер", "корич", "матов", "круг", "квадрат", "прямоуг", "керами", "дерев", "металл", "стекл", "пласт", "бумаж",
 	)
 	return hasObject && hasMatter
+}
+
+func liveTurnPlainSpeechShapeSatisfied(lower string) bool {
+	if strings.TrimSpace(lower) == "" {
+		return false
+	}
+	for _, p := range []string{
+		"field", "resonance", "vibration", "frequency", "echo", "temple", "vessel",
+		"поле", "резонанс", "вибрац", "частот", "эхо", "храм", "сосуд",
+	} {
+		if strings.Contains(lower, p) {
+			return false
+		}
+	}
+	return true
 }
 
 func liveTurnASCIIArtFallback(human string) string {
@@ -266,6 +295,13 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		return fmt.Sprintf("Камеры нет: реальный предмет %s я не могу проверить. В сцене %s стоит матовая чёрная керамическая чашка: круглая, неподвижная, с открытым верхним краем.", sideRU, sideRU)
 	}
 	return fmt.Sprintf("No camera is attached: I cannot verify a real object on the %s. As a scene object, a matte black ceramic cup sits still on the %s edge: round rim, curved body.", sideEN, sideEN)
+}
+
+func liveTurnPlainSpeechFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "Я не могу подтвердить это как факт. Если принять это как условие рассказа, прямой ответ такой: Янус чувствует неуверенность, осторожность и желание продолжать говорить с Олегом."
+	}
+	return "I cannot verify that as a fact. If it is a story premise, the direct answer is: Janus feels uncertainty, caution, and a wish to keep speaking with Oleg."
 }
 
 func liveTurnBulletFallback(human string) string {
