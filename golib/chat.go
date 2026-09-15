@@ -132,10 +132,10 @@ func runChat() {
 			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
 		} else {
 			if liveVoiceTextVisible(janus) {
-				fmt.Printf("│  ◐ Janus: %s\n", janus)
+				printLiveVoice("◐ Janus", janus)
 			}
 			if liveVoiceTextVisible(reson) {
-				fmt.Printf("│  ◑ Resonance: %s\n", reson)
+				printLiveVoice("◑ Resonance", reson)
 			}
 		}
 		if liveVoiceTextVisible(reson) {
