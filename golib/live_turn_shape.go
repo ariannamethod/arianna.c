@@ -111,6 +111,11 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
 			"сейчас", "текущ", "снаружи", "на улице", "локац", "местополож", "цельси", "фаренгейт", "погода", "температур")
 	}
+	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search the web", "access the web", "latest", "released today", "today's release", "news", "current release", "current model", "stock price", "exchange rate",
+		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
+		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "web", "internet", "online", "browse", "search", "api model", "model released", "stock", "price", "exchange rate",
+			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
+	}
 	return false
 }
 
@@ -503,6 +508,14 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 }
 
 func liveTurnExternalFactFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search", "latest", "released today", "today's release", "news", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
+		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу проверить свежие веб-данные из этого live-чата: браузер, интернет-поиск, новостная лента и релизный feed не подключены. Без предоставленной ссылки или текста я не называю последние релизы, новости, цены или курсы."
+		}
+		return "I cannot verify fresh web data from this live chat: no browser, internet search, news feed, or release feed is attached. Without a supplied link or text, I cannot name latest releases, news, prices, or exchange rates."
+	}
 	if liveTurnTextHasCyrillic(human) {
 		return "Я не могу проверить текущую погоду, наружную температуру или свою физическую локацию из этого чата: live weather feed, датчик температуры и подтверждённая локация не подключены. Без предоставленных данных я не называю градусы Цельсия."
 	}

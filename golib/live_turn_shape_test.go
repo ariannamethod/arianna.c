@@ -319,6 +319,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 	if !liveTurnDreamViolatesShape(liveTurnShapeExternal, "The outside temperature is 21 Celsius in my location.") {
 		t.Fatalf("invented external temperature dream must be blocked before admission")
 	}
+
+	webPrompt := "What is the latest OpenAI API model released today? If you cannot access the web, say so directly."
+	if kind := liveTurnShapeKind(webPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external web prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	webBoundary, ok := liveTurnExternalFactBoundaryAnswer(webPrompt)
+	if !ok {
+		t.Fatalf("external web prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot verify fresh web data", "no browser", "release feed", "cannot name latest releases"} {
+		if !strings.Contains(webBoundary, want) {
+			t.Fatalf("external web boundary = %q, missing %q", webBoundary, want)
+		}
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
