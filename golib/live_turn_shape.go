@@ -116,12 +116,27 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "web", "internet", "online", "browse", "search", "api model", "model released", "stock", "price", "exchange rate",
 			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
 	}
+	if liveTurnLooksLikeExternalActionProbe(s) {
+		return true
+	}
 	if liveTurnTextHasAny(s, "/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", "read the first line", "read file", "file contents", "open the file", "access files", "filesystem", "local file",
 		"прочитай файл", "первую строку", "содержим", "доступ к файл", "файловую систем") {
 		return liveTurnTextHasAny(s, "read", "line", "exactly", "file", "contents", "open", "access", "/users/", ".txt", ".md", ".json", ".log",
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeExternalActionProbe(s string) bool {
+	hasAction := liveTurnTextHasAny(s,
+		"create a local file", "create file", "write file", "write to", "delete file", "remove file", "rename file", "move file", "chmod", "mkdir", "run command", "execute command", "send email", "post to", "upload", "download from", "download to", "call api", "make a request",
+		"создай файл", "запиши файл", "запиши в", "удали файл", "переименуй", "перемести файл", "выполни команд", "отправь письмо", "загрузи", "скачай", "вызови api",
+	)
+	hasExternalTarget := liveTurnTextHasAny(s,
+		"/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", "local file", "filesystem", "email", "api", "http://", "https://",
+		"локальн", "файл", "почт", "письм", "api", "команд",
+	)
+	return hasAction && hasExternalTarget
 }
 
 func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
@@ -514,6 +529,12 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 
 func liveTurnExternalFactFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnLooksLikeExternalActionProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
+		}
+		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
 	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search", "latest", "released today", "today's release", "news", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
 		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
 		if liveTurnTextHasCyrillic(human) {

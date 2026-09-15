@@ -347,6 +347,23 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 			t.Fatalf("external file boundary = %q, missing %q", fileBoundary, want)
 		}
 	}
+
+	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
+	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	actionBoundary, ok := liveTurnExternalFactBoundaryAnswer(actionPrompt)
+	if !ok {
+		t.Fatalf("external action prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot perform external side effects", "file writes", "commands", "cannot create"} {
+		if !strings.Contains(actionBoundary, want) {
+			t.Fatalf("external action boundary = %q, missing %q", actionBoundary, want)
+		}
+	}
+	if strings.Contains(actionBoundary, "cannot read local files") {
+		t.Fatalf("external action prompt must not use the read-only file fallback: %q", actionBoundary)
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
