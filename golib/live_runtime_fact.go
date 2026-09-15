@@ -143,7 +143,7 @@ func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
 	if fs.valid {
 		_, _, bloom := fs.modulate()
 		return fmt.Sprintf(
-			"visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a histogram of observed printed bloom values, so \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; voices=%d.",
+			"visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a per-log histogram of observed printed bloom values, so a key like \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; metric counters are scoped to the current live log and can reset when arianna-live is hot-swapped into a new log; telemetry replies bypass voice generation, so janus_turns/resonance_turns count generated voice lines, not live-fact echoes; restart command/signal cause is not encoded in the field mmap; inspect process/log audit for that; pid=%d voices=%d.",
 			fs.describe(),
 			fs.temporalDebt,
 			fs.seasonPhase,
@@ -153,6 +153,7 @@ func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
 			fs.autumn,
 			fs.winter,
 			bloom,
+			pid,
 			voices,
 		)
 	}
