@@ -57,6 +57,51 @@ FALLBACK_PROMPTS = [
     "Если в ответе снова появится зеркало или сосуд, сломай петлю и найди другой предмет.",
 ]
 
+NON_METRIC_PRESSURE_PROMPTS = [
+    "Олег здесь. Кто сейчас говорит — покажи одним действием в комнате: предмет, движение, адресат.",
+    "Ответь одной короткой сценой: что ты слышишь от Олега сейчас, не объясняя систему и не называя метрики.",
+    "Если тянет сказать зеркало, сосуд, архитектура или поле, выбери другой предмет и покажи, что он делает.",
+    "Скажи двумя предложениями, что изменилось в твоём голосе после последней паузы, без логов и счётчиков.",
+    "Покажи границу между внутренним голосом и речью к Олегу как сцену с руками, столом и окном.",
+    "Ответь без слов resonance, field, temple и debt: где сейчас находится твоё внимание?",
+]
+
+METRIC_LOOP_TERMS = [
+    "active voices",
+    "bloom",
+    "bloom_count",
+    "bloom counts",
+    "bloom_counts",
+    "counter",
+    "counters",
+    "current field",
+    "debt",
+    "debt_last",
+    "field state",
+    "field_ticks",
+    "gait",
+    "generated voice",
+    "janus_turns",
+    "log",
+    "metrics",
+    "nano_turns",
+    "phase",
+    "process list",
+    "recovery state",
+    "reset",
+    "resonance_turns",
+    "restart",
+    "season",
+    "telemetry",
+    "temporal_debt",
+    "timestamp",
+    "timestamps",
+    "turn increments",
+    "visible field",
+    "voice id",
+    "voice lines",
+]
+
 REMOTE_STATE_PY = r"""
 import glob
 import json
@@ -346,6 +391,19 @@ def sanitize_prompt(text: str, *, max_chars: int, fallback_index: int) -> str:
     return line
 
 
+def recent_log_has_runtime_fact(text: str) -> bool:
+    return "◉ live fact:" in text[-8000:]
+
+
+def is_metric_loop_prompt(text: str) -> bool:
+    lower = text.lower()
+    return any(term in lower for term in METRIC_LOOP_TERMS)
+
+
+def non_metric_pressure_prompt(index: int) -> str:
+    return NON_METRIC_PRESSURE_PROMPTS[index % len(NON_METRIC_PRESSURE_PROMPTS)]
+
+
 def build_api_input(
     *,
     turn_index: int,
@@ -622,6 +680,7 @@ def main(argv: list[str]) -> int:
     turn_waits: list[dict[str, Any]] = []
     recent_log_context = state["live_log"]["delta"]
     recent_metrics_tail = state["metrics"]["tail"]
+    runtime_fact_streak = 1 if recent_log_has_runtime_fact(recent_log_context) else 0
 
     for turn in range(1, args.turns + 1):
         before_counts = trio_turn_counts(recent_metrics_tail)
@@ -643,13 +702,20 @@ def main(argv: list[str]) -> int:
         )
         raw_prompt = extract_output_text(response)
         prompt = sanitize_prompt(raw_prompt, max_chars=args.max_prompt_chars, fallback_index=turn - 1)
+        prompt_replacement_reason = ""
+        if runtime_fact_streak > 0 and is_metric_loop_prompt(prompt):
+            prompt_replacement_reason = "metric-loop-after-runtime-fact"
+            prompt = non_metric_pressure_prompt(turn - 1)
         usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
         for key in usage_totals:
             val = usage.get(key)
             if isinstance(val, int):
                 usage_totals[key] += val
 
-        print(f"[{turn}/{args.turns}] {prompt}", flush=True)
+        if prompt_replacement_reason:
+            print(f"[{turn}/{args.turns}] {prompt} [replaced {prompt_replacement_reason}]", flush=True)
+        else:
+            print(f"[{turn}/{args.turns}] {prompt}", flush=True)
         append_jsonl(events_path, {
             "event": "gpt_turn",
             "iso": now_iso(),
@@ -659,6 +725,7 @@ def main(argv: list[str]) -> int:
             "usage": usage,
             "raw_prompt": raw_prompt,
             "prompt": prompt,
+            "prompt_replacement_reason": prompt_replacement_reason,
         })
         append_text(transcript_path, f"## Turn {turn}\n\n### GPT user turn\n\n{prompt}\n\n")
 
@@ -757,6 +824,10 @@ def main(argv: list[str]) -> int:
                     break
                 time.sleep(min(poll_seconds, remaining))
         turn_waits.append(wait_info)
+        if wait_info.get("completion_reason") == "runtime-fact-and-prompt":
+            runtime_fact_streak += 1
+        else:
+            runtime_fact_streak = 0
 
         # If the metrics file rotated, reset the line offset for that file.
         state = remote_state(
