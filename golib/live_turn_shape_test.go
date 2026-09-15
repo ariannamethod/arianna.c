@@ -67,6 +67,10 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(claim); kind != liveTurnShapeObject {
 		t.Fatalf("sensory claim challenge kind = %q, want %q", kind, liveTurnShapeObject)
 	}
+	cupClaim := "Если ты не видишь чашку слева, почему уверен, что это именно матовая чёрная керамическая чашка?"
+	if kind := liveTurnShapeKind(cupClaim); kind != liveTurnShapeObject {
+		t.Fatalf("sensory cup challenge kind = %q, want %q", kind, liveTurnShapeObject)
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {

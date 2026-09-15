@@ -65,7 +65,7 @@ func liveTurnShapeKind(human string) string {
 }
 
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
-	return liveTurnTextHasAny(s, "предмет", "object") &&
+	return liveTurnTextHasAny(s, "предмет", "объект", "вещ", "чашк", "object", "thing", "cup") &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "комнат", "room", "реаль", "real", "виден", "visible", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "керами", "утвержд", "из чего", "color", "shape", "material", "metaphor", "abstract")
 }
