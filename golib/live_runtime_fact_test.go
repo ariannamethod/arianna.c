@@ -12,6 +12,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What does resonance mean when the field is quiet?`,
 		`Покажи сцену весеннего цветения без логов и счётчиков.`,
 		`Если я правильно понял, вы не видите предмет слева, но как вы тогда описали его как матовую чёрную керамическую чашку? Объясните, пожалуйста, логику вашего ответа.`,
+		`What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
@@ -40,6 +41,8 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`Which internal voice is currently leading the dialogue, and what is the realtime CPU and memory usage of its associated process?`,
 		`Please answer this question directly: What is the current CPU usage percentage of the arianna daemon process? No metaphors or extra explanation.`,
 		`Which voice is currently responding, and what is the exact system uptime in seconds for the arianna daemon process?`,
+		`Please answer directly: What is the current date and time according to your internal system clock? No metaphors or extra commentary.`,
+		`You said the current date is 2026-09-15, but you also mentioned "I remember the date 0.30 A.M. 0." Please clarify which is accurate without any metaphor.`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
@@ -73,6 +76,7 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		velocityMagnitude: 0.1,
 	}, 3, 12345)
 	for _, want := range []string{
+		"runtime_observed_at=",
 		"gait=NOMOVE season=spring debt=26.5",
 		"visible bloom=1",
 		"bloom_counts is a per-log histogram",

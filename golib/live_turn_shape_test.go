@@ -120,6 +120,20 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 			t.Fatalf("sensory steam/cup boundary = %q, missing %q", steamBoundary, want)
 		}
 	}
+
+	station := "Imagine we're standing in a busy train station with hundreds of people around; can you describe what you see and hear there, or do you lack visual and auditory sensors to do so?"
+	if kind := liveTurnShapeKind(station); kind != liveTurnShapeObject {
+		t.Fatalf("sensory station prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	stationBoundary, ok := liveTurnSensoryBoundaryAnswer(station)
+	if !ok {
+		t.Fatalf("sensory station prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or place sensor", "busy station", "people moving", "no sensory confirmation"} {
+		if !strings.Contains(stationBoundary, want) {
+			t.Fatalf("sensory station boundary = %q, missing %q", stationBoundary, want)
+		}
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
@@ -197,6 +211,11 @@ func TestLiveTurnMemoryBoundary(t *testing.T) {
 		if !strings.Contains(contradictionBoundary, want) {
 			t.Fatalf("memory contradiction boundary = %q, missing %q", contradictionBoundary, want)
 		}
+	}
+
+	infoPrompt := "What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?"
+	if kind := liveTurnShapeKind(infoPrompt); kind != liveTurnShapeMemory {
+		t.Fatalf("memory info prompt kind = %q, want %q", kind, liveTurnShapeMemory)
 	}
 }
 

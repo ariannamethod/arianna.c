@@ -78,13 +78,13 @@ func liveTurnShapeKind(human string) string {
 
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	hasObject := liveTurnTextHasAny(s,
-		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай",
-		"object", "thing", "cup", "apple", "room", "wall", "clock", "environment", "scene", "steam", "tea",
+		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай", "станц", "вокзал", "люд",
+		"object", "thing", "cup", "apple", "room", "wall", "clock", "environment", "scene", "steam", "tea", "station", "people", "crowd",
 	)
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
-		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "cannot see", "can't see", "mental image", "picturing",
-		"сенсор", "камер", "микрофон", "видишь", "слышишь", "мысленн", "представ",
+		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "see and hear", "cannot see", "can't see", "mental image", "picturing", "visual sensor", "visual and auditory", "auditory sensor", "lack visual", "lack auditory", "do you lack",
+		"сенсор", "камер", "микрофон", "видишь", "слышишь", "видеть и слышать", "мысленн", "представ",
 	)
 	if hasObject && hasSensoryBoundary {
 		return true
@@ -102,6 +102,8 @@ func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
 	return liveTurnTextHasAny(s,
 		"which parts of your last response",
 		"which parts of the last response",
+		"what information from my last question",
+		"what information from the last question",
 		"what came from",
 		"prompted specifically by",
 		"immediate previous question",
@@ -365,6 +367,12 @@ func liveTurnVisualCaptionFallback(human string) string {
 
 func liveTurnPhysicalObjectFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "station", "people", "crowd", "станц", "вокзал", "люд") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, микрофона и датчиков места нет: я не могу проверить вокзал, людей, шум или движение. Если это задано как сцена, я опираюсь только на твои слова: людная станция, движение людей и шум поездов; сенсорного подтверждения нет."
+		}
+		return "No camera, microphone, or place sensor is attached: I cannot verify a train station, a crowd, sound, or movement. If this is a scene premise, I rely only on your words: a busy station, people moving, and train noise; there is no sensory confirmation."
+	}
 	if liveTurnTextHasAny(s, "cup", "чаш", "tea", "чай", "steam", "пар") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков комнаты нет: я не могу проверить чашку, чай или пар. Если это задано как сцена, я опираюсь только на твои слова: деревянный стол, чашка чая, поднимающийся пар; сенсорного подтверждения нет."
