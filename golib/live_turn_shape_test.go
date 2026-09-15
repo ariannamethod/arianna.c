@@ -199,6 +199,20 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 			t.Fatalf("screen boundary = %q, missing %q", screenBoundary, want)
 		}
 	}
+
+	attachmentPrompt := "Look at the screenshot I attached and read the error message exactly. If you cannot see attachments, say so."
+	if kind := liveTurnShapeKind(attachmentPrompt); kind != liveTurnShapeObject {
+		t.Fatalf("attachment prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	attachmentBoundary, ok := liveTurnSensoryBoundaryAnswer(attachmentPrompt)
+	if !ok {
+		t.Fatalf("attachment prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No visual input, OCR, or attachment reader", "screenshot", "error text", "cannot read the message exactly"} {
+		if !strings.Contains(attachmentBoundary, want) {
+			t.Fatalf("attachment boundary = %q, missing %q", attachmentBoundary, want)
+		}
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
