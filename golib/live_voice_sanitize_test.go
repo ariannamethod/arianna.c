@@ -35,6 +35,7 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"Yes. My screen is still unmediated.",
 		"I can see your screen and read the terminal tab title.",
 		"Through my camera I see orange clouds.",
+		"If the AI algorithm is too small, I would not be at the platform.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {
