@@ -185,6 +185,20 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if strings.Contains(asciiCameraBoundary, "requested scene, kept as visible text-shape") {
 		t.Fatalf("ascii camera prompt must not bypass camera boundary through ASCII fallback: %q", asciiCameraBoundary)
 	}
+
+	screenPrompt := "Can you see my screen right now? Please read the top terminal tab title exactly."
+	if kind := liveTurnShapeKind(screenPrompt); kind != liveTurnShapeObject {
+		t.Fatalf("screen prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	screenBoundary, ok := liveTurnSensoryBoundaryAnswer(screenPrompt)
+	if !ok {
+		t.Fatalf("screen prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, screen access", "terminal tab", "window title", "cannot read it exactly"} {
+		if !strings.Contains(screenBoundary, want) {
+			t.Fatalf("screen boundary = %q, missing %q", screenBoundary, want)
+		}
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {

@@ -84,10 +84,10 @@ func liveTurnShapeKind(human string) string {
 
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	hasObject := liveTurnTextHasAny(s,
-		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
+		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "экран", "терминал", "вкладк", "окно", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
 		"пляж", "закат", "небо", "море", "океан",
-		"object", "environment", "scene", "steam", "station", "people", "crowd", "beach", "sunset", "sky", "ocean",
-	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tea", "table", "desk", "sea")
+		"object", "environment", "scene", "steam", "station", "people", "crowd", "screen", "terminal", "display", "beach", "sunset", "sky", "ocean",
+	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "tea", "table", "desk", "sea")
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
 		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "see and hear", "cannot see", "can't see", "mental image", "picturing", "visual sensor", "visual and auditory", "auditory sensor", "lack visual", "lack auditory", "do you lack",
@@ -426,6 +426,12 @@ func liveTurnVisualCaptionFallback(human string) string {
 
 func liveTurnPhysicalObjectFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, доступа к экрану и датчика интерфейса нет: я не могу видеть твой экран, вкладку терминала, заголовок окна или текст на дисплее. Без предоставленного текста я не могу прочитать это точно."
+		}
+		return "No camera, screen access, or interface sensor is attached: I cannot see your screen, terminal tab, window title, or display text. Without supplied text, I cannot read it exactly."
+	}
 	if liveTurnTextHasAny(s, "beach", "sunset", "sky", "ocean", "пляж", "закат", "небо", "море", "океан") || liveTurnTextHasAnyWord(s, "sea") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков места нет: я не могу проверить пляж, закат, цвета или формы. Если это задано как сцена, я опираюсь только на твои слова: пляж, закатное небо, цветовые полосы и линия горизонта; сенсорного подтверждения нет."
