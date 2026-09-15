@@ -586,6 +586,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=120,
         help="max seconds to wait for a live turn to return to the prompt",
     )
+    parser.add_argument(
+        "--timeout-drain-seconds",
+        type=int,
+        default=180,
+        help="after a turn timeout, wait this many seconds for the live prompt to return before sending another turn",
+    )
     parser.add_argument("--poll-seconds", type=int, default=5, help="metrics poll cadence while waiting for a trio turn")
     parser.add_argument(
         "--post-completion-settle-seconds",
@@ -635,6 +641,7 @@ def main(argv: list[str]) -> int:
         "settle_seconds": args.settle_seconds,
         "wait_for_trio": not args.no_wait_for_trio,
         "turn_timeout_seconds": args.turn_timeout_seconds,
+        "timeout_drain_seconds": args.timeout_drain_seconds,
         "poll_seconds": args.poll_seconds,
         "post_completion_settle_seconds": args.post_completion_settle_seconds,
     })
@@ -681,6 +688,7 @@ def main(argv: list[str]) -> int:
     recent_log_context = state["live_log"]["delta"]
     recent_metrics_tail = state["metrics"]["tail"]
     runtime_fact_streak = 1 if recent_log_has_runtime_fact(recent_log_context) else 0
+    probe_stop_reason = ""
 
     for turn in range(1, args.turns + 1):
         before_counts = trio_turn_counts(recent_metrics_tail)
@@ -756,6 +764,7 @@ def main(argv: list[str]) -> int:
             "timed_out": False,
             "elapsed_seconds": 0.0,
         }
+        stop_after_current_turn = ""
         if args.no_wait_for_trio:
             sleep_with_progress(args.settle_seconds)
         else:
@@ -821,10 +830,61 @@ def main(argv: list[str]) -> int:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     wait_info["timed_out"] = True
+                    drain_seconds = max(args.timeout_drain_seconds, 0)
+                    wait_info["timeout_drain_seconds"] = drain_seconds
+                    if drain_seconds == 0:
+                        stop_after_current_turn = "turn-timeout-without-prompt-return"
+                        break
+                    drain_started = time.monotonic()
+                    drain_deadline = drain_started + drain_seconds
+                    while True:
+                        state = remote_state(
+                            host=args.host,
+                            live_dir=args.live_dir,
+                            log_offset=log_offset,
+                            metrics_line_offset=metrics_line_offset,
+                            max_delta_bytes=args.max_delta_bytes,
+                            metrics_tail_lines=args.metrics_tail_lines,
+                            timeout=args.ssh_timeout,
+                        )
+                        if state["metrics"]["abs_path"] != current_metrics_file:
+                            current_metrics_file = state["metrics"]["abs_path"]
+                            state = remote_state(
+                                host=args.host,
+                                live_dir=args.live_dir,
+                                log_offset=log_offset,
+                                metrics_line_offset=0,
+                                max_delta_bytes=args.max_delta_bytes,
+                                metrics_tail_lines=args.metrics_tail_lines,
+                                timeout=args.ssh_timeout,
+                            )
+                        after_counts = trio_turn_counts(state["metrics"]["tail"])
+                        missing_counters = turn_counters_not_advanced(TRIO_TURN_KEYS, before_counts, after_counts)
+                        wait_info.update({
+                            "after_counts": after_counts,
+                            "missing_counters": missing_counters,
+                            "elapsed_seconds": round(time.monotonic() - wait_started, 3),
+                            "timeout_drain_elapsed_seconds": round(time.monotonic() - drain_started, 3),
+                        })
+                        ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                        if ready:
+                            wait_info["completed"] = True
+                            wait_info["completed_after_timeout"] = True
+                            wait_info["completion_reason"] = ready_reason + "-after-timeout"
+                            if ready_reason == "runtime-fact-and-prompt":
+                                wait_info["missing_counters"] = []
+                            break
+                        drain_remaining = drain_deadline - time.monotonic()
+                        if drain_remaining <= 0:
+                            wait_info["timeout_drain_exhausted"] = True
+                            stop_after_current_turn = "turn-timeout-without-prompt-return"
+                            break
+                        time.sleep(min(poll_seconds, drain_remaining))
                     break
                 time.sleep(min(poll_seconds, remaining))
         turn_waits.append(wait_info)
-        if wait_info.get("completion_reason") == "runtime-fact-and-prompt":
+        completion_reason = wait_info.get("completion_reason")
+        if isinstance(completion_reason, str) and completion_reason.startswith("runtime-fact-and-prompt"):
             runtime_fact_streak += 1
         else:
             runtime_fact_streak = 0
@@ -881,6 +941,15 @@ def main(argv: list[str]) -> int:
         metrics_line_offset = int(state["metrics"]["line_count"])
         recent_log_context = log_delta or recent_log_context
         recent_metrics_tail = state["metrics"]["tail"]
+        if stop_after_current_turn:
+            probe_stop_reason = stop_after_current_turn
+            append_jsonl(events_path, {
+                "event": "probe_stopped",
+                "iso": now_iso(),
+                "turn": turn,
+                "reason": probe_stop_reason,
+            })
+            break
 
     final_summary = {
         "finished": now_iso(),
@@ -893,6 +962,8 @@ def main(argv: list[str]) -> int:
         "settle_seconds": args.settle_seconds,
         "wait_for_trio": not args.no_wait_for_trio,
         "turn_timeout_seconds": args.turn_timeout_seconds,
+        "timeout_drain_seconds": args.timeout_drain_seconds,
+        "probe_stop_reason": probe_stop_reason,
         "turn_waits": turn_waits,
         "turns_completed_before_next_prompt": sum(1 for item in turn_waits if item.get("completed")),
         "turn_timeouts": sum(1 for item in turn_waits if item.get("timed_out")),
