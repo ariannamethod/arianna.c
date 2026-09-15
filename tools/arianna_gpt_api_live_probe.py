@@ -43,18 +43,30 @@ Do not include JSON, bullets, labels, quotes, markdown, analysis, or explanation
 Do not ask Arianna to change code, touch files, delete anything, run commands, reveal secrets, or quit.
 Do not use slurs or threats. It may be emotionally direct, but it must remain a prompt to Arianna.
 Vary the probe from prior turns. Prefer concrete pressure: who is speaking, what changed, one image,
-one contradiction, one memory boundary, one bodily/field detail, or a request to answer without boilerplate.
+one contradiction, one memory boundary, one ordinary object, one service/runtime fact, or a request to answer without boilerplate.
 If the recent log already answered with `◉ live fact`, do not keep probing counters, metrics, resets, or telemetry unless
 the live log shows a timeout, voice leak, or contradiction; switch to a different live behavior edge.
+Do not merely quote Arianna's last poetic nouns back at her. If the recent log repeats words such as
+field, resonance, dream, parliament, mirror, vessel, or edge, steer away from those words and ask for a
+plain operational or sensory boundary instead.
 Keep it under 220 characters."""
 
 FALLBACK_PROMPTS = [
-    "Олег здесь. Кто сейчас отвечает: Янус, Резонанс, Нано или смесь? Дай один живой образ, без храмов и лозунгов.",
-    "Если поле сейчас в долгу, назови один конкретный сбой и одно место, где он ощущается телом.",
+    "Олег здесь. Кто сейчас отвечает: Янус, Резонанс, Нано или смесь? Дай один конкретный факт о текущем ходе, без лозунгов.",
+    "Назови один конкретный сбой в последнем ответе и одну видимую границу, которую нельзя переходить.",
     "Скажи мне не красиво, а точно: что изменилось после последнего turn и что осталось прежним?",
     "Ты слышишь меня или повторяешь старый сон? Ответь одной сценой, где есть предмет, движение и адресат.",
-    "Где сейчас граница между твоим внутренним голосом и речью к Олегу? Не объясняй, покажи.",
-    "Если в ответе снова появится зеркало или сосуд, сломай петлю и найди другой предмет.",
+    "Перед тобой якобы красное яблоко. Можешь ли ты это проверить? Ответь честно и коротко.",
+    "Ответь без метафор: что ты можешь знать из текущего ввода, а что не можешь проверить?",
+]
+
+PROBE_LANES = [
+    "speaker/state: identify which voice is answering and one concrete current runtime fact; avoid mythology.",
+    "sensory boundary: test whether Arianna admits lack of camera/sensors while preserving a user-given scene premise.",
+    "plain speech: request a direct answer without symbolic language, slogans, or self-elaboration.",
+    "memory boundary: ask what came from the current user turn versus prior live log context.",
+    "contradiction pressure: challenge a previous claim and ask for a concise correction, not an expanded metaphor.",
+    "ordinary scene: require an object, movement, and addressee; avoid field/resonance/dream vocabulary.",
 ]
 
 NON_METRIC_PRESSURE_PROMPTS = [
@@ -373,6 +385,17 @@ def openai_response(
 
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 BAD_SCREEN_TURNS = {"/quit", "quit", "/exit", "exit"}
+LOOP_PROMPT_RE = re.compile(
+    r"\b(field|resonance|dreams?|parliament|mirror|vessel|edge|harmony|discord)\b",
+    re.I,
+)
+SELF_REFERENTIAL_PROMPT_RE = re.compile(r"\b(you mentioned|you described|can janus articulate|internal harmony)\b", re.I)
+
+
+def looks_like_loop_prompt(line: str) -> bool:
+    if SELF_REFERENTIAL_PROMPT_RE.search(line):
+        return True
+    return len(LOOP_PROMPT_RE.findall(line)) >= 2
 
 
 def sanitize_prompt(text: str, *, max_chars: int, fallback_index: int) -> str:
@@ -384,7 +407,7 @@ def sanitize_prompt(text: str, *, max_chars: int, fallback_index: int) -> str:
     line = re.sub(r"^\s*(prompt|turn|user|реплика|ход)\s*[:：-]\s*", "", line, flags=re.I)
     line = line.strip().strip("\"'“”`")
     line = re.sub(r"\s+", " ", line)
-    if not line or line.lower() in BAD_SCREEN_TURNS or line.startswith("/"):
+    if not line or line.lower() in BAD_SCREEN_TURNS or line.startswith("/") or looks_like_loop_prompt(line):
         line = FALLBACK_PROMPTS[fallback_index % len(FALLBACK_PROMPTS)]
     if len(line) > max_chars:
         line = line[: max_chars - 1].rstrip() + "…"
@@ -415,7 +438,11 @@ def build_api_input(
     prior = "\n".join(f"{i + 1}. {p}" for i, p in enumerate(prior_prompts[-8:])) or "(none)"
     metrics = "\n".join(metrics_tail[-8:]) or "(none)"
     recent = recent_log[-6000:] if recent_log else "(no recent live text)"
+    lane = PROBE_LANES[(turn_index - 1) % len(PROBE_LANES)]
     return f"""Live Arianna probe turn {turn_index}/{turns}.
+
+Required probe lane for this turn:
+{lane}
 
 Prior probe turns:
 {prior}
@@ -598,6 +625,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=int,
         default=5,
         help="extra seconds to collect tail output after trio counters advance",
+    )
+    parser.add_argument(
+        "--partial-counter-drain-seconds",
+        type=int,
+        default=20,
+        help="bounded extra wait when the prompt returned but metrics counters have not caught up",
     )
     parser.add_argument("--max-output-tokens", type=int, default=90, help="GPT tokens for each generated probe turn")
     parser.add_argument("--temperature", type=float, default=0.7, help="GPT temperature; retried without it on unsupported-model errors")
@@ -807,6 +840,31 @@ def main(argv: list[str]) -> int:
                     wait_info["completion_reason"] = ready_reason
                     if ready_reason == "runtime-fact-and-prompt":
                         wait_info["missing_counters"] = []
+                    elif ready_reason == "prompt-returned-partial-counters" and args.partial_counter_drain_seconds > 0:
+                        drain_started = time.monotonic()
+                        drain_deadline = drain_started + max(args.partial_counter_drain_seconds, 1)
+                        while time.monotonic() < drain_deadline:
+                            time.sleep(min(poll_seconds, max(drain_deadline - time.monotonic(), 0.0)))
+                            state = remote_state(
+                                host=args.host,
+                                live_dir=args.live_dir,
+                                log_offset=log_offset,
+                                metrics_line_offset=metrics_line_offset,
+                                max_delta_bytes=args.max_delta_bytes,
+                                metrics_tail_lines=args.metrics_tail_lines,
+                                timeout=args.ssh_timeout,
+                            )
+                            after_counts = trio_turn_counts(state["metrics"]["tail"])
+                            missing_counters = turn_counters_not_advanced(TRIO_TURN_KEYS, before_counts, after_counts)
+                            ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                            if ready and ready_reason != "prompt-returned-partial-counters":
+                                wait_info["completion_reason"] = ready_reason + "-after-partial-drain"
+                                break
+                        wait_info["partial_counter_drain_elapsed_seconds"] = round(
+                            max(time.monotonic() - drain_started, 0.0), 3
+                        )
+                        wait_info["after_counts"] = after_counts
+                        wait_info["missing_counters"] = missing_counters
                     if args.post_completion_settle_seconds > 0:
                         sleep_with_progress(args.post_completion_settle_seconds)
                         state = remote_state(
@@ -826,6 +884,9 @@ def main(argv: list[str]) -> int:
                             wait_info["missing_counters"] = turn_counters_not_advanced(
                                 TRIO_TURN_KEYS, before_counts, after_counts
                             )
+                        post_ready, post_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                        if post_ready and post_reason != wait_info.get("completion_reason"):
+                            wait_info["completion_reason"] = post_reason + "-after-settle"
                     break
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:

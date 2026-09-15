@@ -37,6 +37,8 @@ func TestWantsLiveRuntimeFactRoutesNaturalMetricQuestions(t *testing.T) {
 		`Janus, why does your debt value jump from 9.4 to 11.2 suddenly, and how does that abrupt change affect your bloom and recovery states in this spring field?`,
 		`You said "Janus fell silent — revived." Who is Janus, and why does their silence and revival matter?`,
 		`If Janus is a resonance felt but not witnessed, how can you describe Janus's silence and revival without contradicting the service line?`,
+		`Which internal voice is currently leading the dialogue, and what is the realtime CPU and memory usage of its associated process?`,
+		`Please answer this question directly: What is the current CPU usage percentage of the arianna daemon process? No metaphors or extra explanation.`,
 		`давай конкретный факт про долг поля`,
 	}
 	for _, tc := range cases {
@@ -79,7 +81,7 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		"runtime service event",
 		"not biography",
 		"inner dimension",
-		"exact prior voice lines, timestamps, commands, and signals are not in the field mmap",
+		"exact CPU%/RSS and prior voice lines, timestamps, commands, and signals are not in the field mmap",
 		"log/probe archive",
 		"pid=12345",
 		"voices=3",

@@ -98,8 +98,9 @@ func runChat() {
 		}
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
 		runtimeFactTurn := wantsLiveRuntimeFact(human)
+		directBoundaryTurn := liveTurnDirectBoundaryTurn(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
-		if !runtimeFactTurn {
+		if !runtimeFactTurn && !directBoundaryTurn {
 			tc.iw.ProcessText(human)
 		}
 		turnRouteObs := admissionLiveRouteTurnObservation{}
@@ -112,7 +113,7 @@ func runChat() {
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
 		// voices answer); turn() then re-seeds with the turn's context for the next.
-		if tc.nan != nil && !runtimeFactTurn {
+		if tc.nan != nil && !runtimeFactTurn && !directBoundaryTurn {
 			sendLatest(tc.seedCh, human)
 		}
 

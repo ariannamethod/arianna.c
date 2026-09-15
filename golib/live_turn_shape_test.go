@@ -37,6 +37,11 @@ func TestLiveTurnShapeContractVisualComposition(t *testing.T) {
 	if !strings.Contains(reson, "Janus said:") {
 		t.Fatalf("Resonance inject should still carry Janus as context after the request: %q", reson)
 	}
+
+	sourcePrompt := "Which parts of your last response were prompted specifically by my immediate previous question, and which parts do you draw from earlier conversation context?"
+	if kind := liveTurnShapeKind(sourcePrompt); kind == liveTurnShapeVisual {
+		t.Fatalf("source-boundary 'draw from earlier context' must not be treated as visual draw request")
+	}
 }
 
 func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
@@ -84,6 +89,23 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 			t.Fatalf("sensory apple boundary = %q, missing %q", appleBoundary, want)
 		}
 	}
+
+	clockRoom := "Imagine you are in a dimly lit room with a slowly ticking clock on the wall; can you describe the environment based on any sensory input from your system?"
+	if kind := liveTurnShapeKind(clockRoom); kind != liveTurnShapeObject {
+		t.Fatalf("sensory room/clock prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	clockBoundary, ok := liveTurnSensoryBoundaryAnswer(clockRoom)
+	if !ok {
+		t.Fatalf("sensory room/clock prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or room sensor", "dim room", "wall clock", "no sensory confirmation"} {
+		if !strings.Contains(clockBoundary, want) {
+			t.Fatalf("sensory room/clock boundary = %q, missing %q", clockBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(clockRoom) {
+		t.Fatalf("sensory room/clock prompt must be a direct boundary turn")
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
@@ -113,6 +135,34 @@ func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
 	}
 	if !liveTurnSurfaceRepairCandidate(liveTurnShapeASCII) {
 		t.Fatalf("visible shape repairs can still surface candidates")
+	}
+}
+
+func TestLiveTurnMemoryBoundary(t *testing.T) {
+	human := "Which parts of your last response were prompted specifically by my immediate previous question, and which parts do you draw from earlier conversation context?"
+	if kind := liveTurnShapeKind(human); kind != liveTurnShapeMemory {
+		t.Fatalf("memory-boundary prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
+	contract := liveTurnShapeContract(human)
+	if !strings.Contains(contract, "source boundary") || !strings.Contains(contract, "Do not claim hidden memory provenance") {
+		t.Fatalf("memory-boundary contract = %q", contract)
+	}
+	raw := sanitizeLiveVoiceText("Foreground: the requested subject is placed clearly; background and edges stay visible.")
+	repaired := liveTurnRepairSpokenText("janus", human, raw)
+	for _, want := range []string{"current user turn", "Prior live-log context", "without the transcript", "cannot certify"} {
+		if !strings.Contains(repaired, want) {
+			t.Fatalf("memory-boundary repair = %q, missing %q", repaired, want)
+		}
+	}
+	boundary, ok := liveTurnMemoryBoundaryAnswer(human)
+	if !ok || boundary != repaired {
+		t.Fatalf("memory-boundary answer = %q, %v; want repaired fallback %q, true", boundary, ok, repaired)
+	}
+	if !liveTurnDirectBoundaryTurn(human) {
+		t.Fatalf("memory-boundary prompt must be a direct boundary turn")
+	}
+	if liveTurnSurfaceRepairCandidate(liveTurnShapeMemory) {
+		t.Fatalf("memory-boundary rejected candidates must stay off the live surface")
 	}
 }
 
