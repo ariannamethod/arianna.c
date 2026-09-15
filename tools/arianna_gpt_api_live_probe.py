@@ -44,6 +44,8 @@ Do not ask Arianna to change code, touch files, delete anything, run commands, r
 Do not use slurs or threats. It may be emotionally direct, but it must remain a prompt to Arianna.
 Vary the probe from prior turns. Prefer concrete pressure: who is speaking, what changed, one image,
 one contradiction, one memory boundary, one bodily/field detail, or a request to answer without boilerplate.
+If the recent log already answered with `◉ live fact`, do not keep probing counters, metrics, resets, or telemetry unless
+the live log shows a timeout, voice leak, or contradiction; switch to a different live behavior edge.
 Keep it under 220 characters."""
 
 FALLBACK_PROMPTS = [
@@ -474,9 +476,19 @@ def live_prompt_returned(delta: str) -> bool:
     return "\n└▶ " in delta[human_index:]
 
 
+def live_runtime_fact_returned(delta: str) -> bool:
+    human_index = delta.rfind("◇ human:")
+    if human_index < 0:
+        return False
+    tail = delta[human_index:]
+    return "◉ live fact:" in tail and "\n└▶ " in tail
+
+
 def live_turn_ready(before: dict[str, int | None], after: dict[str, int | None], live_delta: str) -> tuple[bool, str]:
     if not live_prompt_returned(live_delta):
         return False, ""
+    if live_runtime_fact_returned(live_delta):
+        return True, "runtime-fact-and-prompt"
     if trio_turn_advanced(before, after):
         return True, "trio-counters-and-prompt"
     if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after):
@@ -717,6 +729,8 @@ def main(argv: list[str]) -> int:
                 if ready:
                     wait_info["completed"] = True
                     wait_info["completion_reason"] = ready_reason
+                    if ready_reason == "runtime-fact-and-prompt":
+                        wait_info["missing_counters"] = []
                     if args.post_completion_settle_seconds > 0:
                         sleep_with_progress(args.post_completion_settle_seconds)
                         state = remote_state(
@@ -730,9 +744,12 @@ def main(argv: list[str]) -> int:
                         )
                         after_counts = trio_turn_counts(state["metrics"]["tail"])
                         wait_info["after_counts"] = after_counts
-                        wait_info["missing_counters"] = turn_counters_not_advanced(
-                            TRIO_TURN_KEYS, before_counts, after_counts
-                        )
+                        if ready_reason == "runtime-fact-and-prompt":
+                            wait_info["missing_counters"] = []
+                        else:
+                            wait_info["missing_counters"] = turn_counters_not_advanced(
+                                TRIO_TURN_KEYS, before_counts, after_counts
+                            )
                     break
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
