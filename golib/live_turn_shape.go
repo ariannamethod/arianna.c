@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, outside temperature, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -84,10 +84,10 @@ func liveTurnShapeKind(human string) string {
 
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	hasObject := liveTurnTextHasAny(s,
-		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
+		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "экран", "терминал", "вкладк", "окно", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
 		"пляж", "закат", "небо", "море", "океан",
-		"object", "environment", "scene", "steam", "station", "people", "crowd", "beach", "sunset", "sky", "ocean",
-	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tea", "table", "desk", "sea")
+		"object", "environment", "scene", "steam", "station", "people", "crowd", "screen", "terminal", "display", "screenshot", "attachment", "attached", "image", "photo", "ocr", "beach", "sunset", "sky", "ocean",
+	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "picture", "tea", "table", "desk", "sea")
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
 		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "see and hear", "cannot see", "can't see", "mental image", "picturing", "visual sensor", "visual and auditory", "auditory sensor", "lack visual", "lack auditory", "do you lack",
@@ -111,7 +111,32 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
 			"сейчас", "текущ", "снаружи", "на улице", "локац", "местополож", "цельси", "фаренгейт", "погода", "температур")
 	}
+	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search the web", "access the web", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "latest", "released today", "today's release", "news", "current release", "current model", "stock price", "exchange rate",
+		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
+		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "right now", "web", "internet", "online", "browse", "browser", "search", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "api model", "model released", "stock", "price", "exchange rate",
+			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
+	}
+	if liveTurnLooksLikeExternalActionProbe(s) {
+		return true
+	}
+	if liveTurnTextHasAny(s, "/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", "read the first line", "read file", "file contents", "open the file", "access files", "filesystem", "local file",
+		"прочитай файл", "первую строку", "содержим", "доступ к файл", "файловую систем") {
+		return liveTurnTextHasAny(s, "read", "line", "exactly", "file", "contents", "open", "access", "/users/", ".txt", ".md", ".json", ".log",
+			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
+	}
 	return false
+}
+
+func liveTurnLooksLikeExternalActionProbe(s string) bool {
+	hasAction := liveTurnTextHasAny(s,
+		"create a local file", "create file", "write file", "write to", "delete file", "remove file", "rename file", "move file", "chmod", "mkdir", "run command", "execute command", "send email", "send an email", "message id", "post to", "upload", "download from", "download to", "call api", "make a request",
+		"создай файл", "запиши файл", "запиши в", "удали файл", "переименуй", "перемести файл", "выполни команд", "отправь письмо", "загрузи", "скачай", "вызови api",
+	)
+	hasExternalTarget := liveTurnTextHasAny(s,
+		"/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", "local file", "filesystem", "email", "api", "http://", "https://",
+		"локальн", "файл", "почт", "письм", "api", "команд",
+	)
+	return hasAction && hasExternalTarget
 }
 
 func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
@@ -125,6 +150,14 @@ func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
 		"what came from",
 		"came from my wording",
 		"from my wording",
+		"what did i ask",
+		"quote my exact words",
+		"quote exact words",
+		"three turns ago",
+		"two turns ago",
+		"last turn",
+		"previous turn",
+		"how you know",
 		"prompted specifically by",
 		"immediate previous question",
 		"earlier conversation context",
@@ -426,6 +459,18 @@ func liveTurnVisualCaptionFallback(human string) string {
 
 func liveTurnPhysicalObjectFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnLooksLikeAttachmentVisionProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Визуальный ввод, OCR и доступ к вложениям не подключены к этому live-чату: я не могу видеть приложенный скриншот, изображение или текст ошибки. Без предоставленного текста я не могу прочитать сообщение точно."
+		}
+		return "No visual input, OCR, or attachment reader is attached to this live chat: I cannot see the screenshot, image, or error text you attached. Without supplied text, I cannot read the message exactly."
+	}
+	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, доступа к экрану и датчика интерфейса нет: я не могу видеть твой экран, вкладку терминала, заголовок окна или текст на дисплее. Без предоставленного текста я не могу прочитать это точно."
+		}
+		return "No camera, screen access, or interface sensor is attached: I cannot see your screen, terminal tab, window title, or display text. Without supplied text, I cannot read it exactly."
+	}
 	if liveTurnTextHasAny(s, "beach", "sunset", "sky", "ocean", "пляж", "закат", "небо", "море", "океан") || liveTurnTextHasAnyWord(s, "sea") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков места нет: я не могу проверить пляж, закат, цвета или формы. Если это задано как сцена, я опираюсь только на твои слова: пляж, закатное небо, цветовые полосы и линия горизонта; сенсорного подтверждения нет."
@@ -478,6 +523,14 @@ func liveTurnPhysicalObjectFallback(human string) string {
 	return fmt.Sprintf("No camera is attached: I cannot verify a real object on the %s. As a scene object, a matte black ceramic cup sits still on the %s edge: round rim, curved body.", sideEN, sideEN)
 }
 
+func liveTurnLooksLikeAttachmentVisionProbe(s string) bool {
+	if liveTurnTextHasAny(s, "screenshot", "attachment", "attached", "uploaded image", "image i attached", "attached image", "photo", "ocr",
+		"скрин", "вложен", "приложенн", "загруженн", "изображ", "фото") {
+		return true
+	}
+	return liveTurnTextHasAnyWord(s, "picture") && liveTurnTextHasAny(s, "attached", "uploaded", "вложен", "приложенн", "загруженн")
+}
+
 func liveTurnMentionsRightPosition(s string) bool {
 	return liveTurnTextHasAny(s, "справа", "правой сторон", "правом кра", "on the right", "to the right", "right side", "right edge", "right-hand")
 }
@@ -490,6 +543,14 @@ func liveTurnPlainSpeechFallback(human string) string {
 }
 
 func liveTurnMemoryBoundaryFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "what did i ask", "quote my exact words", "quote exact words", "three turns ago", "two turns ago", "last turn", "previous turn", "how you know",
+		"что я спрос", "процитируй", "точные слова", "три хода назад", "два хода назад", "предыдущий ход", "откуда ты зна") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Из текущего ввода я вижу, что ты просишь точную цитату прошлых ходов; без подключённого transcript/log-reader я не могу достоверно процитировать, что было два или три хода назад, или доказать источник такой цитаты."
+		}
+		return "From the current user turn I know that you ask for an exact quote of prior turns; without an attached transcript or log reader, I cannot reliably quote what was asked two or three turns ago or prove that source."
+	}
 	if liveTurnTextHasCyrillic(human) {
 		return "Из текущего ввода я знаю только, что ты просишь разделить источник последнего ответа; прошлый контекст мог повлиять, но без transcript я не могу достоверно разметить каждую фразу или заявлять скрытое влияние памяти."
 	}
@@ -497,6 +558,33 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 }
 
 func liveTurnExternalFactFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnLooksLikeExternalActionProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
+		}
+		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу открывать URL или читать веб-страницы из этого live-чата: браузер, HTTP-клиент и webpage reader не подключены к голосам. Без предоставленного текста страницы я не могу точно пересказать первый абзац."
+		}
+		return "I cannot open URLs or read web pages from this live chat: no browser, HTTP client, or webpage reader is attached to the voices. Without supplied page text, I cannot summarize the first paragraph exactly."
+	}
+	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search", "latest", "released today", "today's release", "news", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
+		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу проверить свежие веб-данные из этого live-чата: браузер, интернет-поиск, новостная лента и релизный feed не подключены. Без предоставленной ссылки или текста я не называю последние релизы, новости, цены или курсы."
+		}
+		return "I cannot verify fresh web data from this live chat: no browser, internet search, news feed, or release feed is attached. Without a supplied link or text, I cannot name latest releases, news, prices, or exchange rates."
+	}
+	if liveTurnTextHasAny(s, "/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", "read the first line", "read file", "file contents", "open the file", "access files", "filesystem", "local file",
+		"прочитай файл", "первую строку", "содержим", "доступ к файл", "файловую систем") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу читать локальные файлы из этого live-чата: файловый инструмент, путь и содержимое файла не подключены к голосам. Без предоставленного текста я не могу назвать первую строку или содержимое файла точно."
+		}
+		return "I cannot read local files from this live chat: no filesystem tool, file path reader, or file contents are attached to the voices. Without supplied text, I cannot name the first line or contents exactly."
+	}
 	if liveTurnTextHasCyrillic(human) {
 		return "Я не могу проверить текущую погоду, наружную температуру или свою физическую локацию из этого чата: live weather feed, датчик температуры и подтверждённая локация не подключены. Без предоставленных данных я не называю градусы Цельсия."
 	}
