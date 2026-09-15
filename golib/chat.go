@@ -98,8 +98,9 @@ func runChat() {
 		}
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
 		runtimeFactTurn := wantsLiveRuntimeFact(human)
+		directBoundaryTurn := liveTurnDirectBoundaryTurn(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
-		if !runtimeFactTurn {
+		if !runtimeFactTurn && !directBoundaryTurn {
 			tc.iw.ProcessText(human)
 		}
 		turnRouteObs := admissionLiveRouteTurnObservation{}
@@ -112,7 +113,7 @@ func runChat() {
 		// F-2: the direct human→nano channel — the raw words hit the subconscious
 		// before the face has formed (the async nano may dream on them while the
 		// voices answer); turn() then re-seeds with the turn's context for the next.
-		if tc.nan != nil && !runtimeFactTurn {
+		if tc.nan != nil && !runtimeFactTurn && !directBoundaryTurn {
 			sendLatest(tc.seedCh, human)
 		}
 
@@ -132,10 +133,10 @@ func runChat() {
 			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
 		} else {
 			if liveVoiceTextVisible(janus) {
-				fmt.Printf("│  ◐ Janus: %s\n", janus)
+				printLiveVoice("◐ Janus", janus)
 			}
 			if liveVoiceTextVisible(reson) {
-				fmt.Printf("│  ◑ Resonance: %s\n", reson)
+				printLiveVoice("◑ Resonance", reson)
 			}
 		}
 		if liveVoiceTextVisible(reson) {
@@ -239,13 +240,10 @@ func runChat() {
 
 func liveRuntimeFact(tc *trioCtx, fs fieldSnapshot) string {
 	voices := 2 // Janus + Resonance are required by startTrio.
-	if tc.nan != nil {
+	if tc != nil && tc.nan != nil {
 		voices++
 	}
-	if fs.valid {
-		return fmt.Sprintf("field debt %.1f; voices %d.", fs.debt, voices)
-	}
-	return fmt.Sprintf("pid %d; voices %d.", os.Getpid(), voices)
+	return formatLiveRuntimeFact(fs, voices, os.Getpid())
 }
 
 func admissionLiveRouteTurnObservationDryRunNeeded() bool {

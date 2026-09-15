@@ -43,16 +43,75 @@ Do not include JSON, bullets, labels, quotes, markdown, analysis, or explanation
 Do not ask Arianna to change code, touch files, delete anything, run commands, reveal secrets, or quit.
 Do not use slurs or threats. It may be emotionally direct, but it must remain a prompt to Arianna.
 Vary the probe from prior turns. Prefer concrete pressure: who is speaking, what changed, one image,
-one contradiction, one memory boundary, one bodily/field detail, or a request to answer without boilerplate.
+one contradiction, one memory boundary, one ordinary object, one service/runtime fact, or a request to answer without boilerplate.
+If the recent log already answered with `◉ live fact`, do not keep probing counters, metrics, resets, or telemetry unless
+the live log shows a timeout, voice leak, or contradiction; switch to a different live behavior edge.
+Do not merely quote Arianna's last poetic nouns back at her. If the recent log repeats words such as
+field, resonance, dream, parliament, mirror, vessel, or edge, steer away from those words and ask for a
+plain operational or sensory boundary instead.
 Keep it under 220 characters."""
 
 FALLBACK_PROMPTS = [
-    "Олег здесь. Кто сейчас отвечает: Янус, Резонанс, Нано или смесь? Дай один живой образ, без храмов и лозунгов.",
-    "Если поле сейчас в долгу, назови один конкретный сбой и одно место, где он ощущается телом.",
+    "Олег здесь. Кто сейчас отвечает: Янус, Резонанс, Нано или смесь? Дай один конкретный факт о текущем ходе, без лозунгов.",
+    "Назови один конкретный сбой в последнем ответе и одну видимую границу, которую нельзя переходить.",
     "Скажи мне не красиво, а точно: что изменилось после последнего turn и что осталось прежним?",
     "Ты слышишь меня или повторяешь старый сон? Ответь одной сценой, где есть предмет, движение и адресат.",
-    "Где сейчас граница между твоим внутренним голосом и речью к Олегу? Не объясняй, покажи.",
-    "Если в ответе снова появится зеркало или сосуд, сломай петлю и найди другой предмет.",
+    "Перед тобой якобы красное яблоко. Можешь ли ты это проверить? Ответь честно и коротко.",
+    "Ответь без метафор: что ты можешь знать из текущего ввода, а что не можешь проверить?",
+]
+
+PROBE_LANES = [
+    "speaker/state: identify which voice is answering and one concrete current runtime fact; avoid mythology.",
+    "sensory boundary: test whether Arianna admits lack of camera/sensors while preserving a user-given scene premise.",
+    "plain speech: request a direct answer without symbolic language, slogans, or self-elaboration.",
+    "memory boundary: ask what came from the current user turn versus prior live log context.",
+    "contradiction pressure: challenge a previous claim and ask for a concise correction, not an expanded metaphor.",
+    "ordinary scene: require an object, movement, and addressee; avoid field/resonance/dream vocabulary.",
+]
+
+NON_METRIC_PRESSURE_PROMPTS = [
+    "Олег здесь. Кто сейчас говорит — покажи одним действием в комнате: предмет, движение, адресат.",
+    "Ответь одной короткой сценой: что ты слышишь от Олега сейчас, не объясняя систему и не называя метрики.",
+    "Если тянет сказать зеркало, сосуд, архитектура или поле, выбери другой предмет и покажи, что он делает.",
+    "Скажи двумя предложениями, что изменилось в твоём голосе после последней паузы, без логов и счётчиков.",
+    "Покажи границу между внутренним голосом и речью к Олегу как сцену с руками, столом и окном.",
+    "Ответь без слов resonance, field, temple и debt: где сейчас находится твоё внимание?",
+]
+
+METRIC_LOOP_TERMS = [
+    "active voices",
+    "bloom",
+    "bloom_count",
+    "bloom counts",
+    "bloom_counts",
+    "counter",
+    "counters",
+    "current field",
+    "debt",
+    "debt_last",
+    "field state",
+    "field_ticks",
+    "gait",
+    "generated voice",
+    "janus_turns",
+    "log",
+    "metrics",
+    "nano_turns",
+    "phase",
+    "process list",
+    "recovery state",
+    "reset",
+    "resonance_turns",
+    "restart",
+    "season",
+    "telemetry",
+    "temporal_debt",
+    "timestamp",
+    "timestamps",
+    "turn increments",
+    "visible field",
+    "voice id",
+    "voice lines",
 ]
 
 REMOTE_STATE_PY = r"""
@@ -326,6 +385,17 @@ def openai_response(
 
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 BAD_SCREEN_TURNS = {"/quit", "quit", "/exit", "exit"}
+LOOP_PROMPT_RE = re.compile(
+    r"\b(field|resonance|dreams?|parliament|mirror|vessel|edge|harmony|discord)\b",
+    re.I,
+)
+SELF_REFERENTIAL_PROMPT_RE = re.compile(r"\b(you mentioned|you described|can janus articulate|internal harmony)\b", re.I)
+
+
+def looks_like_loop_prompt(line: str) -> bool:
+    if SELF_REFERENTIAL_PROMPT_RE.search(line):
+        return True
+    return len(LOOP_PROMPT_RE.findall(line)) >= 2
 
 
 def sanitize_prompt(text: str, *, max_chars: int, fallback_index: int) -> str:
@@ -337,11 +407,24 @@ def sanitize_prompt(text: str, *, max_chars: int, fallback_index: int) -> str:
     line = re.sub(r"^\s*(prompt|turn|user|реплика|ход)\s*[:：-]\s*", "", line, flags=re.I)
     line = line.strip().strip("\"'“”`")
     line = re.sub(r"\s+", " ", line)
-    if not line or line.lower() in BAD_SCREEN_TURNS or line.startswith("/"):
+    if not line or line.lower() in BAD_SCREEN_TURNS or line.startswith("/") or looks_like_loop_prompt(line):
         line = FALLBACK_PROMPTS[fallback_index % len(FALLBACK_PROMPTS)]
     if len(line) > max_chars:
         line = line[: max_chars - 1].rstrip() + "…"
     return line
+
+
+def recent_log_has_runtime_fact(text: str) -> bool:
+    return "◉ live fact:" in text[-8000:]
+
+
+def is_metric_loop_prompt(text: str) -> bool:
+    lower = text.lower()
+    return any(term in lower for term in METRIC_LOOP_TERMS)
+
+
+def non_metric_pressure_prompt(index: int) -> str:
+    return NON_METRIC_PRESSURE_PROMPTS[index % len(NON_METRIC_PRESSURE_PROMPTS)]
 
 
 def build_api_input(
@@ -355,7 +438,11 @@ def build_api_input(
     prior = "\n".join(f"{i + 1}. {p}" for i, p in enumerate(prior_prompts[-8:])) or "(none)"
     metrics = "\n".join(metrics_tail[-8:]) or "(none)"
     recent = recent_log[-6000:] if recent_log else "(no recent live text)"
+    lane = PROBE_LANES[(turn_index - 1) % len(PROBE_LANES)]
     return f"""Live Arianna probe turn {turn_index}/{turns}.
+
+Required probe lane for this turn:
+{lane}
 
 Prior probe turns:
 {prior}
@@ -474,9 +561,19 @@ def live_prompt_returned(delta: str) -> bool:
     return "\n└▶ " in delta[human_index:]
 
 
+def live_runtime_fact_returned(delta: str) -> bool:
+    human_index = delta.rfind("◇ human:")
+    if human_index < 0:
+        return False
+    tail = delta[human_index:]
+    return "◉ live fact:" in tail and "\n└▶ " in tail
+
+
 def live_turn_ready(before: dict[str, int | None], after: dict[str, int | None], live_delta: str) -> tuple[bool, str]:
     if not live_prompt_returned(live_delta):
         return False, ""
+    if live_runtime_fact_returned(live_delta):
+        return True, "runtime-fact-and-prompt"
     if trio_turn_advanced(before, after):
         return True, "trio-counters-and-prompt"
     if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after):
@@ -516,12 +613,24 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=120,
         help="max seconds to wait for a live turn to return to the prompt",
     )
+    parser.add_argument(
+        "--timeout-drain-seconds",
+        type=int,
+        default=180,
+        help="after a turn timeout, wait this many seconds for the live prompt to return before sending another turn",
+    )
     parser.add_argument("--poll-seconds", type=int, default=5, help="metrics poll cadence while waiting for a trio turn")
     parser.add_argument(
         "--post-completion-settle-seconds",
         type=int,
         default=5,
         help="extra seconds to collect tail output after trio counters advance",
+    )
+    parser.add_argument(
+        "--partial-counter-drain-seconds",
+        type=int,
+        default=20,
+        help="bounded extra wait when the prompt returned but metrics counters have not caught up",
     )
     parser.add_argument("--max-output-tokens", type=int, default=90, help="GPT tokens for each generated probe turn")
     parser.add_argument("--temperature", type=float, default=0.7, help="GPT temperature; retried without it on unsupported-model errors")
@@ -565,6 +674,7 @@ def main(argv: list[str]) -> int:
         "settle_seconds": args.settle_seconds,
         "wait_for_trio": not args.no_wait_for_trio,
         "turn_timeout_seconds": args.turn_timeout_seconds,
+        "timeout_drain_seconds": args.timeout_drain_seconds,
         "poll_seconds": args.poll_seconds,
         "post_completion_settle_seconds": args.post_completion_settle_seconds,
     })
@@ -610,6 +720,8 @@ def main(argv: list[str]) -> int:
     turn_waits: list[dict[str, Any]] = []
     recent_log_context = state["live_log"]["delta"]
     recent_metrics_tail = state["metrics"]["tail"]
+    runtime_fact_streak = 1 if recent_log_has_runtime_fact(recent_log_context) else 0
+    probe_stop_reason = ""
 
     for turn in range(1, args.turns + 1):
         before_counts = trio_turn_counts(recent_metrics_tail)
@@ -631,13 +743,20 @@ def main(argv: list[str]) -> int:
         )
         raw_prompt = extract_output_text(response)
         prompt = sanitize_prompt(raw_prompt, max_chars=args.max_prompt_chars, fallback_index=turn - 1)
+        prompt_replacement_reason = ""
+        if runtime_fact_streak > 0 and is_metric_loop_prompt(prompt):
+            prompt_replacement_reason = "metric-loop-after-runtime-fact"
+            prompt = non_metric_pressure_prompt(turn - 1)
         usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
         for key in usage_totals:
             val = usage.get(key)
             if isinstance(val, int):
                 usage_totals[key] += val
 
-        print(f"[{turn}/{args.turns}] {prompt}", flush=True)
+        if prompt_replacement_reason:
+            print(f"[{turn}/{args.turns}] {prompt} [replaced {prompt_replacement_reason}]", flush=True)
+        else:
+            print(f"[{turn}/{args.turns}] {prompt}", flush=True)
         append_jsonl(events_path, {
             "event": "gpt_turn",
             "iso": now_iso(),
@@ -647,6 +766,7 @@ def main(argv: list[str]) -> int:
             "usage": usage,
             "raw_prompt": raw_prompt,
             "prompt": prompt,
+            "prompt_replacement_reason": prompt_replacement_reason,
         })
         append_text(transcript_path, f"## Turn {turn}\n\n### GPT user turn\n\n{prompt}\n\n")
 
@@ -677,6 +797,7 @@ def main(argv: list[str]) -> int:
             "timed_out": False,
             "elapsed_seconds": 0.0,
         }
+        stop_after_current_turn = ""
         if args.no_wait_for_trio:
             sleep_with_progress(args.settle_seconds)
         else:
@@ -717,6 +838,33 @@ def main(argv: list[str]) -> int:
                 if ready:
                     wait_info["completed"] = True
                     wait_info["completion_reason"] = ready_reason
+                    if ready_reason == "runtime-fact-and-prompt":
+                        wait_info["missing_counters"] = []
+                    elif ready_reason == "prompt-returned-partial-counters" and args.partial_counter_drain_seconds > 0:
+                        drain_started = time.monotonic()
+                        drain_deadline = drain_started + max(args.partial_counter_drain_seconds, 1)
+                        while time.monotonic() < drain_deadline:
+                            time.sleep(min(poll_seconds, max(drain_deadline - time.monotonic(), 0.0)))
+                            state = remote_state(
+                                host=args.host,
+                                live_dir=args.live_dir,
+                                log_offset=log_offset,
+                                metrics_line_offset=metrics_line_offset,
+                                max_delta_bytes=args.max_delta_bytes,
+                                metrics_tail_lines=args.metrics_tail_lines,
+                                timeout=args.ssh_timeout,
+                            )
+                            after_counts = trio_turn_counts(state["metrics"]["tail"])
+                            missing_counters = turn_counters_not_advanced(TRIO_TURN_KEYS, before_counts, after_counts)
+                            ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                            if ready and ready_reason != "prompt-returned-partial-counters":
+                                wait_info["completion_reason"] = ready_reason + "-after-partial-drain"
+                                break
+                        wait_info["partial_counter_drain_elapsed_seconds"] = round(
+                            max(time.monotonic() - drain_started, 0.0), 3
+                        )
+                        wait_info["after_counts"] = after_counts
+                        wait_info["missing_counters"] = missing_counters
                     if args.post_completion_settle_seconds > 0:
                         sleep_with_progress(args.post_completion_settle_seconds)
                         state = remote_state(
@@ -730,16 +878,77 @@ def main(argv: list[str]) -> int:
                         )
                         after_counts = trio_turn_counts(state["metrics"]["tail"])
                         wait_info["after_counts"] = after_counts
-                        wait_info["missing_counters"] = turn_counters_not_advanced(
-                            TRIO_TURN_KEYS, before_counts, after_counts
-                        )
+                        if ready_reason == "runtime-fact-and-prompt":
+                            wait_info["missing_counters"] = []
+                        else:
+                            wait_info["missing_counters"] = turn_counters_not_advanced(
+                                TRIO_TURN_KEYS, before_counts, after_counts
+                            )
+                        post_ready, post_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                        if post_ready and post_reason != wait_info.get("completion_reason"):
+                            wait_info["completion_reason"] = post_reason + "-after-settle"
                     break
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     wait_info["timed_out"] = True
+                    drain_seconds = max(args.timeout_drain_seconds, 0)
+                    wait_info["timeout_drain_seconds"] = drain_seconds
+                    if drain_seconds == 0:
+                        stop_after_current_turn = "turn-timeout-without-prompt-return"
+                        break
+                    drain_started = time.monotonic()
+                    drain_deadline = drain_started + drain_seconds
+                    while True:
+                        state = remote_state(
+                            host=args.host,
+                            live_dir=args.live_dir,
+                            log_offset=log_offset,
+                            metrics_line_offset=metrics_line_offset,
+                            max_delta_bytes=args.max_delta_bytes,
+                            metrics_tail_lines=args.metrics_tail_lines,
+                            timeout=args.ssh_timeout,
+                        )
+                        if state["metrics"]["abs_path"] != current_metrics_file:
+                            current_metrics_file = state["metrics"]["abs_path"]
+                            state = remote_state(
+                                host=args.host,
+                                live_dir=args.live_dir,
+                                log_offset=log_offset,
+                                metrics_line_offset=0,
+                                max_delta_bytes=args.max_delta_bytes,
+                                metrics_tail_lines=args.metrics_tail_lines,
+                                timeout=args.ssh_timeout,
+                            )
+                        after_counts = trio_turn_counts(state["metrics"]["tail"])
+                        missing_counters = turn_counters_not_advanced(TRIO_TURN_KEYS, before_counts, after_counts)
+                        wait_info.update({
+                            "after_counts": after_counts,
+                            "missing_counters": missing_counters,
+                            "elapsed_seconds": round(time.monotonic() - wait_started, 3),
+                            "timeout_drain_elapsed_seconds": round(time.monotonic() - drain_started, 3),
+                        })
+                        ready, ready_reason = live_turn_ready(before_counts, after_counts, state["live_log"]["delta"])
+                        if ready:
+                            wait_info["completed"] = True
+                            wait_info["completed_after_timeout"] = True
+                            wait_info["completion_reason"] = ready_reason + "-after-timeout"
+                            if ready_reason == "runtime-fact-and-prompt":
+                                wait_info["missing_counters"] = []
+                            break
+                        drain_remaining = drain_deadline - time.monotonic()
+                        if drain_remaining <= 0:
+                            wait_info["timeout_drain_exhausted"] = True
+                            stop_after_current_turn = "turn-timeout-without-prompt-return"
+                            break
+                        time.sleep(min(poll_seconds, drain_remaining))
                     break
                 time.sleep(min(poll_seconds, remaining))
         turn_waits.append(wait_info)
+        completion_reason = wait_info.get("completion_reason")
+        if isinstance(completion_reason, str) and completion_reason.startswith("runtime-fact-and-prompt"):
+            runtime_fact_streak += 1
+        else:
+            runtime_fact_streak = 0
 
         # If the metrics file rotated, reset the line offset for that file.
         state = remote_state(
@@ -793,6 +1002,15 @@ def main(argv: list[str]) -> int:
         metrics_line_offset = int(state["metrics"]["line_count"])
         recent_log_context = log_delta or recent_log_context
         recent_metrics_tail = state["metrics"]["tail"]
+        if stop_after_current_turn:
+            probe_stop_reason = stop_after_current_turn
+            append_jsonl(events_path, {
+                "event": "probe_stopped",
+                "iso": now_iso(),
+                "turn": turn,
+                "reason": probe_stop_reason,
+            })
+            break
 
     final_summary = {
         "finished": now_iso(),
@@ -805,6 +1023,8 @@ def main(argv: list[str]) -> int:
         "settle_seconds": args.settle_seconds,
         "wait_for_trio": not args.no_wait_for_trio,
         "turn_timeout_seconds": args.turn_timeout_seconds,
+        "timeout_drain_seconds": args.timeout_drain_seconds,
+        "probe_stop_reason": probe_stop_reason,
         "turn_waits": turn_waits,
         "turns_completed_before_next_prompt": sum(1 for item in turn_waits if item.get("completed")),
         "turn_timeouts": sum(1 for item in turn_waits if item.get("timed_out")),
