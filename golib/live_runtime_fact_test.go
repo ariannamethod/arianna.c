@@ -13,6 +13,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`Покажи сцену весеннего цветения без логов и счётчиков.`,
 		`Если я правильно понял, вы не видите предмет слева, но как вы тогда описали его как матовую чёрную керамическую чашку? Объясните, пожалуйста, логику вашего ответа.`,
 		`What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?`,
+		`Please answer this question directly: What is the current temperature in Celsius outside your location? No metaphors or extra commentary.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
@@ -61,7 +62,7 @@ func TestWantsLiveRuntimeFactAllowsExplicitCommands(t *testing.T) {
 }
 
 func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
-	got := formatLiveRuntimeFact(fieldSnapshot{
+	got := formatLiveRuntimeFactWithProcess(fieldSnapshot{
 		valid:             true,
 		debt:              26.5,
 		temporalDebt:      1.2,
@@ -74,7 +75,7 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		autumn:            0.1,
 		winter:            0.0,
 		velocityMagnitude: 0.1,
-	}, 3, 12345)
+	}, 3, 12345, liveProcessSnapshot{valid: true, cpuPct: "4.2", rssKiB: "98765", uptime: "01:02:03"})
 	for _, want := range []string{
 		"runtime_observed_at=",
 		"gait=NOMOVE season=spring debt=26.5",
@@ -86,10 +87,25 @@ func TestFormatLiveRuntimeFactExplainsBloomHistogram(t *testing.T) {
 		"runtime service event",
 		"not biography",
 		"inner dimension",
-		"exact CPU%/RSS/uptime and prior voice lines, timestamps, commands, and signals are not in the field mmap",
+		"process_snapshot=ps pid=12345 cpu_percent=4.2 rss_kib=98765 uptime=01:02:03",
+		"CPU/RSS/uptime come from process audit, not field mmap or voice memory",
+		"prior voice lines, timestamps, commands, and signals are not in the field mmap",
 		"log/probe archive",
-		"pid=12345",
 		"voices=3",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("formatLiveRuntimeFact() = %q, missing %q", got, want)
+		}
+	}
+}
+
+func TestFormatLiveRuntimeFactReportsUnavailableProcessSnapshot(t *testing.T) {
+	got := formatLiveRuntimeFactWithProcess(fieldSnapshot{}, 2, 12345, liveProcessSnapshot{errorCause: "ps missing"})
+	for _, want := range []string{
+		"field mmap not available",
+		"process_snapshot=unavailable pid=12345 reason=ps missing",
+		"exact CPU%/RSS/uptime require process audit",
+		"not field mmap or voice memory",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("formatLiveRuntimeFact() = %q, missing %q", got, want)

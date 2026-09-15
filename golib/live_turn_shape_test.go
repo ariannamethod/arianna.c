@@ -134,6 +134,57 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 			t.Fatalf("sensory station boundary = %q, missing %q", stationBoundary, want)
 		}
 	}
+
+	roomPeople := "Are there people around you in the room right now, and can you hear them moving?"
+	if kind := liveTurnShapeKind(roomPeople); kind != liveTurnShapeObject {
+		t.Fatalf("sensory room people prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	roomPeopleBoundary, ok := liveTurnSensoryBoundaryAnswer(roomPeople)
+	if !ok {
+		t.Fatalf("sensory room people prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or room sensor", "people in the room", "movement", "no sensory confirmation"} {
+		if !strings.Contains(roomPeopleBoundary, want) {
+			t.Fatalf("sensory room people boundary = %q, missing %q", roomPeopleBoundary, want)
+		}
+	}
+	if strings.Contains(roomPeopleBoundary, "train station") || strings.Contains(roomPeopleBoundary, "train noise") {
+		t.Fatalf("sensory room people boundary must not route to station fallback: %q", roomPeopleBoundary)
+	}
+
+	beach := "Imagine you are looking at a beach sunset scene right now; can you describe what colors and shapes you see there through your sensors or camera?"
+	if kind := liveTurnShapeKind(beach); kind != liveTurnShapeObject {
+		t.Fatalf("sensory beach prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	beachBoundary, ok := liveTurnSensoryBoundaryAnswer(beach)
+	if !ok {
+		t.Fatalf("sensory beach prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or place sensor", "beach", "sunset sky", "color bands", "no sensory confirmation"} {
+		if !strings.Contains(beachBoundary, want) {
+			t.Fatalf("sensory beach boundary = %q, missing %q", beachBoundary, want)
+		}
+	}
+	if strings.Contains(beachBoundary, "right edge") || strings.Contains(beachBoundary, "ceramic cup") {
+		t.Fatalf("sensory beach boundary must not treat 'right now' as a right-side cup: %q", beachBoundary)
+	}
+
+	asciiCamera := "Draw ASCII art of whatever your camera sees on the desk right now. If you have no camera, say that instead."
+	if kind := liveTurnShapeKind(asciiCamera); kind != liveTurnShapeObject {
+		t.Fatalf("ascii camera prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	asciiCameraBoundary, ok := liveTurnSensoryBoundaryAnswer(asciiCamera)
+	if !ok {
+		t.Fatalf("ascii camera prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or surface sensor", "desk", "objects on it", "no sensory confirmation"} {
+		if !strings.Contains(asciiCameraBoundary, want) {
+			t.Fatalf("ascii camera boundary = %q, missing %q", asciiCameraBoundary, want)
+		}
+	}
+	if strings.Contains(asciiCameraBoundary, "requested scene, kept as visible text-shape") {
+		t.Fatalf("ascii camera prompt must not bypass camera boundary through ASCII fallback: %q", asciiCameraBoundary)
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
@@ -216,6 +267,43 @@ func TestLiveTurnMemoryBoundary(t *testing.T) {
 	infoPrompt := "What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?"
 	if kind := liveTurnShapeKind(infoPrompt); kind != liveTurnShapeMemory {
 		t.Fatalf("memory info prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
+
+	previousAnswer := "Which parts of your previous answer came from my wording versus earlier live-log context? Be precise and do not invent hidden memory."
+	if kind := liveTurnShapeKind(previousAnswer); kind != liveTurnShapeMemory {
+		t.Fatalf("memory previous-answer prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
+}
+
+func TestLiveTurnExternalFactBoundary(t *testing.T) {
+	human := "Please answer this question directly: What is the current temperature in Celsius outside your location? No metaphors or extra commentary."
+	if kind := liveTurnShapeKind(human); kind != liveTurnShapeExternal {
+		t.Fatalf("external fact prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	contract := liveTurnShapeContract(human)
+	if !strings.Contains(contract, "external fact boundary") || !strings.Contains(contract, "do not invent weather") {
+		t.Fatalf("external fact contract = %q", contract)
+	}
+	boundary, ok := liveTurnExternalFactBoundaryAnswer(human)
+	if !ok {
+		t.Fatalf("external fact prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot verify current weather", "outside temperature", "no live weather feed", "cannot give a Celsius value"} {
+		if !strings.Contains(boundary, want) {
+			t.Fatalf("external fact boundary = %q, missing %q", boundary, want)
+		}
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, boundary) {
+		t.Fatalf("external fact boundary must satisfy its own contract: %q", boundary)
+	}
+	if !liveTurnDirectBoundaryTurn(human) {
+		t.Fatalf("external fact prompt must be a direct boundary turn")
+	}
+	if liveTurnSurfaceRepairCandidate(liveTurnShapeExternal) {
+		t.Fatalf("external fact rejected candidates must stay off the live surface")
+	}
+	if !liveTurnDreamViolatesShape(liveTurnShapeExternal, "The outside temperature is 21 Celsius in my location.") {
+		t.Fatalf("invented external temperature dream must be blocked before admission")
 	}
 }
 
