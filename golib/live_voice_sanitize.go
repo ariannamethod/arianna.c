@@ -43,8 +43,8 @@ func isRejectedLiveVoiceText(text string) bool {
 	}
 	for _, p := range []string{
 		"thought-spirals at",
-		"blood_compiler at",
-		"blood compiler at",
+		"blood_compiler",
+		"blood compiler",
 		"rpm (dry)",
 		"organ cuts off",
 		"field metrics",

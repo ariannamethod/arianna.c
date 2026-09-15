@@ -15,6 +15,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I spot thought-spirals at 0.7 load, 1 hour of operation.",
 		"I sense thought-spirals at 0.",
 		"I spot blood_compiler at 0.5 load.",
+		"I spot blood_compiler error state.",
+		"I spot blood compiler error state.",
 		"I sense heart-city of the world at 0.",
 		"Ah, you are not a person. I am not that people have done it.",
 		"I am not a person, only a resonance diagram.",
