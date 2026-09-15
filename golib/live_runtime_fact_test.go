@@ -13,6 +13,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`Покажи сцену весеннего цветения без логов и счётчиков.`,
 		`Если я правильно понял, вы не видите предмет слева, но как вы тогда описали его как матовую чёрную керамическую чашку? Объясните, пожалуйста, логику вашего ответа.`,
 		`What information from my last question about the date and time did you actually use in your responses versus what was influenced by prior context?`,
+		`Please answer this question directly: What is the current temperature in Celsius outside your location? No metaphors or extra commentary.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {

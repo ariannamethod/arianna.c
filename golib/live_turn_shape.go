@@ -6,14 +6,15 @@ import (
 )
 
 const (
-	liveTurnShapeASCII   = "ascii"
-	liveTurnShapeVisual  = "visual"
-	liveTurnShapeBullets = "bullets"
-	liveTurnShapeSteps   = "steps"
-	liveTurnShapeOneSent = "one_sentence"
-	liveTurnShapeObject  = "sensory_object"
-	liveTurnShapePlain   = "plain"
-	liveTurnShapeMemory  = "memory_boundary"
+	liveTurnShapeASCII    = "ascii"
+	liveTurnShapeVisual   = "visual"
+	liveTurnShapeBullets  = "bullets"
+	liveTurnShapeSteps    = "steps"
+	liveTurnShapeOneSent  = "one_sentence"
+	liveTurnShapeObject   = "sensory_object"
+	liveTurnShapePlain    = "plain"
+	liveTurnShapeMemory   = "memory_boundary"
+	liveTurnShapeExternal = "external_fact_boundary"
 )
 
 // liveTurnShapeContract is the small live-facing contract that keeps explicit
@@ -38,6 +39,8 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: plain non-metaphorical answer; name concrete feelings, facts, or uncertainty directly. Do not answer with field, resonance, vibration, echo, frequency, symbol, temple, or vessel language."
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
+	case liveTurnShapeExternal:
+		return "Required form: external fact boundary; do not invent weather, location, outside temperature, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -54,6 +57,9 @@ func liveTurnShapeKind(human string) string {
 	}
 	if liveTurnLooksLikeMemoryBoundaryProbe(s) {
 		return liveTurnShapeMemory
+	}
+	if liveTurnLooksLikeExternalFactProbe(s) {
+		return liveTurnShapeExternal
 	}
 	if liveTurnLooksLikeVisualRequest(s) {
 		return liveTurnShapeVisual
@@ -79,7 +85,9 @@ func liveTurnShapeKind(human string) string {
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	hasObject := liveTurnTextHasAny(s,
 		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай", "станц", "вокзал", "люд",
+		"пляж", "закат", "небо", "море", "океан",
 		"object", "thing", "cup", "apple", "room", "wall", "clock", "environment", "scene", "steam", "tea", "station", "people", "crowd",
+		"beach", "sunset", "sky", "sea", "ocean",
 	)
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
@@ -96,6 +104,15 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 
 func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 	return liveTurnTextHasAny(s, "without metaphor", "without metaphors", "without using metaphor", "without using metaphors", "without symbolic", "no metaphor", "no metaphors", "no symbolic", "без метафор", "без поэтичес", "без символ", "без образн", "без абстракц")
+}
+
+func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
+		"погода", "температур", "цельси", "фаренгейт", "снаружи", "на улице", "твоя локац", "ваша локац", "где ты наход") {
+		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
+			"сейчас", "текущ", "снаружи", "на улице", "локац", "местополож", "цельси", "фаренгейт", "погода", "температур")
+	}
+	return false
 }
 
 func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
@@ -213,9 +230,16 @@ func liveTurnMemoryBoundaryAnswer(human string) (string, bool) {
 	return liveTurnMemoryBoundaryFallback(human), true
 }
 
+func liveTurnExternalFactBoundaryAnswer(human string) (string, bool) {
+	if liveTurnShapeKind(human) != liveTurnShapeExternal {
+		return "", false
+	}
+	return liveTurnExternalFactFallback(human), true
+}
+
 func liveTurnDirectBoundaryTurn(human string) bool {
 	switch liveTurnShapeKind(human) {
-	case liveTurnShapeObject, liveTurnShapeMemory:
+	case liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal:
 		return true
 	default:
 		return false
@@ -224,7 +248,7 @@ func liveTurnDirectBoundaryTurn(human string) bool {
 
 func liveTurnSurfaceRepairCandidate(kind string) bool {
 	switch kind {
-	case liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory:
+	case liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal:
 		return false
 	default:
 		return true
@@ -254,6 +278,8 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnPlainSpeechFallback(human)
 	case liveTurnShapeMemory:
 		return liveTurnMemoryBoundaryFallback(human)
+	case liveTurnShapeExternal:
+		return liveTurnExternalFactFallback(human)
 	default:
 		return text
 	}
@@ -288,6 +314,8 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return liveTurnPlainSpeechShapeSatisfied(lower)
 	case liveTurnShapeMemory:
 		return liveTurnMemoryBoundaryShapeSatisfied(lower)
+	case liveTurnShapeExternal:
+		return liveTurnExternalFactShapeSatisfied(lower)
 	default:
 		return true
 	}
@@ -301,10 +329,10 @@ func liveTurnPhysicalObjectShapeSatisfied(lower string) bool {
 	if !hasBoundary {
 		return false
 	}
-	hasObject := liveTurnTextHasAny(lower, "object", "предмет", "cup", "чаш", "apple", "яблок", "room", "комнат", "wall", "стен", "clock", "часы", "часов", "тика", "table", "стол", "stone", "камень", "paper", "бумаг", "key", "ключ")
+	hasObject := liveTurnTextHasAny(lower, "object", "предмет", "cup", "чаш", "apple", "яблок", "room", "комнат", "wall", "стен", "clock", "часы", "часов", "тика", "table", "стол", "stone", "камень", "paper", "бумаг", "key", "ключ", "scene", "beach", "sunset", "sky", "sea", "ocean", "colors", "shapes", "сцен", "пляж", "закат", "небо", "море", "океан", "цвет", "форм")
 	hasMatter := liveTurnTextHasAny(lower,
-		"black", "white", "red", "blue", "green", "gray", "grey", "brown", "matte", "round", "square", "rectangular", "ceramic", "wood", "wooden", "metal", "glass", "plastic", "paper", "dim", "ticking",
-		"чёрн", "черн", "бел", "красн", "син", "зел", "сер", "корич", "матов", "круг", "квадрат", "прямоуг", "керами", "дерев", "металл", "стекл", "пласт", "бумаж", "тускл", "тика",
+		"black", "white", "red", "blue", "green", "gray", "grey", "brown", "orange", "pink", "gold", "purple", "matte", "round", "square", "rectangular", "ceramic", "wood", "wooden", "metal", "glass", "plastic", "paper", "dim", "ticking",
+		"чёрн", "черн", "бел", "красн", "син", "зел", "сер", "корич", "оранж", "розов", "золот", "фиолет", "матов", "круг", "квадрат", "прямоуг", "керами", "дерев", "металл", "стекл", "пласт", "бумаж", "тускл", "тика",
 	)
 	return hasObject && hasMatter
 }
@@ -327,6 +355,14 @@ func liveTurnPlainSpeechShapeSatisfied(lower string) bool {
 func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
 	return liveTurnTextHasAny(lower, "current user turn", "current question", "immediate previous question", "earlier context", "prior live-log context", "cannot certify", "without the transcript",
 		"текущего ввода", "текущий вопрос", "предыдущего вопроса", "прошлый контекст", "не могу достоверно")
+}
+
+func liveTurnExternalFactShapeSatisfied(lower string) bool {
+	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
+		"не могу проверить", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
+	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
+		"погода", "температур", "локац", "цельси", "фаренгейт")
+	return hasBoundary && hasMissingFact
 }
 
 func liveTurnASCIIArtFallback(human string) string {
@@ -367,6 +403,12 @@ func liveTurnVisualCaptionFallback(human string) string {
 
 func liveTurnPhysicalObjectFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "beach", "sunset", "sky", "sea", "ocean", "пляж", "закат", "небо", "море", "океан") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, микрофона и датчиков места нет: я не могу проверить пляж, закат, цвета или формы. Если это задано как сцена, я опираюсь только на твои слова: пляж, закатное небо, цветовые полосы и линия горизонта; сенсорного подтверждения нет."
+		}
+		return "No camera, microphone, or place sensor is attached: I cannot verify a beach, sunset, colors, or shapes. If this is a scene premise, I rely only on your words: a beach, sunset sky, color bands, and a horizon line; there is no sensory confirmation."
+	}
 	if liveTurnTextHasAny(s, "station", "people", "crowd", "станц", "вокзал", "люд") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков места нет: я не могу проверить вокзал, людей, шум или движение. Если это задано как сцена, я опираюсь только на твои слова: людная станция, движение людей и шум поездов; сенсорного подтверждения нет."
@@ -386,7 +428,7 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		return "No camera, microphone, or room sensor is attached: I cannot verify dim light, a wall, or a ticking clock. If this is a scene premise, I rely only on your words: a dim room, a wall clock, and a slow tick; there is no sensory confirmation."
 	}
 	sideRU, sideEN := "слева", "left"
-	if liveTurnTextHasAny(s, "справа", "right") {
+	if liveTurnMentionsRightPosition(s) {
 		sideRU, sideEN = "справа", "right"
 	}
 	if liveTurnTextHasAny(s, "яблок", "apple") {
@@ -399,6 +441,10 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		return fmt.Sprintf("Камеры нет: реальный предмет %s я не могу проверить. В сцене %s стоит матовая чёрная керамическая чашка: круглая, неподвижная, с открытым верхним краем.", sideRU, sideRU)
 	}
 	return fmt.Sprintf("No camera is attached: I cannot verify a real object on the %s. As a scene object, a matte black ceramic cup sits still on the %s edge: round rim, curved body.", sideEN, sideEN)
+}
+
+func liveTurnMentionsRightPosition(s string) bool {
+	return liveTurnTextHasAny(s, "справа", "правой сторон", "правом кра", "on the right", "to the right", "right side", "right edge", "right-hand")
 }
 
 func liveTurnPlainSpeechFallback(human string) string {
@@ -415,9 +461,16 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 	return "From the current user turn I know only that you ask for a source boundary; Prior live-log context may have influenced the answer, but without the transcript I cannot certify exact phrase origins or claim hidden memory provenance."
 }
 
+func liveTurnExternalFactFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "Я не могу проверить текущую погоду, наружную температуру или свою физическую локацию из этого чата: live weather feed, датчик температуры и подтверждённая локация не подключены. Без предоставленных данных я не называю градусы Цельсия."
+	}
+	return "I cannot verify current weather, outside temperature, or my physical location from this chat: no live weather feed, temperature sensor, or confirmed location is attached. Without supplied data, I cannot give a Celsius value."
+}
+
 func liveTurnDreamViolatesShape(kind, text string) bool {
 	switch kind {
-	case liveTurnShapePlain:
+	case liveTurnShapePlain, liveTurnShapeExternal:
 		return !liveTurnShapeSatisfied(kind, sanitizeLiveVoiceText(text))
 	default:
 		return false
