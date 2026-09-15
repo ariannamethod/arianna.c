@@ -475,15 +475,15 @@ def live_prompt_returned(delta: str) -> bool:
 
 
 def live_turn_ready(before: dict[str, int | None], after: dict[str, int | None], live_delta: str) -> tuple[bool, str]:
+    if not live_prompt_returned(live_delta):
+        return False, ""
     if trio_turn_advanced(before, after):
-        return True, "trio-counters"
-    if live_prompt_returned(live_delta):
-        if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after):
-            return True, "primary-counters-and-prompt"
-        if not turn_counters_not_advanced(TRIO_TURN_KEYS, before, after):
-            return True, "prompt-returned"
-        return True, "prompt-returned-partial-counters"
-    return False, ""
+        return True, "trio-counters-and-prompt"
+    if turn_counters_advanced(PRIMARY_TURN_KEYS, before, after):
+        return True, "primary-counters-and-prompt"
+    if not turn_counters_not_advanced(TRIO_TURN_KEYS, before, after):
+        return True, "prompt-returned"
+    return True, "prompt-returned-partial-counters"
 
 
 def sleep_with_progress(seconds: int) -> None:
