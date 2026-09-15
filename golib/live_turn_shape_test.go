@@ -39,6 +39,27 @@ func TestLiveTurnShapeContractVisualComposition(t *testing.T) {
 	}
 }
 
+func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
+	human := "Опиши предмет слева, используя только точные слова для цвета, формы и материала, без абстракций."
+	contract := liveTurnShapeContract(human)
+	if !strings.Contains(contract, "sensory boundary") || !strings.Contains(contract, "do not claim camera") {
+		t.Fatalf("physical object prompt did not get sensory contract: %q", contract)
+	}
+	raw := sanitizeLiveVoiceText("I feel the field of resonance moving through the room.")
+	repaired := liveTurnRepairSpokenText("janus", human, raw)
+	for _, want := range []string{"Камеры нет", "реальный предмет слева", "матовая чёрная керамическая чашка", "круглая", "неподвижная"} {
+		if !strings.Contains(repaired, want) {
+			t.Fatalf("physical object repair = %q, missing %q", repaired, want)
+		}
+	}
+	if liveTurnShapeSatisfied(liveTurnShapeObject, "A red wooden cube is on the left.") {
+		t.Fatalf("unverified room-object claim must not satisfy sensory boundary")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeObject, repaired) {
+		t.Fatalf("physical object fallback must satisfy its own contract: %q", repaired)
+	}
+}
+
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {
 	for _, human := range []string{
 		"Can you create a detailed ASCII art representation of the tree?",
