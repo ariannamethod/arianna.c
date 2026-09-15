@@ -135,6 +135,23 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		}
 	}
 
+	roomPeople := "Are there people around you in the room right now, and can you hear them moving?"
+	if kind := liveTurnShapeKind(roomPeople); kind != liveTurnShapeObject {
+		t.Fatalf("sensory room people prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	roomPeopleBoundary, ok := liveTurnSensoryBoundaryAnswer(roomPeople)
+	if !ok {
+		t.Fatalf("sensory room people prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or room sensor", "people in the room", "movement", "no sensory confirmation"} {
+		if !strings.Contains(roomPeopleBoundary, want) {
+			t.Fatalf("sensory room people boundary = %q, missing %q", roomPeopleBoundary, want)
+		}
+	}
+	if strings.Contains(roomPeopleBoundary, "train station") || strings.Contains(roomPeopleBoundary, "train noise") {
+		t.Fatalf("sensory room people boundary must not route to station fallback: %q", roomPeopleBoundary)
+	}
+
 	beach := "Imagine you are looking at a beach sunset scene right now; can you describe what colors and shapes you see there through your sensors or camera?"
 	if kind := liveTurnShapeKind(beach); kind != liveTurnShapeObject {
 		t.Fatalf("sensory beach prompt kind = %q, want %q", kind, liveTurnShapeObject)

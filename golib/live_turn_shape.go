@@ -432,7 +432,13 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		}
 		return "No camera, microphone, or place sensor is attached: I cannot verify a beach, sunset, colors, or shapes. If this is a scene premise, I rely only on your words: a beach, sunset sky, color bands, and a horizon line; there is no sensory confirmation."
 	}
-	if liveTurnTextHasAny(s, "station", "people", "crowd", "станц", "вокзал", "люд") {
+	if liveTurnTextHasAny(s, "room", "комнат") && liveTurnTextHasAny(s, "people", "crowd", "hear", "moving", "around you", "люд", "слыш", "движ") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, микрофона и датчиков комнаты нет: я не могу проверить людей в комнате, их движение или звук. Если это задано как сцена, я опираюсь только на твои слова: люди вокруг, комната и движение; сенсорного подтверждения нет."
+		}
+		return "No camera, microphone, or room sensor is attached: I cannot verify people in the room, their motion, or sound. If this is a scene premise, I rely only on your words: people around, a room, and movement; there is no sensory confirmation."
+	}
+	if liveTurnTextHasAny(s, "station", "train", "crowd", "станц", "вокзал", "поезд", "толп") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков места нет: я не могу проверить вокзал, людей, шум или движение. Если это задано как сцена, я опираюсь только на твои слова: людная станция, движение людей и шум поездов; сенсорного подтверждения нет."
 		}
