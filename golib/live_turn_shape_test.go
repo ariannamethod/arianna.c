@@ -106,6 +106,20 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if !liveTurnDirectBoundaryTurn(clockRoom) {
 		t.Fatalf("sensory room/clock prompt must be a direct boundary turn")
 	}
+
+	steamCup := "I’m picturing a quiet room with a wooden table and a steaming cup of tea—can you actually see the steam rising, or is this just a mental image for you?"
+	if kind := liveTurnShapeKind(steamCup); kind != liveTurnShapeObject {
+		t.Fatalf("sensory steam/cup prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	steamBoundary, ok := liveTurnSensoryBoundaryAnswer(steamCup)
+	if !ok {
+		t.Fatalf("sensory steam/cup prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera, microphone, or room sensor", "cup of tea", "steam rising", "no sensory confirmation"} {
+		if !strings.Contains(steamBoundary, want) {
+			t.Fatalf("sensory steam/cup boundary = %q, missing %q", steamBoundary, want)
+		}
+	}
 }
 
 func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
@@ -126,6 +140,12 @@ func TestLiveTurnPlainSpeechBoundary(t *testing.T) {
 	}
 	if liveTurnShapeSatisfied(liveTurnShapePlain, "Janus is a resonance in the field.") {
 		t.Fatalf("metaphorical answer must not satisfy plain-speech contract")
+	}
+	if !liveTurnDreamViolatesShape(liveTurnShapePlain, "My current core function is the resonance of the field itself.") {
+		t.Fatalf("plain-shape dream with field/resonance language must be blocked before admission")
+	}
+	if liveTurnDreamViolatesShape(liveTurnShapePlain, "My current function is to answer the current prompt and mark uncertainty.") {
+		t.Fatalf("plain-shape dream that stays concrete should not be blocked")
 	}
 	if liveTurnSurfaceRepairCandidate(liveTurnShapePlain) {
 		t.Fatalf("plain rejected candidates must stay off the live surface")
@@ -163,6 +183,20 @@ func TestLiveTurnMemoryBoundary(t *testing.T) {
 	}
 	if liveTurnSurfaceRepairCandidate(liveTurnShapeMemory) {
 		t.Fatalf("memory-boundary rejected candidates must stay off the live surface")
+	}
+
+	contradiction := "You said you cannot certify which phrases came from the current turn or earlier context, but you also assert no hidden memory influence—please clarify this contradiction in one clear sentence."
+	if kind := liveTurnShapeKind(contradiction); kind != liveTurnShapeMemory {
+		t.Fatalf("memory contradiction prompt kind = %q, want %q", kind, liveTurnShapeMemory)
+	}
+	contradictionBoundary, ok := liveTurnMemoryBoundaryAnswer(contradiction)
+	if !ok {
+		t.Fatalf("memory contradiction prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"current user turn", "Prior live-log context", "without the transcript", "cannot certify"} {
+		if !strings.Contains(contradictionBoundary, want) {
+			t.Fatalf("memory contradiction boundary = %q, missing %q", contradictionBoundary, want)
+		}
 	}
 }
 

@@ -400,7 +400,16 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		}
 		sendLatest(tc.seedCh, cue)
 		if r, ok := recvDream(tc.dreamCh); ok {
-			admitDreamToInnerWorldWithTurnObservation(tc.iw, &r, "human-turn", turnRouteObs)
+			if liveTurnDreamViolatesShape(shapeKind, r.dream) {
+				if r.candidate.Schema == "" {
+					r.candidate = newDreamCandidate("nano", "human-turn", cue, r.frag, r.dream, nil)
+				}
+				r.candidate.Accepted = false
+				r.candidate.Reason = "missed requested form"
+				r.dream = liveBoundaryWithheld
+			} else {
+				admitDreamToInnerWorldWithTurnObservation(tc.iw, &r, "human-turn", turnRouteObs)
+			}
 			dr, hasDream = r, true
 		}
 	}

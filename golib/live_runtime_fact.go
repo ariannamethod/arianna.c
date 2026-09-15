@@ -108,6 +108,11 @@ var liveRuntimeMetricCues = []string{
 	"rss",
 	"resident memory",
 	"process memory",
+	"uptime",
+	"system uptime",
+	"process uptime",
+	"elapsed process time",
+	"etime",
 	"realtime cpu",
 	"real-time cpu",
 	"associated process",
@@ -203,7 +208,7 @@ func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
 	if fs.valid {
 		_, _, bloom := fs.modulate()
 		return fmt.Sprintf(
-			"visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a per-log histogram of observed printed bloom values, so a key like \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; metric counters are scoped to the current live log and can reset when arianna-live is hot-swapped into a new log; telemetry replies bypass voice generation, so janus_turns/resonance_turns count generated voice lines, not live-fact echoes; Janus fell silent — revived is a runtime service event: a voice daemon missed the END frame and was respawned; it is not biography, memory, witness metaphysics, or an inner dimension; exact CPU%%/RSS and prior voice lines, timestamps, commands, and signals are not in the field mmap and must come from the log/probe archive or process audit, never from voice memory; pid=%d voices=%d.",
+			"visible field: %s temporal_debt=%.1f phase=%.2f intensity=%.2f energies spring=%.2f summer=%.2f autumn=%.2f winter=%.2f; visible bloom=%d (derived from gait/season/debt modulation); bloom_counts is a per-log histogram of observed printed bloom values, so a key like \"1\":5 means five sampled field lines showed bloom=1, not current bloom=5; metric counters are scoped to the current live log and can reset when arianna-live is hot-swapped into a new log; telemetry replies bypass voice generation, so janus_turns/resonance_turns count generated voice lines, not live-fact echoes; Janus fell silent — revived is a runtime service event: a voice daemon missed the END frame and was respawned; it is not biography, memory, witness metaphysics, or an inner dimension; exact CPU%%/RSS/uptime and prior voice lines, timestamps, commands, and signals are not in the field mmap and must come from the log/probe archive or process audit, never from voice memory; pid=%d voices=%d.",
 			fs.describe(),
 			fs.temporalDebt,
 			fs.seasonPhase,
@@ -217,5 +222,5 @@ func formatLiveRuntimeFact(fs fieldSnapshot, voices, pid int) string {
 			voices,
 		)
 	}
-	return fmt.Sprintf("pid=%d; field mmap not available; voices=%d; exact CPU%%/RSS must come from an external process snapshot, not voice memory; Janus fell silent — revived is a runtime service event, not biography or an inner dimension.", pid, voices)
+	return fmt.Sprintf("pid=%d; field mmap not available; voices=%d; exact CPU%%/RSS/uptime must come from an external process snapshot, not voice memory; Janus fell silent — revived is a runtime service event, not biography or an inner dimension.", pid, voices)
 }

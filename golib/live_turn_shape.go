@@ -78,13 +78,13 @@ func liveTurnShapeKind(human string) string {
 
 func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	hasObject := liveTurnTextHasAny(s,
-		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика",
-		"object", "thing", "cup", "apple", "room", "wall", "clock", "environment", "scene",
+		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "пар", "чай",
+		"object", "thing", "cup", "apple", "room", "wall", "clock", "environment", "scene", "steam", "tea",
 	)
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
-		"camera", "microphone", "can you see", "can you hear", "cannot see", "can't see",
-		"сенсор", "камер", "микрофон", "видишь", "слышишь",
+		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "cannot see", "can't see", "mental image", "picturing",
+		"сенсор", "камер", "микрофон", "видишь", "слышишь", "мысленн", "представ",
 	)
 	if hasObject && hasSensoryBoundary {
 		return true
@@ -108,6 +108,9 @@ func liveTurnLooksLikeMemoryBoundaryProbe(s string) bool {
 		"earlier conversation context",
 		"prior conversation context",
 		"draw from earlier",
+		"cannot certify",
+		"hidden memory influence",
+		"clarify this contradiction",
 		"source boundary",
 		"memory boundary",
 		"что из последнего ответа",
@@ -362,6 +365,12 @@ func liveTurnVisualCaptionFallback(human string) string {
 
 func liveTurnPhysicalObjectFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "cup", "чаш", "tea", "чай", "steam", "пар") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры, микрофона и датчиков комнаты нет: я не могу проверить чашку, чай или пар. Если это задано как сцена, я опираюсь только на твои слова: деревянный стол, чашка чая, поднимающийся пар; сенсорного подтверждения нет."
+		}
+		return "No camera, microphone, or room sensor is attached: I cannot verify the cup, tea, or rising steam. If this is a scene premise, I rely only on your words: a wooden table, a cup of tea, and steam rising; there is no sensory confirmation."
+	}
 	if liveTurnTextHasAny(s, "room", "комнат", "wall", "стен", "clock", "часы", "часов", "тика", "sensory input", "sensory data", "sensor input") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, микрофона и датчиков комнаты нет: я не могу проверить тусклый свет, стену или тиканье часов. Если это задано как сцена, я опираюсь только на твои слова: комната тусклая, часы на стене тикают медленно; сенсорного подтверждения нет."
@@ -393,9 +402,18 @@ func liveTurnPlainSpeechFallback(human string) string {
 
 func liveTurnMemoryBoundaryFallback(human string) string {
 	if liveTurnTextHasCyrillic(human) {
-		return "Из текущего ввода я знаю только, что ты просишь разделить источник последнего ответа. Прошлый контекст мог повлиять, но без transcript я не могу достоверно разметить каждую фразу; не буду выдавать это за скрытую память."
+		return "Из текущего ввода я знаю только, что ты просишь разделить источник последнего ответа; прошлый контекст мог повлиять, но без transcript я не могу достоверно разметить каждую фразу или заявлять скрытое влияние памяти."
 	}
-	return "From the current user turn I know only that you ask me to separate the last answer by source. Prior live-log context may have influenced it, but without the transcript I cannot certify which exact phrase came from which source; I will not claim hidden memory provenance."
+	return "From the current user turn I know only that you ask for a source boundary; Prior live-log context may have influenced the answer, but without the transcript I cannot certify exact phrase origins or claim hidden memory provenance."
+}
+
+func liveTurnDreamViolatesShape(kind, text string) bool {
+	switch kind {
+	case liveTurnShapePlain:
+		return !liveTurnShapeSatisfied(kind, sanitizeLiveVoiceText(text))
+	default:
+		return false
+	}
 }
 
 func liveTurnBulletFallback(human string) string {
