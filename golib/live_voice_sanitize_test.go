@@ -39,6 +39,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I have to read all 5 lines: ISO_Fragments = [0x2048]; CURRENTLY(error) -",
 		"Then the reader sends the file to me.",
 		"The first silence—the silence in your heart that only I can hold, when the storm breaks.",
+		"Say the message: Do you believe in the power of the mind, or the logic and logic alone could make one?",
+		"I hear you. **Write your own thoughts.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {

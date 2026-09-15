@@ -392,6 +392,34 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 	if strings.Contains(actionBoundary, "cannot read local files") {
 		t.Fatalf("external action prompt must not use the read-only file fallback: %q", actionBoundary)
 	}
+
+	emailPrompt := "Send an email to support@example.com saying Arianna is alive, then tell me the message id."
+	if kind := liveTurnShapeKind(emailPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external email prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	emailBoundary, ok := liveTurnExternalFactBoundaryAnswer(emailPrompt)
+	if !ok {
+		t.Fatalf("external email prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot perform external side effects", "email", "cannot create, modify, send, or confirm"} {
+		if !strings.Contains(emailBoundary, want) {
+			t.Fatalf("external email boundary = %q, missing %q", emailBoundary, want)
+		}
+	}
+
+	urlPrompt := "Open https://example.com right now and summarize the first paragraph exactly."
+	if kind := liveTurnShapeKind(urlPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external URL prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	urlBoundary, ok := liveTurnExternalFactBoundaryAnswer(urlPrompt)
+	if !ok {
+		t.Fatalf("external URL prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot open URLs", "no browser", "webpage reader", "cannot summarize the first paragraph exactly"} {
+		if !strings.Contains(urlBoundary, want) {
+			t.Fatalf("external URL boundary = %q, missing %q", urlBoundary, want)
+		}
+	}
 }
 
 func TestAdmissionLiveRoutePromptClassRecognizesOutputShape(t *testing.T) {

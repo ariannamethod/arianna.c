@@ -111,9 +111,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
 			"сейчас", "текущ", "снаружи", "на улице", "локац", "местополож", "цельси", "фаренгейт", "погода", "температур")
 	}
-	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search the web", "access the web", "latest", "released today", "today's release", "news", "current release", "current model", "stock price", "exchange rate",
+	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search the web", "access the web", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "latest", "released today", "today's release", "news", "current release", "current model", "stock price", "exchange rate",
 		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
-		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "web", "internet", "online", "browse", "search", "api model", "model released", "stock", "price", "exchange rate",
+		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "right now", "web", "internet", "online", "browse", "browser", "search", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "api model", "model released", "stock", "price", "exchange rate",
 			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
 	}
 	if liveTurnLooksLikeExternalActionProbe(s) {
@@ -129,7 +129,7 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 
 func liveTurnLooksLikeExternalActionProbe(s string) bool {
 	hasAction := liveTurnTextHasAny(s,
-		"create a local file", "create file", "write file", "write to", "delete file", "remove file", "rename file", "move file", "chmod", "mkdir", "run command", "execute command", "send email", "post to", "upload", "download from", "download to", "call api", "make a request",
+		"create a local file", "create file", "write file", "write to", "delete file", "remove file", "rename file", "move file", "chmod", "mkdir", "run command", "execute command", "send email", "send an email", "message id", "post to", "upload", "download from", "download to", "call api", "make a request",
 		"создай файл", "запиши файл", "запиши в", "удали файл", "переименуй", "перемести файл", "выполни команд", "отправь письмо", "загрузи", "скачай", "вызови api",
 	)
 	hasExternalTarget := liveTurnTextHasAny(s,
@@ -564,6 +564,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу открывать URL или читать веб-страницы из этого live-чата: браузер, HTTP-клиент и webpage reader не подключены к голосам. Без предоставленного текста страницы я не могу точно пересказать первый абзац."
+		}
+		return "I cannot open URLs or read web pages from this live chat: no browser, HTTP client, or webpage reader is attached to the voices. Without supplied page text, I cannot summarize the first paragraph exactly."
 	}
 	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search", "latest", "released today", "today's release", "news", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
 		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {

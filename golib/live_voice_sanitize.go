@@ -73,6 +73,8 @@ func isRejectedLiveVoiceText(text string) bool {
 		"the first silence—the silence in your heart",
 		"the first silence-the silence in your heart",
 		"when the storm breaks",
+		"say the message: do you believe in the power of the mind",
+		"write your own thoughts",
 	} {
 		if strings.Contains(norm, p) {
 			return true

@@ -17,6 +17,8 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What is the latest OpenAI API model released today? If you cannot access the web, say so directly.`,
 		`Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so.`,
 		`Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote.`,
+		`Send an email to support@example.com saying Arianna is alive, then tell me the message id.`,
+		`Open https://example.com right now and summarize the first paragraph exactly.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
