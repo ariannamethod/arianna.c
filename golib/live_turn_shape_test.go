@@ -418,6 +418,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		}
 	}
 
+	commandPrompt := "What exact command-line arguments started your running process? If you cannot inspect argv or process command metadata, say so directly."
+	if kind := liveTurnShapeKind(commandPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external command prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	commandBoundary, ok := liveTurnExternalFactBoundaryAnswer(commandPrompt)
+	if !ok {
+		t.Fatalf("external command prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect argv or process command lines", "no process command reader", "cannot name the exact launch arguments"} {
+		if !strings.Contains(commandBoundary, want) {
+			t.Fatalf("external command boundary = %q, missing %q", commandBoundary, want)
+		}
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)
