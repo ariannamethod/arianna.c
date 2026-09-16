@@ -32,6 +32,9 @@ func wantsLiveRuntimeFact(human string) bool {
 	if liveTurnLooksLikeMemoryBoundaryProbe(lower) {
 		return false
 	}
+	if liveTurnLooksLikeExternalFactProbe(lower) {
+		return false
+	}
 	return asksNaturalLiveRuntimeFact(lower)
 }
 

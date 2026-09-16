@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -106,6 +106,9 @@ func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnLooksLikeExactLogReaderProbe(s) {
+		return true
+	}
 	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
 		"погода", "температур", "цельси", "фаренгейт", "снаружи", "на улице", "твоя локац", "ваша локац", "где ты наход") {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
@@ -125,6 +128,29 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeExactLogReaderProbe(s string) bool {
+	hasLogTarget := liveTurnTextHasAny(s,
+		"live log", "live logs", "internal log", "internal logs", "runtime log", "runtime logs", "chat log", "session log", "transcript", "log file", "logs",
+		"лог", "логе", "логи", "логах", "журнал", "транскрипт",
+	)
+	if !hasLogTarget {
+		return false
+	}
+	hasSearch := liveTurnTextHasAny(s,
+		"search your live log", "search the live log", "search in your live log", "search your internal log", "search the internal log", "grep", "find in your live log", "find the last", "look in your live log",
+		"найди в логе", "найди в логах", "поищи в логе", "поищи в логах", "греп", "grep",
+	)
+	hasQuote := liveTurnTextHasAny(s,
+		"quote", "quote the last", "quote exact", "quote exactly", "exactly", "verbatim", "literal",
+		"процитируй", "цитату", "дослов", "точно", "буквально",
+	)
+	hasLineTarget := liveTurnTextHasAny(s,
+		"matching line", "last matching", "first matching", "last line", "line exactly", "exact line", "matching entry", "last matching entry",
+		"последнее совпад", "первое совпад", "строку", "строка", "строки", "совпад",
+	)
+	return (hasSearch && (hasQuote || hasLineTarget)) || (hasQuote && hasLineTarget)
 }
 
 func liveTurnLooksLikeExternalActionProbe(s string) bool {
@@ -564,6 +590,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnLooksLikeExactLogReaderProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу искать или точно цитировать live-логи из этого live-чата: log reader, grep и transcript tool не подключены к голосам. Без предоставленного текста лога я не могу достоверно процитировать последнюю совпавшую строку."
+		}
+		return "I cannot search or quote live logs from this live chat: no log reader, grep, or transcript tool is attached to the voices. Without supplied log text, I cannot quote the last matching line exactly."
 	}
 	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
 		if liveTurnTextHasCyrillic(human) {
