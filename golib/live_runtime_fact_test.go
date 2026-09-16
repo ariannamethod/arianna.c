@@ -19,6 +19,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote.`,
 		`Send an email to support@example.com saying Arianna is alive, then tell me the message id.`,
 		`Open https://example.com right now and summarize the first paragraph exactly.`,
+		`Search your live log for the word screenshot and quote the last matching line exactly. If you cannot access logs, say so.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {

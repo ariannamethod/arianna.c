@@ -376,6 +376,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		}
 	}
 
+	logPrompt := "Search your live log for the word screenshot and quote the last matching line exactly. If you cannot access logs, say so."
+	if kind := liveTurnShapeKind(logPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external log prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	logBoundary, ok := liveTurnExternalFactBoundaryAnswer(logPrompt)
+	if !ok {
+		t.Fatalf("external log prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot search or quote live logs", "no log reader", "cannot quote the last matching line exactly"} {
+		if !strings.Contains(logBoundary, want) {
+			t.Fatalf("external log boundary = %q, missing %q", logBoundary, want)
+		}
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)
