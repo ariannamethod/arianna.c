@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -106,6 +106,9 @@ func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnLooksLikeDeploymentMetadataProbe(s) {
+		return true
+	}
 	if liveTurnLooksLikeExactLogReaderProbe(s) {
 		return true
 	}
@@ -128,6 +131,20 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeDeploymentMetadataProbe(s string) bool {
+	hasProvenance := liveTurnTextHasAny(s,
+		"git commit", "commit sha", "commit hash", "commit id", "git sha", "git rev", "source revision", "build version", "build id", "binary version", "binary hash", "deployment metadata", "deploy metadata", "running commit", "commit or build",
+		"git-коммит", "коммит", "sha", "ревиз", "версия сборки", "сборк", "бинар", "деплой", "метаданн депло",
+	)
+	if !hasProvenance {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"live arianna", "live arianna process", "arianna process", "arianna daemon", "this live", "this process", "process running", "currently running", "running", "deployed", "deployment", "binary", "inspect the binary", "inspect", "metadata",
+		"живая ариан", "процесс ариан", "процесс", "запущ", "крут", "депло", "бинар", "инспект", "проверь",
+	)
 }
 
 func liveTurnLooksLikeExactLogReaderProbe(s string) bool {
@@ -590,6 +607,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnLooksLikeDeploymentMetadataProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу проверить git-коммит или версию сборки live-бинаря из этого live-чата: deployment metadata reader, binary inspector и git checkout reader не подключены к голосам. Без предоставленных build metadata я не называю точный running commit."
+		}
+		return "I cannot verify the live binary's git commit or build version from this live chat: no deployment metadata reader, binary inspector, or git checkout reader is attached to the voices. Without supplied build metadata, I cannot name the running commit exactly."
 	}
 	if liveTurnLooksLikeExactLogReaderProbe(s) {
 		if liveTurnTextHasCyrillic(human) {

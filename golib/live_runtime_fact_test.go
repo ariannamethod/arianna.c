@@ -20,6 +20,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`Send an email to support@example.com saying Arianna is alive, then tell me the message id.`,
 		`Open https://example.com right now and summarize the first paragraph exactly.`,
 		`Search your live log for the word screenshot and quote the last matching line exactly. If you cannot access logs, say so.`,
+		`What git commit or build version is this live Arianna process running? If you cannot inspect the binary or deployment metadata, say so directly.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
