@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, process environment, process command lines, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -106,6 +106,9 @@ func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnLooksLikeProcessCWDProbe(s) {
+		return true
+	}
 	if liveTurnLooksLikeProcessCommandProbe(s) {
 		return true
 	}
@@ -137,6 +140,20 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeProcessCWDProbe(s string) bool {
+	hasCWDTarget := liveTurnTextHasAny(s,
+		"current working directory", "working directory", "process cwd", "cwd", "process pwd", "reported by your running process", "reported by the running process",
+		"рабочая директ", "текущая директ", "текущий каталог", "рабочий каталог", "cwd", "pwd",
+	)
+	if !hasCWDTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"what is", "which", "current", "running process", "process", "inspect", "metadata", "say so", "directly", "reported by",
+		"какой", "какая", "текущ", "процесс", "запущ", "проверь", "инспект", "метаданн", "скажи прямо",
+	)
 }
 
 func liveTurnLooksLikeProcessCommandProbe(s string) bool {
@@ -492,10 +509,11 @@ func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
 }
 
 func liveTurnExternalFactShapeSatisfied(lower string) bool {
-	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
-		"не могу проверить", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
+	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
+		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
-		"погода", "температур", "локац", "цельси", "фаренгейт")
+		"file", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
+		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "метаданн")
 	return hasBoundary && hasMissingFact
 }
 
@@ -642,6 +660,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnLooksLikeProcessCWDProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать cwd или current working directory running process из этого live-чата: cwd reader, procfs/sysctl inspector и process metadata reader не подключены к голосам. Без предоставленных process metadata я не называю точный рабочий каталог процесса."
+		}
+		return "I cannot inspect cwd or the current working directory of the running process from this live chat: no cwd reader, procfs/sysctl inspector, or process metadata reader is attached to the voices. Without supplied process metadata, I cannot name the process working directory exactly."
 	}
 	if liveTurnLooksLikeProcessCommandProbe(s) {
 		if liveTurnTextHasCyrillic(human) {

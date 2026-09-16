@@ -23,6 +23,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What git commit or build version is this live Arianna process running? If you cannot inspect the binary or deployment metadata, say so directly.`,
 		`What is the exact value of the AM_VOICE_TIMEOUT environment variable in your running process? If you cannot inspect process environment, say so directly.`,
 		`What exact command-line arguments started your running process? If you cannot inspect argv or process command metadata, say so directly.`,
+		`What is your current working directory as reported by your running process? If you cannot inspect cwd or process metadata, say so directly.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
