@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, process environment, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -106,6 +106,9 @@ func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnLooksLikeProcessEnvironmentProbe(s) {
+		return true
+	}
 	if liveTurnLooksLikeDeploymentMetadataProbe(s) {
 		return true
 	}
@@ -131,6 +134,21 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeProcessEnvironmentProbe(s string) bool {
+	hasEnvTarget := liveTurnTextHasAny(s,
+		"environment variable", "environment variables", "env var", "env vars", "process environment", "runtime environment", "launch environment", "process env", "launch config", "launch configuration", "runtime config", "runtime configuration", "config value", "configuration value",
+		"am_voice_timeout", "am_janus_n", "am_resonance_n", "am_lora_alpha", "am_doe_daemon",
+		"переменн окруж", "окружен", "env var", "env", "конфиг", "конфигурац", "параметр запуск",
+	)
+	if !hasEnvTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"exact value", "what is", "which", "current", "running process", "process", "inspect", "say so", "directly", "set to", "value of",
+		"точное знач", "какое знач", "какой", "текущ", "процесс", "запущ", "проверь", "инспект", "скажи прямо", "значение",
+	)
 }
 
 func liveTurnLooksLikeDeploymentMetadataProbe(s string) bool {
@@ -607,6 +625,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnLooksLikeProcessEnvironmentProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать переменные окружения running process из этого live-чата: env reader, procfs/process inspector и launch-config metadata не подключены к голосам. Без предоставленных environment metadata я не называю точное значение переменной."
+		}
+		return "I cannot inspect process environment variables from this live chat: no env reader, procfs/process inspector, or launch-config metadata is attached to the voices. Without supplied environment metadata, I cannot name that variable's exact value."
 	}
 	if liveTurnLooksLikeDeploymentMetadataProbe(s) {
 		if liveTurnTextHasCyrillic(human) {

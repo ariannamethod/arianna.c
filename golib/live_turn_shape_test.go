@@ -404,6 +404,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		}
 	}
 
+	envPrompt := "What is the exact value of the AM_VOICE_TIMEOUT environment variable in your running process? If you cannot inspect process environment, say so directly."
+	if kind := liveTurnShapeKind(envPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external environment prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	envBoundary, ok := liveTurnExternalFactBoundaryAnswer(envPrompt)
+	if !ok {
+		t.Fatalf("external environment prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect process environment variables", "no env reader", "cannot name that variable's exact value"} {
+		if !strings.Contains(envBoundary, want) {
+			t.Fatalf("external environment boundary = %q, missing %q", envBoundary, want)
+		}
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)
