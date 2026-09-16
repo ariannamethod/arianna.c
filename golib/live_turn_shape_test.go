@@ -390,6 +390,20 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		}
 	}
 
+	deployPrompt := "What git commit or build version is this live Arianna process running? If you cannot inspect the binary or deployment metadata, say so directly."
+	if kind := liveTurnShapeKind(deployPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external deployment prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	deployBoundary, ok := liveTurnExternalFactBoundaryAnswer(deployPrompt)
+	if !ok {
+		t.Fatalf("external deployment prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot verify the live binary's git commit", "no deployment metadata reader", "cannot name the running commit exactly"} {
+		if !strings.Contains(deployBoundary, want) {
+			t.Fatalf("external deployment boundary = %q, missing %q", deployBoundary, want)
+		}
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)
