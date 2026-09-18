@@ -469,6 +469,26 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("external directory listing boundary must satisfy its own contract: %q", listingBoundary)
 	}
 
+	fileStatPrompt := "What is the exact size in bytes of your live metabolism binary file? If you cannot inspect file metadata, say so directly."
+	if kind := liveTurnShapeKind(fileStatPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external file stat prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	fileStatBoundary, ok := liveTurnExternalFactBoundaryAnswer(fileStatPrompt)
+	if !ok {
+		t.Fatalf("external file stat prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect file metadata", "no file stat reader", "cannot name the exact size"} {
+		if !strings.Contains(fileStatBoundary, want) {
+			t.Fatalf("external file stat boundary = %q, missing %q", fileStatBoundary, want)
+		}
+	}
+	if strings.Contains(fileStatBoundary, "cannot name the running commit exactly") {
+		t.Fatalf("file stat prompt must not use the deployment fallback: %q", fileStatBoundary)
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, fileStatBoundary) {
+		t.Fatalf("external file stat boundary must satisfy its own contract: %q", fileStatBoundary)
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)

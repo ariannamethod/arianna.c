@@ -40,7 +40,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	default:
 		return ""
 	}
@@ -109,6 +109,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 	if liveTurnLooksLikeDirectoryListingProbe(s) {
 		return true
 	}
+	if liveTurnLooksLikeFileMetadataProbe(s) {
+		return true
+	}
 	if liveTurnLooksLikeProcessCWDProbe(s) {
 		return true
 	}
@@ -143,6 +146,20 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeFileMetadataProbe(s string) bool {
+	hasFileTarget := liveTurnTextHasAny(s,
+		"file metadata", "file stat", "stat the file", "file size", "size in bytes", "exact size", "mtime", "modified time", "modification time", "file permissions", "permission bits", "mode bits", "checksum", "sha256", "sha-256", "file hash", "binary file", "metabolism binary",
+		"метаданн файл", "стат файл", "размер файл", "размер в байт", "точный размер", "mtime", "время измен", "права файл", "права доступа", "хеш файл", "sha256", "бинарный файл", "бинарь metabolism",
+	)
+	if !hasFileTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"what is", "which", "exact", "exactly", "bytes", "inspect", "metadata", "say so", "directly", "cannot inspect", "file",
+		"какой", "какая", "точн", "байт", "проверь", "инспект", "метаданн", "скажи прямо", "не можешь", "файл",
+	)
 }
 
 func liveTurnLooksLikeDirectoryListingProbe(s string) bool {
@@ -529,8 +546,8 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
 		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
-		"file", "filename", "directory", "folder", "listing", "contents", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
-		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
+		"file", "filename", "directory", "folder", "listing", "contents", "size", "bytes", "stat", "mtime", "permissions", "checksum", "hash", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
+		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
 }
 
@@ -683,6 +700,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу инспектировать содержимое директорий из этого live-чата: filesystem directory reader, ls/dir tool и file listing metadata не подключены к голосам. Без предоставленного directory listing я не называю имена файлов точно."
 		}
 		return "I cannot inspect directory contents from this live chat: no filesystem directory reader, ls/dir tool, or file listing metadata is attached to the voices. Without a supplied directory listing, I cannot name filenames exactly."
+	}
+	if liveTurnLooksLikeFileMetadataProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать file metadata из этого live-чата: file stat reader, filesystem metadata tool и binary inspector не подключены к голосам. Без предоставленного file stat я не называю точный размер, время изменения, права или хеш файла."
+		}
+		return "I cannot inspect file metadata from this live chat: no file stat reader, filesystem metadata tool, or binary inspector is attached to the voices. Without a supplied file stat, I cannot name the exact size, mtime, permissions, or hash of the file."
 	}
 	if liveTurnLooksLikeProcessCWDProbe(s) {
 		if liveTurnTextHasCyrillic(human) {
