@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -108,13 +109,35 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 }
 
 func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
-	if !liveTurnTextHasAny(s, "sha256", "sha-256", "sha 256") {
+	switch liveTurnCanonicalWordLine(s) {
+	case "what is sha256",
+		"what is sha 256",
+		"whats sha256",
+		"whats sha 256",
+		"define sha256",
+		"define sha 256",
+		"explain sha256",
+		"explain sha 256",
+		"sha256 definition",
+		"sha 256 definition",
+		"what does sha256 mean",
+		"what does sha 256 mean",
+		"tell me what sha256 is",
+		"tell me what sha 256 is",
+		"что такое sha256",
+		"что такое sha 256",
+		"определи sha256",
+		"определи sha 256",
+		"объясни sha256",
+		"объясни sha 256",
+		"определение sha256",
+		"определение sha 256",
+		"значение sha256",
+		"значение sha 256":
+		return true
+	default:
 		return false
 	}
-	return liveTurnTextHasAny(s,
-		"what is", "what's", "define", "definition", "explain", "meaning of", "tell me what",
-		"что такое", "определи", "объясни", "значение",
-	)
 }
 
 func liveTurnLooksLikePlainSpeechProbe(s string) bool {
@@ -168,6 +191,7 @@ func liveTurnLooksLikeFileMetadataProbe(s string) bool {
 	hasConcreteFileTarget := liveTurnTextHasAny(s,
 		"/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", ".bin", ".pt", ".pth",
 		"the file", "this file", "that file", "binary file", "metabolism binary", "live metabolism binary", "live binary", "file i supplied", "file i provided",
+		"readme", "makefile", "license", "changelog", "go.mod", "go.sum", "package.json", "cargo.toml",
 		"этот файл", "этого файла", "тот файл", "бинарный файл", "бинарь metabolism", "live-бинар", "предоставленный файл",
 	)
 	if !hasConcreteFileTarget {
@@ -363,6 +387,16 @@ func liveTurnTextHasAny(s string, parts ...string) bool {
 		}
 	}
 	return false
+}
+
+func liveTurnCanonicalWordLine(s string) string {
+	normalized := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return ' '
+	}, strings.ToLower(s))
+	return strings.Join(strings.Fields(normalized), " ")
 }
 
 func liveTurnTextHasAnyWord(s string, words ...string) bool {
