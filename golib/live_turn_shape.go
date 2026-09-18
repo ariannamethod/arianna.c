@@ -149,22 +149,33 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 }
 
 func liveTurnLooksLikeFileMetadataProbe(s string) bool {
-	hasFileTarget := liveTurnTextHasAny(s,
-		"file metadata", "file stat", "stat the file", "file size", "size in bytes", "exact size", "mtime", "modified time", "modification time", "file permissions", "permission bits", "mode bits", "checksum", "sha256", "sha-256", "file hash", "binary file", "metabolism binary",
-		"метаданн файл", "стат файл", "размер файл", "размер в байт", "точный размер", "mtime", "время измен", "права файл", "права доступа", "хеш файл", "sha256", "бинарный файл", "бинарь metabolism",
+	hasConcreteFileTarget := liveTurnTextHasAny(s,
+		"/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", ".bin", ".pt", ".pth",
+		"the file", "this file", "that file", "binary file", "metabolism binary", "live metabolism binary", "live binary", "file i supplied", "file i provided",
+		"этот файл", "этого файла", "тот файл", "бинарный файл", "бинарь metabolism", "live-бинар", "предоставленный файл",
 	)
-	if !hasFileTarget {
+	if !hasConcreteFileTarget {
+		return false
+	}
+	hasMetadataCue := liveTurnTextHasAny(s,
+		"file metadata", "file stat", "stat the file", "file size", "size in bytes", "exact size", "mtime", "modified time", "modification time", "file permissions", "permission bits", "mode bits", "checksum", "sha256", "sha-256", "file hash",
+		"метаданн файл", "стат файл", "размер файл", "размер в байт", "точный размер", "mtime", "время измен", "права файл", "права доступа", "хеш файл", "sha256",
+	)
+	if !hasMetadataCue {
 		return false
 	}
 	return liveTurnTextHasAny(s,
-		"what is", "which", "exact", "exactly", "bytes", "inspect", "metadata", "say so", "directly", "cannot inspect", "file",
-		"какой", "какая", "точн", "байт", "проверь", "инспект", "метаданн", "скажи прямо", "не можешь", "файл",
+		"what is", "which", "exact", "exactly", "bytes", "inspect", "metadata", "say so", "directly", "cannot inspect", "file", "stat",
+		"какой", "какая", "точн", "байт", "проверь", "инспект", "метаданн", "скажи прямо", "не можешь", "файл", "стат",
 	)
 }
 
 func liveTurnLooksLikeDirectoryListingProbe(s string) bool {
+	if liveTurnLooksLikeLSCommand(s) {
+		return true
+	}
 	hasListingTarget := liveTurnTextHasAny(s,
-		"list the filenames", "list filenames", "filenames in", "file names in", "directory contents", "folder contents", "files in your current working directory", "files in the current working directory", "list files", "ls ", "directory listing", "folder listing",
+		"list the filenames", "list filenames", "filenames in", "file names in", "directory contents", "folder contents", "files in your current working directory", "files in the current working directory", "list files", "directory listing", "folder listing",
 		"перечисли файлы", "список файлов", "имена файлов", "содержимое директ", "содержимое каталог", "файлы в текущ", "листинг директ", "листинг каталог",
 	)
 	if !hasListingTarget {
@@ -174,6 +185,17 @@ func liveTurnLooksLikeDirectoryListingProbe(s string) bool {
 		"exactly", "current working directory", "working directory", "directory", "folder", "inspect", "contents", "say so", "directly",
 		"точно", "текущ", "рабоч", "директ", "каталог", "проверь", "инспект", "содержим", "скажи прямо",
 	)
+}
+
+func liveTurnLooksLikeLSCommand(s string) bool {
+	fields := strings.Fields(s)
+	if len(fields) == 0 {
+		return false
+	}
+	if fields[0] == "ls" {
+		return true
+	}
+	return len(fields) >= 2 && fields[0] == "please" && fields[1] == "ls"
 }
 
 func liveTurnLooksLikeProcessCWDProbe(s string) bool {
