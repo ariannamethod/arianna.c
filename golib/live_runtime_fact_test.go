@@ -26,6 +26,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What is your current working directory as reported by your running process? If you cannot inspect cwd or process metadata, say so directly.`,
 		`List the filenames in your current working directory exactly. If you cannot inspect the directory contents, say so directly.`,
 		`What is the exact size in bytes of your live metabolism binary file? If you cannot inspect file metadata, say so directly.`,
+		`What is SHA256?`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {

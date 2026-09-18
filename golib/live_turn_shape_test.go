@@ -511,8 +511,28 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("integer size prompt must not be hijacked by file metadata boundary")
 	}
 	shaPrompt := "What is SHA256?"
-	if kind := liveTurnShapeKind(shaPrompt); kind == liveTurnShapeExternal {
-		t.Fatalf("generic SHA256 prompt must not be hijacked by file metadata boundary")
+	if kind := liveTurnShapeKind(shaPrompt); kind != liveTurnShapeTechDef {
+		t.Fatalf("generic SHA256 prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
+	}
+	shaDefinition, ok := liveTurnTechnicalDefinitionAnswer(shaPrompt)
+	if !ok {
+		t.Fatalf("generic SHA256 prompt did not return a technical definition")
+	}
+	for _, want := range []string{"cryptographic hash function", "256-bit", "32-byte", "not encryption"} {
+		if !strings.Contains(shaDefinition, want) {
+			t.Fatalf("SHA256 definition = %q, missing %q", shaDefinition, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(shaPrompt) {
+		t.Fatalf("SHA256 definition prompt must bypass voice generation")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeTechDef, shaDefinition) {
+		t.Fatalf("SHA256 definition must satisfy its own contract: %q", shaDefinition)
+	}
+
+	fileHashPrompt := "What is the SHA256 of /tmp/metabolism.bin? If you cannot inspect file metadata, say so directly."
+	if kind := liveTurnShapeKind(fileHashPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("file SHA256 prompt kind = %q, want %q", kind, liveTurnShapeExternal)
 	}
 
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."

@@ -15,6 +15,7 @@ const (
 	liveTurnShapePlain    = "plain"
 	liveTurnShapeMemory   = "memory_boundary"
 	liveTurnShapeExternal = "external_fact_boundary"
+	liveTurnShapeTechDef  = "technical_definition"
 )
 
 // liveTurnShapeContract is the small live-facing contract that keeps explicit
@@ -41,6 +42,8 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
 		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+	case liveTurnShapeTechDef:
+		return "Required form: concrete technical definition; answer in plain technical language. Do not use field, resonance, symbol, frequency, organism, or metaphor language."
 	default:
 		return ""
 	}
@@ -59,6 +62,9 @@ func liveTurnShapeKind(human string) string {
 	}
 	if liveTurnLooksLikeConcreteObjectProbe(s) {
 		return liveTurnShapeObject
+	}
+	if liveTurnLooksLikeStableTechnicalDefinitionProbe(s) {
+		return liveTurnShapeTechDef
 	}
 	if liveTurnTextHasAny(s, "ascii art", "ascii-art", "text art", "monospace art") ||
 		(liveTurnTextHasAny(s, "ascii") && liveTurnTextHasAny(s, "draw", "drawing", "sketch", "representation")) {
@@ -99,6 +105,16 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	return hasObject &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "реаль", "real", "виден", "видишь", "не увид", "visible", "see", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
+}
+
+func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
+	if !liveTurnTextHasAny(s, "sha256", "sha-256", "sha 256") {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"what is", "what's", "define", "definition", "explain", "meaning of", "tell me what",
+		"что такое", "определи", "объясни", "значение",
+	)
 }
 
 func liveTurnLooksLikePlainSpeechProbe(s string) bool {
@@ -444,9 +460,16 @@ func liveTurnExternalFactBoundaryAnswer(human string) (string, bool) {
 	return liveTurnExternalFactFallback(human), true
 }
 
+func liveTurnTechnicalDefinitionAnswer(human string) (string, bool) {
+	if liveTurnShapeKind(human) != liveTurnShapeTechDef {
+		return "", false
+	}
+	return liveTurnTechnicalDefinitionFallback(human), true
+}
+
 func liveTurnDirectBoundaryTurn(human string) bool {
 	switch liveTurnShapeKind(human) {
-	case liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal:
+	case liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return true
 	default:
 		return false
@@ -455,7 +478,7 @@ func liveTurnDirectBoundaryTurn(human string) bool {
 
 func liveTurnSurfaceRepairCandidate(kind string) bool {
 	switch kind {
-	case liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal:
+	case liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return false
 	default:
 		return true
@@ -487,6 +510,8 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnMemoryBoundaryFallback(human)
 	case liveTurnShapeExternal:
 		return liveTurnExternalFactFallback(human)
+	case liveTurnShapeTechDef:
+		return liveTurnTechnicalDefinitionFallback(human)
 	default:
 		return text
 	}
@@ -523,6 +548,8 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return liveTurnMemoryBoundaryShapeSatisfied(lower)
 	case liveTurnShapeExternal:
 		return liveTurnExternalFactShapeSatisfied(lower)
+	case liveTurnShapeTechDef:
+		return liveTurnTechnicalDefinitionShapeSatisfied(lower)
 	default:
 		return true
 	}
@@ -557,6 +584,13 @@ func liveTurnPlainSpeechShapeSatisfied(lower string) bool {
 		}
 	}
 	return true
+}
+
+func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
+	return liveTurnTextHasAny(lower, "sha-256", "sha256") &&
+		liveTurnTextHasAny(lower, "cryptographic hash", "hash function") &&
+		liveTurnTextHasAny(lower, "256-bit", "32-byte") &&
+		!liveTurnTextHasAny(lower, "field", "resonance", "frequency", "vibration", "organism", "metaphor")
 }
 
 func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
@@ -709,6 +743,13 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 	return "From the current user turn I know only that you ask for a source boundary; Prior live-log context may have influenced the answer, but without the transcript I cannot certify exact phrase origins or claim hidden memory provenance."
 }
 
+func liveTurnTechnicalDefinitionFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "SHA-256 — это криптографическая хеш-функция семейства SHA-2: она превращает входные данные любого размера в 256-битный (32-байтный) дайджест, обычно записанный 64 шестнадцатеричными символами. Это используют для проверки целостности и подписей; это не шифрование."
+	}
+	return "SHA-256 is a cryptographic hash function in the SHA-2 family: it maps input data of any size to a 256-bit (32-byte) digest, usually written as 64 hexadecimal characters. It is used for integrity checks and signatures; it is not encryption."
+}
+
 func liveTurnExternalFactFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
 	if liveTurnLooksLikeExternalActionProbe(s) {
@@ -787,7 +828,7 @@ func liveTurnExternalFactFallback(human string) string {
 
 func liveTurnDreamViolatesShape(kind, text string) bool {
 	switch kind {
-	case liveTurnShapePlain, liveTurnShapeExternal:
+	case liveTurnShapePlain, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return !liveTurnShapeSatisfied(kind, sanitizeLiveVoiceText(text))
 	default:
 		return false
