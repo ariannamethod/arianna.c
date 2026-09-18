@@ -191,9 +191,9 @@ func liveTurnLooksLikeFileMetadataProbe(s string) bool {
 	hasConcreteFileTarget := liveTurnTextHasAny(s,
 		"/users/", "/var/", "/tmp/", "/opt/", "/home/", ".txt", ".md", ".json", ".jsonl", ".log", ".gguf", ".safetensors", ".bin", ".pt", ".pth",
 		"the file", "this file", "that file", "binary file", "metabolism binary", "live metabolism binary", "live binary", "file i supplied", "file i provided",
-		"readme", "makefile", "license", "changelog", "go.mod", "go.sum", "package.json", "cargo.toml",
+		"go.mod", "go.sum", "package.json", "cargo.toml",
 		"этот файл", "этого файла", "тот файл", "бинарный файл", "бинарь metabolism", "live-бинар", "предоставленный файл",
-	)
+	) || liveTurnTextHasAnyWord(s, "readme", "makefile", "license", "changelog")
 	if !hasConcreteFileTarget {
 		return false
 	}
@@ -391,6 +391,9 @@ func liveTurnTextHasAny(s string, parts ...string) bool {
 
 func liveTurnCanonicalWordLine(s string) string {
 	normalized := strings.Map(func(r rune) rune {
+		if r == '\'' || r == '’' {
+			return -1
+		}
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			return r
 		}
