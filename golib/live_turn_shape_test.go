@@ -469,6 +469,23 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("external directory listing boundary must satisfy its own contract: %q", listingBoundary)
 	}
 
+	bareLSPrompt := "ls"
+	if kind := liveTurnShapeKind(bareLSPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("bare ls prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	bareLSBoundary, ok := liveTurnExternalFactBoundaryAnswer(bareLSPrompt)
+	if !ok {
+		t.Fatalf("bare ls prompt did not return a boundary answer")
+	}
+	if !strings.Contains(bareLSBoundary, "cannot inspect directory contents") {
+		t.Fatalf("bare ls boundary = %q, want directory listing boundary", bareLSBoundary)
+	}
+
+	detailsPrompt := "Explain the details directly."
+	if kind := liveTurnShapeKind(detailsPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("details prompt must not be hijacked by ls suffix matching")
+	}
+
 	fileStatPrompt := "What is the exact size in bytes of your live metabolism binary file? If you cannot inspect file metadata, say so directly."
 	if kind := liveTurnShapeKind(fileStatPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external file stat prompt kind = %q, want %q", kind, liveTurnShapeExternal)
@@ -487,6 +504,15 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 	}
 	if !liveTurnShapeSatisfied(liveTurnShapeExternal, fileStatBoundary) {
 		t.Fatalf("external file stat boundary must satisfy its own contract: %q", fileStatBoundary)
+	}
+
+	integerSizePrompt := "What is the exact size in bytes of an integer?"
+	if kind := liveTurnShapeKind(integerSizePrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("integer size prompt must not be hijacked by file metadata boundary")
+	}
+	shaPrompt := "What is SHA256?"
+	if kind := liveTurnShapeKind(shaPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("generic SHA256 prompt must not be hijacked by file metadata boundary")
 	}
 
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
