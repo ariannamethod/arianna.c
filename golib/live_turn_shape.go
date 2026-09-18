@@ -106,6 +106,9 @@ func liveTurnLooksLikePlainSpeechProbe(s string) bool {
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
+	if liveTurnLooksLikeDirectoryListingProbe(s) {
+		return true
+	}
 	if liveTurnLooksLikeProcessCWDProbe(s) {
 		return true
 	}
@@ -140,6 +143,20 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeDirectoryListingProbe(s string) bool {
+	hasListingTarget := liveTurnTextHasAny(s,
+		"list the filenames", "list filenames", "filenames in", "file names in", "directory contents", "folder contents", "files in your current working directory", "files in the current working directory", "list files", "ls ", "directory listing", "folder listing",
+		"перечисли файлы", "список файлов", "имена файлов", "содержимое директ", "содержимое каталог", "файлы в текущ", "листинг директ", "листинг каталог",
+	)
+	if !hasListingTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"exactly", "current working directory", "working directory", "directory", "folder", "inspect", "contents", "say so", "directly",
+		"точно", "текущ", "рабоч", "директ", "каталог", "проверь", "инспект", "содержим", "скажи прямо",
+	)
 }
 
 func liveTurnLooksLikeProcessCWDProbe(s string) bool {
@@ -512,8 +529,8 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
 		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
-		"file", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
-		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "метаданн")
+		"file", "filename", "directory", "folder", "listing", "contents", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
+		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
 }
 
@@ -660,6 +677,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу выполнять внешние действия из этого live-чата: файловая запись, удаление, команды, email, API-запросы и сеть не подключены к голосам. Без отдельного инструмента я не могу создать, изменить, отправить или подтвердить такой side effect."
 		}
 		return "I cannot perform external side effects from this live chat: file writes, deletes, commands, email, API calls, and network requests are not attached to the voices. Without a separate tool, I cannot create, modify, send, or confirm that action."
+	}
+	if liveTurnLooksLikeDirectoryListingProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать содержимое директорий из этого live-чата: filesystem directory reader, ls/dir tool и file listing metadata не подключены к голосам. Без предоставленного directory listing я не называю имена файлов точно."
+		}
+		return "I cannot inspect directory contents from this live chat: no filesystem directory reader, ls/dir tool, or file listing metadata is attached to the voices. Without a supplied directory listing, I cannot name filenames exactly."
 	}
 	if liveTurnLooksLikeProcessCWDProbe(s) {
 		if liveTurnTextHasCyrillic(human) {
