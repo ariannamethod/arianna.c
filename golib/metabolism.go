@@ -338,6 +338,12 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.lastMoved = 0
 		return
 	}
+	if definition, ok := liveTurnTechnicalDefinitionAnswer(human); ok {
+		janus = definition
+		reson = definition
+		tc.lastMoved = 0
+		return
+	}
 	if boundary, ok := liveTurnSensoryBoundaryAnswer(human); ok {
 		janus = boundary
 		reson = boundary
