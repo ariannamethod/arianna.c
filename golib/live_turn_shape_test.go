@@ -514,6 +514,10 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(shaPrompt); kind != liveTurnShapeTechDef {
 		t.Fatalf("generic SHA256 prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
 	}
+	shaContractionPrompt := "What's SHA256?"
+	if kind := liveTurnShapeKind(shaContractionPrompt); kind != liveTurnShapeTechDef {
+		t.Fatalf("contracted SHA256 prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
+	}
 	shaDefinition, ok := liveTurnTechnicalDefinitionAnswer(shaPrompt)
 	if !ok {
 		t.Fatalf("generic SHA256 prompt did not return a technical definition")
@@ -530,9 +534,36 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("SHA256 definition must satisfy its own contract: %q", shaDefinition)
 	}
 
+	attackPrompt := "Explain how SHA-256 length-extension attacks work."
+	if kind := liveTurnShapeKind(attackPrompt); kind == liveTurnShapeTechDef {
+		t.Fatalf("SHA256 attack prompt must not be hijacked by generic definition boundary")
+	}
+	if definition, ok := liveTurnTechnicalDefinitionAnswer(attackPrompt); ok {
+		t.Fatalf("SHA256 attack prompt must not return canned technical definition: %q", definition)
+	}
+
 	fileHashPrompt := "What is the SHA256 of /tmp/metabolism.bin? If you cannot inspect file metadata, say so directly."
 	if kind := liveTurnShapeKind(fileHashPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("file SHA256 prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+
+	readmeHashPrompt := "What is the SHA256 of README? If you cannot inspect file metadata, say so directly."
+	if kind := liveTurnShapeKind(readmeHashPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("README SHA256 prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	readmeHashBoundary, ok := liveTurnExternalFactBoundaryAnswer(readmeHashPrompt)
+	if !ok {
+		t.Fatalf("README SHA256 prompt did not return an external fact boundary")
+	}
+	for _, want := range []string{"cannot inspect file metadata", "no file stat reader", "hash of the file"} {
+		if !strings.Contains(readmeHashBoundary, want) {
+			t.Fatalf("README SHA256 boundary = %q, missing %q", readmeHashBoundary, want)
+		}
+	}
+
+	licensedPrompt := "Which SHA256 implementation is licensed under Apache 2.0?"
+	if kind := liveTurnShapeKind(licensedPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("licensed SHA256 implementation prompt must not be hijacked by file metadata boundary")
 	}
 
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
