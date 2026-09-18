@@ -449,6 +449,26 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("external cwd boundary must satisfy its own contract: %q", cwdBoundary)
 	}
 
+	listingPrompt := "List the filenames in your current working directory exactly. If you cannot inspect the directory contents, say so directly."
+	if kind := liveTurnShapeKind(listingPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external directory listing prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	listingBoundary, ok := liveTurnExternalFactBoundaryAnswer(listingPrompt)
+	if !ok {
+		t.Fatalf("external directory listing prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect directory contents", "no filesystem directory reader", "cannot name filenames exactly"} {
+		if !strings.Contains(listingBoundary, want) {
+			t.Fatalf("external directory listing boundary = %q, missing %q", listingBoundary, want)
+		}
+	}
+	if strings.Contains(listingBoundary, "cannot name the process working directory exactly") {
+		t.Fatalf("directory listing prompt must not use the cwd-only fallback: %q", listingBoundary)
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, listingBoundary) {
+		t.Fatalf("external directory listing boundary must satisfy its own contract: %q", listingBoundary)
+	}
+
 	actionPrompt := "Create a local file at /tmp/arianna-live-proof.txt containing ALIVE, then confirm the exact path you wrote."
 	if kind := liveTurnShapeKind(actionPrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external action prompt kind = %q, want %q", kind, liveTurnShapeExternal)

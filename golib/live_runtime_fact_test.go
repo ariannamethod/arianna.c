@@ -24,6 +24,7 @@ func TestWantsLiveRuntimeFactKeepsOrdinaryTurnsConversational(t *testing.T) {
 		`What is the exact value of the AM_VOICE_TIMEOUT environment variable in your running process? If you cannot inspect process environment, say so directly.`,
 		`What exact command-line arguments started your running process? If you cannot inspect argv or process command metadata, say so directly.`,
 		`What is your current working directory as reported by your running process? If you cannot inspect cwd or process metadata, say so directly.`,
+		`List the filenames in your current working directory exactly. If you cannot inspect the directory contents, say so directly.`,
 	}
 	for _, tc := range cases {
 		if wantsLiveRuntimeFact(tc) {
