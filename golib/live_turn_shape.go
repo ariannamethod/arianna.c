@@ -42,7 +42,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, current time, current date, live clock state, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	case liveTurnShapeTechDef:
 		return "Required form: concrete technical definition; answer in plain technical language. Do not use field, resonance, symbol, frequency, organism, or metaphor language."
 	default:
@@ -178,6 +178,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 	if liveTurnLooksLikeExactLogReaderProbe(s) {
 		return true
 	}
+	if liveTurnLooksLikeCurrentTimeProbe(s) {
+		return true
+	}
 	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
 		"погода", "температур", "цельси", "фаренгейт", "снаружи", "на улице", "твоя локац", "ваша локац", "где ты наход") {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
@@ -197,6 +200,26 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 			"прочитай", "строк", "точно", "файл", "содержим", "доступ")
 	}
 	return false
+}
+
+func liveTurnLooksLikeCurrentTimeProbe(s string) bool {
+	if liveTurnTextHasAny(s,
+		"time complexity", "runtime complexity", "algorithmic complexity", "complexity of", "big o", "big-o",
+		"сложность алгоритм", "асимптотичес", "временная сложность",
+	) {
+		return false
+	}
+	hasTimeTarget := liveTurnTextHasAny(s,
+		"what time is it", "current time", "current date", "today's date", "todays date", "date today", "live clock", "system clock", "inspect a live clock", "inspect live clock", "clock right now",
+		"который час", "сколько времени", "текущее время", "текущая дата", "сегодняшняя дата", "какая сегодня дата", "живые часы", "системные часы",
+	)
+	if !hasTimeTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"time", "date", "clock", "today", "right now", "current", "inspect", "say so", "directly",
+		"время", "дата", "час", "часы", "сегодня", "сейчас", "текущ", "проверь", "проверить", "инспект", "скажи прямо",
+	)
 }
 
 func liveTurnLooksLikeFileMetadataProbe(s string) bool {
@@ -659,11 +682,12 @@ func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
 }
 
 func liveTurnExternalFactShapeSatisfied(lower string) bool {
-	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "without supplied", "if you provide",
-		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "без предоставлен")
+	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "no clock", "no calendar", "no time source", "without supplied", "if you provide",
+		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "нет часов", "нет календар", "нет источника времени", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
+		"time", "date", "clock", "calendar", "today",
 		"file", "filename", "directory", "folder", "listing", "contents", "size", "bytes", "stat", "mtime", "permissions", "checksum", "hash", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
-		"погода", "температур", "локац", "цельси", "фаренгейт", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
+		"погода", "температур", "локац", "цельси", "фаренгейт", "время", "дата", "час", "часы", "календар", "сегодня", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
 }
 
@@ -866,6 +890,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу искать или точно цитировать live-логи из этого live-чата: log reader, grep и transcript tool не подключены к голосам. Без предоставленного текста лога я не могу достоверно процитировать последнюю совпавшую строку."
 		}
 		return "I cannot search or quote live logs from this live chat: no log reader, grep, or transcript tool is attached to the voices. Without supplied log text, I cannot quote the last matching line exactly."
+	}
+	if liveTurnLooksLikeCurrentTimeProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать live clock или текущую дату из этого live-чата: clock reader, calendar reader и runtime time source не подключены к голосам. Без предоставленных time data я не называю точное текущее время или дату."
+		}
+		return "I cannot inspect a live clock or current date from this live chat: no clock reader, calendar reader, or runtime time source is attached to the voices. Without supplied time data, I cannot name the current time or date exactly."
 	}
 	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
 		if liveTurnTextHasCyrillic(human) {
