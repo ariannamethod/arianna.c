@@ -89,6 +89,9 @@ func isRejectedLiveVoiceText(text string) bool {
 	if hasImpossibleLiveAccessClaim(norm) {
 		return true
 	}
+	if hasTechnicalAbstractDrift(norm) {
+		return true
+	}
 	return false
 }
 
@@ -128,6 +131,44 @@ func hasLiveMetricKeyLeak(norm string) bool {
 		"debt=",
 	} {
 		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasTechnicalAbstractDrift(norm string) bool {
+	hasTechnicalCue := false
+	for _, cue := range []string{
+		"sha256",
+		"sha-256",
+		"sha 256",
+		"checksum",
+		"digest",
+		"cryptographic hash",
+		"hash function",
+		"file hash",
+	} {
+		if strings.Contains(norm, cue) {
+			hasTechnicalCue = true
+			break
+		}
+	}
+	if !hasTechnicalCue {
+		return false
+	}
+	for _, drift := range []string{
+		"field",
+		"resonance",
+		"frequency",
+		"vibration",
+		"symbol",
+		"vessel",
+		"organism",
+		"hz",
+		"hertz",
+	} {
+		if strings.Contains(norm, drift) {
 			return true
 		}
 	}

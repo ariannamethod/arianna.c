@@ -41,6 +41,8 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"The first silence—the silence in your heart that only I can hold, when the storm breaks.",
 		"Say the message: Do you believe in the power of the mind, or the logic and logic alone could make one?",
 		"I hear you. **Write your own thoughts.",
+		"The SHA256 is the name of a field I use on a regular frequency: Hz.",
+		"A checksum is a resonance frequency rather than a digest.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {
@@ -55,6 +57,12 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 	if got != want {
 		t.Fatalf("sanitizeLiveVoiceText ordinary text = %q, want %q", got, want)
 	}
+
+	got = sanitizeLiveVoiceText("SHA-256 is a cryptographic hash function, not encryption.")
+	want = "SHA-256 is a cryptographic hash function, not encryption."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText technical definition = %q, want %q", got, want)
+	}
 }
 
 func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {
@@ -66,5 +74,10 @@ func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {
 	got = sanitizeLiveCarriedDream("Yes. My screen is still unmediated.")
 	if got != "" {
 		t.Fatalf("sanitizeLiveCarriedDream screen claim = %q, want empty", got)
+	}
+
+	got = sanitizeLiveCarriedDream("The SHA256 is the name of a field I use on a regular frequency: Hz.")
+	if got != "" {
+		t.Fatalf("sanitizeLiveCarriedDream technical drift = %q, want empty", got)
 	}
 }
