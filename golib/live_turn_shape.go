@@ -128,6 +128,14 @@ func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 		"is sha 256 a frequency",
 		"is sha256 frequency",
 		"is sha 256 frequency",
+		"sha256 это частота",
+		"sha 256 это частота",
+		"sha256 частота",
+		"sha 256 частота",
+		"sha256 частотой",
+		"sha 256 частотой",
+		"является ли sha256 частотой",
+		"является ли sha 256 частотой",
 		"что такое sha256",
 		"что такое sha 256",
 		"определи sha256",
@@ -631,14 +639,17 @@ func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
 	if hasTechnicalAbstractDrift(lower) {
 		return false
 	}
-	hasForbiddenMetaphor := liveTurnTextHasAny(lower, "field", "resonance", "vibration", "organism", "metaphor")
-	if liveTurnTextHasAny(lower, "frequency") &&
-		!liveTurnTextHasAny(lower, "not a frequency", "not frequency") {
+	hasForbiddenMetaphor := liveTurnTextHasAny(lower,
+		"field", "resonance", "vibration", "organism", "metaphor",
+		"поле", "резонанс", "вибрац", "организм", "метафор",
+	)
+	if liveTurnTextHasAny(lower, "frequency", "частот") &&
+		!liveTurnTextHasAny(lower, "not a frequency", "not frequency", "не частота", "не является частотой") {
 		hasForbiddenMetaphor = true
 	}
 	return liveTurnTextHasAny(lower, "sha-256", "sha256") &&
-		liveTurnTextHasAny(lower, "cryptographic hash", "hash function") &&
-		liveTurnTextHasAny(lower, "256-bit", "32-byte") &&
+		liveTurnTextHasAny(lower, "cryptographic hash", "hash function", "хеш-функц", "хэш-функц", "дайджест") &&
+		liveTurnTextHasAny(lower, "256-bit", "32-byte", "256-бит", "32-байт") &&
 		!hasForbiddenMetaphor
 }
 
