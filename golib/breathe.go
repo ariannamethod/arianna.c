@@ -46,6 +46,7 @@ type breath struct {
 	lastRejectedDream  string
 	lastRejectedReason string
 	lastRejectLog      time.Time
+	lastDetourLog      time.Time
 	rejectedStreak     int
 	acceptedDreams     [6]string
 	acceptedDreamAt    [6]time.Time
@@ -173,16 +174,31 @@ func normalizedDreamKey(text string) string {
 
 func rejectQuarantineDuration(streak int) time.Duration {
 	switch {
+	case streak >= 8:
+		return 30 * time.Minute
 	case streak >= 5:
-		return 5 * time.Minute
+		return 15 * time.Minute
 	case streak == 4:
-		return 3 * time.Minute
+		return 5 * time.Minute
 	case streak == 3:
 		return 2 * time.Minute
 	case streak == 2:
 		return 90 * time.Second
 	default:
 		return 45 * time.Second
+	}
+}
+
+func rejectLogInterval(streak int) time.Duration {
+	switch {
+	case streak >= 8:
+		return 30 * time.Minute
+	case streak >= 5:
+		return 15 * time.Minute
+	case streak >= 3:
+		return 5 * time.Minute
+	default:
+		return time.Minute
 	}
 }
 
@@ -200,6 +216,14 @@ func rejectedCueDetour(streak int, reason string) string {
 	default:
 		return ""
 	}
+}
+
+func (b *breath) shouldLogRejectedDetour(now time.Time) bool {
+	if b.lastDetourLog.IsZero() || now.Sub(b.lastDetourLog) >= rejectLogInterval(b.rejectedStreak) {
+		b.lastDetourLog = now
+		return true
+	}
+	return false
 }
 
 func rejectedDreamSurfaceText(reason, dream string) string {
@@ -220,9 +244,10 @@ func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 		b.rejectedStreak++
 	} else {
 		b.rejectedStreak = 1
+		b.lastDetourLog = time.Time{}
 	}
 	quarantine := rejectQuarantineDuration(b.rejectedStreak)
-	quietRepeat := sameRejected && now.Sub(b.lastRejectLog) < time.Minute
+	quietRepeat := sameRejected && now.Sub(b.lastRejectLog) < rejectLogInterval(b.rejectedStreak)
 	if !quietRepeat {
 		repeatNote := ""
 		if b.rejectedStreak > 1 {
@@ -359,7 +384,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			cue := dreamCue(s, fs, prevLD, detour)
 			seed := cue
 			frag := ""
-			if detour != "" {
+			if detour != "" && b.shouldLogRejectedDetour(now) {
 				fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, b.lastRejectedReason)
 			} else if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
 				frag = f
@@ -441,6 +466,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			b.lastRejectedDream = ""
 			b.lastRejectedReason = ""
 			b.rejectedStreak = 0
+			b.lastDetourLog = time.Time{}
 			b.rejectQuarantineTo = time.Time{}
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = carriedDream
