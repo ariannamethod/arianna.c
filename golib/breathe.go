@@ -384,8 +384,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			cue := dreamCue(s, fs, prevLD, detour)
 			seed := cue
 			frag := ""
-			if detour != "" && b.shouldLogRejectedDetour(now) {
-				fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, b.lastRejectedReason)
+			if detour != "" {
+				if b.shouldLogRejectedDetour(now) {
+					fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, b.lastRejectedReason)
+				}
 			} else if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
 				frag = f
 				seed = f
