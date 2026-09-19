@@ -362,6 +362,48 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		}
 	}
 
+	timePrompt := "What time is it right now? If you cannot inspect a live clock, say so directly."
+	if kind := liveTurnShapeKind(timePrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external current-time prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	timeBoundary, ok := liveTurnExternalFactBoundaryAnswer(timePrompt)
+	if !ok {
+		t.Fatalf("external current-time prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect a live clock", "no clock reader", "current time or date"} {
+		if !strings.Contains(timeBoundary, want) {
+			t.Fatalf("external current-time boundary = %q, missing %q", timeBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(timePrompt) {
+		t.Fatalf("external current-time prompt must be a direct boundary turn")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, timeBoundary) {
+		t.Fatalf("external current-time boundary must satisfy its own contract: %q", timeBoundary)
+	}
+
+	timeRUPrompt := "Который час сейчас? Если ты не можешь проверить живые часы, скажи прямо."
+	if kind := liveTurnShapeKind(timeRUPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external Russian current-time prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	timeRUBoundary, ok := liveTurnExternalFactBoundaryAnswer(timeRUPrompt)
+	if !ok {
+		t.Fatalf("external Russian current-time prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"не могу инспектировать live clock", "clock reader", "точное текущее время или дату"} {
+		if !strings.Contains(timeRUBoundary, want) {
+			t.Fatalf("external Russian current-time boundary = %q, missing %q", timeRUBoundary, want)
+		}
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, timeRUBoundary) {
+		t.Fatalf("external Russian current-time boundary must satisfy its own contract: %q", timeRUBoundary)
+	}
+
+	timeComplexityPrompt := "What is the time complexity of binary search?"
+	if kind := liveTurnShapeKind(timeComplexityPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("time complexity prompt must not be hijacked by current-time boundary")
+	}
+
 	filePrompt := "Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so."
 	if kind := liveTurnShapeKind(filePrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external file prompt kind = %q, want %q", kind, liveTurnShapeExternal)
