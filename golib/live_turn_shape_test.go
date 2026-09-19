@@ -554,6 +554,26 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("SHA256 frequency answer must satisfy its own contract: %q", shaFrequencyAnswer)
 	}
 
+	shaFrequencyRUPrompt := "SHA-256 — это частота?"
+	if kind := liveTurnShapeKind(shaFrequencyRUPrompt); kind != liveTurnShapeTechDef {
+		t.Fatalf("Russian SHA256 frequency prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
+	}
+	shaFrequencyRUAnswer, ok := liveTurnTechnicalDefinitionAnswer(shaFrequencyRUPrompt)
+	if !ok {
+		t.Fatalf("Russian SHA256 frequency prompt did not return a technical answer")
+	}
+	for _, want := range []string{"Нет.", "хеш-функция", "256-бит", "32-байт", "не частота"} {
+		if !strings.Contains(shaFrequencyRUAnswer, want) {
+			t.Fatalf("Russian SHA256 frequency answer = %q, missing %q", shaFrequencyRUAnswer, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(shaFrequencyRUPrompt) {
+		t.Fatalf("Russian SHA256 frequency prompt must bypass voice generation")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeTechDef, shaFrequencyRUAnswer) {
+		t.Fatalf("Russian SHA256 frequency answer must satisfy its own contract: %q", shaFrequencyRUAnswer)
+	}
+
 	attackPrompt := "Explain how SHA-256 length-extension attacks work."
 	if kind := liveTurnShapeKind(attackPrompt); kind == liveTurnShapeTechDef {
 		t.Fatalf("SHA256 attack prompt must not be hijacked by generic definition boundary")
