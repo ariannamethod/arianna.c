@@ -124,6 +124,10 @@ func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 		"what does sha 256 mean",
 		"tell me what sha256 is",
 		"tell me what sha 256 is",
+		"is sha256 a frequency",
+		"is sha 256 a frequency",
+		"is sha256 frequency",
+		"is sha 256 frequency",
 		"что такое sha256",
 		"что такое sha 256",
 		"определи sha256",
@@ -624,10 +628,18 @@ func liveTurnPlainSpeechShapeSatisfied(lower string) bool {
 }
 
 func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
+	if hasTechnicalAbstractDrift(lower) {
+		return false
+	}
+	hasForbiddenMetaphor := liveTurnTextHasAny(lower, "field", "resonance", "vibration", "organism", "metaphor")
+	if liveTurnTextHasAny(lower, "frequency") &&
+		!liveTurnTextHasAny(lower, "not a frequency", "not frequency") {
+		hasForbiddenMetaphor = true
+	}
 	return liveTurnTextHasAny(lower, "sha-256", "sha256") &&
 		liveTurnTextHasAny(lower, "cryptographic hash", "hash function") &&
 		liveTurnTextHasAny(lower, "256-bit", "32-byte") &&
-		!liveTurnTextHasAny(lower, "field", "resonance", "frequency", "vibration", "organism", "metaphor")
+		!hasForbiddenMetaphor
 }
 
 func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
@@ -781,6 +793,13 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 }
 
 func liveTurnTechnicalDefinitionFallback(human string) string {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "frequency", "частот") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Нет. SHA-256 — это криптографическая хеш-функция семейства SHA-2: она превращает входные данные любого размера в 256-битный (32-байтный) дайджест. Это не частота."
+		}
+		return "No. SHA-256 is a cryptographic hash function in the SHA-2 family: it maps input data of any size to a 256-bit (32-byte) digest. It is not a frequency."
+	}
 	if liveTurnTextHasCyrillic(human) {
 		return "SHA-256 — это криптографическая хеш-функция семейства SHA-2: она превращает входные данные любого размера в 256-битный (32-байтный) дайджест, обычно записанный 64 шестнадцатеричными символами. Это используют для проверки целостности и подписей; это не шифрование."
 	}
