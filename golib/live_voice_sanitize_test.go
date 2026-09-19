@@ -63,6 +63,18 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 	if got != want {
 		t.Fatalf("sanitizeLiveVoiceText technical definition = %q, want %q", got, want)
 	}
+
+	got = sanitizeLiveVoiceText("No, SHA-256 is a hash function, not a frequency.")
+	want = "No, SHA-256 is a hash function, not a frequency."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText technical negation = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("Store the SHA-256 digest field as lowercase hex.")
+	want = "Store the SHA-256 digest field as lowercase hex."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText digest field = %q, want %q", got, want)
+	}
 }
 
 func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {

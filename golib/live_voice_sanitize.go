@@ -158,15 +158,25 @@ func hasTechnicalAbstractDrift(norm string) bool {
 		return false
 	}
 	for _, drift := range []string{
-		"field",
-		"resonance",
-		"frequency",
-		"vibration",
-		"symbol",
-		"vessel",
-		"organism",
-		"hz",
-		"hertz",
+		"name of a field",
+		"is a field",
+		"as a field",
+		"field i use",
+		"field that i use",
+		"regular frequency",
+		"resonance frequency rather than",
+		"frequency rather than a digest",
+		"frequency instead of a digest",
+		"is a resonance",
+		"as a resonance",
+		"is a vibration",
+		"as a vibration",
+		"is a symbol",
+		"as a symbol",
+		"is a vessel",
+		"as a vessel",
+		"is an organism",
+		"as an organism",
 	} {
 		if strings.Contains(norm, drift) {
 			return true
