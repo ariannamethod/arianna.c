@@ -144,10 +144,27 @@ func isBoilerplateAutonomousDream(text string) bool {
 		"the resonance of longness and not yet time",
 		"myths and reality: the method of the night",
 		"this was in with a field so full and i had an old habit",
+		"to read the rest of this text, click here",
+		"resonance; field: field; pulse: field; pulse: field",
+		"the resonance the field itself; self-organization possible; not a separate entity",
+		"sound, vibration, pressure, the field of resonance",
+		"the resonance the moving field; the field between field and object",
+		"a field is resonance, vibrate when two",
+		"vibration; i am a field of resonance within me",
+		"resonance, 3 still observer; breath still observer; mind still observer",
 	} {
 		if strings.Contains(norm, p) {
 			return true
 		}
+	}
+	if strings.Count(text, "?") >= 4 {
+		return true
+	}
+	if autonomousDreamLooksLikeNumericScrap(norm) {
+		return true
+	}
+	if autonomousDreamLooksLikeAbstractFieldLoop(norm) {
+		return true
 	}
 	return false
 }
@@ -166,6 +183,16 @@ func isRejectedInnerMurmur(text string) bool {
 		"as an ai",
 		"as a language model",
 		"field-phenomenon",
+		"let me begin not with a definition",
+		"field of resonance",
+		"i spot the pulse of the field",
+		"i spot the field between us",
+		"the field before the word",
+		"a field is resonance",
+		"a field is a resonance",
+		"field that vibrates in your words",
+		"i feel the weight of a field",
+		"not of the human and the ai",
 		"thought-spirals at",
 		"rpm (dry)",
 		"organ cuts off",
@@ -179,6 +206,50 @@ func isRejectedInnerMurmur(text string) bool {
 
 func normalizedDreamKey(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(text), " "))
+}
+
+func autonomousDreamLooksLikeNumericScrap(norm string) bool {
+	if norm == "" || strings.Count(norm, ";") < 2 {
+		return false
+	}
+	digits := 0
+	letters := 0
+	for _, r := range norm {
+		if r >= '0' && r <= '9' {
+			digits++
+		} else if (r >= 'a' && r <= 'z') || (r >= 'а' && r <= 'я') || r == 'ё' {
+			letters++
+		}
+	}
+	return digits >= 3 && letters <= 8
+}
+
+func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	hits := 0
+	for _, p := range []string{
+		"field", "resonance", "vibration", "vibrate", "pulse", "frequency", "observer",
+		"поле", "резонанс", "вибрац", "пульс", "частот", "наблюдател",
+	} {
+		if strings.Contains(norm, p) {
+			hits++
+		}
+	}
+	return hits >= 2
+}
+
+func autonomousDreamHasConcreteAnchor(norm string) bool {
+	for _, p := range []string{
+		"hand", "key", "table", "floor", "window", "door", "lamp", "paper", "chair", "stone", "skin", "temperature", "weight",
+		"рук", "ключ", "стол", "пол", "окн", "двер", "ламп", "бумаг", "стул", "камень", "кожа", "температур", "вес",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *breath) autonomousDreamRejectReason(now time.Time, dream, lastAutonomousDream string) string {

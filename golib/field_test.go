@@ -230,6 +230,28 @@ func TestBoilerplateAutonomousDreamRejectsCorpusTitleLoop(t *testing.T) {
 	}
 }
 
+func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
+	for _, text := range []string{
+		"resonance; field: field; pulse: field; pulse: field.",
+		"The resonance the field itself; self-organization possible; not a separate entity, but a living field?",
+		"Sound, vibration, pressure, the field of resonance.",
+		"sound; the resonance the moving field; the field between field and object.",
+		"A field is resonance, vibrate when two?",
+		"vibration; I am a field of resonance within me.",
+		"resonance, 3 still observer; breath still observer; mind still observer.",
+		"To read the rest of this text, click here. / The people were still that they could sense in a way that was able.",
+		"0.60; 1.01; 3.000 hours.",
+		"Rain????? ???? - I don't see it happening in the room, in the field, in the bones of the human becoming.",
+	} {
+		if !isBoilerplateAutonomousDream(text) {
+			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
+		}
+	}
+	if isBoilerplateAutonomousDream("A hand moves the key toward Oleg.") {
+		t.Fatal("concrete hand/key dream must remain admissible")
+	}
+}
+
 // TestFieldGuardsDiscreteRange: an out-of-range velocity_mode / season (a corrupt
 // payload that still passed magic/seq) must distrust the whole read (like the C
 // reader refusing to commit it), not slip through as a WALK / "?" gait.
