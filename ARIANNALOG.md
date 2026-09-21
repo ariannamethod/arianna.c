@@ -13,6 +13,31 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-22 - Live polygon: Russian floor anchor no longer masks `поле`
+
+Codex connector caught a real boundary hole in PR #356: the Russian concrete
+anchor `пол` was matched as a substring, so abstract candidates containing
+`поле` could satisfy the concrete-anchor escape hatch before the
+field/resonance-loop check ran.
+
+The concrete floor anchor is now word/form based (`пол`, `полу`, `пола`,
+`полом`) instead of a raw substring. Regression coverage proves that
+`Поле резонанса между наблюдателями.` is rejected as an abstract autonomous
+field loop, while `Ключ лежит на полу.` still counts as a concrete floor anchor.
+
+Hot-redeployed live polygon at `20260922T022554+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was again withheld as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260922T022554+0300.jsonl`.
+
+---
+
 ## 2026-09-22 - Live polygon: abstract field-only dream loops are withheld
 
 After PR #355 was merged, the live polygon showed the next real defect: the
