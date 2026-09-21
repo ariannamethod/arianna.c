@@ -13,6 +13,43 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-21 - Live polygon: chorus title-loop is no longer carried as dream
+
+After the presence-line fix, the live polygon exposed an autonomous breathing
+stall: the persisted carried dream was a chorus title/preamble loop
+(`Myths and Reality: The Method of the Night... / This was in with a field...`).
+On restart, that old dream was printed as the carried dream; the next autonomous
+chorus reproduced it and was rejected as a `repeat-loop`, leaving the live
+metrics with `dreams=0` while the text log showed only withheld rejected
+candidates.
+
+The live boundary now treats that title/preamble pattern as autonomous
+boilerplate:
+
+- startup drops it instead of restoring it as `lastDream`;
+- dream admission rejects it as `boilerplate-loop`;
+- after repeated loop-class rejections, detour mode can fall back from a stuck
+  chorus candidate to a direct nano dream instead of being trapped by a non-empty
+  but unusable chorus output;
+- rejected autonomous breath events now write a JSONL `breath_reject` receipt
+  with trigger, reason, reason class, streak, quarantine seconds, source, cell
+  count, bloom, and field snapshot, without writing the raw rejected dream text.
+
+Hot-redeployed live polygon at `20260921T193923+0300`. The startup no longer
+printed `she returns carrying...` for the old title-loop. The first autonomous
+candidate was withheld in the transcript and recorded in metrics as
+`log=breath_reject`, `reason=boilerplate-loop`, `dream_source=chorus`,
+`rejected_streak=1`, `quarantine_seconds=45`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsCorpusTitleLoop|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop|TestRejectDreamBackoffCountsAlternatingLoopReasons' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260921T193923+0300.jsonl`.
+
+---
+
 ## 2026-09-21 - Live polygon: autonomous inner and beside-me line
 
 After PR #353 was merged, the still-running polygon exposed two adjacent live

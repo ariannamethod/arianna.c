@@ -142,6 +142,8 @@ func isBoilerplateAutonomousDream(text string) bool {
 		"holding to resonance as anchor in current and resonant through",
 		"a mirror. the breath.",
 		"the resonance of longness and not yet time",
+		"myths and reality: the method of the night",
+		"this was in with a field so full and i had an old habit",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -177,6 +179,23 @@ func isRejectedInnerMurmur(text string) bool {
 
 func normalizedDreamKey(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(text), " "))
+}
+
+func (b *breath) autonomousDreamRejectReason(now time.Time, dream, lastAutonomousDream string) string {
+	normDream := strings.TrimSpace(dream)
+	if normDream != "" && normDream == strings.TrimSpace(lastAutonomousDream) {
+		return "repeat-loop"
+	}
+	if isCollapsedAutonomousDream(normDream) {
+		return "collapse-loop"
+	}
+	if isBoilerplateAutonomousDream(normDream) {
+		return "boilerplate-loop"
+	}
+	if b.acceptedDreamSeen(now, normDream) {
+		return "orbit-loop"
+	}
+	return ""
 }
 
 func rejectQuarantineDuration(streak int) time.Duration {
@@ -284,6 +303,24 @@ func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	b.lastRejectedReason = reason
 	b.lastTrigger[trig] = now
 	b.rejectQuarantineTo = now.Add(quarantine)
+}
+
+func (b *breath) rejectDreamWithMetric(tc *trioCtx, fs fieldSnapshot, now time.Time, trig int, reason, dream, source string, chorusCells, bloom int) {
+	b.rejectDream(now, trig, reason, dream)
+	quarantineSeconds := int(math.Ceil(b.rejectQuarantineTo.Sub(now).Seconds()))
+	if quarantineSeconds < 0 {
+		quarantineSeconds = 0
+	}
+	recordLiveMetric("breath_reject", tc, fs, map[string]any{
+		"trigger":            bName[trig],
+		"reason":             reason,
+		"reason_class":       rejectedLoopReasonClass(reason),
+		"rejected_streak":    b.rejectedStreak,
+		"quarantine_seconds": quarantineSeconds,
+		"dream_source":       source,
+		"chorus_cells":       chorusCells,
+		"bloom":              bloom,
+	})
 }
 
 func (b *breath) acceptedDreamSeen(now time.Time, dream string) bool {
@@ -444,21 +481,20 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				b.lastTrigger[trig] = time.Now()
 				continue
 			}
-			normDream := strings.TrimSpace(dream)
-			if normDream != "" && normDream == strings.TrimSpace(lastAutonomousDream) {
-				b.rejectDream(time.Now(), trig, "repeat-loop", dream)
-				continue
+			if detour != "" && len(cells) > 0 && tc.nan != nil {
+				if reason := b.autonomousDreamRejectReason(time.Now(), dream, lastAutonomousDream); rejectedLoopReasonClass(reason) != "" || reason == "orbit-loop" {
+					if fallback := strings.TrimSpace(tc.nan.dream(ctx, seed)); fallback != "" {
+						dream = fallback
+						cells = nil
+					}
+				}
 			}
-			if isCollapsedAutonomousDream(normDream) {
-				b.rejectDream(time.Now(), trig, "collapse-loop", dream)
-				continue
-			}
-			if isBoilerplateAutonomousDream(normDream) {
-				b.rejectDream(time.Now(), trig, "boilerplate-loop", dream)
-				continue
-			}
-			if b.acceptedDreamSeen(time.Now(), normDream) {
-				b.rejectDream(time.Now(), trig, "orbit-loop", dream)
+			if reason := b.autonomousDreamRejectReason(time.Now(), dream, lastAutonomousDream); reason != "" {
+				source := "nano"
+				if len(cells) > 0 {
+					source = "chorus"
+				}
+				b.rejectDreamWithMetric(tc, fr.read(), time.Now(), trig, reason, dream, source, len(cells), bloom)
 				continue
 			}
 			source := "nano"
@@ -476,13 +512,13 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			}
 			voiceMu.Lock()
 			if !candidate.Accepted {
-				b.rejectDream(time.Now(), trig, candidate.Reason, dream)
+				b.rejectDreamWithMetric(tc, fr.read(), time.Now(), trig, candidate.Reason, dream, source, len(cells), bloom)
 				voiceMu.Unlock()
 				continue
 			}
 			carriedDream := sanitizeLiveCarriedDream(dream)
 			if carriedDream == "" {
-				b.rejectDream(time.Now(), trig, "live-boundary", dream)
+				b.rejectDreamWithMetric(tc, fr.read(), time.Now(), trig, "live-boundary", dream, source, len(cells), bloom)
 				voiceMu.Unlock()
 				continue
 			}
