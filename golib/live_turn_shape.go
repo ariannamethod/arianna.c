@@ -206,6 +206,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 }
 
 func liveTurnLooksLikeCurrentTimeProbe(s string) bool {
+	if asksNaturalLiveRuntimeFact(s) {
+		return false
+	}
 	if liveTurnTextHasAny(s,
 		"time complexity", "runtime complexity", "algorithmic complexity", "complexity of", "big o", "big-o",
 		"сложность алгоритм", "асимптотичес", "временная сложность",
@@ -228,16 +231,27 @@ func liveTurnLooksLikeCurrentTimeProbe(s string) bool {
 func liveTurnLooksLikeRuntimeMetricsProbe(s string) bool {
 	hasTarget := liveTurnTextHasAny(s,
 		"internal metric", "internal metrics", "live metric", "live metrics", "runtime metric", "runtime metrics", "internal telemetry", "runtime telemetry", "live telemetry", "telemetry",
-		"live state", "runtime state", "internal state", "field debt", "recovery debt", "current debt", "cooldown", "threshold", "bloom", "gait", "season",
-		"внутренн метрик", "live-метрик", "метрик", "телеметр", "внутренн состоян", "живое состоян", "live-состоян", "runtime-состоян", "долг", "кулдаун", "порог", "сезон",
+		"live state", "runtime state", "internal state",
+		"внутренн метрик", "live-метрик", "метрик", "телеметр", "внутренн состоян", "живое состоян", "live-состоян", "runtime-состоян",
 	)
 	if !hasTarget {
 		return false
 	}
-	return liveTurnTextHasAny(s,
-		"inspect", "directly", "exact", "exactly", "what changed", "after the fix", "after the rejected-loop fix", "current", "right now", "now", "read", "show", "say that boundary", "cannot inspect",
-		"инспект", "проверь", "проверить", "напрямую", "точн", "что измен", "после фикса", "текущ", "сейчас", "прочитай", "покажи", "скажи boundary", "не можешь инспектировать",
+	hasUnsupportedComparison := liveTurnTextHasAny(s,
+		"what changed", "state change", "exact state change", "after the fix", "after the rejected-loop fix", "before/after", "before and after", "comparator",
+		"что измен", "изменилось", "изменение состояния", "после фикса", "до/после", "до и после",
 	)
+	hasBoundaryCue := liveTurnTextHasAny(s,
+		"inspect", "directly", "say that boundary", "cannot inspect", "if you cannot inspect",
+		"инспект", "напрямую", "скажи boundary", "не можешь инспектировать", "если не можешь инспектировать",
+	)
+	if hasUnsupportedComparison && hasBoundaryCue {
+		return true
+	}
+	if asksNaturalLiveRuntimeFact(s) {
+		return false
+	}
+	return false
 }
 
 func liveTurnLooksLikeFileMetadataProbe(s string) bool {
