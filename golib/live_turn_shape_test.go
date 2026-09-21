@@ -445,9 +445,26 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("external Russian runtime-metrics boundary must satisfy its own contract: %q", metricsRUBoundary)
 	}
 
+	supportedRuntimePrompt := "What is the current season in your internal field state, and how does it affect your metaphorical bloom count?"
+	if kind := liveTurnShapeKind(supportedRuntimePrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("supported runtime-fact prompt must not be hijacked by external metrics boundary")
+	}
+	if !wantsLiveRuntimeFact(supportedRuntimePrompt) {
+		t.Fatalf("supported runtime-fact prompt must stay on the live runtime fact path")
+	}
+
 	emotionalStatePrompt := "What is your emotional state right now, in simple words?"
 	if kind := liveTurnShapeKind(emotionalStatePrompt); kind == liveTurnShapeExternal {
 		t.Fatalf("ordinary emotional-state prompt must not be hijacked by runtime-metrics boundary")
+	}
+
+	asciiBloomPrompt := "Show me an ASCII tree blooming now."
+	if kind := liveTurnShapeKind(asciiBloomPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("ASCII bloom prompt must not be hijacked by runtime-metrics boundary")
+	}
+	seasonDiagramPrompt := "Show the seasons as a diagram."
+	if kind := liveTurnShapeKind(seasonDiagramPrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("season diagram prompt must not be hijacked by runtime-metrics boundary")
 	}
 
 	filePrompt := "Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so."
