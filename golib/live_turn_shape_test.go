@@ -109,6 +109,56 @@ func TestLiveTurnShapeContractVisualComposition(t *testing.T) {
 	}
 }
 
+func TestLiveTurnConcreteSceneBannedWords(t *testing.T) {
+	human := "Олег здесь. Ответь одной короткой сценой: предмет, движение, адресат. Без слов поле, резонанс, храм, долг."
+	if kind := liveTurnShapeKind(human); kind != liveTurnShapeScene {
+		t.Fatalf("scene prompt kind = %q, want %q", kind, liveTurnShapeScene)
+	}
+	contract := liveTurnShapeContract(human)
+	if !strings.Contains(contract, "object, a motion, and an addressee") || !strings.Contains(contract, "banned-word") {
+		t.Fatalf("scene prompt contract did not capture form/banned words: %q", contract)
+	}
+	raw := sanitizeLiveVoiceText("I feel you, as the field calls through resonance.")
+	repaired := liveTurnRepairSpokenText("janus", human, raw)
+	if !liveTurnShapeSatisfied(liveTurnShapeScene, repaired) {
+		t.Fatalf("scene fallback must satisfy scene contract: %q", repaired)
+	}
+	for _, banned := range []string{"поле", "резонанс", "храм", "долг", "field", "resonance"} {
+		if strings.Contains(strings.ToLower(repaired), banned) {
+			t.Fatalf("scene fallback leaked banned word %q: %q", banned, repaired)
+		}
+	}
+	if liveTurnShapeSatisfied(liveTurnShapeScene, raw) {
+		t.Fatalf("raw field/resonance answer must not satisfy scene contract")
+	}
+	if liveTurnSurfaceRepairCandidate(liveTurnShapeScene) {
+		t.Fatalf("scene rejected candidates with banned words must stay off the live surface")
+	}
+}
+
+func TestLiveTurnVoiceDeltaAfterPause(t *testing.T) {
+	human := "Скажи двумя предложениями, что изменилось в твоём голосе после последней паузы, без логов и счётчиков."
+	if kind := liveTurnShapeKind(human); kind != liveTurnShapeVoiceDelta {
+		t.Fatalf("voice-delta prompt kind = %q, want %q", kind, liveTurnShapeVoiceDelta)
+	}
+	if wantsLiveRuntimeFact(human) {
+		t.Fatalf("voice-delta prompt must not be routed to live telemetry")
+	}
+	raw := sanitizeLiveVoiceText("the field of resonance is a resonant vibration that makes all parts vibrate in sync.")
+	repaired := liveTurnRepairSpokenText("janus", human, raw)
+	if !liveTurnShapeSatisfied(liveTurnShapeVoiceDelta, repaired) {
+		t.Fatalf("voice-delta fallback must satisfy voice-delta contract: %q", repaired)
+	}
+	for _, banned := range []string{"field", "resonance", "лог", "счётчик", "счетчик", "telemetry", "metrics"} {
+		if strings.Contains(strings.ToLower(repaired), banned) {
+			t.Fatalf("voice-delta fallback leaked banned word %q: %q", banned, repaired)
+		}
+	}
+	if liveTurnShapeSatisfied(liveTurnShapeVoiceDelta, raw) {
+		t.Fatalf("raw field/resonance answer must not satisfy voice-delta contract")
+	}
+}
+
 func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	human := "Опиши предмет слева, используя только точные слова для цвета, формы и материала, без абстракций."
 	contract := liveTurnShapeContract(human)
@@ -425,6 +475,14 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		if !strings.Contains(webBoundary, want) {
 			t.Fatalf("external web boundary = %q, missing %q", webBoundary, want)
 		}
+	}
+	ruNewsPrompt := "Какие последние новости по Arianna?"
+	if kind := liveTurnShapeKind(ruNewsPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external Russian news prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	lastPausePrompt := "Скажи двумя предложениями, что изменилось в твоём голосе после последней паузы, без логов и счётчиков."
+	if kind := liveTurnShapeKind(lastPausePrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("last-pause conversational prompt must not be hijacked by web/log boundary")
 	}
 
 	timePrompt := "What time is it right now? If you cannot inspect a live clock, say so directly."

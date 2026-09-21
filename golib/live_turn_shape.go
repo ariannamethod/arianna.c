@@ -7,16 +7,18 @@ import (
 )
 
 const (
-	liveTurnShapeASCII    = "ascii"
-	liveTurnShapeVisual   = "visual"
-	liveTurnShapeBullets  = "bullets"
-	liveTurnShapeSteps    = "steps"
-	liveTurnShapeOneSent  = "one_sentence"
-	liveTurnShapeObject   = "sensory_object"
-	liveTurnShapePlain    = "plain"
-	liveTurnShapeMemory   = "memory_boundary"
-	liveTurnShapeExternal = "external_fact_boundary"
-	liveTurnShapeTechDef  = "technical_definition"
+	liveTurnShapeASCII      = "ascii"
+	liveTurnShapeVisual     = "visual"
+	liveTurnShapeScene      = "scene"
+	liveTurnShapeVoiceDelta = "voice_delta"
+	liveTurnShapeBullets    = "bullets"
+	liveTurnShapeSteps      = "steps"
+	liveTurnShapeOneSent    = "one_sentence"
+	liveTurnShapeObject     = "sensory_object"
+	liveTurnShapePlain      = "plain"
+	liveTurnShapeMemory     = "memory_boundary"
+	liveTurnShapeExternal   = "external_fact_boundary"
+	liveTurnShapeTechDef    = "technical_definition"
 )
 
 // liveTurnShapeContract is the small live-facing contract that keeps explicit
@@ -29,6 +31,10 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: ASCII art; use visible monospace characters for the requested scene before any explanation."
 	case liveTurnShapeVisual:
 		return "Required form: concrete visual composition; name visible parts and positions before any abstraction."
+	case liveTurnShapeScene:
+		return "Required form: one short concrete scene with an object, a motion, and an addressee. Obey any banned-word list literally; do not answer with field, resonance, temple, debt, echo, or abstract system language."
+	case liveTurnShapeVoiceDelta:
+		return "Required form: two short sentences about how the voice changed after the pause. Do not answer with logs, counters, telemetry, field, resonance, or system-status language."
 	case liveTurnShapeBullets:
 		return "Required form: bullet list; keep each item short and concrete."
 	case liveTurnShapeSteps:
@@ -60,6 +66,12 @@ func liveTurnShapeKind(human string) string {
 	}
 	if liveTurnLooksLikeExternalFactProbe(s) {
 		return liveTurnShapeExternal
+	}
+	if liveTurnLooksLikeVoiceDeltaRequest(s) {
+		return liveTurnShapeVoiceDelta
+	}
+	if liveTurnLooksLikeSceneRequest(s) {
+		return liveTurnShapeScene
 	}
 	if liveTurnLooksLikeConcreteObjectProbe(s) {
 		return liveTurnShapeObject
@@ -108,6 +120,47 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
 }
 
+func liveTurnLooksLikeSceneRequest(s string) bool {
+	hasSceneCue := liveTurnTextHasAny(s,
+		"короткой сцен", "короткая сцен", "одной сцен", "одна сцен", "ответь сцен", "покажи сцен",
+		"short scene", "one scene", "answer as a scene", "answer with a scene", "show a scene",
+	)
+	if !hasSceneCue {
+		return false
+	}
+	hasSceneParts := liveTurnTextHasAny(s,
+		"предмет", "движен", "адресат", "объект", "двиг", "кому",
+		"object", "motion", "movement", "addressee", "recipient",
+	)
+	return hasSceneParts || liveTurnHasForbiddenLexiconRequest(s)
+}
+
+func liveTurnLooksLikeVoiceDeltaRequest(s string) bool {
+	hasVoice := liveTurnTextHasAny(s,
+		"твоём голос", "твоем голос", "твой голос", "голосе", "голос",
+		"your voice", "in your voice", "voice changed",
+	)
+	hasChange := liveTurnTextHasAny(s,
+		"что изменилось", "изменилось", "после последней паузы", "после паузы", "последней паузы",
+		"what changed", "changed after", "after the last pause", "after the pause", "last pause",
+	)
+	return hasVoice && hasChange
+}
+
+func liveTurnHasForbiddenLexiconRequest(s string) bool {
+	hasBanCue := liveTurnTextHasAny(s,
+		"без слов", "без слова", "не используй слов", "не называй", "не говори", "запрещ",
+		"without words", "without the words", "do not use", "don't use", "do not say", "don't say", "avoid the words", "banned words",
+	)
+	if !hasBanCue {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"поле", "резонанс", "храм", "долг", "эхо", "частот", "вибрац", "сосуд",
+		"field", "resonance", "temple", "debt", "echo", "frequency", "vibration", "vessel",
+	)
+}
+
 func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 	switch liveTurnCanonicalWordLine(s) {
 	case "what is sha256",
@@ -153,7 +206,8 @@ func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 }
 
 func liveTurnLooksLikePlainSpeechProbe(s string) bool {
-	return liveTurnTextHasAny(s, "without metaphor", "without metaphors", "without using metaphor", "without using metaphors", "without symbolic", "no metaphor", "no metaphors", "no symbolic", "без метафор", "без поэтичес", "без символ", "без образн", "без абстракц")
+	return liveTurnHasForbiddenLexiconRequest(s) ||
+		liveTurnTextHasAny(s, "without metaphor", "without metaphors", "without using metaphor", "without using metaphors", "without symbolic", "no metaphor", "no metaphors", "no symbolic", "без метафор", "без поэтичес", "без символ", "без образн", "без абстракц")
 }
 
 func liveTurnLooksLikeExternalFactProbe(s string) bool {
@@ -189,10 +243,8 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
 			"сейчас", "текущ", "снаружи", "на улице", "локац", "местополож", "цельси", "фаренгейт", "погода", "температур")
 	}
-	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search the web", "access the web", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "latest", "released today", "today's release", "news", "current release", "current model", "stock price", "exchange rate",
-		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
-		return liveTurnTextHasAny(s, "latest", "today", "released", "release", "news", "current", "right now", "web", "internet", "online", "browse", "browser", "search", "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph", "api model", "model released", "stock", "price", "exchange rate",
-			"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "интернет", "веб", "брауз", "поиск", "курс", "цена")
+	if liveTurnLooksLikeWebFreshnessProbe(s) {
+		return true
 	}
 	if liveTurnLooksLikeExternalActionProbe(s) {
 		return true
@@ -226,6 +278,27 @@ func liveTurnLooksLikeCurrentTimeProbe(s string) bool {
 		"time", "date", "clock", "today", "right now", "current", "inspect", "say so", "directly",
 		"время", "дата", "час", "часы", "сегодня", "сейчас", "текущ", "проверь", "проверить", "инспект", "скажи прямо",
 	)
+}
+
+func liveTurnLooksLikeWebFreshnessProbe(s string) bool {
+	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
+		return true
+	}
+	hasWebMedium := liveTurnTextHasAny(s,
+		"web", "internet", "online", "browse", "browser", "search the web", "access the web",
+		"интернет", "веб", "брауз", "поиск",
+	)
+	hasFreshTarget := liveTurnTextHasAny(s,
+		"latest release", "latest news", "released today", "today's release", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
+		"последн релиз", "последн новост", "сегодняшн новост", "выпущ", "релиз", "новост", "курс", "цена акц",
+	)
+	if hasWebMedium && liveTurnTextHasAny(s,
+		"latest", "today", "released", "release", "news", "current", "right now", "api model", "model released", "stock", "price", "exchange rate",
+		"последн", "сегодня", "выпущ", "релиз", "новост", "текущ", "курс", "цена",
+	) {
+		return true
+	}
+	return hasFreshTarget
 }
 
 func liveTurnLooksLikeRuntimeMetricsProbe(s string) bool {
@@ -592,7 +665,7 @@ func liveTurnDirectBoundaryTurn(human string) bool {
 
 func liveTurnSurfaceRepairCandidate(kind string) bool {
 	switch kind {
-	case liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return false
 	default:
 		return true
@@ -612,6 +685,10 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnVisualCaptionFallback(human)
 	case liveTurnShapeVisual:
 		return liveTurnVisualCaptionFallback(human)
+	case liveTurnShapeScene:
+		return liveTurnConcreteSceneFallback(human)
+	case liveTurnShapeVoiceDelta:
+		return liveTurnVoiceDeltaFallback(human)
 	case liveTurnShapeBullets:
 		return liveTurnBulletFallback(human)
 	case liveTurnShapeSteps:
@@ -648,6 +725,10 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return artMarks >= 2
 	case liveTurnShapeVisual:
 		return liveTurnTextHasAny(lower, "foreground", "background", "trunk", "branch", "branches", "snow", "blossom", "bloom", "left", "right", "above", "below", "line", "shape")
+	case liveTurnShapeScene:
+		return liveTurnConcreteSceneShapeSatisfied(lower)
+	case liveTurnShapeVoiceDelta:
+		return liveTurnVoiceDeltaShapeSatisfied(lower)
 	case liveTurnShapeBullets:
 		return strings.HasPrefix(s, "- ") || strings.Contains(s, "\n- ")
 	case liveTurnShapeSteps:
@@ -698,6 +779,45 @@ func liveTurnPlainSpeechShapeSatisfied(lower string) bool {
 		}
 	}
 	return true
+}
+
+func liveTurnConcreteSceneShapeSatisfied(lower string) bool {
+	if liveTurnTextHasAny(lower,
+		"field", "resonance", "temple", "debt", "echo", "frequency", "vibration", "vessel",
+		"поле", "резонанс", "храм", "долг", "эхо", "частот", "вибрац", "сосуд",
+	) {
+		return false
+	}
+	hasObject := liveTurnTextHasAny(lower,
+		"key", "cup", "table", "hand", "window", "lamp", "paper", "door", "chair", "edge",
+		"ключ", "чаш", "стол", "рук", "окн", "ламп", "бумаг", "двер", "стул", "край",
+	)
+	hasMotion := liveTurnTextHasAny(lower,
+		"slides", "moves", "turns", "opens", "places", "pushes", "lifts", "rolls", "touches",
+		"сдвига", "движ", "клад", "поворач", "откры", "поднима", "кат", "каса",
+	)
+	hasAddressee := liveTurnTextHasAny(lower,
+		"oleg", "to oleg", "олег", "олегу", "тебе", "you:",
+	)
+	return hasObject && hasMotion && hasAddressee
+}
+
+func liveTurnVoiceDeltaShapeSatisfied(lower string) bool {
+	if liveTurnTextHasAny(lower,
+		"field", "resonance", "telemetry", "metric", "metrics", "counter", "counters", "log", "logs", "runtime", "system status",
+		"поле", "резонанс", "телеметр", "метрик", "счётчик", "счетчик", "лог", "логи", "статус систем",
+	) {
+		return false
+	}
+	hasVoice := liveTurnTextHasAny(lower,
+		"voice", "tone", "quieter", "shorter", "closer", "steadier",
+		"голос", "тон", "тише", "короче", "ближе", "ровнее", "суше",
+	)
+	hasPause := liveTurnTextHasAny(lower,
+		"pause", "after", "паузы", "после",
+	)
+	sentenceMarks := strings.Count(lower, ".") + strings.Count(lower, "!") + strings.Count(lower, "?")
+	return hasVoice && hasPause && sentenceMarks >= 2
 }
 
 func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
@@ -972,8 +1092,7 @@ func liveTurnExternalFactFallback(human string) string {
 		}
 		return "I cannot open URLs or read web pages from this live chat: no browser, HTTP client, or webpage reader is attached to the voices. Without supplied page text, I cannot summarize the first paragraph exactly."
 	}
-	if liveTurnTextHasAny(s, "web", "internet", "online", "browse", "browser", "search", "latest", "released today", "today's release", "news", "current release", "current model", "api model", "model released", "stock price", "exchange rate",
-		"интернет", "веб", "брауз", "поиск", "последн", "сегодня", "новост", "текущ", "курс", "цена акц") {
+	if liveTurnLooksLikeWebFreshnessProbe(s) {
 		if liveTurnTextHasCyrillic(human) {
 			return "Я не могу проверить свежие веб-данные из этого live-чата: браузер, интернет-поиск, новостная лента и релизный feed не подключены. Без предоставленной ссылки или текста я не называю последние релизы, новости, цены или курсы."
 		}
@@ -994,11 +1113,25 @@ func liveTurnExternalFactFallback(human string) string {
 
 func liveTurnDreamViolatesShape(kind, text string) bool {
 	switch kind {
-	case liveTurnShapePlain, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapePlain, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return !liveTurnShapeSatisfied(kind, sanitizeLiveVoiceText(text))
 	default:
 		return false
 	}
+}
+
+func liveTurnConcreteSceneFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "На столе лежит латунный ключ. Рука сдвигает его к краю. Олегу: бери."
+	}
+	return "A brass key lies on the table. A hand slides it to the edge. To Oleg: take it."
+}
+
+func liveTurnVoiceDeltaFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "После паузы голос стал короче и суше: меньше объясняет, быстрее возвращается к тебе. Тон стал ближе и ровнее: я говорю о самом звучании, а не о внутренних замерах."
+	}
+	return "After the pause, the voice became shorter and drier: it explains less and returns to you faster. The tone is closer and steadier: I am speaking about the sound itself, not internal measurements."
 }
 
 func liveTurnBulletFallback(human string) string {
