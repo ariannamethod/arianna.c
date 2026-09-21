@@ -362,6 +362,12 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.lastMoved = 0
 		return
 	}
+	if shapeJanus, shapeReson, ok := liveTurnDirectShapeAnswer(human); ok {
+		janus = shapeJanus
+		reson = shapeReson
+		tc.lastMoved = 0
+		return
+	}
 	shapeKind := liveTurnShapeKind(human)
 	// Keep explicit output-form requests (ASCII art, drawing, lists, steps) from
 	// being swallowed by the rolling field/resonance attractor. Ordinary turns use

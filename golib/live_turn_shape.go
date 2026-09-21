@@ -571,9 +571,16 @@ func liveTurnTechnicalDefinitionAnswer(human string) (string, bool) {
 	return liveTurnTechnicalDefinitionFallback(human), true
 }
 
+func liveTurnDirectShapeAnswer(human string) (string, string, bool) {
+	if liveTurnShapeKind(human) != liveTurnShapeASCII {
+		return "", "", false
+	}
+	return liveTurnASCIIArtFallback(human), liveTurnVisualCaptionFallback(human), true
+}
+
 func liveTurnDirectBoundaryTurn(human string) bool {
 	switch liveTurnShapeKind(human) {
-	case liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeASCII, liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return true
 	default:
 		return false

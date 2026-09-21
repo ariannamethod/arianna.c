@@ -22,6 +22,27 @@ func TestLiveTurnShapeContractASCII(t *testing.T) {
 	if !strings.Contains(repaired, "one tree blooming out of season") || !strings.Contains(repaired, "\n") {
 		t.Fatalf("shape repair must provide visible ASCII when raw voice is rejected: %q", repaired)
 	}
+	liveHuman := "Show me ASCII art of a tree blooming now."
+	if kind := liveTurnShapeKind(liveHuman); kind != liveTurnShapeASCII {
+		t.Fatalf("live ASCII prompt kind = %q, want %q", kind, liveTurnShapeASCII)
+	}
+	shapeJanus, shapeReson, ok := liveTurnDirectShapeAnswer(liveHuman)
+	if !ok {
+		t.Fatalf("live ASCII prompt must have a direct deterministic shape answer")
+	}
+	for _, want := range []string{"one tree blooming out of season", "\n"} {
+		if !strings.Contains(shapeJanus, want) {
+			t.Fatalf("direct ASCII Janus = %q, missing %q", shapeJanus, want)
+		}
+	}
+	for _, want := range []string{"Foreground:", "one dark trunk", "blossoms"} {
+		if !strings.Contains(shapeReson, want) {
+			t.Fatalf("direct ASCII Resonance = %q, missing %q", shapeReson, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(liveHuman) {
+		t.Fatalf("live ASCII prompt must bypass voice generation")
+	}
 }
 
 func TestLiveTurnShapeContractVisualComposition(t *testing.T) {
