@@ -585,6 +585,33 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         /* Per-head attention (parallel over all positions) */
         float *cat = yent_xcalloc((size_t)n*E, 4);
         for (int h = 0; h < H; h++) {
+            /* RRPRAM's prompt intermediate is broadcast across all query
+             * positions. It depends on the full prompt and the head, not on i.
+             * Keep it outside the per-position loop; otherwise a 140-token live
+             * prompt recomputes the same E*R sum 140 times per head/block and
+             * makes Janus appear silent in the chat timeout window. */
+            float *wr_a_h = w->b[bl].wr_a + h*E*R;
+            float *wr_b_h = w->b[bl].wr_b + h*R*T;
+            float mid[128] = {0};
+            for (int t = 0; t < n; t++)
+                for (int r = 0; r < R; r++)
+                    for (int e = 0; e < E; e++)
+                        mid[r] += rns[t*E+e] * wr_a_h[e*R+r];
+            /* H-1: seed kv_rrpram_mid from the prompt sum so autoregressive
+             * continuation (forward_token does mid_cache[r] += ... per new pos)
+             * starts from the prompt's RRPRAM state instead of zero; the `=`
+             * also resets it per prefill for the daemon path. Port of
+             * dario/infer_v4.c:233-238. */
+            float *mid_cache = kv_rrpram_mid + ((size_t)bl * H + h) * R;
+            for (int r = 0; r < R; r++) mid_cache[r] = mid[r];
+            /* scores = mid @ wr_b * sc, broadcast */
+            float r_scores[2048];
+            for (int j = 0; j < n; j++) {
+                float s = 0;
+                for (int r = 0; r < R; r++) s += mid[r] * wr_b_h[r*T+j];
+                r_scores[j] = s * sc;
+            }
+
             /* Content attention: [n, n] scores, causal mask */
             float *scores = yent_xcalloc((size_t)n*n, 4);
             for (int i = 0; i < n; i++)
@@ -607,31 +634,6 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
                     for (int d = 0; d < D; d++)
                         c_out[d] += scores[i*n+j] * va[j*E + h*D + d];
 
-                /* RRPRAM (broadcast pattern) */
-                float *wr_a_h = w->b[bl].wr_a + h*E*R;
-                float *wr_b_h = w->b[bl].wr_b + h*R*T;
-                /* intermediate = sum_t sum_e x[t,e] * wr_a[h,e,r] for t=0..n-1 */
-                float mid[128] = {0};
-                for (int t = 0; t < n; t++)
-                    for (int r = 0; r < R; r++)
-                        for (int e = 0; e < E; e++)
-                            mid[r] += rns[t*E+e] * wr_a_h[e*R+r];
-                /* H-1: seed kv_rrpram_mid from the prompt sum so autoregressive
-                 * continuation (forward_token does mid_cache[r] += ... per new pos)
-                 * starts from the prompt's RRPRAM state instead of zero; the `=`
-                 * also resets it per prefill for the daemon path. mid is invariant
-                 * in i, so seed once. Port of dario/infer_v4.c:233-238. */
-                if (i == 0) {
-                    float *mid_cache = kv_rrpram_mid + ((size_t)bl * H + h) * R;
-                    for (int r = 0; r < R; r++) mid_cache[r] = mid[r];
-                }
-                /* scores = mid @ wr_b * sc, broadcast */
-                float r_scores[2048];
-                for (int j = 0; j < n; j++) {
-                    float s = 0;
-                    for (int r = 0; r < R; r++) s += mid[r] * wr_b_h[r*T+j];
-                    r_scores[j] = s * sc;
-                }
                 /* RRPRAM attention: attn[i,j] = softmax(r_scores[j] for j<=i) */
                 float r_attn[2048];
                 for (int j = 0; j <= i; j++) r_attn[j] = r_scores[j];

@@ -13,6 +13,72 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-21 - Live polygon: Janus prefill, metrics receipts, and form membranes
+
+The live polygon exposed defects that prior build/smoke paths did not catch:
+
+- Janus went silent on a normal Russian prompt because batched RRPRAM prefill
+  recomputed the same prompt-wide `mid` inside the per-position loop. A
+  146-token prompt timed out before `<END>`; after moving the invariant RRPRAM
+  prompt sum outside the `i` loop, the same prompt completed in seconds and the
+  hot daemon answered in the live `screen`.
+- `AM_LIVE_METRICS_LOG` was exported by the live launcher but the Go metabolism
+  did not write it. The live runtime now appends JSONL receipts for startup,
+  human turns, field rest ticks, and breath events, including
+  `janus_turns/resonance_turns/nano_turns`, field debt/gait/season, viability,
+  and process pid.
+- Explicit form prompts still leaked the old attractor. A Russian “short scene:
+  object, motion, addressee; without field/resonance/temple/debt” prompt first
+  produced field-language and even leaked rejected candidates. The live membrane
+  now repairs that narrow scene form and keeps rejected candidates off the
+  surface when they contain banned words.
+- “after the last pause, without logs/counters” was falsely routed first to the
+  web freshness boundary (`последн*`) and then to runtime telemetry (`logs` /
+  `counters`). The web freshness gate now requires actual web/news/release/price
+  context, and telemetry requests are suppressed by explicit “without
+  logs/counters” wording. A narrow voice-delta form repairs that prompt into two
+  short voice-surface sentences instead of field or telemetry.
+
+Verification was live-first: after each hot restart, the same failing prompts
+were sent into `screen -S arianna-live` and checked against the live transcript
+and metrics JSONL. Targeted Go regressions cover the repaired classifiers.
+
+---
+
+## 2026-09-21 - Future lane: Netta/Wolfe runtime organs
+
+After the live polygon phase exposes and fixes the current Arianna surface
+defects, add a future runtime-organ lane based on the `netta.code` + Wolfe
+pattern rather than hardcoding every skill into the trio. The shape is:
+
+- `tools.json`-style routing chooses a small body/organ from natural language:
+  ASCII/art, code/action snippets, game/control bridges, filesystem-safe
+  commands, or other narrow script-worlds.
+- A Netta-like body generates the concrete script or action for that world.
+- A bounded judge/bridge executes or validates it and returns a receipt:
+  selected organ, generated source/action, status, output, metrics, and why the
+  candidate was accepted or rejected.
+- Arianna speaks from the receipt. She should not claim a tool/action succeeded
+  without the organ receipt saying so.
+
+This lane is not a replacement for the live Janus/Resonance/nano organism and
+not a reason to stop live polygon work. It is the next way to give Arianna
+small learnable hands without turning the main inference path into a pile of
+hardcoded fallbacks or waiting for a full SFT/DPO pass. SFT/DPO-light for
+Janus/Resonance can still happen later; this lane covers things that should be
+learned as executable micro-worlds: draw this kind of thing, choose this kind of
+action, produce this kind of safe script, inspect this kind of receipt.
+
+The useful boundary is receipt-first and sidecar-first: no generated code gets
+ambient authority, no live self-report is trusted without a receipt, and learning
+is explicit per organ. Corpora should be Arianna-owned or openly licensed; the
+important part is the script grammar and judge contract, not copying somebody
+else's assets. The Netta 51-city target still matters here: after many narrow
+lives, the organism should reuse partial functional similarities while keeping
+worlds distinct and revising the transfer when the current world disagrees.
+
+---
+
 ## 2026-09-13 - GPT API live probe harness
 
 Added `tools/arianna_gpt_api_live_probe.py` for the live polygon phase. The

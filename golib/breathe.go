@@ -366,6 +366,8 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 					} else {
 						fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
 					}
+					liveMetricAdd(&tc.fieldTicks, 1)
+					recordLiveMetric("field_rest", tc, fs, map[string]any{"recovered": recovered, "bloom": bloom})
 					b.lastRestLog = now
 				}
 				continue
@@ -382,6 +384,8 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 					} else {
 						fmt.Printf("│  ◍ (field) %s → resting cooldown×%.2f threshold×%.2f bloom=%d\n", fs.describe(), coolMult, threshMult, bloom)
 					}
+					liveMetricAdd(&tc.fieldTicks, 1)
+					recordLiveMetric("field_rest", tc, fs, map[string]any{"recovered": recovered, "bloom": bloom})
 					b.lastRestLog = now
 				}
 				continue
@@ -486,8 +490,14 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			if *lastDream == prevLD { // don't clobber a fresher human-turn dream that landed while we dreamt
 				*lastDream = carriedDream
 			}
+			liveMetricAdd(&tc.dreams, 1)
+			liveMetricAdd(&tc.nanoTurns, 1)
+			if len(cells) > 0 {
+				liveMetricAdd(&tc.chorusDreams, 1)
+			}
 			if tag := fs.describe(); tag != "" { // the live field bending the breath, made visible
 				fmt.Printf("│  ◍ (field) %s → cooldown×%.2f threshold×%.2f bloom=%d\n", tag, coolMult, threshMult, bloom)
+				liveMetricAdd(&tc.fieldTicks, 1)
 			}
 			if len(cells) > 0 {
 				voices, questions := chorusCounts(cells)
@@ -516,8 +526,16 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				} else {
 					tc.iw.ProcessText(reson)
 					fmt.Printf("│  ◑ (inner) %s\n", reson)
+					liveMetricAdd(&tc.innerLines, 1)
 				}
 			}
+			recordLiveMetric("breath", tc, fr.read(), map[string]any{
+				"trigger":       bName[trig],
+				"dream_source":  source,
+				"chorus_cells":  len(cells),
+				"inner_visible": reson != "",
+				"bloom":         bloom,
+			})
 			// stamp the cooldown at COMPLETION, not at trigger time: a slow chorus
 			// (tens of seconds) must not immediately retrigger and spawn back-to-back.
 			b.lastTrigger[trig] = time.Now()

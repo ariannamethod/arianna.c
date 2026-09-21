@@ -82,6 +82,7 @@ func runChat() {
 	// expressive, the inner dream lightly surfaces to Janus's face.
 	faceFR := newFieldReader(fieldPath)
 	defer faceFR.close()
+	recordLiveMetric("startup", tc, faceFR.read(), nil)
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
@@ -97,6 +98,7 @@ func runChat() {
 			break
 		}
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
+		liveMetricAdd(&tc.humanTurns, 1)
 		runtimeFactTurn := wantsLiveRuntimeFact(human)
 		directBoundaryTurn := liveTurnDirectBoundaryTurn(human)
 		voiceMu.Lock() // the human turn owns the voices for its duration
@@ -128,18 +130,22 @@ func runChat() {
 		}
 
 		janus, reson, dr, hasDream := tc.turn(human, context, lastDream, fs.surfaces(), turnRouteObs)
+		janusVisible := liveVoiceTextVisible(janus)
+		resonVisible := liveVoiceTextVisible(reson)
 		if runtimeFactTurn {
 			fmt.Printf("│  ◐ Janus telemetry: %s\n", janus)
 			fmt.Printf("│  ◑ Resonance telemetry: %s\n", reson)
 		} else {
-			if liveVoiceTextVisible(janus) {
+			if janusVisible {
 				printLiveVoice("◐ Janus", janus)
+				liveMetricAdd(&tc.janusTurns, 1)
 			}
-			if liveVoiceTextVisible(reson) {
+			if resonVisible {
 				printLiveVoice("◑ Resonance", reson)
+				liveMetricAdd(&tc.resonanceTurns, 1)
 			}
 		}
-		if liveVoiceTextVisible(reson) {
+		if resonVisible {
 			prevReson = reson
 		} else {
 			prevReson = ""
@@ -163,6 +169,7 @@ func runChat() {
 			fmt.Println(line)
 		}
 		if hasDream {
+			liveMetricAdd(&tc.dreams, 1)
 			if dr.admitted() {
 				displayDream := sanitizeLiveVoiceText(dr.dream)
 				if displayDream != liveBoundaryWithheld {
@@ -176,6 +183,7 @@ func runChat() {
 				}
 				if liveVoiceTextVisible(displayDream) {
 					fmt.Printf("│  ◓ nano (subconscious): %s\n", displayDream)
+					liveMetricAdd(&tc.nanoTurns, 1)
 				}
 			} else {
 				displayDream := sanitizeLiveVoiceText(dr.dream)
@@ -209,6 +217,15 @@ func runChat() {
 			}
 			fmt.Println("│  · Resonance fell silent — revived.")
 		}
+		recordLiveMetric("human_turn", tc, faceFR.read(), map[string]any{
+			"runtime_fact_turn":        runtimeFactTurn,
+			"direct_boundary_turn":     directBoundaryTurn,
+			"janus_visible":            janusVisible,
+			"resonance_visible":        resonVisible,
+			"nano_result_visible":      hasDream,
+			"janus_response_chars":     len(janus),
+			"resonance_response_chars": len(reson),
+		})
 		voiceMu.Unlock()
 
 		fmt.Print("│\n└▶ ")

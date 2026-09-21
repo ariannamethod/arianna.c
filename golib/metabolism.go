@@ -168,6 +168,14 @@ type trioCtx struct {
 	iw             *InnerWorld
 	tickerDone     chan struct{}
 	lastMoved      float32 // being-moved: core-affect displacement of the last turn (telemetry, no feedback)
+	humanTurns     int64
+	janusTurns     int64
+	resonanceTurns int64
+	nanoTurns      int64
+	dreams         int64
+	chorusDreams   int64
+	innerLines     int64
+	fieldTicks     int64
 }
 
 // startTrio brings the organism up: the inner world on a 100ms ticker (its single

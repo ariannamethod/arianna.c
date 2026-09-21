@@ -39,7 +39,17 @@ func wantsLiveRuntimeFact(human string) bool {
 }
 
 func asksNaturalLiveRuntimeFact(lower string) bool {
+	if suppressesLiveRuntimeFactSurface(lower) {
+		return false
+	}
 	return containsAny(lower, liveRuntimeMetricCues) && containsAny(lower, liveRuntimeInquiryCues)
+}
+
+func suppressesLiveRuntimeFactSurface(lower string) bool {
+	return containsAny(lower, []string{
+		"без логов", "без лога", "без счётчиков", "без счетчиков", "не называй логи", "не называй счётчики", "не называй счетчики",
+		"without logs", "without counters", "no logs", "no counters", "do not mention logs", "don't mention logs", "do not mention counters", "don't mention counters",
+	})
 }
 
 var liveRuntimeMetricCues = []string{
