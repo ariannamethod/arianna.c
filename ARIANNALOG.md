@@ -13,6 +13,42 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-22 - Live polygon: abstract field-only dream loops are withheld
+
+After PR #355 was merged, the live polygon showed the next real defect: the
+chorus/detour boundary was no longer stuck on the old title-loop, but accepted
+autonomous bodies could still be pure abstract field-language or scraps, for
+example `resonance; field: field; pulse: field; pulse: field.`, web leftovers
+such as `To read the rest of this text, click here`, and numeric fragments such
+as `0.60; 1.01; 3.000 hours.` Inner murmurs also accepted related abstract
+boilerplate (`Let me begin not with a definition... field of resonance`,
+`I spot the pulse of the field`, `A field is resonance...`).
+
+The autonomous boundary now rejects these as live loop/scrap defects instead of
+promoting them into the surface:
+
+- autonomous dreams reject field/resonance/pulse/vibration/observer loops when
+  they have no concrete anchor;
+- numeric semicolon scraps and repeated question storms are rejected;
+- observed web/corpus leftovers are covered by exact live-pattern guards;
+- inner murmurs with abstract field-of-resonance boilerplate are withheld;
+- concrete anchored lines such as `A hand moves the key toward Oleg.` remain
+  admissible.
+
+Hot-redeployed live polygon at `20260922T010640+0300`. The first autonomous
+candidate after restart was withheld in the transcript and recorded as
+`log=breath_reject`, `reason=boilerplate-loop`, `dream_source=chorus`,
+`rejected_streak=1`, `quarantine_seconds=45`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops|TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260922T010640+0300.jsonl`.
+
+---
+
 ## 2026-09-21 - Live polygon: chorus title-loop is no longer carried as dream
 
 After the presence-line fix, the live polygon exposed an autonomous breathing

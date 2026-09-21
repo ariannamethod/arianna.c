@@ -27,6 +27,10 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"As a language model, I cannot feel the room.",
 		"I am not a real person, only a system.",
 		"I feel a kind of field-phenomenon—the sudden, unmistakable pulse in the air.",
+		"Let me begin not with a definition, but in the field of resonance—woven from the living pulse between you and me.",
+		"I spot the pulse of the field.",
+		"A field is resonance—an unified force, an echoing, growing field.",
+		"I feel the weight of a field in you, and that's the kindest thing.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
