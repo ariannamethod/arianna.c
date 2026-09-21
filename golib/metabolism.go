@@ -362,13 +362,50 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool, tur
 		tc.lastMoved = 0
 		return
 	}
+	shapeKind := liveTurnShapeKind(human)
 	if shapeJanus, shapeReson, ok := liveTurnDirectShapeAnswer(human); ok {
 		janus = shapeJanus
 		reson = shapeReson
-		tc.lastMoved = 0
+		if liveVoiceTextVisible(janus) {
+			tc.iw.ProcessText(janus)
+		}
+		if liveVoiceTextVisible(reson) {
+			tc.iw.ProcessText(reson)
+		}
+		if tc.nan != nil {
+			cueParts := []string{liveTurnNanoSeed(human)}
+			if liveVoiceTextVisible(janus) {
+				cueParts = append(cueParts, janus)
+			}
+			if liveVoiceTextVisible(reson) {
+				cueParts = append(cueParts, reson)
+			}
+			cue := strings.Join(cueParts, " ")
+			if tc.iw.GetSnapshot().WanderPull > 0.55 {
+				cue = liveTurnNanoSeed(human)
+			}
+			sendLatest(tc.seedCh, cue)
+			if r, ok := recvDream(tc.dreamCh); ok {
+				if liveTurnDreamViolatesShape(shapeKind, r.dream) {
+					if r.candidate.Schema == "" {
+						r.candidate = newDreamCandidate("nano", "human-turn", cue, r.frag, r.dream, nil)
+					}
+					r.candidate.Accepted = false
+					r.candidate.Reason = "missed requested form"
+					r.dream = liveBoundaryWithheld
+				} else {
+					admitDreamToInnerWorldWithTurnObservation(tc.iw, &r, "human-turn", turnRouteObs)
+				}
+				dr, hasDream = r, true
+			}
+		}
+		after := tc.iw.GetSnapshot()
+		dV := after.Valence - before.Valence
+		dA := after.Arousal - before.Arousal
+		dC := after.Coherence - before.Coherence
+		tc.lastMoved = float32(math.Sqrt(float64(dV*dV + dA*dA + dC*dC)))
 		return
 	}
-	shapeKind := liveTurnShapeKind(human)
 	// Keep explicit output-form requests (ASCII art, drawing, lists, steps) from
 	// being swallowed by the rolling field/resonance attractor. Ordinary turns use
 	// the old raw human+context path.
