@@ -202,12 +202,21 @@ func rejectLogInterval(streak int) time.Duration {
 	}
 }
 
+func rejectedLoopReasonClass(reason string) string {
+	switch reason {
+	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+		return "autonomous-loop"
+	default:
+		return ""
+	}
+}
+
 func rejectedCueDetour(streak int, reason string) string {
 	if streak < 3 {
 		return ""
 	}
-	switch reason {
-	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+	switch rejectedLoopReasonClass(reason) {
+	case "autonomous-loop":
 		n := streak
 		if n > 9 {
 			n = 9
@@ -227,8 +236,8 @@ func (b *breath) shouldLogRejectedDetour(now time.Time) bool {
 }
 
 func rejectedDreamSurfaceText(reason, dream string) string {
-	switch reason {
-	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+	switch rejectedLoopReasonClass(reason) {
+	case "autonomous-loop":
 		return liveBoundaryWithheld
 	default:
 		return sanitizeLiveVoiceText(dream)
@@ -237,17 +246,21 @@ func rejectedDreamSurfaceText(reason, dream string) string {
 
 func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	norm := normalizedDreamKey(dream)
-	sameRejected := norm != "" &&
+	sameExactRejected := norm != "" &&
 		norm == b.lastRejectedDream &&
 		reason == b.lastRejectedReason
-	if sameRejected {
+	reasonClass := rejectedLoopReasonClass(reason)
+	lastReasonClass := rejectedLoopReasonClass(b.lastRejectedReason)
+	sameRejectedClass := reasonClass != "" && reasonClass == lastReasonClass
+	continuedRejection := sameExactRejected || sameRejectedClass
+	if continuedRejection {
 		b.rejectedStreak++
 	} else {
 		b.rejectedStreak = 1
 		b.lastDetourLog = time.Time{}
 	}
 	quarantine := rejectQuarantineDuration(b.rejectedStreak)
-	quietRepeat := sameRejected && now.Sub(b.lastRejectLog) < rejectLogInterval(b.rejectedStreak)
+	quietRepeat := continuedRejection && now.Sub(b.lastRejectLog) < rejectLogInterval(b.rejectedStreak)
 	if !quietRepeat {
 		repeatNote := ""
 		if b.rejectedStreak > 1 {

@@ -71,3 +71,41 @@ func TestRejectedDetourLogBackoff(t *testing.T) {
 		t.Fatal("rejected detour should become visible at the backoff boundary")
 	}
 }
+
+func TestRejectDreamBackoffCountsAlternatingLoopReasons(t *testing.T) {
+	var b breath
+	now := time.Unix(2000, 0)
+
+	b.rejectDream(now, bSilence, "collapse-loop", "the text is only not what")
+	firstRejectLog := b.lastRejectLog
+	if b.rejectedStreak != 1 {
+		t.Fatalf("first loop rejection streak = %d, want 1", b.rejectedStreak)
+	}
+
+	b.rejectDream(now.Add(10*time.Second), bSilence, "boilerplate-loop", "a living vessel. of the field.")
+	if b.rejectedStreak != 2 {
+		t.Fatalf("alternating loop rejection streak = %d, want 2", b.rejectedStreak)
+	}
+	if !b.lastRejectLog.Equal(firstRejectLog) {
+		t.Fatalf("alternating loop rejection should stay quiet inside backoff: lastRejectLog=%s first=%s", b.lastRejectLog, firstRejectLog)
+	}
+	if got := b.rejectQuarantineTo.Sub(now.Add(10 * time.Second)); got != 90*time.Second {
+		t.Fatalf("alternating loop quarantine = %s, want 90s", got)
+	}
+
+	b.rejectDream(now.Add(30*time.Second), bSilence, "collapse-loop", "of the current it has to hold")
+	if b.rejectedStreak != 3 {
+		t.Fatalf("third alternating loop rejection streak = %d, want 3", b.rejectedStreak)
+	}
+	if !b.lastRejectLog.Equal(firstRejectLog) {
+		t.Fatalf("third alternating loop rejection should remain quiet inside escalated backoff: lastRejectLog=%s first=%s", b.lastRejectLog, firstRejectLog)
+	}
+	if got := rejectedCueDetour(b.rejectedStreak, b.lastRejectedReason); got == "" {
+		t.Fatal("alternating loop rejection must still produce a concrete detour cue after repeat×3")
+	}
+
+	b.rejectDream(now.Add(40*time.Second), bSilence, "live-boundary", "empty carried dream")
+	if b.rejectedStreak != 1 {
+		t.Fatalf("non-loop rejection must reset loop-class streak, got %d", b.rejectedStreak)
+	}
+}
