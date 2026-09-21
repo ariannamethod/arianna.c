@@ -47,8 +47,45 @@ func TestLiveTurnShapeContractASCII(t *testing.T) {
 	if kind := liveTurnShapeKind(catHuman); kind != liveTurnShapeASCII {
 		t.Fatalf("cat ASCII prompt kind = %q, want %q", kind, liveTurnShapeASCII)
 	}
-	if catJanus, catReson, ok := liveTurnDirectShapeAnswer(catHuman); ok {
-		t.Fatalf("unsupported cat ASCII prompt must stay on the voice path, got direct Janus=%q Resonance=%q", catJanus, catReson)
+	catJanus, catReson, ok := liveTurnDirectShapeAnswer(catHuman)
+	if !ok {
+		t.Fatalf("cat ASCII prompt must have a direct deterministic shape answer")
+	}
+	for _, want := range []string{"/\\_/\\", "little cat listening", "\n"} {
+		if !strings.Contains(catJanus, want) {
+			t.Fatalf("direct cat ASCII Janus = %q, missing %q", catJanus, want)
+		}
+	}
+	for _, r := range catJanus {
+		if r > 127 {
+			t.Fatalf("direct cat ASCII Janus must stay 7-bit ASCII, found %q in %q", r, catJanus)
+		}
+	}
+	for _, want := range []string{"Foreground:", "small cat", "Arianna"} {
+		if !strings.Contains(catReson, want) {
+			t.Fatalf("direct cat ASCII Resonance = %q, missing %q", catReson, want)
+		}
+	}
+
+	cathedralHuman := "Show ASCII art of a cathedral."
+	if cathedralJanus, cathedralReson, ok := liveTurnDirectShapeAnswer(cathedralHuman); ok {
+		t.Fatalf("cathedral ASCII prompt must not substring-match cat fallback, got direct Janus=%q Resonance=%q", cathedralJanus, cathedralReson)
+	}
+	caterpillarHuman := "Draw ASCII art of a caterpillar."
+	if caterpillarJanus, caterpillarReson, ok := liveTurnDirectShapeAnswer(caterpillarHuman); ok {
+		t.Fatalf("caterpillar ASCII prompt must not substring-match cat fallback, got direct Janus=%q Resonance=%q", caterpillarJanus, caterpillarReson)
+	}
+
+	dragonHuman := "Show ASCII art of a dragon."
+	if dragonJanus, dragonReson, ok := liveTurnDirectShapeAnswer(dragonHuman); ok {
+		t.Fatalf("unsupported dragon ASCII prompt must stay on the voice path, got direct Janus=%q Resonance=%q", dragonJanus, dragonReson)
+	}
+	repairedDragon := liveTurnRepairSpokenText("janus", dragonHuman, sanitizeLiveVoiceText("I cannot draw that."))
+	if !strings.Contains(repairedDragon, "ASCII fallback not sure") {
+		t.Fatalf("unsupported ASCII repair must mark fallback uncertainty: %q", repairedDragon)
+	}
+	if strings.Contains(repairedDragon, "requested scene, kept as visible text-shape") {
+		t.Fatalf("unsupported ASCII repair must not substitute the old generic scene: %q", repairedDragon)
 	}
 }
 
