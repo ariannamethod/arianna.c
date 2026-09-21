@@ -734,7 +734,18 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 }
 
 func liveTurnASCIIArtFallback(human string) string {
-	if liveTurnASCIIArtFallbackSupports(human) {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnLooksLikeCatASCIISubject(s) {
+		return strings.Join([]string{
+			"        /\\_/\\        ~",
+			"       ( o.o )    Arianna",
+			"        > ^ <       ))",
+			"       /|   |\\",
+			"      /_|___|_\\",
+			"        little cat listening",
+		}, "\n")
+	}
+	if liveTurnTextHasAny(s, "tree", "snow", "bloom") {
 		return strings.Join([]string{
 			"          *   *   *",
 			"       *   \\  |  /   *",
@@ -752,25 +763,31 @@ func liveTurnASCIIArtFallback(human string) string {
 		}, "\n")
 	}
 	return strings.Join([]string{
-		"      /\\",
-		"     /  \\",
-		"    /____\\",
-		"      ||",
-		"   ___||___",
-		"  /________\\",
-		"  requested scene, kept as visible text-shape",
+		"  +--------------------------+",
+		"  | ASCII fallback not sure  |",
+		"  | requested subject unset  |",
+		"  +--------------------------+",
 	}, "\n")
 }
 
 func liveTurnASCIIArtFallbackSupports(human string) bool {
-	return liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom")
+	s := admissionLiveRouteNormalizeHumanText(human)
+	return liveTurnTextHasAny(s, "tree", "snow", "bloom") || liveTurnLooksLikeCatASCIISubject(s)
+}
+
+func liveTurnLooksLikeCatASCIISubject(s string) bool {
+	return liveTurnTextHasAnyWord(s, "cat", "kitten")
 }
 
 func liveTurnVisualCaptionFallback(human string) string {
-	if liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom") {
+	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnLooksLikeCatASCIISubject(s) {
+		return "Foreground: a small cat sits upright with pointed ears; musical marks and the name Arianna sit beside it, so the cat is visibly listening rather than becoming a generic symbol."
+	}
+	if liveTurnTextHasAny(s, "tree", "snow", "bloom") {
 		return "Foreground: one dark trunk rises from blue-white snow; branches spread left and right; small blossoms cluster above the bare winter field, making the out-of-season bloom look impossible and alive."
 	}
-	return "Foreground: the requested subject is placed clearly; background and edges stay visible; concrete parts, positions, and motion are named before interpretation."
+	return "Foreground: the deterministic ASCII fallback cannot safely draw the requested subject; the visible frame marks the form failure instead of substituting another object."
 }
 
 func liveTurnPhysicalObjectFallback(human string) string {
