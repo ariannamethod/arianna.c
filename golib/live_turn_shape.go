@@ -575,12 +575,15 @@ func liveTurnDirectShapeAnswer(human string) (string, string, bool) {
 	if liveTurnShapeKind(human) != liveTurnShapeASCII {
 		return "", "", false
 	}
+	if !liveTurnASCIIArtFallbackSupports(human) {
+		return "", "", false
+	}
 	return liveTurnASCIIArtFallback(human), liveTurnVisualCaptionFallback(human), true
 }
 
 func liveTurnDirectBoundaryTurn(human string) bool {
 	switch liveTurnShapeKind(human) {
-	case liveTurnShapeASCII, liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeObject, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return true
 	default:
 		return false
@@ -731,7 +734,7 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 }
 
 func liveTurnASCIIArtFallback(human string) string {
-	if liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom") {
+	if liveTurnASCIIArtFallbackSupports(human) {
 		return strings.Join([]string{
 			"          *   *   *",
 			"       *   \\  |  /   *",
@@ -757,6 +760,10 @@ func liveTurnASCIIArtFallback(human string) string {
 		"  /________\\",
 		"  requested scene, kept as visible text-shape",
 	}, "\n")
+}
+
+func liveTurnASCIIArtFallbackSupports(human string) bool {
+	return liveTurnTextHasAny(admissionLiveRouteNormalizeHumanText(human), "tree", "snow", "bloom")
 }
 
 func liveTurnVisualCaptionFallback(human string) string {

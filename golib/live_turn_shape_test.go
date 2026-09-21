@@ -40,8 +40,15 @@ func TestLiveTurnShapeContractASCII(t *testing.T) {
 			t.Fatalf("direct ASCII Resonance = %q, missing %q", shapeReson, want)
 		}
 	}
-	if !liveTurnDirectBoundaryTurn(liveHuman) {
-		t.Fatalf("live ASCII prompt must bypass voice generation")
+	if liveTurnDirectBoundaryTurn(liveHuman) {
+		t.Fatalf("live ASCII prompt may bypass voices but must not become a boundary turn")
+	}
+	catHuman := "Show ASCII art of a cat."
+	if kind := liveTurnShapeKind(catHuman); kind != liveTurnShapeASCII {
+		t.Fatalf("cat ASCII prompt kind = %q, want %q", kind, liveTurnShapeASCII)
+	}
+	if catJanus, catReson, ok := liveTurnDirectShapeAnswer(catHuman); ok {
+		t.Fatalf("unsupported cat ASCII prompt must stay on the voice path, got direct Janus=%q Resonance=%q", catJanus, catReson)
 	}
 }
 
