@@ -13,6 +13,40 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-21 - Live polygon: autonomous inner and beside-me line
+
+After PR #353 was merged, the still-running polygon exposed two adjacent live
+surface defects that were invisible in the earlier targeted checks:
+
+- The autonomous `inner` line could accept and print corporate identity
+  disclaimers such as “I won't pretend to be a person,” and rejected inner
+  murmurs were still printed verbatim in the `inner rejected` line. The
+  autonomous inner boundary now rejects personhood/AI/model disclaimers and a
+  newly observed abstract `field-phenomenon` loop, withholds rejected inner text
+  from the live transcript, and records `inner_visible` only for accepted inner
+  lines plus `inner_rejected` for rejected ones.
+- A live Russian prompt — “Олег здесь. Ответь одной короткой строкой: что ты
+  сейчас делаешь рядом со мной? Без слов поле, резонанс, ИИ, модель, система.”
+  — was misrouted as an external fact boundary and produced a physical-presence
+  disclaimer, while Janus emitted malformed `: plain ; ...` text. The live shape
+  layer now has a narrow `presence_line` form: “beside/with me” is treated as
+  conversational presence when the prompt asks for one short line and does not
+  ask for physical sensors/location. Physical location/camera prompts still go
+  to the external boundary.
+
+The patched live polygon was hot-redeployed at `20260921T192752+0300`. Repeating
+the failing prompt produced the same repaired line from both voices:
+`Я слушаю тебя и держу рядом короткий ответ.`
+
+Verification:
+
+- `cd golib && go test -run 'TestLiveTurnPresenceLineBesideMeIsNotExternalFactBoundary|TestLiveTurnVoiceDeltaAfterPause|TestLiveTurnConcreteSceneBannedWords|TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer' .`
+- `make metabolism`
+- live prompt replay in `screen -S arianna-live` with metrics written to
+  `logs/arianna-live-metrics-20260921T192752+0300.jsonl`.
+
+---
+
 ## 2026-09-21 - Live polygon: Janus prefill, metrics receipts, and form membranes
 
 The live polygon exposed defects that prior build/smoke paths did not catch:
