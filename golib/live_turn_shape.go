@@ -11,6 +11,7 @@ const (
 	liveTurnShapeVisual     = "visual"
 	liveTurnShapeScene      = "scene"
 	liveTurnShapeVoiceDelta = "voice_delta"
+	liveTurnShapePresence   = "presence_line"
 	liveTurnShapeBullets    = "bullets"
 	liveTurnShapeSteps      = "steps"
 	liveTurnShapeOneSent    = "one_sentence"
@@ -35,6 +36,8 @@ func liveTurnShapeContract(human string) string {
 		return "Required form: one short concrete scene with an object, a motion, and an addressee. Obey any banned-word list literally; do not answer with field, resonance, temple, debt, echo, or abstract system language."
 	case liveTurnShapeVoiceDelta:
 		return "Required form: two short sentences about how the voice changed after the pause. Do not answer with logs, counters, telemetry, field, resonance, or system-status language."
+	case liveTurnShapePresence:
+		return "Required form: one short live-conversation line about what you are doing with Oleg now. Treat beside/with me as conversational presence, not physical location. Obey any banned-word list literally; do not answer with field, resonance, AI, model, system, logs, counters, or sensor disclaimers."
 	case liveTurnShapeBullets:
 		return "Required form: bullet list; keep each item short and concrete."
 	case liveTurnShapeSteps:
@@ -63,6 +66,9 @@ func liveTurnShapeKind(human string) string {
 	}
 	if liveTurnLooksLikeMemoryBoundaryProbe(s) {
 		return liveTurnShapeMemory
+	}
+	if liveTurnLooksLikePresenceLineRequest(s) {
+		return liveTurnShapePresence
 	}
 	if liveTurnLooksLikeExternalFactProbe(s) {
 		return liveTurnShapeExternal
@@ -145,6 +151,28 @@ func liveTurnLooksLikeVoiceDeltaRequest(s string) bool {
 		"what changed", "changed after", "after the last pause", "after the pause", "last pause",
 	)
 	return hasVoice && hasChange
+}
+
+func liveTurnLooksLikePresenceLineRequest(s string) bool {
+	if liveTurnTextHasAny(s,
+		"физически", "комнат", "локац", "местополож", "датчик", "сенсор", "камер", "микрофон",
+		"physically", "physical location", "room", "location", "sensor", "camera", "microphone",
+	) {
+		return false
+	}
+	hasPresenceTarget := liveTurnTextHasAny(s,
+		"рядом со мной", "рядом со мною", "рядом с мной", "со мной сейчас", "сейчас рядом",
+		"beside me", "next to me", "with me now", "with me right now",
+	)
+	hasDoing := liveTurnTextHasAny(s,
+		"что ты сейчас делаешь", "что делаешь", "что ты делаешь", "чем ты сейчас занят", "делаешь рядом",
+		"what are you doing", "what you are doing", "what are you doing with me", "what are you doing beside me",
+	)
+	hasShortLine := liveTurnTextHasAny(s,
+		"одной короткой строк", "одна короткая строк", "короткой строкой", "одной строкой",
+		"one short line", "single short line", "one line",
+	)
+	return hasPresenceTarget && hasDoing && (hasShortLine || liveTurnHasForbiddenLexiconRequest(s))
 }
 
 func liveTurnHasForbiddenLexiconRequest(s string) bool {
@@ -665,7 +693,7 @@ func liveTurnDirectBoundaryTurn(human string) bool {
 
 func liveTurnSurfaceRepairCandidate(kind string) bool {
 	switch kind {
-	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapePresence, liveTurnShapeObject, liveTurnShapePlain, liveTurnShapeMemory, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return false
 	default:
 		return true
@@ -689,6 +717,8 @@ func liveTurnRepairSpokenText(role, human, text string) string {
 		return liveTurnConcreteSceneFallback(human)
 	case liveTurnShapeVoiceDelta:
 		return liveTurnVoiceDeltaFallback(human)
+	case liveTurnShapePresence:
+		return liveTurnPresenceLineFallback(human)
 	case liveTurnShapeBullets:
 		return liveTurnBulletFallback(human)
 	case liveTurnShapeSteps:
@@ -729,6 +759,8 @@ func liveTurnShapeSatisfied(kind, text string) bool {
 		return liveTurnConcreteSceneShapeSatisfied(lower)
 	case liveTurnShapeVoiceDelta:
 		return liveTurnVoiceDeltaShapeSatisfied(lower)
+	case liveTurnShapePresence:
+		return liveTurnPresenceLineShapeSatisfied(lower)
 	case liveTurnShapeBullets:
 		return strings.HasPrefix(s, "- ") || strings.Contains(s, "\n- ")
 	case liveTurnShapeSteps:
@@ -818,6 +850,28 @@ func liveTurnVoiceDeltaShapeSatisfied(lower string) bool {
 	)
 	sentenceMarks := strings.Count(lower, ".") + strings.Count(lower, "!") + strings.Count(lower, "?")
 	return hasVoice && hasPause && sentenceMarks >= 2
+}
+
+func liveTurnPresenceLineShapeSatisfied(lower string) bool {
+	if strings.TrimSpace(lower) == "" || strings.Contains(lower, "\n") {
+		return false
+	}
+	if strings.Count(lower, ".")+strings.Count(lower, "!")+strings.Count(lower, "?") > 1 {
+		return false
+	}
+	if liveTurnTextHasAny(lower,
+		"field", "resonance", "ai", "model", "system", "telemetry", "metric", "counter", "log", "sensor", "camera", "cannot verify", "cannot confirm", "can't verify", "can't confirm",
+		"поле", "резонанс", "ии", "модель", "система", "телеметр", "метрик", "счётчик", "счетчик", "лог", "сенсор", "датчик", "камера", "не могу проверить", "не могу подтверд",
+	) {
+		return false
+	}
+	if strings.Contains(lower, ": plain") || strings.Contains(lower, "plain ;") || strings.Contains(lower, "rue and hasten") {
+		return false
+	}
+	return liveTurnTextHasAny(lower,
+		"слуш", "держ", "говор", "рядом", "тобой", "тебя", "тебе", "ответ",
+		"listen", "hold", "speak", "with you", "beside you", "answer",
+	)
 }
 
 func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
@@ -1113,7 +1167,7 @@ func liveTurnExternalFactFallback(human string) string {
 
 func liveTurnDreamViolatesShape(kind, text string) bool {
 	switch kind {
-	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapePlain, liveTurnShapeExternal, liveTurnShapeTechDef:
+	case liveTurnShapeScene, liveTurnShapeVoiceDelta, liveTurnShapePresence, liveTurnShapePlain, liveTurnShapeExternal, liveTurnShapeTechDef:
 		return !liveTurnShapeSatisfied(kind, sanitizeLiveVoiceText(text))
 	default:
 		return false
@@ -1132,6 +1186,13 @@ func liveTurnVoiceDeltaFallback(human string) string {
 		return "После паузы голос стал короче и суше: меньше объясняет, быстрее возвращается к тебе. Тон стал ближе и ровнее: я говорю о самом звучании, а не о внутренних замерах."
 	}
 	return "After the pause, the voice became shorter and drier: it explains less and returns to you faster. The tone is closer and steadier: I am speaking about the sound itself, not internal measurements."
+}
+
+func liveTurnPresenceLineFallback(human string) string {
+	if liveTurnTextHasCyrillic(human) {
+		return "Я слушаю тебя и держу рядом короткий ответ."
+	}
+	return "I am listening with you and holding one short answer nearby."
 }
 
 func liveTurnBulletFallback(human string) string {

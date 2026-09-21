@@ -157,6 +157,13 @@ func isRejectedInnerMurmur(text string) bool {
 	}
 	for _, p := range []string{
 		"oleg is not a person",
+		"i won't pretend to be a person",
+		"i wont pretend to be a person",
+		"not pretend to be a person",
+		"not a real person",
+		"as an ai",
+		"as a language model",
+		"field-phenomenon",
 		"thought-spirals at",
 		"rpm (dry)",
 		"organ cuts off",
@@ -520,21 +527,24 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			// this as the subconscious's dream so Resonance imprints its words on the
 			// cooc harder (Road-1c) — the daemon strips the marker before generation.
 			reson := tc.resonD.ask("Arianna:\t" + dreamSentinel + dream)
+			innerAccepted := false
 			if reson != "" {
 				if isRejectedInnerMurmur(reson) {
-					fmt.Printf("│  ◑ (inner rejected — boundary-loop): %s\n", ellipsize(reson, 120))
+					fmt.Printf("│  ◑ (inner rejected — boundary-loop): [withheld rejected inner text]\n")
 				} else {
 					tc.iw.ProcessText(reson)
 					fmt.Printf("│  ◑ (inner) %s\n", reson)
 					liveMetricAdd(&tc.innerLines, 1)
+					innerAccepted = true
 				}
 			}
 			recordLiveMetric("breath", tc, fr.read(), map[string]any{
-				"trigger":       bName[trig],
-				"dream_source":  source,
-				"chorus_cells":  len(cells),
-				"inner_visible": reson != "",
-				"bloom":         bloom,
+				"trigger":        bName[trig],
+				"dream_source":   source,
+				"chorus_cells":   len(cells),
+				"inner_visible":  innerAccepted,
+				"inner_rejected": reson != "" && !innerAccepted,
+				"bloom":          bloom,
 			})
 			// stamp the cooldown at COMPLETION, not at trigger time: a slow chorus
 			// (tens of seconds) must not immediately retrigger and spawn back-to-back.

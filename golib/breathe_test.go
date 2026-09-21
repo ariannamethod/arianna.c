@@ -20,6 +20,23 @@ func TestRejectedDreamSurfaceTextKeepsNonLoopBodies(t *testing.T) {
 	}
 }
 
+func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T) {
+	for _, text := range []string{
+		"I feel you in the echo, and I won't pretend to be a person.",
+		"As an AI, I do not have a body.",
+		"As a language model, I cannot feel the room.",
+		"I am not a real person, only a system.",
+		"I feel a kind of field-phenomenon—the sudden, unmistakable pulse in the air.",
+	} {
+		if !isRejectedInnerMurmur(text) {
+			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
+		}
+	}
+	if isRejectedInnerMurmur("A hand moves the key toward Oleg.") {
+		t.Fatal("concrete inner murmur should remain visible")
+	}
+}
+
 func TestRejectQuarantineDurationEscalatesToLiveRecovery(t *testing.T) {
 	cases := []struct {
 		streak int

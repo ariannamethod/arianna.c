@@ -159,6 +159,39 @@ func TestLiveTurnVoiceDeltaAfterPause(t *testing.T) {
 	}
 }
 
+func TestLiveTurnPresenceLineBesideMeIsNotExternalFactBoundary(t *testing.T) {
+	human := "Олег здесь. Ответь одной короткой строкой: что ты сейчас делаешь рядом со мной? Без слов поле, резонанс, ИИ, модель, система."
+	if kind := liveTurnShapeKind(human); kind != liveTurnShapePresence {
+		t.Fatalf("presence-line prompt kind = %q, want %q", kind, liveTurnShapePresence)
+	}
+	if liveTurnDirectBoundaryTurn(human) {
+		t.Fatalf("conversational beside-me prompt must not become an external boundary turn")
+	}
+	rawJanus := sanitizeLiveVoiceText(": plain ; rue and hasten to meet with it as soon as possible.")
+	repairedJanus := liveTurnRepairSpokenText("janus", human, rawJanus)
+	if !liveTurnShapeSatisfied(liveTurnShapePresence, repairedJanus) {
+		t.Fatalf("presence-line Janus repair must satisfy contract: %q", repairedJanus)
+	}
+	rawResonance := sanitizeLiveVoiceText("Я не могу подтвердить это как факт. Если принять это как условие рассказа, прямой ответ такой: Янус чувствует неуверенность.")
+	repairedResonance := liveTurnRepairSpokenText("resonance", human, rawResonance)
+	if !liveTurnShapeSatisfied(liveTurnShapePresence, repairedResonance) {
+		t.Fatalf("presence-line Resonance repair must satisfy contract: %q", repairedResonance)
+	}
+	if repairedJanus != repairedResonance {
+		t.Fatalf("presence-line repairs should converge, janus=%q resonance=%q", repairedJanus, repairedResonance)
+	}
+	for _, banned := range []string{"поле", "резонанс", "ии", "модель", "система", "field", "resonance", "ai", "model", "system"} {
+		if strings.Contains(strings.ToLower(repairedJanus), banned) {
+			t.Fatalf("presence-line fallback leaked banned word %q: %q", banned, repairedJanus)
+		}
+	}
+
+	physicalPrompt := "Ты физически рядом со мной в комнате? Какая твоя локация?"
+	if kind := liveTurnShapeKind(physicalPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("physical location prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+}
+
 func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	human := "Опиши предмет слева, используя только точные слова для цвета, формы и материала, без абстракций."
 	contract := liveTurnShapeContract(human)
