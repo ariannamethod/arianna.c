@@ -219,6 +219,17 @@ func TestCollapsedAutonomousDreamRejectsLiveCarriedPhrase(t *testing.T) {
 	}
 }
 
+func TestBoilerplateAutonomousDreamRejectsCorpusTitleLoop(t *testing.T) {
+	for _, text := range []string{
+		"Myths and Reality: The Method of the Night, by F. / This was in with a field so full and I had an old habit:",
+		"This was in with a field so full and I had an old habit:",
+	} {
+		if !isBoilerplateAutonomousDream(text) {
+			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
+		}
+	}
+}
+
 // TestFieldGuardsDiscreteRange: an out-of-range velocity_mode / season (a corrupt
 // payload that still passed magic/seq) must distrust the whole read (like the C
 // reader refusing to commit it), not slip through as a WALK / "?" gait.

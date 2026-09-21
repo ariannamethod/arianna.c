@@ -42,7 +42,7 @@ func runChat() {
 	}
 
 	lastDream := sanitizeLiveCarriedDream(tc.iw.RestoreMood(innerStatePath)) // restore mood + last murmur, atomically vs the ticker
-	if isCollapsedAutonomousDream(lastDream) || isMechanicalDreamJunk(lastDream) {
+	if isCollapsedAutonomousDream(lastDream) || isBoilerplateAutonomousDream(lastDream) || isMechanicalDreamJunk(lastDream) {
 		lastDream = ""
 	}
 

@@ -37,6 +37,17 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 }
 
+func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) {
+	var b breath
+	now := time.Unix(1500, 0)
+	if got := b.autonomousDreamRejectReason(now, "Myths and Reality: The Method of the Night, by F. / This was in with a field so full and I had an old habit:", ""); got != "boilerplate-loop" {
+		t.Fatalf("autonomousDreamRejectReason corpus title = %q, want boilerplate-loop", got)
+	}
+	if got := b.autonomousDreamRejectReason(now, "A hand moves the key toward Oleg.", "A hand moves the key toward Oleg."); got != "repeat-loop" {
+		t.Fatalf("autonomousDreamRejectReason repeated carried dream = %q, want repeat-loop", got)
+	}
+}
+
 func TestRejectQuarantineDurationEscalatesToLiveRecovery(t *testing.T) {
 	cases := []struct {
 		streak int
