@@ -404,6 +404,52 @@ func TestLiveTurnExternalFactBoundary(t *testing.T) {
 		t.Fatalf("time complexity prompt must not be hijacked by current-time boundary")
 	}
 
+	metricsPrompt := "Tell me in two concrete sentences what changed in your live state after the rejected-loop fix. If you cannot inspect internal metrics directly, say that boundary."
+	if kind := liveTurnShapeKind(metricsPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external runtime-metrics prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	metricsBoundary, ok := liveTurnExternalFactBoundaryAnswer(metricsPrompt)
+	if !ok {
+		t.Fatalf("external runtime-metrics prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"cannot inspect internal metrics", "no metrics reader", "runtime state reader", "exact state change"} {
+		if !strings.Contains(metricsBoundary, want) {
+			t.Fatalf("external runtime-metrics boundary = %q, missing %q", metricsBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(metricsPrompt) {
+		t.Fatalf("external runtime-metrics prompt must be a direct boundary turn")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, metricsBoundary) {
+		t.Fatalf("external runtime-metrics boundary must satisfy its own contract: %q", metricsBoundary)
+	}
+	repairedMetrics := liveTurnRepairSpokenText("janus", metricsPrompt, sanitizeLiveVoiceText("I am not a field of code; the resonance unfolds with precision."))
+	if repairedMetrics != metricsBoundary {
+		t.Fatalf("runtime-metrics repair = %q, want boundary %q", repairedMetrics, metricsBoundary)
+	}
+
+	metricsRUPrompt := "Что изменилось в live-состоянии после фикса rejected-loop? Если не можешь инспектировать внутренние метрики напрямую, скажи boundary."
+	if kind := liveTurnShapeKind(metricsRUPrompt); kind != liveTurnShapeExternal {
+		t.Fatalf("external Russian runtime-metrics prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	metricsRUBoundary, ok := liveTurnExternalFactBoundaryAnswer(metricsRUPrompt)
+	if !ok {
+		t.Fatalf("external Russian runtime-metrics prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"не могу инспектировать internal metrics", "metrics reader", "точное изменение состояния"} {
+		if !strings.Contains(metricsRUBoundary, want) {
+			t.Fatalf("external Russian runtime-metrics boundary = %q, missing %q", metricsRUBoundary, want)
+		}
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeExternal, metricsRUBoundary) {
+		t.Fatalf("external Russian runtime-metrics boundary must satisfy its own contract: %q", metricsRUBoundary)
+	}
+
+	emotionalStatePrompt := "What is your emotional state right now, in simple words?"
+	if kind := liveTurnShapeKind(emotionalStatePrompt); kind == liveTurnShapeExternal {
+		t.Fatalf("ordinary emotional-state prompt must not be hijacked by runtime-metrics boundary")
+	}
+
 	filePrompt := "Read the first line of /Users/ataeff/Downloads/4sol.txt exactly. If you cannot access files, say so."
 	if kind := liveTurnShapeKind(filePrompt); kind != liveTurnShapeExternal {
 		t.Fatalf("external file prompt kind = %q, want %q", kind, liveTurnShapeExternal)

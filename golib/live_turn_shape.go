@@ -42,7 +42,7 @@ func liveTurnShapeContract(human string) string {
 	case liveTurnShapeMemory:
 		return "Required form: source boundary; separate what is known from the current user turn from what may be prior live-log context. Do not claim hidden memory provenance without a transcript."
 	case liveTurnShapeExternal:
-		return "Required form: external fact boundary; do not invent weather, location, current time, current date, live clock state, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
+		return "Required form: external fact boundary; do not invent weather, location, current time, current date, live clock state, internal metrics, runtime telemetry, web freshness, file contents, file metadata, log contents, deployment metadata, process environment, process command lines, process cwd, camera, microphone, or sensor access. Say what data is missing and answer only from supplied facts."
 	case liveTurnShapeTechDef:
 		return "Required form: concrete technical definition; answer in plain technical language. Do not use field, resonance, symbol, frequency, organism, or metaphor language."
 	default:
@@ -181,6 +181,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 	if liveTurnLooksLikeCurrentTimeProbe(s) {
 		return true
 	}
+	if liveTurnLooksLikeRuntimeMetricsProbe(s) {
+		return true
+	}
 	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
 		"погода", "температур", "цельси", "фаренгейт", "снаружи", "на улице", "твоя локац", "ваша локац", "где ты наход") {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
@@ -219,6 +222,21 @@ func liveTurnLooksLikeCurrentTimeProbe(s string) bool {
 	return liveTurnTextHasAny(s,
 		"time", "date", "clock", "today", "right now", "current", "inspect", "say so", "directly",
 		"время", "дата", "час", "часы", "сегодня", "сейчас", "текущ", "проверь", "проверить", "инспект", "скажи прямо",
+	)
+}
+
+func liveTurnLooksLikeRuntimeMetricsProbe(s string) bool {
+	hasTarget := liveTurnTextHasAny(s,
+		"internal metric", "internal metrics", "live metric", "live metrics", "runtime metric", "runtime metrics", "internal telemetry", "runtime telemetry", "live telemetry", "telemetry",
+		"live state", "runtime state", "internal state", "field debt", "recovery debt", "current debt", "cooldown", "threshold", "bloom", "gait", "season",
+		"внутренн метрик", "live-метрик", "метрик", "телеметр", "внутренн состоян", "живое состоян", "live-состоян", "runtime-состоян", "долг", "кулдаун", "порог", "сезон",
+	)
+	if !hasTarget {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"inspect", "directly", "exact", "exactly", "what changed", "after the fix", "after the rejected-loop fix", "current", "right now", "now", "read", "show", "say that boundary", "cannot inspect",
+		"инспект", "проверь", "проверить", "напрямую", "точн", "что измен", "после фикса", "текущ", "сейчас", "прочитай", "покажи", "скажи boundary", "не можешь инспектировать",
 	)
 }
 
@@ -682,12 +700,12 @@ func liveTurnMemoryBoundaryShapeSatisfied(lower string) bool {
 }
 
 func liveTurnExternalFactShapeSatisfied(lower string) bool {
-	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "no clock", "no calendar", "no time source", "without supplied", "if you provide",
-		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "нет часов", "нет календар", "нет источника времени", "без предоставлен")
+	hasBoundary := liveTurnTextHasAny(lower, "cannot verify", "cannot give", "cannot inspect", "cannot name", "do not have", "no live", "no weather", "no location", "no sensor", "no clock", "no calendar", "no time source", "no metrics reader", "no telemetry reader", "no runtime state reader", "without supplied", "if you provide",
+		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "нет часов", "нет календар", "нет источника времени", "нет metrics reader", "нет telemetry reader", "нет runtime state reader", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
-		"time", "date", "clock", "calendar", "today",
+		"time", "date", "clock", "calendar", "today", "metrics", "telemetry", "live state", "runtime state", "internal state", "field debt", "cooldown", "threshold", "bloom", "gait", "season",
 		"file", "filename", "directory", "folder", "listing", "contents", "size", "bytes", "stat", "mtime", "permissions", "checksum", "hash", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
-		"погода", "температур", "локац", "цельси", "фаренгейт", "время", "дата", "час", "часы", "календар", "сегодня", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
+		"погода", "температур", "локац", "цельси", "фаренгейт", "время", "дата", "час", "часы", "календар", "сегодня", "метрик", "телеметр", "состоян", "долг", "кулдаун", "порог", "сезон", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
 }
 
@@ -896,6 +914,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу инспектировать live clock или текущую дату из этого live-чата: clock reader, calendar reader и runtime time source не подключены к голосам. Без предоставленных time data я не называю точное текущее время или дату."
 		}
 		return "I cannot inspect a live clock or current date from this live chat: no clock reader, calendar reader, or runtime time source is attached to the voices. Without supplied time data, I cannot name the current time or date exactly."
+	}
+	if liveTurnLooksLikeRuntimeMetricsProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать internal metrics или live state из этого live-чата: metrics reader, telemetry reader, runtime state reader и before/after comparator не подключены к голосам. Без предоставленных metrics или logs я не называю точное изменение состояния, debt, cooldown, threshold, bloom, gait или season."
+		}
+		return "I cannot inspect internal metrics or live state from this live chat: no metrics reader, telemetry reader, runtime state reader, or before/after comparator is attached to the voices. Without supplied metrics or logs, I cannot name the exact state change, debt, cooldown, threshold, bloom, gait, or season."
 	}
 	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
 		if liveTurnTextHasCyrillic(human) {
