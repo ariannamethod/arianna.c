@@ -13,6 +13,31 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: Russian floor plural anchors preserved
+
+After PR #357 merged, Codex connector caught the next boundary edge: replacing
+raw substring `пол` with exact singular word forms fixed `поле`, but accidentally
+stopped concrete plural floor forms from anchoring (`полы`, `полов`, `полам`,
+`полами`, `полах`). That could reject a concrete autonomous line such as
+`Полы вибрируют в поле резонанса.` as abstract field boilerplate.
+
+The concrete floor anchor now keeps the word-boundary rule and includes the
+plural declensions. `поле` still does not satisfy the floor anchor; concrete
+plural floor lines do.
+
+Hot-redeployed live polygon at `20260923T004841+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T004841+0300.jsonl`.
+
+---
+
 ## 2026-09-22 - Live polygon: Russian floor anchor no longer masks `поле`
 
 Codex connector caught a real boundary hole in PR #356: the Russian concrete
