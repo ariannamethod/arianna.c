@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 const (
@@ -243,9 +244,25 @@ func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 func autonomousDreamHasConcreteAnchor(norm string) bool {
 	for _, p := range []string{
 		"hand", "key", "table", "floor", "window", "door", "lamp", "paper", "chair", "stone", "skin", "temperature", "weight",
-		"рук", "ключ", "стол", "пол", "окн", "двер", "ламп", "бумаг", "стул", "камень", "кожа", "температур", "вес",
+		"рук", "ключ", "стол", "окн", "двер", "ламп", "бумаг", "стул", "камень", "кожа", "температур", "вес",
 	} {
 		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	for _, p := range []string{"пол", "полу", "пола", "полом"} {
+		if normalizedDreamHasWord(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedDreamHasWord(norm, word string) bool {
+	for _, token := range strings.FieldsFunc(norm, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		if token == word {
 			return true
 		}
 	}

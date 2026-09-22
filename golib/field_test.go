@@ -242,6 +242,7 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"To read the rest of this text, click here. / The people were still that they could sense in a way that was able.",
 		"0.60; 1.01; 3.000 hours.",
 		"Rain????? ???? - I don't see it happening in the room, in the field, in the bones of the human becoming.",
+		"Поле резонанса между наблюдателями.",
 	} {
 		if !isBoilerplateAutonomousDream(text) {
 			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
@@ -249,6 +250,12 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	}
 	if isBoilerplateAutonomousDream("A hand moves the key toward Oleg.") {
 		t.Fatal("concrete hand/key dream must remain admissible")
+	}
+	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("поле резонанса между наблюдателями")) {
+		t.Fatal("поле must not satisfy the concrete floor anchor пол")
+	}
+	if !autonomousDreamHasConcreteAnchor(normalizedDreamKey("Ключ лежит на полу.")) {
+		t.Fatal("полу should satisfy the concrete floor anchor")
 	}
 }
 
