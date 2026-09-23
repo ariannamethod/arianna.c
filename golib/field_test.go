@@ -277,6 +277,9 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	if isBoilerplateAutonomousDream("Полы вибрируют в поле резонанса.") {
 		t.Fatal("concrete plural floor anchor should keep the autonomous line admissible")
 	}
+	if isBoilerplateAutonomousDream("Поле резонанса отражается от пола.") {
+		t.Fatal("physical от пола floor phrase should keep the autonomous line admissible")
+	}
 	for _, text := range []string{
 		"Полы скрипят под шагом.",
 		"Пыль лежит вдоль полов.",

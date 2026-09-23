@@ -13,6 +13,33 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: ambiguous floor prepositions use gender cues
+
+After PR #360 merged, Codex connector caught the inverse edge of the previous
+repair: dropping `от пола`, `к полу`, and `по полу` as standalone floor phrases
+made a physically grounded sentence such as `Поле резонанса отражается от
+пола.` look abstract, because it still contains `поле` and `резонанс` but no
+accepted concrete anchor.
+
+The ambiguous preposition pairs are now admitted only when no nearby
+sex/gender cues are present (`завис*`, `отнош*`, `раздел*`, `гендер*`,
+`наблюдател*`, etc.). That preserves the connector's physical example while
+still rejecting `Резонанс зависит от пола наблюдателя`, `Резонанс отношения к
+полу наблюдателя`, and `Резонанс разделён по полу наблюдателя`.
+
+Hot-redeployed live polygon at `20260923T162330+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T162330+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: ambiguous Russian gender prepositions do not anchor floor
 
 After PR #359 merged, Codex connector caught the remaining Russian `пол` homonym
