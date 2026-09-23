@@ -250,7 +250,7 @@ func autonomousDreamHasConcreteAnchor(norm string) bool {
 			return true
 		}
 	}
-	for _, p := range []string{"пол", "полу", "пола", "полом"} {
+	for _, p := range []string{"пол", "полу", "пола", "полом", "полы", "полов", "полам", "полами", "полах"} {
 		if normalizedDreamHasWord(norm, p) {
 			return true
 		}

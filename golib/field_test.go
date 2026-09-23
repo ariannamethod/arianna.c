@@ -257,6 +257,20 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	if !autonomousDreamHasConcreteAnchor(normalizedDreamKey("Ключ лежит на полу.")) {
 		t.Fatal("полу should satisfy the concrete floor anchor")
 	}
+	if isBoilerplateAutonomousDream("Полы вибрируют в поле резонанса.") {
+		t.Fatal("concrete plural floor anchor should keep the autonomous line admissible")
+	}
+	for _, text := range []string{
+		"Полы скрипят под шагом.",
+		"Пыль лежит вдоль полов.",
+		"Тень движется к полам.",
+		"Свет проходит над полами.",
+		"Следы остаются на полах.",
+	} {
+		if !autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
+			t.Fatalf("floor plural form should satisfy the concrete floor anchor: %q", text)
+		}
+	}
 }
 
 // TestFieldGuardsDiscreteRange: an out-of-range velocity_mode / season (a corrupt
