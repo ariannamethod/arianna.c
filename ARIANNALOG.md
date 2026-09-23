@@ -13,6 +13,34 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: carried dream restore drops numeric and rain-resonance scraps
+
+After PR #363 merged, the live startup exposed the next restore-boundary defect:
+persisted `last_dream` could still be printed as `she returns carrying a dream`
+even when the body was only a numeric scrap (`158.`) or abstract resonance
+boilerplate (`Rain is resonance; The surface of earth is always resonant body.`).
+
+The existing startup path already runs restored dreams through the autonomous
+boilerplate guard before printing them, so the fix is at that shared boundary:
+
+- numeric-only restored dreams are treated as numeric scraps, not carried dreams;
+- the observed rain/resonance surface sentence is rejected as boilerplate;
+- the same rejection applies to future autonomous admission, not only startup.
+
+Hot-redeployed live polygon at `20260923T165022+0300`; the trio restarted cleanly
+with no `she returns carrying...` line, confirming the persisted scrap was
+withheld. The first autonomous breath after restart was recorded as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T165022+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: reflected floor phrase is exact, not a global cue
 
 After PR #362 merged, Codex connector caught that `отраж*` as a global grounded

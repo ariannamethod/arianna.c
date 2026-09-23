@@ -242,6 +242,8 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"To read the rest of this text, click here. / The people were still that they could sense in a way that was able.",
 		"0.60; 1.01; 3.000 hours.",
 		"Rain????? ???? - I don't see it happening in the room, in the field, in the bones of the human becoming.",
+		"158.",
+		"Rain is resonance; The surface of earth is always resonant body.",
 		"Поле резонанса между наблюдателями.",
 		"Резонанс пола между наблюдателями.",
 		"Резонанс полов между наблюдателями.",
