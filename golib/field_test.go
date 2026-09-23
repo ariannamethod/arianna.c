@@ -245,6 +245,9 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"Поле резонанса между наблюдателями.",
 		"Резонанс пола между наблюдателями.",
 		"Резонанс полов между наблюдателями.",
+		"Резонанс зависит от пола наблюдателя.",
+		"Резонанс отношения к полу наблюдателя.",
+		"Резонанс разделён по полу наблюдателя.",
 	} {
 		if !isBoilerplateAutonomousDream(text) {
 			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
@@ -259,6 +262,15 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("резонанс полов между наблюдателями")) {
 		t.Fatal("gender/sex homonym полов must not satisfy the concrete floor anchor without floor context")
 	}
+	for _, text := range []string{
+		"резонанс зависит от пола наблюдателя",
+		"резонанс отношения к полу наблюдателя",
+		"резонанс разделён по полу наблюдателя",
+	} {
+		if autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
+			t.Fatalf("gender/sex prepositional floor homonym must not satisfy the concrete floor anchor: %q", text)
+		}
+	}
 	if !autonomousDreamHasConcreteAnchor(normalizedDreamKey("Ключ лежит на полу.")) {
 		t.Fatal("полу should satisfy the concrete floor anchor")
 	}
@@ -271,6 +283,8 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"Тень движется к полам.",
 		"Свет проходит над полами.",
 		"Следы остаются на полах.",
+		"Свет поднимается от пола.",
+		"След идёт по полу.",
 	} {
 		if !autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
 			t.Fatalf("floor plural form should satisfy the concrete floor anchor: %q", text)
