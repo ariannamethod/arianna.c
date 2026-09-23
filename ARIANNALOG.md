@@ -13,6 +13,34 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: floor prepositions require physical context only
+
+After PR #361 merged, Codex connector caught another `пол` homonym bypass:
+`Частота пульса различается по полу.` contains abstract-loop terms
+(`частот`, `пульс`), but the reintroduced `по полу` standalone phrase let it
+escape as a concrete floor anchor even though it is a sex/gender statement.
+
+The ambiguous `от пола`, `к полу`, and `по полу` pairs are no longer standalone
+anchors at all. Physical uses survive through grounded context stems instead:
+`След идёт по полу`, `Свет поднимается от пола`, and `Поле резонанса отражается
+от пола` remain admissible because they carry concrete floor context (`след`,
+`свет`, `отраж`). The gender-cue helper was removed rather than expanded.
+
+Hot-redeployed live polygon at `20260923T163107+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`. Startup also exposed the next
+live issue to inspect separately: carried dream `158.` is a numeric scrap and
+should not be restored as a dream.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T163107+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: ambiguous floor prepositions use gender cues
 
 After PR #360 merged, Codex connector caught the inverse edge of the previous
