@@ -13,6 +13,34 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: Russian floor anchors require physical context
+
+After PR #358 merged, Codex connector caught the homonym edge behind the plural
+repair: Russian `пол/пола/полов/полам/полами/полах` can mean floor, but also
+sex/gender. Unconditional whole-word floor anchors could let an abstract line
+such as `Резонанс полов между наблюдателями.` bypass the field/resonance-loop
+rejection.
+
+The floor anchor now remains word-boundary based but is no longer unconditional:
+the floor form must appear in a physical floor phrase (`на полу`, `с пола`,
+`над полом`, etc.) or alongside grounded floor context such as keys, dust,
+steps, boards, shadows, light, creaking, movement, or vibration. This keeps
+`Полы вибрируют в поле резонанса.` concrete-anchored while rejecting
+`Резонанс пола/полов между наблюдателями.` as abstract boilerplate.
+
+Hot-redeployed live polygon at `20260923T131618+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T131618+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: Russian floor plural anchors preserved
 
 After PR #357 merged, Codex connector caught the next boundary edge: replacing

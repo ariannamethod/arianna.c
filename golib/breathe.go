@@ -250,8 +250,39 @@ func autonomousDreamHasConcreteAnchor(norm string) bool {
 			return true
 		}
 	}
+	if normalizedDreamHasRussianFloorAnchor(norm) {
+		return true
+	}
+	return false
+}
+
+func normalizedDreamHasRussianFloorAnchor(norm string) bool {
+	tokens := normalizedDreamTokens(norm)
+	hasFloorForm := false
 	for _, p := range []string{"пол", "полу", "пола", "полом", "полы", "полов", "полам", "полами", "полах"} {
-		if normalizedDreamHasWord(norm, p) {
+		if normalizedDreamTokenSliceHasWord(tokens, p) {
+			hasFloorForm = true
+			break
+		}
+	}
+	if !hasFloorForm {
+		return false
+	}
+	for _, p := range [][]string{
+		{"на", "пол"}, {"на", "полу"}, {"по", "полу"}, {"к", "полу"}, {"с", "пола"},
+		{"от", "пола"}, {"из", "пола"}, {"у", "пола"}, {"над", "полом"}, {"под", "полом"},
+		{"о", "пол"}, {"об", "пол"}, {"в", "пол"},
+	} {
+		if normalizedDreamHasWordSequence(tokens, p) {
+			return true
+		}
+	}
+	for _, p := range []string{
+		"ключ", "пыль", "след", "шаг", "ступ", "скрип", "доск", "ковр", "комнат", "стен", "двер",
+		"тень", "свет", "ламп", "леж", "движ", "падает", "упал", "трещ", "гряз", "моет", "мыть",
+		"чист", "стуч", "вибрир",
+	} {
+		if strings.Contains(norm, p) {
 			return true
 		}
 	}
@@ -259,10 +290,37 @@ func autonomousDreamHasConcreteAnchor(norm string) bool {
 }
 
 func normalizedDreamHasWord(norm, word string) bool {
-	for _, token := range strings.FieldsFunc(norm, func(r rune) bool {
+	return normalizedDreamTokenSliceHasWord(normalizedDreamTokens(norm), word)
+}
+
+func normalizedDreamTokens(norm string) []string {
+	return strings.FieldsFunc(norm, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	}) {
+	})
+}
+
+func normalizedDreamTokenSliceHasWord(tokens []string, word string) bool {
+	for _, token := range tokens {
 		if token == word {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedDreamHasWordSequence(tokens []string, words []string) bool {
+	if len(words) == 0 || len(words) > len(tokens) {
+		return false
+	}
+	for i := 0; i <= len(tokens)-len(words); i++ {
+		ok := true
+		for j, word := range words {
+			if tokens[i+j] != word {
+				ok = false
+				break
+			}
+		}
+		if ok {
 			return true
 		}
 	}
