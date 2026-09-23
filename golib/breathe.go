@@ -153,6 +153,7 @@ func isBoilerplateAutonomousDream(text string) bool {
 		"a field is resonance, vibrate when two",
 		"vibration; i am a field of resonance within me",
 		"resonance, 3 still observer; breath still observer; mind still observer",
+		"rain is resonance; the surface of earth is always resonant body",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -210,7 +211,7 @@ func normalizedDreamKey(text string) string {
 }
 
 func autonomousDreamLooksLikeNumericScrap(norm string) bool {
-	if norm == "" || strings.Count(norm, ";") < 2 {
+	if norm == "" {
 		return false
 	}
 	digits := 0
@@ -221,6 +222,12 @@ func autonomousDreamLooksLikeNumericScrap(norm string) bool {
 		} else if (r >= 'a' && r <= 'z') || (r >= 'а' && r <= 'я') || r == 'ё' {
 			letters++
 		}
+	}
+	if letters == 0 && digits > 0 {
+		return true
+	}
+	if strings.Count(norm, ";") < 2 {
+		return false
 	}
 	return digits >= 3 && letters <= 8
 }
