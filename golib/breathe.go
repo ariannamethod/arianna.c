@@ -277,29 +277,10 @@ func normalizedDreamHasRussianFloorAnchor(norm string) bool {
 			return true
 		}
 	}
-	for _, p := range [][]string{
-		{"от", "пола"}, {"к", "полу"}, {"по", "полу"},
-	} {
-		if normalizedDreamHasWordSequence(tokens, p) && !normalizedDreamHasRussianGenderFloorCue(norm) {
-			return true
-		}
-	}
 	for _, p := range []string{
 		"ключ", "пыль", "след", "шаг", "ступ", "скрип", "доск", "ковр", "комнат", "стен", "двер",
 		"тень", "свет", "ламп", "леж", "движ", "падает", "упал", "трещ", "гряз", "моет", "мыть",
-		"чист", "стуч", "вибрир",
-	} {
-		if strings.Contains(norm, p) {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizedDreamHasRussianGenderFloorCue(norm string) bool {
-	for _, p := range []string{
-		"завис", "отнош", "раздел", "гендер", "полово", "муж", "жен", "наблюдател",
-		"биолог", "социальн", "идентич",
+		"чист", "стуч", "вибрир", "отраж",
 	} {
 		if strings.Contains(norm, p) {
 			return true
