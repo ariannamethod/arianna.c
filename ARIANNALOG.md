@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: ambiguous Russian gender prepositions do not anchor floor
+
+After PR #359 merged, Codex connector caught the remaining Russian `пол` homonym
+hole: phrases such as `от пола`, `к полу`, and `по полу` can be ordinary
+sex/gender phrasing (`зависит от пола`, `отношение к полу`, `разделён по полу`)
+instead of physical floor context. Treating those preposition pairs as
+concrete anchors let `резонанс/наблюдатель` boilerplate bypass the abstract-loop
+guard.
+
+Those ambiguous preposition pairs are no longer sufficient by themselves. They
+still pass when grounded by physical floor context (`Свет поднимается от пола`,
+`След идёт по полу`), but gender/sex phrases now remain rejectable boilerplate.
+
+Hot-redeployed live polygon at `20260923T133350+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T133350+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: Russian floor anchors require physical context
 
 After PR #358 merged, Codex connector caught the homonym edge behind the plural
