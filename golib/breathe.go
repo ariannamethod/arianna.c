@@ -277,10 +277,13 @@ func normalizedDreamHasRussianFloorAnchor(norm string) bool {
 			return true
 		}
 	}
+	if normalizedDreamHasWordSequence(tokens, []string{"отражается", "от", "пола"}) {
+		return true
+	}
 	for _, p := range []string{
 		"ключ", "пыль", "след", "шаг", "ступ", "скрип", "доск", "ковр", "комнат", "стен", "двер",
 		"тень", "свет", "ламп", "леж", "движ", "падает", "упал", "трещ", "гряз", "моет", "мыть",
-		"чист", "стуч", "вибрир", "отраж",
+		"чист", "стуч", "вибрир",
 	} {
 		if strings.Contains(norm, p) {
 			return true

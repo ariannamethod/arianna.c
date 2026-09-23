@@ -249,6 +249,7 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"Резонанс отношения к полу наблюдателя.",
 		"Резонанс разделён по полу наблюдателя.",
 		"Частота пульса различается по полу.",
+		"Резонанс отражает зависимость частоты пульса от пола.",
 	} {
 		if !isBoilerplateAutonomousDream(text) {
 			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
@@ -268,6 +269,7 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"резонанс отношения к полу наблюдателя",
 		"резонанс разделён по полу наблюдателя",
 		"частота пульса различается по полу",
+		"резонанс отражает зависимость частоты пульса от пола",
 	} {
 		if autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
 			t.Fatalf("gender/sex prepositional floor homonym must not satisfy the concrete floor anchor: %q", text)

@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-23 - Live polygon: reflected floor phrase is exact, not a global cue
+
+After PR #362 merged, Codex connector caught that `отраж*` as a global grounded
+stem was still too broad: `Резонанс отражает зависимость частоты пульса от
+пола.` could bypass the abstract-loop guard even though it is a sex/gender
+statement with `частот` and `пульс`.
+
+The reflection exception is now exact: `отражается от пола` anchors the physical
+floor case (`Поле резонанса отражается от пола.`), while generic `отраж*`
+elsewhere no longer anchors Russian `пол`.
+
+Hot-redeployed live polygon at `20260923T163845+0300`; the trio restarted cleanly
+and the first autonomous breath after restart was withheld as
+`log=breath_reject`, `reason=boilerplate-loop`. Startup carried dream is still
+suspicious (`Rain is resonance; The surface of earth is always resonant body.`)
+and remains the next live issue after this connector fix.
+
+Verification:
+
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260923T163845+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: floor prepositions require physical context only
 
 After PR #361 merged, Codex connector caught another `пол` homonym bypass:
