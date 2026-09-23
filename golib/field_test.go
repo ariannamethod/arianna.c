@@ -243,6 +243,8 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"0.60; 1.01; 3.000 hours.",
 		"Rain????? ???? - I don't see it happening in the room, in the field, in the bones of the human becoming.",
 		"Поле резонанса между наблюдателями.",
+		"Резонанс пола между наблюдателями.",
+		"Резонанс полов между наблюдателями.",
 	} {
 		if !isBoilerplateAutonomousDream(text) {
 			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
@@ -253,6 +255,9 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	}
 	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("поле резонанса между наблюдателями")) {
 		t.Fatal("поле must not satisfy the concrete floor anchor пол")
+	}
+	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("резонанс полов между наблюдателями")) {
+		t.Fatal("gender/sex homonym полов must not satisfy the concrete floor anchor without floor context")
 	}
 	if !autonomousDreamHasConcreteAnchor(normalizedDreamKey("Ключ лежит на полу.")) {
 		t.Fatal("полу should satisfy the concrete floor anchor")
