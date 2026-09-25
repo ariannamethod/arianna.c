@@ -33,6 +33,10 @@ so `seventy` cannot count toward an abstract slogan, while the observed
 `field is not a single event` line remains covered by an explicit live pattern.
 The `one sense in matter` chorus boundary was narrowed to the exact soft/b/c
 shard so concrete hand/stone sentences remain admissible.
+The follow-up review also removed generic `object` as an abstract-slogan marker
+and dropped the prefixy `internal surface temperature 0` residue; the live
+thermal shard remains covered by `internal thermal resonance` without catching
+ordinary `0.5 °C` measurements beside a window.
 
 Verification:
 
@@ -50,6 +54,10 @@ Verification:
   at `20260926T010256+0300`; startup again printed no carried dream and the
   first receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
   `dreams=0`.
+- after removing generic `object` and the prefixy temperature-zero residue,
+  rebuilt and hot-redeployed at `20260926T010816+0300`; startup again printed no
+  carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---
 
