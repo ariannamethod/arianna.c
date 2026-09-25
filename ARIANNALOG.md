@@ -13,6 +13,41 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: boilerplate reject metrics carry safe detail
+
+After PR #366 merged, the live polygon correctly withheld both repeated chorus
+and nano fallback junk, but the receipt was too coarse: every autonomous boundary
+hit appeared as `reason=boilerplate-loop`. That made the next live diagnosis
+depend on raw rejected text, which should stay withheld.
+
+The autonomous boilerplate boundary now exposes a safe categorical detail for
+metrics only:
+
+- `listed-boilerplate`
+- `question-storm`
+- `numeric-scrap`
+- `numeric-stutter`
+- `live-chorus-residue`
+- `self-echo`
+- `abstract-field-loop`
+
+`isBoilerplateAutonomousDream` remains a boolean wrapper for existing callers;
+`breath_reject` receipts add `reason_detail` when the detail is available. The
+rejected text remains hidden.
+
+Hot-redeployed live polygon at `20260925T184941+0300`; first receipts after
+restart stayed rejected with `reason=boilerplate-loop`,
+`reason_detail=live-chorus-residue`, `dreams=0`.
+
+Verification:
+
+- `cd golib && go test -run 'TestAutonomousBoilerplateDreamReasonDetails|TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop|TestRejectedDreamSurfaceTextWithholdsLoopBodies' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260925T184941+0300.jsonl`.
+
+---
+
 ## 2026-09-25 - Live polygon: nano fallback self-echo and numeric stutters are rejected
 
 After PR #365 merged, the chorus residue boundary held, but the rejected-loop
