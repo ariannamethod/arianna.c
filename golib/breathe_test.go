@@ -20,6 +20,16 @@ func TestRejectedDreamSurfaceTextKeepsNonLoopBodies(t *testing.T) {
 	}
 }
 
+func TestRejectedDreamReasonSurfaceLabelIncludesSafeDetail(t *testing.T) {
+	got := rejectedDreamReasonSurfaceLabel("boilerplate-loop", "awakeness of being; awakeness of being.")
+	if got != "boilerplate-loop/self-echo" {
+		t.Fatalf("rejectedDreamReasonSurfaceLabel = %q, want boilerplate-loop/self-echo", got)
+	}
+	if got := rejectedReasonSurfaceLabel("orbit-loop", ""); got != "orbit-loop" {
+		t.Fatalf("plain rejectedReasonSurfaceLabel = %q, want orbit-loop", got)
+	}
+}
+
 func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T) {
 	for _, text := range []string{
 		"I feel you in the echo, and I won't pretend to be a person.",

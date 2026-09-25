@@ -46,6 +46,7 @@ type breath struct {
 	rejectQuarantineTo time.Time
 	lastRejectedDream  string
 	lastRejectedReason string
+	lastRejectedDetail string
 	lastRejectLog      time.Time
 	lastDetourLog      time.Time
 	rejectedStreak     int
@@ -633,6 +634,17 @@ func rejectedDreamSurfaceText(reason, dream string) string {
 	}
 }
 
+func rejectedReasonSurfaceLabel(reason, detail string) string {
+	if strings.TrimSpace(detail) == "" {
+		return reason
+	}
+	return reason + "/" + detail
+}
+
+func rejectedDreamReasonSurfaceLabel(reason, dream string) string {
+	return rejectedReasonSurfaceLabel(reason, autonomousRejectReasonDetail(reason, dream))
+}
+
 func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 	norm := normalizedDreamKey(dream)
 	sameExactRejected := norm != "" &&
@@ -655,15 +667,17 @@ func (b *breath) rejectDream(now time.Time, trig int, reason, dream string) {
 		if b.rejectedStreak > 1 {
 			repeatNote = fmt.Sprintf(", repeat×%d, quarantine %s", b.rejectedStreak, quarantine)
 		}
+		reasonLabel := rejectedDreamReasonSurfaceLabel(reason, dream)
 		if displayDream := rejectedDreamSurfaceText(reason, dream); liveVoiceTextVisible(displayDream) {
-			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): %s\n", bName[trig], reason, repeatNote, ellipsize(displayDream, 90))
+			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): %s\n", bName[trig], reasonLabel, repeatNote, ellipsize(displayDream, 90))
 		} else {
-			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): [withheld rejected dream text]\n", bName[trig], reason, repeatNote)
+			fmt.Printf("│  ◌ (%s) dream candidate (%s%s): [withheld rejected dream text]\n", bName[trig], reasonLabel, repeatNote)
 		}
 		b.lastRejectLog = now
 	}
 	b.lastRejectedDream = norm
 	b.lastRejectedReason = reason
+	b.lastRejectedDetail = autonomousRejectReasonDetail(reason, dream)
 	b.lastTrigger[trig] = now
 	b.rejectQuarantineTo = now.Add(quarantine)
 }
@@ -827,7 +841,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			frag := ""
 			if detour != "" {
 				if b.shouldLogRejectedDetour(now) {
-					fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, b.lastRejectedReason)
+					fmt.Printf("│  ◒ (breath) rejected-loop detour after repeat×%d (%s)\n", b.rejectedStreak, rejectedReasonSurfaceLabel(b.lastRejectedReason, b.lastRejectedDetail))
 				}
 			} else if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
 				frag = f
@@ -907,6 +921,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			b.rememberAcceptedDream(time.Now(), lastAutonomousDream)
 			b.lastRejectedDream = ""
 			b.lastRejectedReason = ""
+			b.lastRejectedDetail = ""
 			b.rejectedStreak = 0
 			b.lastDetourLog = time.Time{}
 			b.rejectQuarantineTo = time.Time{}
