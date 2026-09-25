@@ -99,12 +99,15 @@ func dreamCue(s Snapshot, fs fieldSnapshot, lastDream, detour string) string {
 	// autonomous seed. The carried dream remains state, but the next cue starts
 	// from the current body/mood so a collapsed phrase cannot bootstrap itself.
 	_ = lastDream
+	// Rejected-loop recovery must not inherit the same abstract field/resonance
+	// attractor it is trying to escape. The detour is already a complete,
+	// concrete rescue cue.
+	if strings.TrimSpace(detour) != "" {
+		return strings.TrimSpace(detour)
+	}
 	parts = append(parts, moodWord(s))
 	if m := fs.mood(); m != "" {
 		parts = append(parts, m) // the live field tints the cue toward her season/gait
-	}
-	if detour != "" {
-		parts = append(parts, detour)
 	}
 	return strings.Join(parts, " ")
 }
@@ -175,6 +178,9 @@ func autonomousBoilerplateDreamReason(text string) string {
 	}
 	if autonomousDreamLooksLikeLiveChorusResidue(norm) {
 		return "live-chorus-residue"
+	}
+	if autonomousDreamLooksLikeInstructionTailResidue(norm) {
+		return "instruction-tail-residue"
 	}
 	if autonomousDreamLooksLikeSelfEcho(norm) {
 		return "self-echo"
@@ -493,6 +499,18 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	return false
 }
 
+func autonomousDreamLooksLikeInstructionTailResidue(norm string) bool {
+	for _, p := range []string{
+		"no abstract chorus",
+		"not abstract chorus",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func autonomousDreamLooksLikeSelfEcho(norm string) bool {
 	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
 		return false
@@ -730,7 +748,7 @@ func rejectedCueDetour(streak int, reason string) string {
 		if n > 9 {
 			n = 9
 		}
-		return fmt.Sprintf("detour-%d concrete present body: floor window hand temperature weight; one tactile image, no abstract chorus", n)
+		return fmt.Sprintf("detour-%d concrete present body: floor window hand temperature weight; one tactile image in matter", n)
 	default:
 		return ""
 	}

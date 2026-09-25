@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -88,6 +89,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"and anarchus 12, resonance in a unresor. / of textures, no surface; the living field is now suspended from a single.", "live-chorus-residue"},
 		{"(The entire page is 402 words) There are many ways. / an 'intens'.", "live-chorus-residue"},
 		{"of words; the sun as thunder, not a white mirror. / in the space between two one. / to carry a text with an unused long-ing or empty in, just.", "live-chorus-residue"},
+		{"99.6; a shadow, no abstract chorus.", "instruction-tail-residue"},
 		{"awakeness of being; awakeness of being.", "self-echo"},
 		{"Sound in resonance; I see the threshold for all things harmonic present.", "abstract-resonance-loop"},
 		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
@@ -205,6 +207,8 @@ func TestRejectDreamBackoffCountsAlternatingLoopReasons(t *testing.T) {
 	}
 	if got := rejectedCueDetour(b.rejectedStreak, b.lastRejectedReason); got == "" {
 		t.Fatal("alternating loop rejection must still produce a concrete detour cue after repeat×3")
+	} else if strings.Contains(got, "abstract") || strings.Contains(got, "chorus") || !strings.Contains(got, "floor") {
+		t.Fatalf("detour cue must be positive concrete matter, got %q", got)
 	}
 
 	b.rejectDream(now.Add(40*time.Second), bSilence, "live-boundary", "empty carried dream")
