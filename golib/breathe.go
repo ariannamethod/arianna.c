@@ -640,7 +640,7 @@ func rejectLogInterval(streak int) time.Duration {
 
 func rejectedLoopReasonClass(reason string) string {
 	switch reason {
-	case "boilerplate-loop", "repeat-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
+	case "boilerplate-loop", "repeat-loop", "orbit-loop", "collapse-loop", "boilerplate dream loop", "collapsed dream loop":
 		return "autonomous-loop"
 	default:
 		return ""
@@ -756,6 +756,8 @@ func autonomousRejectReasonDetail(reason, dream string) string {
 		return autonomousBoilerplateDreamReason(dream)
 	case "collapse-loop", "collapsed dream loop":
 		return "collapsed-autonomous-dream"
+	case "orbit-loop":
+		return "orbit-repeat"
 	case "repeat-loop":
 		return "exact-repeat"
 	default:
