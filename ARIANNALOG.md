@@ -32,6 +32,9 @@ sound crossing the table or body weight resting on the table remain admissible.
 After Codex review, the English `body` trigger was tightened to word-level
 matching so substrings such as `somebody` or `everybody` do not activate the
 body-threshold boundary.
+After the follow-up review, plural English and Russian body forms such as
+`bodies`, `телами`, and `телах` are also recognized by the same word-level
+boundary.
 
 Verification:
 
@@ -44,6 +47,9 @@ Verification:
 - after the word-level body trigger fix, rebuilt and hot-redeployed again at
   `20260925T212538+0300`; startup remained clean and grep for the prior scraps
   and `somebody` substring case returned empty.
+- after plural body-form repair, rebuilt and hot-redeployed at
+  `20260925T213145+0300`; startup remained clean and the first autonomous
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue`.
 
 ---
 

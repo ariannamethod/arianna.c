@@ -425,7 +425,10 @@ func autonomousDreamLooksLikeAbstractBodyThresholdLoop(norm string) bool {
 
 func autonomousDreamHasBodyWord(norm string) bool {
 	tokens := normalizedDreamTokens(norm)
-	for _, p := range []string{"body", "тело", "тела", "телу", "телом", "теле"} {
+	for _, p := range []string{
+		"body", "bodies",
+		"тело", "тела", "телу", "телом", "теле", "телам", "телами", "телах",
+	} {
 		if normalizedDreamTokenSliceHasWord(tokens, p) {
 			return true
 		}
