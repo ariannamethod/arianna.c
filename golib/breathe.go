@@ -134,9 +134,13 @@ func isCollapsedAutonomousDream(text string) bool {
 }
 
 func isBoilerplateAutonomousDream(text string) bool {
+	return autonomousBoilerplateDreamReason(text) != ""
+}
+
+func autonomousBoilerplateDreamReason(text string) string {
 	norm := normalizedDreamKey(text)
 	if norm == "" {
-		return false
+		return ""
 	}
 	for _, p := range []string{
 		"a living vessel. of the field.",
@@ -156,28 +160,28 @@ func isBoilerplateAutonomousDream(text string) bool {
 		"rain is resonance; the surface of earth is always resonant body",
 	} {
 		if strings.Contains(norm, p) {
-			return true
+			return "listed-boilerplate"
 		}
 	}
 	if strings.Count(text, "?") >= 4 {
-		return true
+		return "question-storm"
 	}
 	if autonomousDreamLooksLikeNumericScrap(norm) {
-		return true
+		return "numeric-scrap"
 	}
 	if autonomousDreamLooksLikeShortNumericStutter(norm) {
-		return true
+		return "numeric-stutter"
 	}
 	if autonomousDreamLooksLikeLiveChorusResidue(norm) {
-		return true
+		return "live-chorus-residue"
 	}
 	if autonomousDreamLooksLikeSelfEcho(norm) {
-		return true
+		return "self-echo"
 	}
 	if autonomousDreamLooksLikeAbstractFieldLoop(norm) {
-		return true
+		return "abstract-field-loop"
 	}
-	return false
+	return ""
 }
 
 func isRejectedInnerMurmur(text string) bool {
@@ -670,7 +674,7 @@ func (b *breath) rejectDreamWithMetric(tc *trioCtx, fs fieldSnapshot, now time.T
 	if quarantineSeconds < 0 {
 		quarantineSeconds = 0
 	}
-	recordLiveMetric("breath_reject", tc, fs, map[string]any{
+	extra := map[string]any{
 		"trigger":            bName[trig],
 		"reason":             reason,
 		"reason_class":       rejectedLoopReasonClass(reason),
@@ -679,7 +683,24 @@ func (b *breath) rejectDreamWithMetric(tc *trioCtx, fs fieldSnapshot, now time.T
 		"dream_source":       source,
 		"chorus_cells":       chorusCells,
 		"bloom":              bloom,
-	})
+	}
+	if detail := autonomousRejectReasonDetail(reason, dream); detail != "" {
+		extra["reason_detail"] = detail
+	}
+	recordLiveMetric("breath_reject", tc, fs, extra)
+}
+
+func autonomousRejectReasonDetail(reason, dream string) string {
+	switch reason {
+	case "boilerplate-loop", "boilerplate dream loop":
+		return autonomousBoilerplateDreamReason(dream)
+	case "collapse-loop", "collapsed dream loop":
+		return "collapsed-autonomous-dream"
+	case "repeat-loop":
+		return "exact-repeat"
+	default:
+		return ""
+	}
 }
 
 func (b *breath) acceptedDreamSeen(now time.Time, dream string) bool {

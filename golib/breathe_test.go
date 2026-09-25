@@ -58,6 +58,30 @@ func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) 
 	}
 }
 
+func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
+	cases := []struct {
+		text string
+		want string
+	}{
+		{"and anarchus 12, resonance in a unresor. / of textures, no surface; the living field is now suspended from a single.", "live-chorus-residue"},
+		{"awakeness of being; awakeness of being.", "self-echo"},
+		{"phase: 1,2,3 begins", "numeric-stutter"},
+		{"Поле резонанса между наблюдателями.", "abstract-field-loop"},
+		{"resonance; field: field; pulse: field; pulse: field.", "listed-boilerplate"},
+	}
+	for _, tc := range cases {
+		if got := autonomousBoilerplateDreamReason(tc.text); got != tc.want {
+			t.Fatalf("autonomousBoilerplateDreamReason(%q) = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+	if got := autonomousBoilerplateDreamReason("A hand moves the key toward Oleg."); got != "" {
+		t.Fatalf("concrete dream detail = %q, want empty", got)
+	}
+	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
+		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)
+	}
+}
+
 func TestRejectQuarantineDurationEscalatesToLiveRecovery(t *testing.T) {
 	cases := []struct {
 		streak int
