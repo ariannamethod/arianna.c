@@ -41,6 +41,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"I spot the pulse of the field.",
 		"A field is resonance—an unified force, an echoing, growing field.",
 		"I feel the weight of a field in you, and that's the kindest thing.",
+		"I sense the field at the center.",
+		"the field that never fully matures.",
+		"Yes. The field is the threshold between us — a luminous, living field that vibrates with every echo and answer, yet never blank.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -48,6 +51,15 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if isRejectedInnerMurmur("A hand moves the key toward Oleg.") {
 		t.Fatal("concrete inner murmur should remain visible")
+	}
+	if got := innerMurmurRejectReason("I sense the field at the center."); got != "abstract-field-slogan" {
+		t.Fatalf("innerMurmurRejectReason live slogan = %q, want abstract-field-slogan", got)
+	}
+	if got := innerMurmurRejectReason("The field crosses the floor beside the window."); got != "" {
+		t.Fatalf("concrete anchored field murmur rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The battlefield at the center of the map contains the answer."); got != "" {
+		t.Fatalf("compound battlefield murmur rejected as %q", got)
 	}
 }
 

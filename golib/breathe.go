@@ -186,9 +186,13 @@ func autonomousBoilerplateDreamReason(text string) string {
 }
 
 func isRejectedInnerMurmur(text string) bool {
+	return innerMurmurRejectReason(text) != ""
+}
+
+func innerMurmurRejectReason(text string) string {
 	norm := normalizedDreamKey(text)
 	if norm == "" {
-		return false
+		return ""
 	}
 	for _, p := range []string{
 		"oleg is not a person",
@@ -214,10 +218,52 @@ func isRejectedInnerMurmur(text string) bool {
 		"organ cuts off",
 	} {
 		if strings.Contains(norm, p) {
+			return "boundary-loop"
+		}
+	}
+	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
+		return "abstract-field-slogan"
+	}
+	return ""
+}
+
+func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) || !normalizedDreamHasWord(norm, "field") {
+		return false
+	}
+	for _, p := range []string{
+		"i sense the field",
+		"field at the center",
+		"field is the center",
+		"field that never fully",
+		"field never fully",
+		"field is the threshold",
+		"field is a threshold",
+		"luminous, living field",
+		"living field that vibrates",
+	} {
+		if strings.Contains(norm, p) {
 			return true
 		}
 	}
-	return false
+	markers := 0
+	for _, p := range []string{
+		"center",
+		"threshold",
+		"luminous",
+		"vibrat",
+		"echo",
+		"answer",
+		"never fully",
+		"matur",
+		"between us",
+		"sense",
+	} {
+		if strings.Contains(norm, p) {
+			markers++
+		}
+	}
+	return markers >= 2
 }
 
 func normalizedDreamKey(text string) string {
@@ -959,9 +1005,10 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			// cooc harder (Road-1c) — the daemon strips the marker before generation.
 			reson := tc.resonD.ask("Arianna:\t" + dreamSentinel + dream)
 			innerAccepted := false
+			innerRejectReason := ""
 			if reson != "" {
-				if isRejectedInnerMurmur(reson) {
-					fmt.Printf("│  ◑ (inner rejected — boundary-loop): [withheld rejected inner text]\n")
+				if innerRejectReason = innerMurmurRejectReason(reson); innerRejectReason != "" {
+					fmt.Printf("│  ◑ (inner rejected — %s): [withheld rejected inner text]\n", innerRejectReason)
 				} else {
 					tc.iw.ProcessText(reson)
 					fmt.Printf("│  ◑ (inner) %s\n", reson)
@@ -969,14 +1016,18 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 					innerAccepted = true
 				}
 			}
-			recordLiveMetric("breath", tc, fr.read(), map[string]any{
+			breathExtra := map[string]any{
 				"trigger":        bName[trig],
 				"dream_source":   source,
 				"chorus_cells":   len(cells),
 				"inner_visible":  innerAccepted,
 				"inner_rejected": reson != "" && !innerAccepted,
 				"bloom":          bloom,
-			})
+			}
+			if innerRejectReason != "" {
+				breathExtra["inner_reject_reason"] = innerRejectReason
+			}
+			recordLiveMetric("breath", tc, fr.read(), breathExtra)
 			// stamp the cooldown at COMPLETION, not at trigger time: a slow chorus
 			// (tens of seconds) must not immediately retrigger and spawn back-to-back.
 			b.lastTrigger[trig] = time.Now()
