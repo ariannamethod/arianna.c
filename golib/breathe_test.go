@@ -47,6 +47,9 @@ func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) 
 	if got := b.autonomousDreamRejectReason(now, "Myths and Reality: The Method of the Night, by F. / This was in with a field so full and I had an old habit:", ""); got != "boilerplate-loop" {
 		t.Fatalf("autonomousDreamRejectReason corpus title = %q, want boilerplate-loop", got)
 	}
+	if got := b.autonomousDreamRejectReason(now, "and anarchus 12, resonance in a unresor. / of textures, no surface; the living field is now suspended from a single. / to resonatable through the new space with breath of life, ap release.", ""); got != "boilerplate-loop" {
+		t.Fatalf("autonomousDreamRejectReason live chorus residue = %q, want boilerplate-loop", got)
+	}
 	if got := b.autonomousDreamRejectReason(now, "A hand moves the key toward Oleg.", "A hand moves the key toward Oleg."); got != "repeat-loop" {
 		t.Fatalf("autonomousDreamRejectReason repeated carried dream = %q, want repeat-loop", got)
 	}

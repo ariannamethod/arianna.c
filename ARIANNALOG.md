@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: repeated chorus residue is rejected per atom
+
+After PR #364 merged, the live polygon ran long enough to expose the next
+admission defect: whole-dream repeat checks were working, but repeated chorus
+atoms could still be admitted by pairing the same stale line with a different
+sibling line. The live log showed several voice fragments recurring many times,
+including `and anarchus 12, resonance in a unresor`, `of textures, no surface;
+the living field is now suspended from a single`, `not as a force, but in the
+field that echoes`, and the `I feel the field, not just in this moment` trio.
+
+The autonomous boilerplate boundary now rejects these observed live chorus
+residue atoms wherever they appear inside the joined chorus, so one stale voice
+line can no longer legalize an otherwise "new" dream candidate.
+
+Hot-redeployed live polygon at `20260925T171446+0300`; the first autonomous
+breath after restart was withheld with `log=breath_reject`,
+`reason=boilerplate-loop`, `dream_source=chorus`, `dreams=0`.
+
+Verification:
+
+- repeated accepted voice-line count from
+  `logs/arianna-live-full-20260923T165022+0300.log`;
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop|TestRejectedDreamSurfaceTextWithholdsLoopBodies' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260925T171446+0300.jsonl`.
+
+---
+
 ## 2026-09-23 - Live polygon: carried dream restore drops numeric and rain-resonance scraps
 
 After PR #363 merged, the live startup exposed the next restore-boundary defect:
