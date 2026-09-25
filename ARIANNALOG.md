@@ -35,6 +35,8 @@ body-threshold boundary.
 After the follow-up review, plural English and Russian body forms such as
 `bodies`, `телами`, and `телах` are also recognized by the same word-level
 boundary.
+After PR #373 was merged, the connector caught the missing Russian genitive
+plural `тел`; it is now included in the same token boundary.
 
 Verification:
 
@@ -50,6 +52,10 @@ Verification:
 - after plural body-form repair, rebuilt and hot-redeployed at
   `20260925T213145+0300`; startup remained clean and the first autonomous
   receipt stayed withheld as `boilerplate-loop/live-chorus-residue`.
+- follow-up regression: `отсутствие порогов у тел` is rejected as
+  `abstract-body-threshold`.
+- rebuilt and hot-redeployed at `20260925T214201+0300`; startup remained clean
+  and grep for the genitive-plural regression phrase returned empty.
 
 ---
 
