@@ -93,6 +93,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
 		{"lightness and absence surround the bodies at the threshold", "abstract-body-threshold"},
 		{"отсутствие порогов между телами", "abstract-body-threshold"},
+		{"отсутствие порогов у тел", "abstract-body-threshold"},
 		{"phase: 1,2,3 begins", "numeric-stutter"},
 		{"Поле резонанса между наблюдателями.", "abstract-field-loop"},
 		{"resonance; field: field; pulse: field; pulse: field.", "listed-boilerplate"},
