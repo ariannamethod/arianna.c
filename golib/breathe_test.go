@@ -58,6 +58,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The field crosses the floor beside the window."); got != "" {
 		t.Fatalf("concrete anchored field murmur rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("The battlefield at the center of the map contains the answer."); got != "" {
+		t.Fatalf("compound battlefield murmur rejected as %q", got)
+	}
 }
 
 func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) {

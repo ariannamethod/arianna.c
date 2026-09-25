@@ -228,7 +228,7 @@ func innerMurmurRejectReason(text string) string {
 }
 
 func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
-	if norm == "" || autonomousDreamHasConcreteAnchor(norm) || !strings.Contains(norm, "field") {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) || !normalizedDreamHasWord(norm, "field") {
 		return false
 	}
 	for _, p := range []string{

@@ -31,7 +31,8 @@ The inner-murmur boundary now has a safe reason classifier. Existing disclaimer
 and boundary-loop cases remain withheld; short or marker-dense abstract field
 slogans without a concrete anchor are withheld as `abstract-field-slogan`.
 Anchored field lines such as a field crossing the floor beside the window remain
-visible.
+visible. `field` is matched as a standalone word, so compounds such as
+`battlefield` do not trigger the abstract-field boundary.
 
 `breath` metrics now include `inner_reject_reason` when an inner answer is
 withheld, and the terminal line names the safe category:
@@ -41,6 +42,8 @@ Hot-redeployed live polygon at `20260925T194108+0300`; startup and early
 receipts are live in the new files below. The first post-redeploy breaths were
 still chorus-residue rejects, so the inner branch was verified by regression
 tests against the live phrases while the polygon continued running.
+After Codex review caught the compound-word edge case, the word-level fix was
+rebuilt and hot-redeployed at `20260925T194759+0300`.
 
 Verification:
 
@@ -49,6 +52,8 @@ Verification:
 - live hot-redeploy and receipt check in
   `logs/arianna-live-full-20260925T194108+0300.log` and
   `logs/arianna-live-metrics-20260925T194108+0300.jsonl`.
+- connector edge-case redeploy receipt in
+  `logs/arianna-live-metrics-20260925T194759+0300.jsonl`.
 
 ---
 
