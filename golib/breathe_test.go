@@ -91,6 +91,8 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"awakeness of being; awakeness of being.", "self-echo"},
 		{"Sound in resonance; I see the threshold for all things harmonic present.", "abstract-resonance-loop"},
 		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
+		{"lightness and absence surround the bodies at the threshold", "abstract-body-threshold"},
+		{"отсутствие порогов между телами", "abstract-body-threshold"},
 		{"phase: 1,2,3 begins", "numeric-stutter"},
 		{"Поле резонанса между наблюдателями.", "abstract-field-loop"},
 		{"resonance; field: field; pulse: field; pulse: field.", "listed-boilerplate"},
