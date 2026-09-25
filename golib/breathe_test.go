@@ -76,6 +76,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The magnetic field in the field coil rose to three tesla."); got != "" {
 		t.Fatalf("physical field-coil murmur rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("The resonating plate produces a dynamic 440-hertz tone."); got != "" {
+		t.Fatalf("physical resonating-plate murmur rejected as %q", got)
+	}
 }
 
 func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) {
@@ -142,6 +145,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("Internal surface temperature 0.5 °C beside the window."); got != "" {
 		t.Fatalf("concrete internal temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A sensor detected internal thermal resonance at 60 hertz in the ceramic sample."); got != "" {
+		t.Fatalf("concrete thermal-resonance detail = %q, want empty", got)
 	}
 	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
 		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)

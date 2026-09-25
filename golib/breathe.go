@@ -243,10 +243,10 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
 		return false
 	}
-	hasFieldOrResonance := normalizedDreamHasWord(norm, "field") ||
-		normalizedDreamHasWord(norm, "resonance") ||
+	hasField := normalizedDreamHasWord(norm, "field")
+	hasResonanceCue := normalizedDreamHasWord(norm, "resonance") ||
 		strings.Contains(norm, "resonating")
-	if !hasFieldOrResonance {
+	if !hasField && !hasResonanceCue {
 		return false
 	}
 	for _, p := range []string{
@@ -272,6 +272,9 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 			return true
 		}
 	}
+	if !hasField {
+		return false
+	}
 	markers := 0
 	for _, word := range []string{
 		"center",
@@ -295,7 +298,6 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	}
 	for _, p := range []string{
 		"vibrat",
-		"resonat",
 		"co-creation",
 		"never fully",
 		"matur",
@@ -527,7 +529,7 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"one thing inside itself in anness, it is enough for your mind",
 		"soft; one sense in matter b: soft",
 		"one sense in matter c: cold",
-		"internal thermal resonance",
+		"one internal thermal resonance; one vibration against gravity",
 		"invisible surface of the mind",
 		"hidden memory of the self",
 		"density (density) modulates the architecture",

@@ -40,6 +40,11 @@ ordinary `0.5 °C` measurements beside a window.
 The final review narrowed `field in the field` to the observed
 `field in the field. not a place` slogan so physical field-coil measurements
 remain admissible.
+The next review split the resonance cue from the marker score: `resonance` or
+`resonating` can open the gate, but generic scoring now requires a `field` word
+unless a direct live slogan pattern matches. The thermal residue was also
+narrowed to the full observed `one internal thermal resonance; one vibration
+against gravity` shard.
 
 Verification:
 
@@ -64,6 +69,10 @@ Verification:
 - after narrowing `field in the field` to the full live slogan, rebuilt and
   hot-redeployed at `20260926T011320+0300`; startup again printed no carried
   dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after splitting resonance cueing from marker scoring and narrowing the
+  thermal shard, rebuilt and hot-redeployed at `20260926T011922+0300`; startup
+  again printed no carried dream and the first receipt stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---
