@@ -13,6 +13,34 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: rejected terminal lines show safe detail
+
+After PR #367 merged, the live receipts proved the split worked: the polygon
+could distinguish `live-chorus-residue` from `numeric-stutter` while keeping raw
+rejected dream text withheld. The terminal surface was still coarser than the
+metrics, printing only `dream candidate (boilerplate-loop)` and
+`rejected-loop detour ... (boilerplate-loop)`.
+
+Rejected dream lines and detour notices now reuse the same safe categorical
+detail in their surface label, for example
+`boilerplate-loop/live-chorus-residue` or `boilerplate-loop/numeric-stutter`.
+The rejected body remains `[withheld rejected dream text]`; this is live
+observability, not content leakage.
+
+Hot-redeployed live polygon at `20260925T190318+0300`; first rejected line now
+prints `dream candidate (boilerplate-loop/live-chorus-residue)` while still
+withholding the rejected text.
+
+Verification:
+
+- `cd golib && go test -run 'TestRejectedDreamReasonSurfaceLabelIncludesSafeDetail|TestAutonomousBoilerplateDreamReasonDetails|TestRejectedDreamSurfaceTextWithholdsLoopBodies' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-full-20260925T190318+0300.log` and
+  `logs/arianna-live-metrics-20260925T190318+0300.jsonl`.
+
+---
+
 ## 2026-09-25 - Live polygon: boilerplate reject metrics carry safe detail
 
 After PR #366 merged, the live polygon correctly withheld both repeated chorus
