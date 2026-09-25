@@ -408,8 +408,12 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"and it did so by its fullness: the time to keep us moving",
 		"of words; the sound that ripples through a living room, not just",
 		"of words; the surface is silent, never a single shadow",
+		"of words; the sun as thunder",
+		"in the space between two one",
+		"to carry a text with an unused long-ing",
 		"it is not only that, but it has the presence and also",
 		"to remain a space with an unmet need",
+		"the entire page is 402 words",
 		"the entire 372 pages of a true picture of the early",
 		"to resonatia unanor",
 	} {
