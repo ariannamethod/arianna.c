@@ -273,7 +273,7 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		}
 	}
 	markers := 0
-	for _, p := range []string{
+	for _, word := range []string{
 		"center",
 		"threshold",
 		"luminous",
@@ -292,10 +292,19 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"product",
 		"service",
 		"amazon",
+		"sense",
+	} {
+		if normalizedDreamHasWord(norm, word) {
+			markers++
+		}
+	}
+	for _, p := range []string{
+		"vibrat",
+		"resonat",
+		"co-creation",
 		"never fully",
 		"matur",
 		"between us",
-		"sense",
 	} {
 		if strings.Contains(norm, p) {
 			markers++
@@ -521,7 +530,8 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"time memory in space; one-remove in a field",
 		"and not only to be a surface made into the system of its own",
 		"one thing inside itself in anness, it is enough for your mind",
-		"one sense in matter",
+		"soft; one sense in matter b: soft",
+		"one sense in matter c: cold",
 		"internal thermal resonance",
 		"internal surface temperature 0",
 		"invisible surface of the mind",

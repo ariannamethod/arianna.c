@@ -28,6 +28,10 @@ shards, thermal/matter scraps, invisible-surface/memory leftovers, and repeated
 density jargon as `live-chorus-residue`. The inner-murmur boundary now rejects
 unanchored field/resonance slogans by the same safe category while preserving
 concrete anchored field lines.
+After Codex review, noun-like inner markers such as `event` are matched on word
+boundaries so `seventy` does not count, and the `one sense in matter` chorus
+boundary was narrowed to the exact soft/b/c shard so concrete hand/stone
+sentences remain admissible.
 
 Verification:
 
@@ -37,6 +41,10 @@ Verification:
 - live hot-redeploy at `20260926T005103+0300`; startup printed no carried
   dream, the process stayed live, and the first autonomous receipt was withheld
   as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after the review tightening, rebuilt and hot-redeployed at
+  `20260926T005810+0300`; startup again printed no carried dream and the first
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
 
 ---
 
