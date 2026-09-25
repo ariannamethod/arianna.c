@@ -6,7 +6,7 @@ import (
 )
 
 func TestRejectedDreamSurfaceTextWithholdsLoopBodies(t *testing.T) {
-	for _, reason := range []string{"collapse-loop", "repeat-loop", "boilerplate-loop", "collapsed dream loop"} {
+	for _, reason := range []string{"collapse-loop", "repeat-loop", "orbit-loop", "boilerplate-loop", "collapsed dream loop"} {
 		if got := rejectedDreamSurfaceText(reason, "a living vessel. / The text is only not what"); got != liveBoundaryWithheld {
 			t.Fatalf("rejectedDreamSurfaceText(%q) = %q, want withheld", reason, got)
 		}
@@ -14,7 +14,7 @@ func TestRejectedDreamSurfaceTextWithholdsLoopBodies(t *testing.T) {
 }
 
 func TestRejectedDreamSurfaceTextKeepsNonLoopBodies(t *testing.T) {
-	got := rejectedDreamSurfaceText("orbit-loop", "A hand rests on the table.")
+	got := rejectedDreamSurfaceText("live-boundary", "A hand rests on the table.")
 	if got != "A hand rests on the table." {
 		t.Fatalf("rejectedDreamSurfaceText(non-loop) = %q", got)
 	}
@@ -101,6 +101,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
 		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)
+	}
+	if got := autonomousRejectReasonDetail("orbit-loop", "A hand rests on the table."); got != "orbit-repeat" {
+		t.Fatalf("autonomousRejectReasonDetail orbit = %q, want orbit-repeat", got)
 	}
 }
 

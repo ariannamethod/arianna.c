@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: orbit-loop rejects are withheld
+
+After the inner-field hotfix, the live polygon exposed another boundary split:
+`orbit-loop` was already treated as an autonomous reject for detour/quarantine,
+but not as a loop class for the terminal surface or metrics. That let rejected
+repeat-orbit bodies appear as raw candidate text, e.g. the page-count corpus
+residue `(The entire page is 402 words) There are many ways.`, and left
+`reason_class` empty in `breath_reject` metrics.
+
+`orbit-loop` now uses the same autonomous-loop boundary as repeat/collapse and
+boilerplate rejects. The terminal withholds the rejected body, metrics carry
+`reason_class=autonomous-loop`, and the safe detail is `orbit-repeat`. Non-loop
+boundaries such as `live-boundary` still keep their surface body visible.
+
+Verification:
+
+- `cd golib && go test -run 'TestRejectedDreamSurfaceTextWithholdsLoopBodies|TestRejectedDreamSurfaceTextKeepsNonLoopBodies|TestAutonomousBoilerplateDreamReasonDetails' .`
+- `make metabolism`
+- live hot-redeploy at `20260925T202136+0300`; first post-redeploy
+  `breath_reject` receipt carried `reason_class=autonomous-loop` and
+  `reason_detail=exact-repeat`, confirming the rebuilt boundary is active in
+  the polygon. The startup banner still surfaced an old persisted carried dream;
+  that is a separate startup-carry surface, not the `orbit-loop` reject path.
+
+---
+
 ## 2026-09-25 - Live polygon: inner field slogans are withheld
 
 After PR #368 merged, the terminal surface made reject categories visible enough
