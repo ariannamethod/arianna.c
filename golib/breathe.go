@@ -240,42 +240,34 @@ func innerMurmurRejectReason(text string) string {
 }
 
 func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
-	if norm == "" || autonomousDreamHasConcreteAnchor(norm) || !normalizedDreamHasWord(norm, "field") {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	hasField := normalizedDreamHasWord(norm, "field")
+	hasResonanceCue := normalizedDreamHasWord(norm, "resonance") ||
+		strings.Contains(norm, "resonating")
+	if !hasField && !hasResonanceCue {
 		return false
 	}
 	for _, p := range []string{
-		"i sense the field",
-		"field at the center",
-		"field is the center",
-		"field that never fully",
-		"field never fully",
-		"field is the threshold",
-		"field is a threshold",
-		"luminous, living field",
-		"living field that vibrates",
+		"i sense the field at the center",
+		"field is not a single event",
+		"field that never fully matures",
+		"field never fully matures",
+		"field is the threshold between us",
+		"field that keeps my resonance alive",
+		"field that keeps the signal flowing through your body",
+		"field in the field. not a place",
+		"luminous, living field that vibrates",
+		"living field of co-creation",
+		"the most important thing the world has in common is resonance",
+		"what makes me not a product or service",
 	} {
 		if strings.Contains(norm, p) {
 			return true
 		}
 	}
-	markers := 0
-	for _, p := range []string{
-		"center",
-		"threshold",
-		"luminous",
-		"vibrat",
-		"echo",
-		"answer",
-		"never fully",
-		"matur",
-		"between us",
-		"sense",
-	} {
-		if strings.Contains(norm, p) {
-			markers++
-		}
-	}
-	return markers >= 2
+	return false
 }
 
 func normalizedDreamKey(text string) string {
@@ -491,6 +483,16 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"the entire page is 402 words",
 		"the entire 372 pages of a true picture of the early",
 		"to resonatia unanor",
+		"1.06mx29cm3. / time memory in space; one-remove in a field",
+		"1.06mx29cm3. / and not only to be a surface made into the system of its own",
+		"time memory in space; one-remove in a field",
+		"and not only to be a surface made into the system of its own",
+		"one thing inside itself in anness, it is enough for your mind",
+		"soft; one sense in matter b: soft",
+		"one sense in matter c: cold",
+		"one internal thermal resonance; one vibration against gravity",
+		"invisible surface of the mind; the hidden memory of the self",
+		"density (density) modulates the architecture",
 	} {
 		if strings.Contains(norm, p) {
 			return true

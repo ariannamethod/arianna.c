@@ -13,6 +13,92 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-26 - Live polygon: chorus shards and inner field slogans are withheld
+
+After PR #375 merged, the live polygon confirmed that concrete-only detours
+unstuck autonomous breathing: accepted dreams resumed. That immediately exposed
+the next leak class. Chorus dreams could still surface cells such as
+`1.06mx29cm3`, `time memory in space; one-remove in a field...`, and other
+system-surface scraps. The inner voice also let through abstract field/resonance
+slogans such as "the field is not a single event" and "the most important thing
+the world has in common is resonance".
+
+The autonomous boilerplate boundary now recognizes the observed live chorus
+shards, thermal/matter scraps, invisible-surface/memory leftovers, and repeated
+density jargon as `live-chorus-residue`. The inner-murmur boundary now rejects
+unanchored field/resonance slogans by the same safe category while preserving
+concrete anchored field lines.
+After Codex review, `event` was removed from the generic substring marker set
+so `seventy` cannot count toward an abstract slogan, while the observed
+`field is not a single event` line remains covered by an explicit live pattern.
+The `one sense in matter` chorus boundary was narrowed to the exact soft/b/c
+shard so concrete hand/stone sentences remain admissible.
+The follow-up review also removed generic `object` as an abstract-slogan marker
+and dropped the prefixy `internal surface temperature 0` residue; the live
+thermal shard remains covered by `internal thermal resonance` without catching
+ordinary `0.5 °C` measurements beside a window.
+The final review narrowed `field in the field` to the observed
+`field in the field. not a place` slogan so physical field-coil measurements
+remain admissible.
+The next review split the resonance cue from the marker score: `resonance` or
+`resonating` can open the gate, but generic scoring now requires a `field` word
+unless a direct live slogan pattern matches. The thermal residue was also
+narrowed to the full observed `one internal thermal resonance; one vibration
+against gravity` shard.
+After the next review, generic marker scoring was removed entirely from the
+inner abstract-field guard; it now rejects only explicit live slogan patterns,
+and the signal-flow pattern is narrowed to the observed `through your body`
+continuation so engineering field/signal/echo measurements remain admissible.
+The follow-up review narrowed the remaining direct patterns further: standalone
+`living, dynamic resonance` is no longer enough, and the surface/memory dream
+residue now requires the combined observed shard instead of either half alone.
+The next review narrowed the compact `1.06mx29cm3` dimension token as well: it
+is no longer residue by itself, only when attached to the observed live chorus
+continuations.
+
+Verification:
+
+- `cd golib && go test -run 'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `git diff --check`
+- `make metabolism`
+- live hot-redeploy at `20260926T005103+0300`; startup printed no carried
+  dream, the process stayed live, and the first autonomous receipt was withheld
+  as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after the review tightening, rebuilt and hot-redeployed at
+  `20260926T005810+0300`; startup again printed no carried dream and the first
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
+- after removing `event` from the generic marker set, rebuilt and hot-redeployed
+  at `20260926T010256+0300`; startup again printed no carried dream and the
+  first receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
+- after removing generic `object` and the prefixy temperature-zero residue,
+  rebuilt and hot-redeployed at `20260926T010816+0300`; startup again printed no
+  carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing `field in the field` to the full live slogan, rebuilt and
+  hot-redeployed at `20260926T011320+0300`; startup again printed no carried
+  dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after splitting resonance cueing from marker scoring and narrowing the
+  thermal shard, rebuilt and hot-redeployed at `20260926T011922+0300`; startup
+  again printed no carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after removing generic marker scoring from the inner field-slogan guard,
+  rebuilt and hot-redeployed at `20260926T012503+0300`; startup again printed no
+  carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing the remaining standalone direct patterns, rebuilt and
+  hot-redeployed at `20260926T012924+0300`; startup again printed no carried
+  dream and the first two receipts stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing the standalone dimension token, rebuilt and hot-redeployed at
+  `20260926T013652+0300`; startup again printed no carried dream and the first
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
+
+---
+
 ## 2026-09-25 - Live polygon: detour cue stays concrete
 
 After the Russian body-form fix, the live polygon confirmed the next starvation
