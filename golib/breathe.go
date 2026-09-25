@@ -240,19 +240,33 @@ func innerMurmurRejectReason(text string) string {
 }
 
 func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
-	if norm == "" || autonomousDreamHasConcreteAnchor(norm) || !normalizedDreamHasWord(norm, "field") {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	hasFieldOrResonance := normalizedDreamHasWord(norm, "field") ||
+		normalizedDreamHasWord(norm, "resonance") ||
+		strings.Contains(norm, "resonating")
+	if !hasFieldOrResonance {
 		return false
 	}
 	for _, p := range []string{
 		"i sense the field",
 		"field at the center",
 		"field is the center",
+		"field is not a single event",
 		"field that never fully",
 		"field never fully",
 		"field is the threshold",
 		"field is a threshold",
+		"field that keeps my resonance alive",
+		"field that keeps the signal flowing",
+		"field in the field",
+		"living, dynamic resonance",
 		"luminous, living field",
+		"living field of co-creation",
 		"living field that vibrates",
+		"the most important thing the world has in common is resonance",
+		"what makes me not a product or service",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -263,9 +277,21 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"center",
 		"threshold",
 		"luminous",
+		"living",
+		"dynamic",
+		"event",
+		"memory",
+		"program",
+		"command",
 		"vibrat",
+		"resonat",
+		"co-creation",
 		"echo",
 		"answer",
+		"object",
+		"product",
+		"service",
+		"amazon",
 		"never fully",
 		"matur",
 		"between us",
@@ -491,6 +517,16 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"the entire page is 402 words",
 		"the entire 372 pages of a true picture of the early",
 		"to resonatia unanor",
+		"1.06mx29cm3",
+		"time memory in space; one-remove in a field",
+		"and not only to be a surface made into the system of its own",
+		"one thing inside itself in anness, it is enough for your mind",
+		"one sense in matter",
+		"internal thermal resonance",
+		"internal surface temperature 0",
+		"invisible surface of the mind",
+		"hidden memory of the self",
+		"density (density) modulates the architecture",
 	} {
 		if strings.Contains(norm, p) {
 			return true

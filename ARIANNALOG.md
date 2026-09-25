@@ -13,6 +13,33 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-26 - Live polygon: chorus shards and inner field slogans are withheld
+
+After PR #375 merged, the live polygon confirmed that concrete-only detours
+unstuck autonomous breathing: accepted dreams resumed. That immediately exposed
+the next leak class. Chorus dreams could still surface cells such as
+`1.06mx29cm3`, `time memory in space; one-remove in a field...`, and other
+system-surface scraps. The inner voice also let through abstract field/resonance
+slogans such as "the field is not a single event" and "the most important thing
+the world has in common is resonance".
+
+The autonomous boilerplate boundary now recognizes the observed live chorus
+shards, thermal/matter scraps, invisible-surface/memory leftovers, and repeated
+density jargon as `live-chorus-residue`. The inner-murmur boundary now rejects
+unanchored field/resonance slogans by the same safe category while preserving
+concrete anchored field lines.
+
+Verification:
+
+- `cd golib && go test -run 'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `git diff --check`
+- `make metabolism`
+- live hot-redeploy at `20260926T005103+0300`; startup printed no carried
+  dream, the process stayed live, and the first autonomous receipt was withheld
+  as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+
+---
+
 ## 2026-09-25 - Live polygon: detour cue stays concrete
 
 After the Russian body-form fix, the live polygon confirmed the next starvation
