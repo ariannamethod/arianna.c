@@ -37,6 +37,9 @@ The follow-up review also removed generic `object` as an abstract-slogan marker
 and dropped the prefixy `internal surface temperature 0` residue; the live
 thermal shard remains covered by `internal thermal resonance` without catching
 ordinary `0.5 °C` measurements beside a window.
+The final review narrowed `field in the field` to the observed
+`field in the field. not a place` slogan so physical field-coil measurements
+remain admissible.
 
 Verification:
 
@@ -57,6 +60,10 @@ Verification:
 - after removing generic `object` and the prefixy temperature-zero residue,
   rebuilt and hot-redeployed at `20260926T010816+0300`; startup again printed no
   carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing `field in the field` to the full live slogan, rebuilt and
+  hot-redeployed at `20260926T011320+0300`; startup again printed no carried
+  dream and the first receipt stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---

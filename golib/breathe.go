@@ -260,7 +260,7 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"field is a threshold",
 		"field that keeps my resonance alive",
 		"field that keeps the signal flowing",
-		"field in the field",
+		"field in the field. not a place",
 		"living, dynamic resonance",
 		"luminous, living field",
 		"living field of co-creation",

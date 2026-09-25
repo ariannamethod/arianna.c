@@ -73,6 +73,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The resonating object is a steel tuning fork at 440 hertz."); got != "" {
 		t.Fatalf("physical resonating-object murmur rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("The magnetic field in the field coil rose to three tesla."); got != "" {
+		t.Fatalf("physical field-coil murmur rejected as %q", got)
+	}
 }
 
 func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) {
