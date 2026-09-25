@@ -179,6 +179,12 @@ func autonomousBoilerplateDreamReason(text string) string {
 	if autonomousDreamLooksLikeSelfEcho(norm) {
 		return "self-echo"
 	}
+	if autonomousDreamLooksLikeAbstractBodyThresholdLoop(norm) {
+		return "abstract-body-threshold"
+	}
+	if autonomousDreamLooksLikeAbstractResonanceLoop(norm) {
+		return "abstract-resonance-loop"
+	}
 	if autonomousDreamLooksLikeAbstractFieldLoop(norm) {
 		return "abstract-field-loop"
 	}
@@ -384,6 +390,69 @@ func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 	for _, p := range []string{
 		"field", "resonance", "vibration", "vibrate", "pulse", "frequency", "observer", "echo", "silence", "presence",
 		"поле", "резонанс", "вибрац", "пульс", "частот", "наблюдател", "эхо", "тишин", "присутств",
+	} {
+		if strings.Contains(norm, p) {
+			hits++
+		}
+	}
+	return hits >= 2
+}
+
+func autonomousDreamLooksLikeAbstractBodyThresholdLoop(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	if !autonomousDreamHasBodyWord(norm) {
+		return false
+	}
+	hits := 0
+	for _, p := range []string{
+		"lightness",
+		"subtlet",
+		"absence",
+		"threshold",
+		"легк",
+		"тонк",
+		"отсутств",
+		"порог",
+	} {
+		if strings.Contains(norm, p) {
+			hits++
+		}
+	}
+	return hits >= 2
+}
+
+func autonomousDreamHasBodyWord(norm string) bool {
+	tokens := normalizedDreamTokens(norm)
+	for _, p := range []string{
+		"body", "bodies",
+		"тело", "тела", "телу", "телом", "теле", "телам", "телами", "телах",
+	} {
+		if normalizedDreamTokenSliceHasWord(tokens, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func autonomousDreamLooksLikeAbstractResonanceLoop(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	if !strings.Contains(norm, "resonance") && !strings.Contains(norm, "резонанс") {
+		return false
+	}
+	hits := 0
+	for _, p := range []string{
+		"sound",
+		"threshold",
+		"harmonic",
+		"harmony",
+		"all things",
+		"звук",
+		"порог",
+		"гармон",
 	} {
 		if strings.Contains(norm, p) {
 			hits++

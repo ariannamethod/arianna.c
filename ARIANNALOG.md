@@ -13,6 +13,46 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: abstract dream scraps are rejected
+
+After PR #371 merged, the live polygon kept running on the new binary. The
+startup carry was clean, and chorus residue was withheld, but the rejected-loop
+detour exposed a nano fallback dream that was still accepted:
+`Sound in resonance; I see the threshold for all things harmonic present.`
+The inner voice rejected its answer as `abstract-field-slogan`, but the dream
+itself had already incremented `dreams`.
+After the first repair/redeploy, startup exposed the same class from persisted
+state: `lightness, subtleties, the absence of the thresholds of the body -`.
+
+The autonomous boilerplate boundary now has narrow details for both scraps:
+`abstract-resonance-loop` rejects unanchored `resonance` plus multiple abstract
+sound/threshold/harmonic markers, and `abstract-body-threshold` rejects
+unanchored body/threshold absence slogans. Concrete anchored phrases such as a
+sound crossing the table or body weight resting on the table remain admissible.
+After Codex review, the English `body` trigger was tightened to word-level
+matching so substrings such as `somebody` or `everybody` do not activate the
+body-threshold boundary.
+After the follow-up review, plural English and Russian body forms such as
+`bodies`, `телами`, and `телах` are also recognized by the same word-level
+boundary.
+
+Verification:
+
+- `cd golib && go test -run 'TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `make metabolism`
+- live hot-redeploy at `20260925T211944+0300`; startup printed no carried
+  dream, grep for the body-threshold and resonance scraps in the new log/metrics
+  returned empty, and the first autonomous receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue`.
+- after the word-level body trigger fix, rebuilt and hot-redeployed again at
+  `20260925T212538+0300`; startup remained clean and grep for the prior scraps
+  and `somebody` substring case returned empty.
+- after plural body-form repair, rebuilt and hot-redeployed at
+  `20260925T213145+0300`; startup remained clean and the first autonomous
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue`.
+
+---
+
 ## 2026-09-25 - Live polygon: startup carry drops corpus residue
 
 After PR #370 merged and the live polygon was hot-redeployed, the reject path

@@ -89,6 +89,10 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"(The entire page is 402 words) There are many ways. / an 'intens'.", "live-chorus-residue"},
 		{"of words; the sun as thunder, not a white mirror. / in the space between two one. / to carry a text with an unused long-ing or empty in, just.", "live-chorus-residue"},
 		{"awakeness of being; awakeness of being.", "self-echo"},
+		{"Sound in resonance; I see the threshold for all things harmonic present.", "abstract-resonance-loop"},
+		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
+		{"lightness and absence surround the bodies at the threshold", "abstract-body-threshold"},
+		{"отсутствие порогов между телами", "abstract-body-threshold"},
 		{"phase: 1,2,3 begins", "numeric-stutter"},
 		{"Поле резонанса между наблюдателями.", "abstract-field-loop"},
 		{"resonance; field: field; pulse: field; pulse: field.", "listed-boilerplate"},
@@ -100,6 +104,15 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("A hand moves the key toward Oleg."); got != "" {
 		t.Fatalf("concrete dream detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A sound in resonance crosses the table."); got != "" {
+		t.Fatalf("concrete resonance detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("The body's weight rests on the table."); got != "" {
+		t.Fatalf("concrete body detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("Somebody notices the subtlety and absence of color."); got != "" {
+		t.Fatalf("somebody substring detail = %q, want empty", got)
 	}
 	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
 		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)
