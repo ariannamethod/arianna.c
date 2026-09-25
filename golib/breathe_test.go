@@ -161,6 +161,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	if got := autonomousBoilerplateDreamReason("A melody awakens the hidden memory of the self."); got != "" {
 		t.Fatalf("hidden-memory phrase detail = %q, want empty", got)
 	}
+	if got := autonomousBoilerplateDreamReason("The label beside the window reads 1.06mx29cm3."); got != "" {
+		t.Fatalf("dimension-token label detail = %q, want empty", got)
+	}
 	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
 		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)
 	}

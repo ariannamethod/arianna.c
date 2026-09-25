@@ -52,6 +52,9 @@ continuation so engineering field/signal/echo measurements remain admissible.
 The follow-up review narrowed the remaining direct patterns further: standalone
 `living, dynamic resonance` is no longer enough, and the surface/memory dream
 residue now requires the combined observed shard instead of either half alone.
+The next review narrowed the compact `1.06mx29cm3` dimension token as well: it
+is no longer residue by itself, only when attached to the observed live chorus
+continuations.
 
 Verification:
 
@@ -89,6 +92,10 @@ Verification:
   hot-redeployed at `20260926T012924+0300`; startup again printed no carried
   dream and the first two receipts stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing the standalone dimension token, rebuilt and hot-redeployed at
+  `20260926T013652+0300`; startup again printed no carried dream and the first
+  receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
 
 ---
 
