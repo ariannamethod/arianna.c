@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: startup carry drops corpus residue
+
+After PR #370 merged and the live polygon was hot-redeployed, the reject path
+was fixed but the startup banner still surfaced an old persisted `last_dream`:
+`(The entire page is 402 words) There are many ways. / an 'intens'.`
+After the first repair/redeploy, the same startup surface exposed the next
+persisted chorus scrap: `of words; the sun as thunder, not a white mirror. / in
+the space between two one. / to carry a text with an unused long-ing...`.
+
+Startup already routes restored carried dreams through the shared autonomous
+boilerplate guard before printing `she returns carrying a dream`, so the repair
+stays at that shared boundary instead of adding a chat-only special case. The
+observed page-count and sun/thunder corpus residues are now classified as
+`live-chorus-residue`. That means restore drops them before the banner, and
+future autonomous admission rejects the same scraps as `boilerplate-loop`.
+
+Verification:
+
+- `cd golib && go test -run 'TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop' .`
+- `make metabolism`
+- live hot-redeploy at `20260925T210057+0300`; startup wrote the normal trio
+  banner and no `she returns carrying...` line, while grep for the page-count
+  and sun/thunder scraps in the new full log/metrics returned empty.
+
+---
+
 ## 2026-09-25 - Live polygon: orbit-loop rejects are withheld
 
 After the inner-field hotfix, the live polygon exposed another boundary split:

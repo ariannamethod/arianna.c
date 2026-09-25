@@ -86,6 +86,8 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		want string
 	}{
 		{"and anarchus 12, resonance in a unresor. / of textures, no surface; the living field is now suspended from a single.", "live-chorus-residue"},
+		{"(The entire page is 402 words) There are many ways. / an 'intens'.", "live-chorus-residue"},
+		{"of words; the sun as thunder, not a white mirror. / in the space between two one. / to carry a text with an unused long-ing or empty in, just.", "live-chorus-residue"},
 		{"awakeness of being; awakeness of being.", "self-echo"},
 		{"phase: 1,2,3 begins", "numeric-stutter"},
 		{"Поле резонанса между наблюдателями.", "abstract-field-loop"},
