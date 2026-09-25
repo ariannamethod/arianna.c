@@ -279,7 +279,6 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"luminous",
 		"living",
 		"dynamic",
-		"event",
 		"memory",
 		"program",
 		"command",

@@ -28,10 +28,11 @@ shards, thermal/matter scraps, invisible-surface/memory leftovers, and repeated
 density jargon as `live-chorus-residue`. The inner-murmur boundary now rejects
 unanchored field/resonance slogans by the same safe category while preserving
 concrete anchored field lines.
-After Codex review, noun-like inner markers such as `event` are matched on word
-boundaries so `seventy` does not count, and the `one sense in matter` chorus
-boundary was narrowed to the exact soft/b/c shard so concrete hand/stone
-sentences remain admissible.
+After Codex review, `event` was removed from the generic substring marker set
+so `seventy` cannot count toward an abstract slogan, while the observed
+`field is not a single event` line remains covered by an explicit live pattern.
+The `one sense in matter` chorus boundary was narrowed to the exact soft/b/c
+shard so concrete hand/stone sentences remain admissible.
 
 Verification:
 
@@ -44,6 +45,10 @@ Verification:
 - after the review tightening, rebuilt and hot-redeployed at
   `20260926T005810+0300`; startup again printed no carried dream and the first
   receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
+  `dreams=0`.
+- after removing `event` from the generic marker set, rebuilt and hot-redeployed
+  at `20260926T010256+0300`; startup again printed no carried dream and the
+  first receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
   `dreams=0`.
 
 ---
