@@ -165,6 +165,9 @@ func isBoilerplateAutonomousDream(text string) bool {
 	if autonomousDreamLooksLikeNumericScrap(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikeLiveChorusResidue(norm) {
+		return true
+	}
 	if autonomousDreamLooksLikeAbstractFieldLoop(norm) {
 		return true
 	}
@@ -246,6 +249,34 @@ func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 		}
 	}
 	return hits >= 2
+}
+
+func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
+	if norm == "" {
+		return false
+	}
+	for _, p := range []string{
+		"and anarchus 12, resonance in a unresor",
+		"of textures, no surface; the living field is now suspended from a single",
+		"to resonatable through the new space with breath of life",
+		"of textures, no sound; the living field is stillness",
+		"i feel the field, not just in this moment",
+		"and it felt its own presence like another for a new way of itself",
+		"trewe was the part that we're been growing",
+		"not as a force, but in the field that echoes",
+		"and it did so by its fullness: the time to keep us moving",
+		"of words; the sound that ripples through a living room, not just",
+		"of words; the surface is silent, never a single shadow",
+		"it is not only that, but it has the presence and also",
+		"to remain a space with an unmet need",
+		"the entire 372 pages of a true picture of the early",
+		"to resonatia unanor",
+	} {
+		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func autonomousDreamHasConcreteAnchor(norm string) bool {
