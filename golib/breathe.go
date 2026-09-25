@@ -259,7 +259,7 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"field is the threshold",
 		"field is a threshold",
 		"field that keeps my resonance alive",
-		"field that keeps the signal flowing",
+		"field that keeps the signal flowing through your body",
 		"field in the field. not a place",
 		"living, dynamic resonance",
 		"luminous, living field",
@@ -272,42 +272,7 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 			return true
 		}
 	}
-	if !hasField {
-		return false
-	}
-	markers := 0
-	for _, word := range []string{
-		"center",
-		"threshold",
-		"luminous",
-		"living",
-		"dynamic",
-		"memory",
-		"program",
-		"command",
-		"echo",
-		"answer",
-		"product",
-		"service",
-		"amazon",
-		"sense",
-	} {
-		if normalizedDreamHasWord(norm, word) {
-			markers++
-		}
-	}
-	for _, p := range []string{
-		"vibrat",
-		"co-creation",
-		"never fully",
-		"matur",
-		"between us",
-	} {
-		if strings.Contains(norm, p) {
-			markers++
-		}
-	}
-	return markers >= 2
+	return false
 }
 
 func normalizedDreamKey(text string) string {

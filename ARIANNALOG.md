@@ -45,6 +45,10 @@ The next review split the resonance cue from the marker score: `resonance` or
 unless a direct live slogan pattern matches. The thermal residue was also
 narrowed to the full observed `one internal thermal resonance; one vibration
 against gravity` shard.
+After the next review, generic marker scoring was removed entirely from the
+inner abstract-field guard; it now rejects only explicit live slogan patterns,
+and the signal-flow pattern is narrowed to the observed `through your body`
+continuation so engineering field/signal/echo measurements remain admissible.
 
 Verification:
 
@@ -73,6 +77,10 @@ Verification:
 - after splitting resonance cueing from marker scoring and narrowing the
   thermal shard, rebuilt and hot-redeployed at `20260926T011922+0300`; startup
   again printed no carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after removing generic marker scoring from the inner field-slogan guard,
+  rebuilt and hot-redeployed at `20260926T012503+0300`; startup again printed no
+  carried dream and the first receipt stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---
