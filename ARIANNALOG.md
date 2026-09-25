@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: detour cue stays concrete
+
+After the Russian body-form fix, the live polygon confirmed the next starvation
+pattern: three chorus-residue rejects produced a recovery detour, but the cue was
+still prefixed by mood/field language such as `presence`, `field`, or
+`resonance`. The nano fallback then returned another abstract resonance loop and
+the system quarantined with `dreams=0`.
+
+Rejected-loop recovery now treats the detour as a complete rescue cue instead of
+appending it to the normal mood/field cue. The detour phrase itself was also
+made positive and tactile-only: it no longer says `no abstract chorus`, because
+the live startup immediately proved that negative instruction could become
+persisted dream content. Already-persisted tails containing that instruction are
+classified as `instruction-tail-residue` and dropped by the same autonomous
+boilerplate boundary used for startup carry and breath rejects.
+
+Verification:
+
+- `cd golib && go test -run 'TestMoodWordAndDreamCue|TestAutonomousBoilerplateDreamReasonDetails|TestRejectDreamBackoffCountsAlternatingLoopReasons' .`
+- `git diff --check`
+- `make metabolism`
+- live hot-redeploy at `20260925T215409+0300` exposed the bad persisted carry
+  `99.6; a shadow, no abstract chorus.`
+- rebuilt and hot-redeployed at `20260925T215640+0300`; startup printed no
+  carried dream, the process stayed live, and the first autonomous receipt was
+  withheld as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+
+---
+
 ## 2026-09-25 - Live polygon: abstract dream scraps are rejected
 
 After PR #371 merged, the live polygon kept running on the new binary. The

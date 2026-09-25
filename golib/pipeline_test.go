@@ -320,6 +320,21 @@ func TestMoodWordAndDreamCue(t *testing.T) {
 	if bare == "" || strings.Contains(bare, "summer") {
 		t.Errorf("bare cue wrong: %q", bare)
 	}
+	detour := "detour-3 concrete present body: floor window hand temperature weight; one tactile image in matter"
+	escape := dreamCue(Snapshot{Coherence: 0.9, Arousal: 0.7}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 1}, "old dream", detour)
+	if escape != detour {
+		t.Fatalf("detour recovery cue must stay concrete-only:\n got %q\nwant %q", escape, detour)
+	}
+	for _, leak := range []string{"old dream", "summer", "field", "resonance", "abstract", "chorus"} {
+		if strings.Contains(escape, leak) {
+			t.Fatalf("detour recovery cue leaked %q into escape cue: %q", leak, escape)
+		}
+	}
+	for _, anchor := range []string{"floor", "hand"} {
+		if !strings.Contains(escape, anchor) {
+			t.Fatalf("detour recovery cue lost concrete anchor %q: %q", anchor, escape)
+		}
+	}
 }
 
 // ── tickBudget / tickDelay ──────────────────────────────────────────────────────
