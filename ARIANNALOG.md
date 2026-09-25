@@ -13,6 +13,43 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-09-25 - Live polygon: nano fallback self-echo and numeric stutters are rejected
+
+After PR #365 merged, the chorus residue boundary held, but the rejected-loop
+detour exposed the next admission defect: nano fallback dreams could still enter
+state as short abstract self-echoes or numeric stutters. Live examples that had
+been admitted included `pause time; 0.05 * _not yet *yet; 0.`,
+`resonance: 1. light - invisible; 2.`, `awakeness of being; awakeness of being`,
+and repeated field/self phrases such as `the field that returns` or `field for
+the self to breathe`.
+
+The autonomous boilerplate boundary now rejects:
+
+- short mixed letter/digit stutters without concrete anchors;
+- repeated segments inside a single dream;
+- repeated abstract n-grams inside a single dream;
+- abstract field loops where the loop is carried by `echo`, `silence`, or
+  `presence`, not only by `field` and `resonance`.
+
+Concrete tactile dreams still pass the boundary: the live `resonance gap; one
+hand holding the palm...` case remains admissible because it has a physical hand
+anchor.
+
+Hot-redeployed live polygon at `20260925T184203+0300`; startup was clean and the
+first autonomous breaths after restart stayed rejected with `log=breath_reject`,
+`reason=boilerplate-loop`, `dreams=0`.
+
+Verification:
+
+- live accepted fallback examples from
+  `logs/arianna-live-full-20260925T171446+0300.log`;
+- `cd golib && go test -run 'TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop|TestRejectedDreamSurfaceTextWithholdsLoopBodies' .`
+- `make metabolism`
+- live hot-redeploy and receipt check in
+  `logs/arianna-live-metrics-20260925T184203+0300.jsonl`.
+
+---
+
 ## 2026-09-25 - Live polygon: repeated chorus residue is rejected per atom
 
 After PR #364 merged, the live polygon ran long enough to expose the next

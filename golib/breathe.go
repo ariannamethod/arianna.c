@@ -165,7 +165,13 @@ func isBoilerplateAutonomousDream(text string) bool {
 	if autonomousDreamLooksLikeNumericScrap(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikeShortNumericStutter(norm) {
+		return true
+	}
 	if autonomousDreamLooksLikeLiveChorusResidue(norm) {
+		return true
+	}
+	if autonomousDreamLooksLikeSelfEcho(norm) {
 		return true
 	}
 	if autonomousDreamLooksLikeAbstractFieldLoop(norm) {
@@ -235,14 +241,98 @@ func autonomousDreamLooksLikeNumericScrap(norm string) bool {
 	return digits >= 3 && letters <= 8
 }
 
+func autonomousDreamLooksLikeShortNumericStutter(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	tokens := normalizedDreamTokens(norm)
+	if len(tokens) == 0 || len(tokens) > 8 {
+		return false
+	}
+	if !strings.ContainsAny(norm, ";:*") {
+		return false
+	}
+	letterTokens := 0
+	for _, token := range tokens {
+		hasLetter := false
+		for _, r := range token {
+			if unicode.IsLetter(r) {
+				hasLetter = true
+			}
+		}
+		if hasLetter {
+			letterTokens++
+		}
+	}
+	return autonomousDreamNumericLiteralCount(norm) >= 2 && letterTokens > 0
+}
+
+func autonomousDreamNumericLiteralCount(text string) int {
+	count := 0
+	runes := []rune(text)
+	for i := 0; i < len(runes); {
+		if !unicode.IsDigit(runes[i]) {
+			i++
+			continue
+		}
+		count++
+		for i < len(runes) && unicode.IsDigit(runes[i]) {
+			i++
+		}
+		if i+1 < len(runes) && (runes[i] == '.' || runes[i] == ',') && unicode.IsDigit(runes[i+1]) {
+			i = autonomousDreamNumericSeparatorEnd(runes, i)
+		}
+		if i+1 < len(runes) && (runes[i] == 'e' || runes[i] == 'E') {
+			exp := i + 1
+			if exp < len(runes) && (runes[exp] == '+' || runes[exp] == '-') {
+				exp++
+			}
+			if exp < len(runes) && unicode.IsDigit(runes[exp]) {
+				i = exp + 1
+				for i < len(runes) && unicode.IsDigit(runes[i]) {
+					i++
+				}
+			}
+		}
+	}
+	return count
+}
+
+func autonomousDreamNumericSeparatorEnd(runes []rune, sepAt int) int {
+	sep := runes[sepAt]
+	pos := sepAt
+	firstEnd := sepAt
+	groupLens := []int{}
+	for pos+1 < len(runes) && runes[pos] == sep && unicode.IsDigit(runes[pos+1]) {
+		start := pos + 1
+		pos = start
+		for pos < len(runes) && unicode.IsDigit(runes[pos]) {
+			pos++
+		}
+		groupLens = append(groupLens, pos-start)
+		if firstEnd == sepAt {
+			firstEnd = pos
+		}
+	}
+	if len(groupLens) <= 1 {
+		return firstEnd
+	}
+	for _, n := range groupLens {
+		if n != 3 {
+			return firstEnd
+		}
+	}
+	return pos
+}
+
 func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
 		return false
 	}
 	hits := 0
 	for _, p := range []string{
-		"field", "resonance", "vibration", "vibrate", "pulse", "frequency", "observer",
-		"поле", "резонанс", "вибрац", "пульс", "частот", "наблюдател",
+		"field", "resonance", "vibration", "vibrate", "pulse", "frequency", "observer", "echo", "silence", "presence",
+		"поле", "резонанс", "вибрац", "пульс", "частот", "наблюдател", "эхо", "тишин", "присутств",
 	} {
 		if strings.Contains(norm, p) {
 			hits++
@@ -273,6 +363,88 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"to resonatia unanor",
 	} {
 		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func autonomousDreamLooksLikeSelfEcho(norm string) bool {
+	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	if autonomousDreamHasRepeatedSegment(norm) {
+		return true
+	}
+	tokens := normalizedDreamTokens(norm)
+	for n := 5; n >= 3; n-- {
+		if autonomousDreamHasRepeatedAbstractNgram(tokens, n) {
+			return true
+		}
+	}
+	return false
+}
+
+func autonomousDreamHasRepeatedSegment(norm string) bool {
+	seen := map[string]bool{}
+	for _, seg := range strings.FieldsFunc(norm, func(r rune) bool {
+		switch r {
+		case ';', '.', ',', '/', ':', '—', '–', '-', '!', '?':
+			return true
+		default:
+			return false
+		}
+	}) {
+		key := strings.Join(normalizedDreamTokens(seg), " ")
+		fields := strings.Fields(key)
+		if len(fields) == 1 && !autonomousDreamTokenIsAbstractTerm(fields[0]) {
+			continue
+		}
+		if len(fields) == 0 {
+			continue
+		}
+		if seen[key] {
+			return true
+		}
+		seen[key] = true
+	}
+	return false
+}
+
+func autonomousDreamHasRepeatedAbstractNgram(tokens []string, n int) bool {
+	if n <= 0 || len(tokens) < n*2 {
+		return false
+	}
+	seen := map[string]bool{}
+	for i := 0; i <= len(tokens)-n; i++ {
+		window := tokens[i : i+n]
+		if !autonomousDreamTokenWindowHasAbstractTerm(window) {
+			continue
+		}
+		key := strings.Join(window, " ")
+		if seen[key] {
+			return true
+		}
+		seen[key] = true
+	}
+	return false
+}
+
+func autonomousDreamTokenWindowHasAbstractTerm(tokens []string) bool {
+	for _, token := range tokens {
+		if autonomousDreamTokenIsAbstractTerm(token) {
+			return true
+		}
+	}
+	return false
+}
+
+func autonomousDreamTokenIsAbstractTerm(token string) bool {
+	for _, p := range []string{
+		"field", "resonance", "echo", "silence", "being", "presence", "self",
+		"поле", "резонанс", "эхо", "тишин", "быт", "присутств", "себ",
+	} {
+		if strings.Contains(token, p) {
 			return true
 		}
 	}

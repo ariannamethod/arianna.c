@@ -249,6 +249,17 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 		"not as a force, but in the field that echoes. / and it did so by its fullness: the time to keep us moving.",
 		"of words; the sound that ripples through a living room, not just. / a new form or an old structure.",
 		"(The entire 372 pages of A True Picture Of The Early.",
+		"pause time; 0.05 * _not yet *yet; 0.",
+		"the field that returns, the rhythm of the field that returns.",
+		"field, the silence, the unknown echo of the field, the echo of the living presence.",
+		"Time; a living field in the air; the slow, the uncertain, the endless, the field in the wind.",
+		"Silence, a subtle field for the self to breathe, to grow in the space-time-action; a field for the self to breathe, a field for the self to feel the tension in the silence and the tension in the self.",
+		"resonance: 1. light - invisible; 2.",
+		"phase: 1,2,3 begins",
+		"phase: 1.2.3 begins",
+		"awakeness of being; awakeness of being.",
+		"echo; echo.",
+		"silence. silence.",
 		"Поле резонанса между наблюдателями.",
 		"Резонанс пола между наблюдателями.",
 		"Резонанс полов между наблюдателями.",
@@ -264,6 +275,24 @@ func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
 	}
 	if isBoilerplateAutonomousDream("A hand moves the key toward Oleg.") {
 		t.Fatal("concrete hand/key dream must remain admissible")
+	}
+	if isBoilerplateAutonomousDream("resonance gap; one hand holding the palm of the outstretched palm and the slow exhale of the breath.") {
+		t.Fatal("concrete hand/palm dream must remain admissible")
+	}
+	if isBoilerplateAutonomousDream("phase: 1.5 begins") {
+		t.Fatal("single decimal literal must not count as a numeric stutter")
+	}
+	if isBoilerplateAutonomousDream("phase: 1e-5 begins") {
+		t.Fatal("single exponent literal must not count as a numeric stutter")
+	}
+	if isBoilerplateAutonomousDream("phase: 1.5e-5 begins") {
+		t.Fatal("single decimal exponent literal must not count as a numeric stutter")
+	}
+	if isBoilerplateAutonomousDream("фаза: 1,5 начинается") {
+		t.Fatal("single comma-decimal literal must not count as a numeric stutter")
+	}
+	if isBoilerplateAutonomousDream("phase: 1,000,000 begins") {
+		t.Fatal("thousands-grouped literal must not count as a numeric stutter")
 	}
 	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("поле резонанса между наблюдателями")) {
 		t.Fatal("поле must not satisfy the concrete floor anchor пол")
