@@ -49,6 +49,9 @@ After the next review, generic marker scoring was removed entirely from the
 inner abstract-field guard; it now rejects only explicit live slogan patterns,
 and the signal-flow pattern is narrowed to the observed `through your body`
 continuation so engineering field/signal/echo measurements remain admissible.
+The follow-up review narrowed the remaining direct patterns further: standalone
+`living, dynamic resonance` is no longer enough, and the surface/memory dream
+residue now requires the combined observed shard instead of either half alone.
 
 Verification:
 
@@ -81,6 +84,10 @@ Verification:
 - after removing generic marker scoring from the inner field-slogan guard,
   rebuilt and hot-redeployed at `20260926T012503+0300`; startup again printed no
   carried dream and the first receipt stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after narrowing the remaining standalone direct patterns, rebuilt and
+  hot-redeployed at `20260926T012924+0300`; startup again printed no carried
+  dream and the first two receipts stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---

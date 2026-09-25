@@ -85,6 +85,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The dynamic field produces an echo at 440 hertz."); got != "" {
 		t.Fatalf("dynamic field measurement murmur rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("The recording captures a living, dynamic resonance at 440 hertz."); got != "" {
+		t.Fatalf("living dynamic resonance measurement rejected as %q", got)
+	}
 }
 
 func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) {
@@ -154,6 +157,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor detected internal thermal resonance at 60 hertz in the ceramic sample."); got != "" {
 		t.Fatalf("concrete thermal-resonance detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A melody awakens the hidden memory of the self."); got != "" {
+		t.Fatalf("hidden-memory phrase detail = %q, want empty", got)
 	}
 	if got := autonomousRejectReasonDetail("boilerplate-loop", "awakeness of being; awakeness of being."); got != "self-echo" {
 		t.Fatalf("autonomousRejectReasonDetail self echo = %q, want self-echo", got)
