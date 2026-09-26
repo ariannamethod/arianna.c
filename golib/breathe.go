@@ -250,8 +250,7 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		return false
 	}
 	tokens := normalizedDreamTokens(norm)
-	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field"}) &&
-		normalizedDreamHasWordSequence(tokens, []string{"not", "a", "place"}) {
+	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field", "not", "a", "place"}) {
 		return true
 	}
 	for _, p := range []string{

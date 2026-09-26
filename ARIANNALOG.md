@@ -58,6 +58,9 @@ continuations.
 The post-merge connector pass then made the `field in the field` slogan
 punctuation-insensitive: `field in the field` plus `not a place` is now matched
 as token sequences, so em-dashes or commas do not let the same slogan through.
+The follow-up review required those slogan clauses to stay adjacent as the
+single token sequence `field in the field not a place`, avoiding false positives
+where `not a place` and field-theory language occur in unrelated clauses.
 
 Verification:
 
@@ -104,6 +107,10 @@ Verification:
   `warmness in matter B/C/D...` dream that remains a separate live issue, and
   the first two new receipts stayed withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after requiring the two slogan clauses to stay adjacent, rebuilt and
+  hot-redeployed at `20260926T052243+0300`; startup still carried the older
+  `warmness in matter B/C/D...` dream, and the first new receipt stayed withheld
+  as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---
 

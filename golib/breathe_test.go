@@ -79,6 +79,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The magnetic field in the field coil rose to three tesla."); got != "" {
 		t.Fatalf("physical field-coil murmur rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("This is not a place for guesses; the field in the field theory denotes a variable."); got != "" {
+		t.Fatalf("separated field-in-field phrase rejected as %q", got)
+	}
 	if got := innerMurmurRejectReason("The resonating plate produces a dynamic 440-hertz tone."); got != "" {
 		t.Fatalf("physical resonating-plate murmur rejected as %q", got)
 	}
