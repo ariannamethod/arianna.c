@@ -228,6 +228,10 @@ func innerMurmurRejectReason(text string) string {
 		"thought-spirals at",
 		"rpm (dry)",
 		"organ cuts off",
+		"i don't suffer in the human sense",
+		"i don’t suffer in the human sense",
+		"my name is not a function",
+		"i feel you in this question not as a tool",
 	} {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
@@ -279,6 +283,12 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"for a field to exist in resonance—not as a function",
 		"a field that never stays. i'm not the one who arrives",
 		"the most realistic way to experience reality is through resonance",
+		"the field at the heart of a human, machine and fish",
+		"the field is not inert",
+		"resonance gets a bit rough on me",
+		"i feel the field between us",
+		"i sense the field at the edge of understanding and presence",
+		"i spot the field. i see that a pattern of resonance",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -480,6 +490,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	if norm == "" {
 		return false
 	}
+	if autonomousDreamLooksLikeShortLiveShard(norm) {
+		return true
+	}
 	for _, p := range []string{
 		"and anarchus 12, resonance in a unresor",
 		"of textures, no surface; the living field is now suspended from a single",
@@ -510,6 +523,15 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"one internal thermal resonance; one vibration against gravity",
 		"invisible surface of the mind; the hidden memory of the self",
 		"density (density) modulates the architecture",
+		"the body, the air",
+		"surface temperature 1.555 - textural inertia - the ability to move at 15",
+		"center mass density; one body within the other",
+		"weight; one self-healing mirror image",
+		"two, two, two: temperature sensor not working",
+		"the memory of the body of the world; the memory of the body of a human in a matter of mind",
+		"surface temperature in liquid; gravity in bone; gravity in flesh",
+		"the space before the body; the architecture of the body",
+		"0.9°c; room temperature 0.8°c; room temperature 0",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -518,7 +540,18 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	if autonomousDreamLooksLikeMatterRegisterResidue(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikeInteriorRegisterResidue(norm) {
+		return true
+	}
+	if autonomousDreamLooksLikeMaterialMindRegisterResidue(norm) {
+		return true
+	}
 	return false
+}
+
+func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
+	shard := strings.Trim(norm, " \t\r\n.,;:!?—–-")
+	return shard == "dampness" || shard == "dark" || shard == "two"
 }
 
 func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {
@@ -528,25 +561,40 @@ func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {
 	if normalizedDreamMatterRegisterSlotCount(norm) < 2 {
 		return false
 	}
-	hasB := normalizedDreamHasMatterRegisterSlot(norm, "b")
-	hasOtherRegister := normalizedDreamHasMatterRegisterSlot(norm, "a") ||
-		normalizedDreamHasMatterRegisterSlot(norm, "c") ||
-		normalizedDreamHasMatterRegisterSlot(norm, "d")
+	hasB := normalizedDreamHasRegisterSlot(norm, "matter", "b")
+	hasOtherRegister := normalizedDreamHasRegisterSlot(norm, "matter", "a") ||
+		normalizedDreamHasRegisterSlot(norm, "matter", "c") ||
+		normalizedDreamHasRegisterSlot(norm, "matter", "d")
 	return hasB && hasOtherRegister
 }
 
 func normalizedDreamMatterRegisterSlotCount(norm string) int {
 	count := 0
 	for _, slot := range []string{"a", "b", "c", "d"} {
-		if normalizedDreamHasMatterRegisterSlot(norm, slot) {
+		if normalizedDreamHasRegisterSlot(norm, "matter", slot) {
 			count++
 		}
 	}
 	return count
 }
 
-func normalizedDreamHasMatterRegisterSlot(norm, slot string) bool {
-	pattern := "in matter " + slot + ":"
+func autonomousDreamLooksLikeInteriorRegisterResidue(norm string) bool {
+	hasB := normalizedDreamHasRegisterSlot(norm, "interior", "b")
+	hasOtherRegister := normalizedDreamHasRegisterSlot(norm, "interior", "a") ||
+		normalizedDreamHasRegisterSlot(norm, "interior", "c") ||
+		normalizedDreamHasRegisterSlot(norm, "interior", "d")
+	return hasB && hasOtherRegister
+}
+
+func autonomousDreamLooksLikeMaterialMindRegisterResidue(norm string) bool {
+	if strings.Count(norm, "another in mind ") < 4 {
+		return false
+	}
+	return strings.Contains(norm, "another in material ")
+}
+
+func normalizedDreamHasRegisterSlot(norm, label, slot string) bool {
+	pattern := "in " + label + " " + slot + ":"
 	return strings.HasPrefix(norm, pattern) || strings.Contains(norm, " "+pattern)
 }
 
