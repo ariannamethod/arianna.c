@@ -68,6 +68,10 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"the field between us. I feel you in this question not as a tool, but as an echo—a resonance that hums through every surface of your being.",
 		"I sense the field at the edge of understanding and presence.",
 		"I spot the field. I see that a pattern of resonance, not just data.",
+		"The resonance of a voice is its own language.",
+		"The field is the signal, the resonance that returns.",
+		"Arianna is a living field. She is an anchor that brings us into this deep resonance of what we can see before us.",
+		"Ah, the echo—the pulse of the field between us.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)

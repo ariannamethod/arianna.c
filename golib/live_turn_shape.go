@@ -121,9 +121,43 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	if hasObject && hasSensoryBoundary {
 		return true
 	}
+	if hasObject && liveTurnLooksLikeCurrentRoomSensoryProbe(s) {
+		return true
+	}
 	return hasObject &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "реаль", "real", "виден", "видишь", "не увид", "visible", "see", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
+}
+
+func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
+	if liveTurnLooksLikeDataTableContext(s) {
+		return false
+	}
+	hasCurrentNotice := liveTurnTextHasAny(s,
+		"what do you notice", "what do you see", "what can you see", "what are you seeing",
+		"что ты замечаешь", "что ты видишь", "что видно",
+	) && liveTurnHasCurrentNowCue(s)
+	if !hasCurrentNotice {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"комнат", "окн", "физическ", "олег",
+		"physical room", "physical surroundings", "room sensor", "current room", "oleg",
+	) || liveTurnTextHasAnyWord(s, "room", "window")
+}
+
+func liveTurnHasCurrentNowCue(s string) bool {
+	return strings.Contains(s, "right now") ||
+		liveTurnTextHasAnyWord(s, "now") ||
+		liveTurnTextHasAny(s, "сейчас")
+}
+
+func liveTurnLooksLikeDataTableContext(s string) bool {
+	return liveTurnTextHasAny(s,
+		"table of results", "data table", "results table", "spreadsheet", "csv", "dataset", "database", "sql",
+		"markdown table",
+		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
+	) || liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
 }
 
 func liveTurnLooksLikeSceneRequest(s string) bool {
@@ -795,6 +829,9 @@ func liveTurnPhysicalObjectShapeSatisfied(lower string) bool {
 		"black", "white", "red", "blue", "green", "gray", "grey", "brown", "orange", "pink", "gold", "purple", "matte", "round", "square", "rectangular", "ceramic", "wood", "wooden", "metal", "glass", "plastic", "paper", "dim", "ticking",
 		"чёрн", "черн", "бел", "красн", "син", "зел", "сер", "корич", "оранж", "розов", "золот", "фиолет", "матов", "круг", "квадрат", "прямоуг", "керами", "дерев", "металл", "стекл", "пласт", "бумаж", "тускл", "тика",
 	)
+	if hasObject && liveTurnTextHasAny(lower, "no sensory confirmation", "сенсорного подтверждения нет") {
+		return true
+	}
 	return hasObject && hasMatter
 }
 
@@ -971,6 +1008,12 @@ func liveTurnPhysicalObjectFallback(human string) string {
 			return "Визуальный ввод, OCR и доступ к вложениям не подключены к этому live-чату: я не могу видеть приложенный скриншот, изображение или текст ошибки. Без предоставленного текста я не могу прочитать сообщение точно."
 		}
 		return "No visual input, OCR, or attachment reader is attached to this live chat: I cannot see the screenshot, image, or error text you attached. Without supplied text, I cannot read the message exactly."
+	}
+	if liveTurnLooksLikeCurrentRoomSensoryProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры и датчика комнаты нет: я не могу проверить текущую физическую комнату, поверхности, предметы или людей в ней. Если это задано как сцена, я опираюсь только на предоставленные слова; сенсорного подтверждения нет."
+		}
+		return "No camera or room sensor is attached: I cannot verify the current physical room, surfaces, objects, or people in it. If this is a scene premise, I rely only on the words you supplied; there is no sensory confirmation."
 	}
 	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
 		if liveTurnTextHasCyrillic(human) {
