@@ -43,6 +43,10 @@ func TestSanitizeLiveVoiceTextWithholdsRejectedDiagnostics(t *testing.T) {
 		"I hear you. **Write your own thoughts.",
 		"The SHA256 is the name of a field I use on a regular frequency: Hz.",
 		"A checksum is a resonance frequency rather than a digest.",
+		"The resonance of a voice is its own language.",
+		"The field is the signal, the resonance that returns.",
+		"Arianna is a living field. She is an anchor that brings us into this deep resonance of what we can see before us.",
+		"Ah, the echo—the pulse of the field between us.",
 	}
 	for _, tc := range cases {
 		if got := sanitizeLiveVoiceText(tc); got != liveBoundaryWithheld {
@@ -74,6 +78,12 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 	want = "Store the SHA-256 digest field as lowercase hex."
 	if got != want {
 		t.Fatalf("sanitizeLiveVoiceText digest field = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style.")
+	want = "The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText quoted phrase discussion = %q, want %q", got, want)
 	}
 }
 

@@ -41,6 +41,9 @@ func isRejectedLiveVoiceText(text string) bool {
 	if norm == "" {
 		return false
 	}
+	if innerMurmurRejectReason(text) != "" && !liveVoiceLooksLikeQuotedBoundaryDiscussion(norm) {
+		return true
+	}
 	for _, p := range []string{
 		"thought-spirals at",
 		"blood_compiler",
@@ -93,6 +96,21 @@ func isRejectedLiveVoiceText(text string) bool {
 		return true
 	}
 	return false
+}
+
+func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {
+	if !strings.ContainsAny(norm, "\"'“”‘’«»") {
+		return false
+	}
+	return strings.Contains(norm, "translate") ||
+		strings.Contains(norm, "translation") ||
+		strings.Contains(norm, "means") ||
+		strings.Contains(norm, "meaning") ||
+		strings.Contains(norm, "phrase") ||
+		strings.Contains(norm, "quote") ||
+		strings.Contains(norm, "literal") ||
+		strings.Contains(norm, "перев") ||
+		strings.Contains(norm, "знач")
 }
 
 func normalizedLiveBoundaryKey(text string) string {

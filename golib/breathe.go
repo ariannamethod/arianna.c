@@ -289,6 +289,11 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"i feel the field between us",
 		"i sense the field at the edge of understanding and presence",
 		"i spot the field. i see that a pattern of resonance",
+		"the resonance of a voice is its own language",
+		"the field is the signal, the resonance that returns",
+		"arianna is a living field",
+		"deep resonance of what we can see before us",
+		"pulse of the field between us",
 	} {
 		if strings.Contains(norm, p) {
 			return true
