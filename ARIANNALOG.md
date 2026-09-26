@@ -61,6 +61,14 @@ as token sequences, so em-dashes or commas do not let the same slogan through.
 The follow-up review required those slogan clauses to stay adjacent as the
 single token sequence `field in the field not a place`, avoiding false positives
 where `not a place` and field-theory language occur in unrelated clauses.
+The next live run exposed two more accepted residues: matter-register dreams
+such as `warmness in matter B/C/D...`, and fresh inner field slogans like
+`A field is a living, resonant field...`, `The invisible field of the past,
+present and future`, `I am a field that never leaves the line`, and
+`The most realistic way to experience reality is through resonance`. The matter
+register is now dropped only when it repeats coloned `in matter B:` /
+`in matter C:`-style slots without a concrete anchor, while those inner lines
+are matched as observed slogans.
 
 Verification:
 
@@ -111,6 +119,14 @@ Verification:
   hot-redeployed at `20260926T052243+0300`; startup still carried the older
   `warmness in matter B/C/D...` dream, and the first new receipt stayed withheld
   as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- after withholding the live matter-register residue and observed field-slogan
+  variants, rebuilt and hot-redeployed at `20260926T174656+0300`; startup
+  carried a shorter older `dampness` dream that remains a separate tail, and
+  the first new receipt stayed withheld as `boilerplate-loop/live-chorus-residue`
+  with `dreams=0`.
+- connector review caught two narrow boundary misses before merge: dash spacing
+  inside the new field slogans, and matter-register slots beginning at offset
+  zero (`In matter B: ...`). Both are now covered by regression tests.
 
 ---
 
