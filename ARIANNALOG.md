@@ -135,9 +135,12 @@ Verification:
   inside the new field slogans, and matter-register slots beginning at offset
   zero (`In matter B: ...`). Both are now covered by regression tests.
 - after withholding the next accepted short shards, temperature/register scraps,
-  and inner slogans, rebuilt and hot-redeployed at `20260926T195355+0300`;
-  startup printed no carried dream, and the first drift receipt stayed withheld
+  and inner slogans, rebuilt and hot-redeployed at `20260926T200000+0300`;
+  startup printed no carried dream, and the first silence receipt stayed withheld
   as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- connector review caught that the short-shard guard should be token-based, not
+  punctuation-cutset based, so wrapped forms such as `"dark"`, `(two)`,
+  `dampness…`, and `/ two /` are covered too.
 
 ---
 

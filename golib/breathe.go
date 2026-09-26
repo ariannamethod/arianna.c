@@ -550,8 +550,16 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 }
 
 func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
-	shard := strings.Trim(norm, " \t\r\n.,;:!?—–-")
-	return shard == "dampness" || shard == "dark" || shard == "two"
+	tokens := normalizedDreamTokens(norm)
+	if len(tokens) != 1 {
+		return false
+	}
+	switch tokens[0] {
+	case "dampness", "dark", "two":
+		return true
+	default:
+		return false
+	}
 }
 
 func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {
