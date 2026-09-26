@@ -531,7 +531,6 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"the memory of the body of the world; the memory of the body of a human in a matter of mind",
 		"surface temperature in liquid; gravity in bone; gravity in flesh",
 		"the space before the body; the architecture of the body",
-		"0.9°c; room temperature 0.8°c; room temperature 0",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -544,6 +543,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		return true
 	}
 	if autonomousDreamLooksLikeMaterialMindRegisterResidue(norm) {
+		return true
+	}
+	if autonomousDreamLooksLikeRoomTemperatureZeroResidue(norm) {
 		return true
 	}
 	return false
@@ -560,6 +562,11 @@ func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
 	default:
 		return false
 	}
+}
+
+func autonomousDreamLooksLikeRoomTemperatureZeroResidue(norm string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(norm), ".!?…")
+	return trimmed == "0.9°c; room temperature 0.8°c; room temperature 0"
 }
 
 func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {

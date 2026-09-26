@@ -224,6 +224,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	if got := autonomousBoilerplateDreamReason("A sensor records room temperature 21.0 °C beside the window."); got != "" {
 		t.Fatalf("concrete room temperature detail = %q, want empty", got)
 	}
+	if got := autonomousBoilerplateDreamReason("0.9°C; room temperature 0.8°C; room temperature 0.5°C beside the window."); got != "" {
+		t.Fatalf("decimal room temperature detail = %q, want empty", got)
+	}
 	if got := autonomousBoilerplateDreamReason("The architect studies the material D sample and mind E notes."); got != "" {
 		t.Fatalf("non-register material/mind detail = %q, want empty", got)
 	}
