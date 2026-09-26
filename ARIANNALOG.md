@@ -257,6 +257,26 @@ Verification:
   `20260926T215108+0300`; replaying the same current-room prompt still produced
   `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
   no-sensor boundary from both visible voices.
+- the next connector pass caught two more input/output overmatches: Russian cue
+  detection treated arbitrary words containing `знач` as meaning/translation
+  discussion, and unconditional `this Markdown table` treated an output
+  destination as supplied input. Russian cues are now word/prefix-scoped, and
+  `this Markdown table` now requires source evidence such as
+  `contains/shows/lists`, `entry/row/cell`, or `from/based/according`.
+- after that Russian-cue / `this Markdown table` fix, rebuilt and
+  hot-redeployed at `20260926T215818+0300`; replaying the same current-room
+  prompt still produced `direct_boundary_turn=true`,
+  `nano_result_visible=false`, and the generic no-sensor boundary from both
+  visible voices.
+- the follow-up connector pass on the post-merge PR caught two narrow
+  preservation edges: Russian meaning cues also need prefixed forms such as
+  `обозначает`, and `this Markdown table` input can be introduced by explicit
+  inspection verbs. Those source-use forms are now recognized without returning
+  to substring-wide matching.
+- after that preservation fix, rebuilt and hot-redeployed at
+  `20260926T220923+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
 
 ---
 

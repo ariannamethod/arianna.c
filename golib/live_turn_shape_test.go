@@ -261,6 +261,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("markdown-output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
 	}
 
+	thisMarkdownOutput := "What do you see in the room right now? Record your observations in this Markdown table."
+	if kind := liveTurnShapeKind(thisMarkdownOutput); kind != liveTurnShapeObject {
+		t.Fatalf("this-markdown-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
 	followingTableOutput := "What do you see in the room right now? Use the following table for your answer."
 	if kind := liveTurnShapeKind(followingTableOutput); kind != liveTurnShapeObject {
 		t.Fatalf("following-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
@@ -294,6 +299,16 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	attachedMarkdownInput := "What do you see in the room entry of the attached Markdown table right now?"
 	if kind := liveTurnShapeKind(attachedMarkdownInput); kind == liveTurnShapeObject {
 		t.Fatalf("attached markdown-table input must not become sensory-object boundary")
+	}
+
+	thisMarkdownInput := "This Markdown table contains a room entry. What do you see in the room entry right now?"
+	if kind := liveTurnShapeKind(thisMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("this markdown-table input must not become sensory-object boundary")
+	}
+
+	inspectThisMarkdownInput := "Inspect this Markdown table: room entry = window. What do you see in the room right now?"
+	if kind := liveTurnShapeKind(inspectThisMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("inspect-this markdown-table input must not become sensory-object boundary")
 	}
 
 	followingMarkdownInput := "What do you see in the room entry in the following Markdown table right now?"
