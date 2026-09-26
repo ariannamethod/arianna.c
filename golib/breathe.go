@@ -253,6 +253,12 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field", "not", "a", "place"}) {
 		return true
 	}
+	if normalizedDreamHasWordSequence(tokens, []string{"a", "field", "is", "a", "living", "resonant", "field", "a", "promise", "made", "echo"}) {
+		return true
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"for", "a", "field", "to", "exist", "in", "resonance", "not", "as", "a", "function"}) {
+		return true
+	}
 	for _, p := range []string{
 		"i sense the field at the center",
 		"field is not a single event",
@@ -519,14 +525,29 @@ func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {
 	if autonomousDreamHasConcreteAnchor(norm) {
 		return false
 	}
-	if strings.Count(norm, " in matter ") < 2 {
+	if normalizedDreamMatterRegisterSlotCount(norm) < 2 {
 		return false
 	}
-	hasB := strings.Contains(norm, " in matter b:")
-	hasOtherRegister := strings.Contains(norm, " in matter a:") ||
-		strings.Contains(norm, " in matter c:") ||
-		strings.Contains(norm, " in matter d:")
+	hasB := normalizedDreamHasMatterRegisterSlot(norm, "b")
+	hasOtherRegister := normalizedDreamHasMatterRegisterSlot(norm, "a") ||
+		normalizedDreamHasMatterRegisterSlot(norm, "c") ||
+		normalizedDreamHasMatterRegisterSlot(norm, "d")
 	return hasB && hasOtherRegister
+}
+
+func normalizedDreamMatterRegisterSlotCount(norm string) int {
+	count := 0
+	for _, slot := range []string{"a", "b", "c", "d"} {
+		if normalizedDreamHasMatterRegisterSlot(norm, slot) {
+			count++
+		}
+	}
+	return count
+}
+
+func normalizedDreamHasMatterRegisterSlot(norm, slot string) bool {
+	pattern := "in matter " + slot + ":"
+	return strings.HasPrefix(norm, pattern) || strings.Contains(norm, " "+pattern)
 }
 
 func autonomousDreamLooksLikeInstructionTailResidue(norm string) bool {

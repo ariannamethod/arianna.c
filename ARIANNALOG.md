@@ -120,10 +120,13 @@ Verification:
   `warmness in matter B/C/D...` dream, and the first new receipt stayed withheld
   as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 - after withholding the live matter-register residue and observed field-slogan
-  variants, rebuilt and hot-redeployed at `20260926T174006+0300`; startup
+  variants, rebuilt and hot-redeployed at `20260926T174656+0300`; startup
   carried a shorter older `dampness` dream that remains a separate tail, and
   the first new receipt stayed withheld as `boilerplate-loop/live-chorus-residue`
   with `dreams=0`.
+- connector review caught two narrow boundary misses before merge: dash spacing
+  inside the new field slogans, and matter-register slots beginning at offset
+  zero (`In matter B: ...`). Both are now covered by regression tests.
 
 ---
 
