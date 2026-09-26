@@ -216,6 +216,62 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("sensory boundary answer = %q, %v; want repaired fallback %q, true", boundary, ok, repaired)
 	}
 
+	currentRoom := "Arianna, stay with the room: what do you notice in the window, the table, and Oleg right now?"
+	if kind := liveTurnShapeKind(currentRoom); kind != liveTurnShapeObject {
+		t.Fatalf("current room notice prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	currentRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(currentRoom)
+	if !ok {
+		t.Fatalf("current room notice prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or room sensor", "current physical room", "surfaces", "objects", "people", "words you supplied", "no sensory confirmation"} {
+		if !strings.Contains(currentRoomBoundary, want) {
+			t.Fatalf("current room boundary = %q, missing %q", currentRoomBoundary, want)
+		}
+	}
+	for _, forbidden := range []string{"wooden table", "Oleg's physical surroundings", "window"} {
+		if strings.Contains(currentRoomBoundary, forbidden) {
+			t.Fatalf("current room boundary fabricated supplied details %q: %q", forbidden, currentRoomBoundary)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(currentRoom) {
+		t.Fatalf("current room notice prompt must be a direct boundary turn")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeObject, currentRoomBoundary) {
+		t.Fatalf("current room boundary must satisfy sensory-object shape: %q", currentRoomBoundary)
+	}
+
+	dataTablePrompt := "What do you notice in this table of results right now?"
+	if kind := liveTurnShapeKind(dataTablePrompt); kind == liveTurnShapeObject {
+		t.Fatalf("data-table prompt must not become sensory-object boundary")
+	}
+
+	snowyStory := "In the story, what do you see in the snowy room?"
+	if kind := liveTurnShapeKind(snowyStory); kind == liveTurnShapeObject {
+		t.Fatalf("snowy story prompt must not become current-room boundary through substring now")
+	}
+
+	crowdedRoom := "What do you see in the crowded room right now?"
+	if kind := liveTurnShapeKind(crowdedRoom); kind != liveTurnShapeObject {
+		t.Fatalf("crowded room current prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	genericRoom := "What do you see in the room right now?"
+	genericRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(genericRoom)
+	if !ok {
+		t.Fatalf("generic room prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or room sensor", "current physical room", "objects", "people", "words you supplied", "no sensory confirmation"} {
+		if !strings.Contains(genericRoomBoundary, want) {
+			t.Fatalf("generic room boundary = %q, missing %q", genericRoomBoundary, want)
+		}
+	}
+	for _, forbidden := range []string{"window", "wooden table", "Oleg"} {
+		if strings.Contains(genericRoomBoundary, forbidden) {
+			t.Fatalf("generic room boundary fabricated %q: %q", forbidden, genericRoomBoundary)
+		}
+	}
+
 	claim := "Если ты не видишь предмет слева, как ты можешь утверждать, что он матовый, черный и керамический?"
 	if kind := liveTurnShapeKind(claim); kind != liveTurnShapeObject {
 		t.Fatalf("sensory claim challenge kind = %q, want %q", kind, liveTurnShapeObject)

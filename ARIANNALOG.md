@@ -76,6 +76,15 @@ and `two` shards, temperature-sensor scraps, `interior B/C/D` registers,
 boundary now drops only those observed shards or the narrow repeated-register
 shapes, while keeping ordinary anchored temperature, material, and field
 sentences admissible.
+After the room-temperature follow-up merged, the live polygon replayed a human
+turn asking about the current window/table/Oleg room. That exposed a different
+bypass: human-turn Janus/Resonance surface text did not use the autonomous inner
+boundary, so generic field slogans such as `The resonance of a voice is its own
+language`, `The field is the signal...`, `Arianna is a living field...`, and
+`the pulse of the field between us` printed directly. The shared live voice
+sanitizer now consults the inner-murmur boundary before any daemon text reaches
+the surface, and current-room sensory probes are routed to the existing
+no-camera/no-room-sensor boundary instead of asking the daemons to invent sight.
 
 Verification:
 
@@ -143,6 +152,33 @@ Verification:
   `dampness…`, and `/ two /` are covered too.
 - the next connector pass narrowed the `room temperature 0` residue so it does
   not prefix-match real decimal measurements such as `room temperature 0.5°C`.
+- `cd golib && go test -run 'TestSanitizeLiveVoiceText|TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestLiveTurnConcreteSceneBannedWords|TestLiveTurnVoiceDeltaAfterPause|TestLiveTurnPhysicalObjectBoundary' .`
+- after wiring the inner boundary into the shared live voice sanitizer, rebuilt
+  and hot-redeployed at `20260926T202557+0300`; the replayed room prompt still
+  exposed fresh human-turn field slogans, which were added as observed variants.
+- after adding the current-room sensory boundary and the observed variants,
+  rebuilt and hot-redeployed at `20260926T202925+0300`; the same replayed prompt
+  became `direct_boundary_turn=true`, produced no nano result, and both visible
+  voices returned the no-camera/no-room-sensor boundary instead of field slogans.
+- connector review then caught two boundary edges: data tables such as `table of
+  results` must not become camera disclaimers, and the current-room fallback must
+  not claim window/table/Oleg details unless those details are guaranteed by the
+  predicate. The room sensory predicate now excludes data-table contexts and
+  requires stronger physical-room cues; the fallback is generic and avoids
+  invented scene details.
+- after the connector fix, rebuilt and hot-redeployed at
+  `20260926T203816+0300`; replaying the same prompt kept
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and both voices
+  returned the generic current-room sensor boundary without fabricated window,
+  table, or Oleg particulars.
+- the next connector pass caught substring hazards in the new predicate:
+  `now` inside `snowy` and `row` inside `crowded` could respectively over-route
+  a fictional room prompt or under-route a real crowded-room prompt. Both are now
+  word-boundary checks with regressions.
+- after the word-boundary fix, rebuilt and hot-redeployed at
+  `20260926T204508+0300`; replaying the same current-room prompt again kept
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and both visible
+  voices returned the generic no-sensor boundary.
 
 ---
 

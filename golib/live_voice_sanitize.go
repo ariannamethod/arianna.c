@@ -41,6 +41,9 @@ func isRejectedLiveVoiceText(text string) bool {
 	if norm == "" {
 		return false
 	}
+	if innerMurmurRejectReason(text) != "" {
+		return true
+	}
 	for _, p := range []string{
 		"thought-spirals at",
 		"blood_compiler",
