@@ -179,6 +179,84 @@ Verification:
   `20260926T204508+0300`; replaying the same current-room prompt again kept
   `direct_boundary_turn=true`, `nano_result_visible=false`, and both visible
   voices returned the generic no-sensor boundary.
+- connector then caught two more scope edges: quoted/discussed marker phrases
+  such as a translation of `the resonance of a voice is its own language` must
+  not be blanked by the shared sanitizer, and `Markdown table` as an output
+  format must not disable current-room sensory routing. The sanitizer now
+  preserves quoted boundary-phrase discussion, and the data-table exception is
+  limited to tabular input contexts.
+- after that scope fix, rebuilt and hot-redeployed at `20260926T205251+0300`;
+  replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the follow-up connector pass caught two tail edges in that scope fix:
+  apostrophes such as `What's` must not count as quoted rejected text, and
+  explicitly supplied Markdown tables such as `attached Markdown table` /
+  `given Markdown table` must still bypass the room-sensor boundary. The
+  quoted-discussion exemption now requires a paired quote span around the
+  rejected phrase itself, while the data-table exception recognizes
+  input-oriented Markdown-table markers without disabling Markdown-table output
+  requests.
+- after that connector-tail fix, rebuilt and hot-redeployed at
+  `20260926T210703+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the next connector pass found that straight apostrophes inside contractions
+  could still create a false single-quote span across an unquoted slogan, and
+  that generic `following table` wording could describe an output format rather
+  than supplied tabular input. Straight single quotes are now accepted as quote
+  delimiters only when they are not word-internal apostrophes, and following
+  table / following Markdown table markers are scoped to input-oriented
+  contexts such as `from`, `in`, `based on`, `according to`, or `shown in`.
+- after that second connector-tail fix, rebuilt and hot-redeployed at
+  `20260926T211717+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the next connector pass caught two mixed-context holes: quoted discussion was
+  exempting the whole answer even when unquoted `boundary-loop` residue followed
+  it, and output-directed following-table wording could override an explicit
+  following-Markdown-table input context in the same prompt. The quoted
+  exemption now strips only rejectable quoted spans and re-runs the inner
+  boundary on the remainder, and following-table input evidence now wins before
+  output-format phrases are considered.
+- after that mixed-context fix, rebuilt and hot-redeployed at
+  `20260926T212715+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the next connector pass caught three more scoping edges: the discussion cue
+  must come from the unquoted remainder rather than from words such as
+  `meaningless` inside the rejected quote; `table below` / `table above` can be
+  output placeholders and must not be unconditional data-input markers; and
+  declarative supplied-table forms such as `the following Markdown table
+  contains...` must count as input. The quote exemption now strips quoted
+  reject spans first, then requires a word-bounded discussion cue outside them,
+  and positioned/following table markers are split into input declarations
+  versus output-format placeholders.
+- after that cue/table-position fix, rebuilt and hot-redeployed at
+  `20260926T213635+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the next connector pass caught two overbroad fallbacks: terminal possessive
+  apostrophes such as `users'` could still open a straight-single-quote span,
+  and bare `in the following table` could still describe an output placeholder.
+  Straight single quotes now use directional rules: an opening quote cannot
+  immediately follow a word rune, and a closing quote cannot immediately
+  precede one. The following-table fallback now requires explicit input
+  evidence instead of accepting bare `in the following table`.
+- after that fallback fix, rebuilt and hot-redeployed at
+  `20260926T214407+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
+- the next connector pass caught the same fallback shape in two more places:
+  straight double quotes could be inch marks such as `5"` / `6"`, and bare
+  `in the table below` could still describe an output placeholder. Straight
+  double quotes now use the same directional quote evidence as single quotes,
+  and positioned-table input no longer falls back to a bare `in the table
+  below` / `in the table above` substring.
+- after that measurement/table-below fallback fix, rebuilt and hot-redeployed at
+  `20260926T215108+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
 
 ---
 
