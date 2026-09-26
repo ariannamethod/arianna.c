@@ -268,6 +268,15 @@ Verification:
   prompt still produced `direct_boundary_turn=true`,
   `nano_result_visible=false`, and the generic no-sensor boundary from both
   visible voices.
+- the follow-up connector pass on the post-merge PR caught two narrow
+  preservation edges: Russian meaning cues also need prefixed forms such as
+  `обозначает`, and `this Markdown table` input can be introduced by explicit
+  inspection verbs. Those source-use forms are now recognized without returning
+  to substring-wide matching.
+- after that preservation fix, rebuilt and hot-redeployed at
+  `20260926T220923+0300`; replaying the same current-room prompt still produced
+  `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
+  no-sensor boundary from both visible voices.
 
 ---
 
