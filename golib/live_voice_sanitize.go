@@ -108,14 +108,16 @@ func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {
 }
 
 func liveVoiceHasDiscussionCue(norm string) bool {
-	if strings.Contains(norm, "перев") || strings.Contains(norm, "знач") {
-		return true
-	}
 	for _, word := range strings.FieldsFunc(norm, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	}) {
 		switch word {
 		case "translate", "translation", "means", "meaning", "phrase", "quote", "quoted", "literal":
+			return true
+		}
+		if strings.HasPrefix(word, "перев") ||
+			strings.HasPrefix(word, "знач") ||
+			strings.HasPrefix(word, "означ") {
 			return true
 		}
 	}

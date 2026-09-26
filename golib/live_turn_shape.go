@@ -155,11 +155,47 @@ func liveTurnHasCurrentNowCue(s string) bool {
 func liveTurnLooksLikeDataTableContext(s string) bool {
 	return liveTurnTextHasAny(s,
 		"table of results", "data table", "results table", "spreadsheet", "csv", "dataset", "database", "sql",
-		"this markdown table", "attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
+		"attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
 		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
-	) || liveTurnLooksLikeFollowingInputTableContext(s) ||
+	) || liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
+		liveTurnLooksLikeFollowingInputTableContext(s) ||
 		liveTurnLooksLikePositionedInputTableContext(s) ||
 		liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+}
+
+func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
+	if liveTurnTextHasAny(s,
+		"this markdown table contains",
+		"this markdown table shows",
+		"this markdown table lists",
+		"this markdown table includes",
+		"entry in this markdown table",
+		"row in this markdown table",
+		"column in this markdown table",
+		"cell in this markdown table",
+		"value in this markdown table",
+		"from this markdown table",
+		"based on this markdown table",
+		"according to this markdown table",
+		"shown in this markdown table",
+		"given in this markdown table",
+		"provided in this markdown table",
+	) {
+		return true
+	}
+	if liveTurnTextHasAny(s,
+		"record your observations in this markdown table",
+		"fill in this markdown table",
+		"fill this markdown table",
+		"complete this markdown table",
+		"use this markdown table for your answer",
+		"answer in this markdown table",
+		"respond in this markdown table",
+		"format the answer as this markdown table",
+	) {
+		return false
+	}
+	return false
 }
 
 func liveTurnLooksLikeFollowingInputTableContext(s string) bool {
