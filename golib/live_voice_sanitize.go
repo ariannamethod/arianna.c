@@ -1,6 +1,10 @@
 package main
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
 
 const liveBoundaryWithheld = ""
 
@@ -41,7 +45,7 @@ func isRejectedLiveVoiceText(text string) bool {
 	if norm == "" {
 		return false
 	}
-	if innerMurmurRejectReason(text) != "" {
+	if innerMurmurRejectReason(text) != "" && !liveVoiceLooksLikeQuotedBoundaryDiscussion(norm) {
 		return true
 	}
 	for _, p := range []string{
@@ -96,6 +100,201 @@ func isRejectedLiveVoiceText(text string) bool {
 		return true
 	}
 	return false
+}
+
+func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {
+	remainder, found := liveVoiceStripQuotedRejectedBoundarySpans(norm)
+	return found && liveVoiceHasDiscussionCue(remainder) && innerMurmurRejectReason(remainder) == ""
+}
+
+func liveVoiceHasDiscussionCue(norm string) bool {
+	for _, word := range strings.FieldsFunc(norm, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		switch word {
+		case "translate", "translation", "means", "meaning", "phrase", "quote", "quoted", "literal":
+			return true
+		}
+		if strings.HasPrefix(word, "перев") ||
+			strings.HasPrefix(word, "знач") ||
+			strings.HasPrefix(word, "означ") {
+			return true
+		}
+	}
+	return false
+}
+
+func liveVoiceStripQuotedRejectedBoundarySpans(norm string) (string, bool) {
+	remainder := norm
+	found := false
+	for _, pair := range [][2]string{
+		{`"`, `"`},
+		{"“", "”"},
+		{"‘", "’"},
+		{"«", "»"},
+	} {
+		next, stripped := liveVoiceStripRejectedSpansForPair(remainder, pair[0], pair[1])
+		remainder = next
+		found = found || stripped
+	}
+	next, stripped := liveVoiceStripRejectedStandaloneSingleQuoteSpans(remainder)
+	remainder = next
+	found = found || stripped
+	return remainder, found
+}
+
+func liveVoiceStripRejectedSpansForPair(s, open, close string) (string, bool) {
+	var b strings.Builder
+	rest := s
+	stripped := false
+	for {
+		start := liveVoiceIndexOpeningQuote(rest, open)
+		if start < 0 {
+			b.WriteString(rest)
+			break
+		}
+		b.WriteString(rest[:start])
+		afterStart := rest[start+len(open):]
+		end := liveVoiceIndexClosingQuote(afterStart, close)
+		if end < 0 {
+			b.WriteString(rest[start:])
+			break
+		}
+		span := strings.TrimSpace(afterStart[:end])
+		fullEnd := start + len(open) + end + len(close)
+		if span != "" && innerMurmurRejectReason(span) != "" {
+			b.WriteByte(' ')
+			stripped = true
+		} else {
+			b.WriteString(rest[start:fullEnd])
+		}
+		rest = rest[fullEnd:]
+	}
+	return normalizedLiveBoundaryKey(b.String()), stripped
+}
+
+func liveVoiceIndexOpeningQuote(s, quote string) int {
+	if quote != `"` {
+		return strings.Index(s, quote)
+	}
+	for offset := 0; offset < len(s); {
+		idx := strings.Index(s[offset:], quote)
+		if idx < 0 {
+			return -1
+		}
+		idx += offset
+		prev, hasPrev := liveVoicePrevRune(s, idx)
+		if !hasPrev || !liveVoiceRuneIsWord(prev) {
+			return idx
+		}
+		offset = idx + len(quote)
+	}
+	return -1
+}
+
+func liveVoiceIndexClosingQuote(s, quote string) int {
+	if quote != `"` {
+		return strings.Index(s, quote)
+	}
+	for offset := 0; offset < len(s); {
+		idx := strings.Index(s[offset:], quote)
+		if idx < 0 {
+			return -1
+		}
+		idx += offset
+		next, hasNext := liveVoiceNextRune(s, idx+len(quote))
+		if !hasNext || !liveVoiceRuneIsWord(next) {
+			return idx
+		}
+		offset = idx + len(quote)
+	}
+	return -1
+}
+
+func liveVoiceStripRejectedStandaloneSingleQuoteSpans(s string) (string, bool) {
+	var b strings.Builder
+	rest := s
+	stripped := false
+	for {
+		start := liveVoiceIndexOpeningSingleQuote(rest)
+		if start < 0 {
+			b.WriteString(rest)
+			break
+		}
+		b.WriteString(rest[:start])
+		afterStart := rest[start+1:]
+		end := liveVoiceIndexClosingSingleQuote(afterStart)
+		if end < 0 {
+			b.WriteString(rest[start:])
+			break
+		}
+		span := strings.TrimSpace(afterStart[:end])
+		if span != "" && innerMurmurRejectReason(span) != "" {
+			b.WriteByte(' ')
+			stripped = true
+		} else {
+			b.WriteString(rest[start : start+1+end+1])
+		}
+		rest = afterStart[end+1:]
+	}
+	return normalizedLiveBoundaryKey(b.String()), stripped
+}
+
+func liveVoiceIndexOpeningSingleQuote(s string) int {
+	for offset := 0; offset < len(s); {
+		idx := strings.IndexByte(s[offset:], '\'')
+		if idx < 0 {
+			return -1
+		}
+		idx += offset
+		prev, hasPrev := liveVoicePrevRune(s, idx)
+		if !hasPrev || !liveVoiceRuneIsWord(prev) {
+			return idx
+		}
+		offset = idx + 1
+	}
+	return -1
+}
+
+func liveVoiceIndexClosingSingleQuote(s string) int {
+	for offset := 0; offset < len(s); {
+		idx := strings.IndexByte(s[offset:], '\'')
+		if idx < 0 {
+			return -1
+		}
+		idx += offset
+		next, hasNext := liveVoiceNextRune(s, idx+1)
+		if !hasNext || !liveVoiceRuneIsWord(next) {
+			return idx
+		}
+		offset = idx + 1
+	}
+	return -1
+}
+
+func liveVoicePrevRune(s string, before int) (rune, bool) {
+	var last rune
+	found := false
+	for _, r := range s[:before] {
+		last = r
+		found = true
+	}
+	return last, found
+}
+
+func liveVoiceNextRune(s string, at int) (rune, bool) {
+	if at >= len(s) {
+		return 0, false
+	}
+	r, size := utf8.DecodeRuneInString(s[at:])
+	if r == utf8.RuneError && size == 0 {
+		return 0, false
+	}
+	return r, true
+}
+
+func liveVoiceRuneIsWord(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
 func normalizedLiveBoundaryKey(text string) string {

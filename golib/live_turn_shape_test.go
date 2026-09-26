@@ -256,6 +256,71 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("crowded room current prompt kind = %q, want %q", kind, liveTurnShapeObject)
 	}
 
+	markdownOutput := "What do you see in the room right now? Put the answer in a Markdown table."
+	if kind := liveTurnShapeKind(markdownOutput); kind != liveTurnShapeObject {
+		t.Fatalf("markdown-output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	thisMarkdownOutput := "What do you see in the room right now? Record your observations in this Markdown table."
+	if kind := liveTurnShapeKind(thisMarkdownOutput); kind != liveTurnShapeObject {
+		t.Fatalf("this-markdown-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	followingTableOutput := "What do you see in the room right now? Use the following table for your answer."
+	if kind := liveTurnShapeKind(followingTableOutput); kind != liveTurnShapeObject {
+		t.Fatalf("following-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	followingTableAnswerOutput := "What do you see in the room right now? Answer in the following table."
+	if kind := liveTurnShapeKind(followingTableAnswerOutput); kind != liveTurnShapeObject {
+		t.Fatalf("answer-in-following-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	tableBelowOutput := "What do you see in the room right now? Fill in the table below with your answer."
+	if kind := liveTurnShapeKind(tableBelowOutput); kind != liveTurnShapeObject {
+		t.Fatalf("table-below output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	tableBelowRecordOutput := "What do you see in the room right now? Record your observations in the table below."
+	if kind := liveTurnShapeKind(tableBelowRecordOutput); kind != liveTurnShapeObject {
+		t.Fatalf("record-in-table-below output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	followingTableRecordOutput := "What do you see in the room right now? Record your observations in the following table."
+	if kind := liveTurnShapeKind(followingTableRecordOutput); kind != liveTurnShapeObject {
+		t.Fatalf("record-in-following-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	followingMarkdownOutput := "What do you see in the room right now? Use the following Markdown table for your answer."
+	if kind := liveTurnShapeKind(followingMarkdownOutput); kind != liveTurnShapeObject {
+		t.Fatalf("following-markdown-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
+	attachedMarkdownInput := "What do you see in the room entry of the attached Markdown table right now?"
+	if kind := liveTurnShapeKind(attachedMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("attached markdown-table input must not become sensory-object boundary")
+	}
+
+	thisMarkdownInput := "This Markdown table contains a room entry. What do you see in the room entry right now?"
+	if kind := liveTurnShapeKind(thisMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("this markdown-table input must not become sensory-object boundary")
+	}
+
+	followingMarkdownInput := "What do you see in the room entry in the following Markdown table right now?"
+	if kind := liveTurnShapeKind(followingMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("following markdown-table input must not become sensory-object boundary")
+	}
+
+	mixedFollowingMarkdownInput := "What do you see in the room entry in the following Markdown table right now? Use the following table for your answer."
+	if kind := liveTurnShapeKind(mixedFollowingMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("mixed following markdown-table input must not become sensory-object boundary")
+	}
+
+	declarativeFollowingMarkdownInput := "The following Markdown table contains a room entry. What do you see in the room entry right now?"
+	if kind := liveTurnShapeKind(declarativeFollowingMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("declarative following markdown-table input must not become sensory-object boundary")
+	}
+
 	genericRoom := "What do you see in the room right now?"
 	genericRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(genericRoom)
 	if !ok {

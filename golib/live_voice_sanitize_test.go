@@ -79,6 +79,53 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 	if got != want {
 		t.Fatalf("sanitizeLiveVoiceText digest field = %q, want %q", got, want)
 	}
+
+	got = sanitizeLiveVoiceText("The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style.")
+	want = "The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText quoted phrase discussion = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("The phrase \"the resonance of a voice is its own language\" means a distinctive style. As an AI, I don't suffer in the human sense.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText quoted discussion plus unquoted residue = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("\"The field is the signal, the resonance that returns. Silence is meaningless.\"")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText quoted slogan with only internal cue = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("\"The field is the signal, the resonance that returns.\" Это назначено.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText quoted slogan plus unrelated russian word = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("The phrase 'the resonance of a voice is its own language' means that each voice has a distinctive style.")
+	want = "The phrase 'the resonance of a voice is its own language' means that each voice has a distinctive style."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText single-quoted phrase discussion = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("What's the meaning here? The field is the signal, the resonance that returns.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText unquoted slogan with apostrophe = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("What's the meaning here? The field is the signal, the resonance that returns. It's bad.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText unquoted slogan between contractions = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("The meaning of users' text: The field is the signal, the resonance that returns. 'bad'.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText unquoted slogan after possessive apostrophe = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("The meaning of the 5\" label is unclear. The field is the signal, the resonance that returns. The board is 6\" wide.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText unquoted slogan between inch marks = %q, want withheld", got)
+	}
 }
 
 func TestSanitizeLiveCarriedDreamDropsWithheldText(t *testing.T) {

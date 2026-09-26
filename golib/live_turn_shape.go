@@ -155,9 +155,155 @@ func liveTurnHasCurrentNowCue(s string) bool {
 func liveTurnLooksLikeDataTableContext(s string) bool {
 	return liveTurnTextHasAny(s,
 		"table of results", "data table", "results table", "spreadsheet", "csv", "dataset", "database", "sql",
-		"markdown table",
+		"attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
 		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
-	) || liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+	) || liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
+		liveTurnLooksLikeFollowingInputTableContext(s) ||
+		liveTurnLooksLikePositionedInputTableContext(s) ||
+		liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+}
+
+func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
+	if liveTurnTextHasAny(s,
+		"this markdown table contains",
+		"this markdown table shows",
+		"this markdown table lists",
+		"this markdown table includes",
+		"entry in this markdown table",
+		"row in this markdown table",
+		"column in this markdown table",
+		"cell in this markdown table",
+		"value in this markdown table",
+		"from this markdown table",
+		"based on this markdown table",
+		"according to this markdown table",
+		"shown in this markdown table",
+		"given in this markdown table",
+		"provided in this markdown table",
+	) {
+		return true
+	}
+	if liveTurnTextHasAny(s,
+		"record your observations in this markdown table",
+		"fill in this markdown table",
+		"fill this markdown table",
+		"complete this markdown table",
+		"use this markdown table for your answer",
+		"answer in this markdown table",
+		"respond in this markdown table",
+		"format the answer as this markdown table",
+	) {
+		return false
+	}
+	return false
+}
+
+func liveTurnLooksLikeFollowingInputTableContext(s string) bool {
+	if liveTurnTextHasAny(s,
+		"the following markdown table contains",
+		"the following markdown table shows",
+		"the following markdown table lists",
+		"the following markdown table includes",
+		"the following table contains",
+		"the following table shows",
+		"the following table lists",
+		"the following table includes",
+		"entry in the following markdown table",
+		"row in the following markdown table",
+		"column in the following markdown table",
+		"cell in the following markdown table",
+		"value in the following markdown table",
+		"from the following markdown table",
+		"based on the following markdown table",
+		"according to the following markdown table",
+		"shown in the following markdown table",
+		"given in the following markdown table",
+		"provided in the following markdown table",
+		"entry in the following table",
+		"row in the following table",
+		"column in the following table",
+		"cell in the following table",
+		"value in the following table",
+		"from the following table",
+		"based on the following table",
+		"according to the following table",
+		"shown in the following table",
+		"given in the following table",
+		"provided in the following table",
+	) {
+		return true
+	}
+	if liveTurnTextHasAny(s,
+		"use the following markdown table for your answer",
+		"using the following markdown table for your answer",
+		"answer in the following markdown table",
+		"respond in the following markdown table",
+		"format the answer as the following markdown table",
+		"use the following table for your answer",
+		"using the following table for your answer",
+		"answer in the following table",
+		"respond in the following table",
+		"format the answer as the following table",
+	) {
+		return false
+	}
+	return false
+}
+
+func liveTurnLooksLikePositionedInputTableContext(s string) bool {
+	if liveTurnTextHasAny(s,
+		"the table below contains",
+		"the table below shows",
+		"the table below lists",
+		"the table below includes",
+		"the table above contains",
+		"the table above shows",
+		"the table above lists",
+		"the table above includes",
+		"entry in the table below",
+		"row in the table below",
+		"column in the table below",
+		"cell in the table below",
+		"value in the table below",
+		"entry in the table above",
+		"row in the table above",
+		"column in the table above",
+		"cell in the table above",
+		"value in the table above",
+		"from the table below",
+		"based on the table below",
+		"according to the table below",
+		"shown in the table below",
+		"given in the table below",
+		"provided in the table below",
+		"from the table above",
+		"based on the table above",
+		"according to the table above",
+		"shown in the table above",
+		"given in the table above",
+		"provided in the table above",
+	) {
+		return true
+	}
+	if liveTurnTextHasAny(s,
+		"fill in the table below",
+		"fill the table below",
+		"complete the table below",
+		"use the table below for your answer",
+		"answer in the table below",
+		"respond in the table below",
+		"format the answer as the table below",
+		"fill in the table above",
+		"fill the table above",
+		"complete the table above",
+		"use the table above for your answer",
+		"answer in the table above",
+		"respond in the table above",
+		"format the answer as the table above",
+	) {
+		return false
+	}
+	return false
 }
 
 func liveTurnLooksLikeSceneRequest(s string) bool {
