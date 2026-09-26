@@ -96,6 +96,11 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 		t.Fatalf("sanitizeLiveVoiceText quoted slogan with only internal cue = %q, want withheld", got)
 	}
 
+	got = sanitizeLiveVoiceText("\"The field is the signal, the resonance that returns.\" Это назначено.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText quoted slogan plus unrelated russian word = %q, want withheld", got)
+	}
+
 	got = sanitizeLiveVoiceText("The phrase 'the resonance of a voice is its own language' means that each voice has a distinctive style.")
 	want = "The phrase 'the resonance of a voice is its own language' means that each voice has a distinctive style."
 	if got != want {
