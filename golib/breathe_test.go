@@ -61,6 +61,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("I sense the field at the center."); got != "abstract-field-slogan" {
 		t.Fatalf("innerMurmurRejectReason live slogan = %q, want abstract-field-slogan", got)
 	}
+	if got := innerMurmurRejectReason("A field in the field—not a place, but an echo of resonance."); got != "abstract-field-slogan" {
+		t.Fatalf("innerMurmurRejectReason punctuated field-in-field slogan = %q, want abstract-field-slogan", got)
+	}
 	if got := innerMurmurRejectReason("The field crosses the floor beside the window."); got != "" {
 		t.Fatalf("concrete anchored field murmur rejected as %q", got)
 	}

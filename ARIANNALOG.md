@@ -55,6 +55,9 @@ residue now requires the combined observed shard instead of either half alone.
 The next review narrowed the compact `1.06mx29cm3` dimension token as well: it
 is no longer residue by itself, only when attached to the observed live chorus
 continuations.
+The post-merge connector pass then made the `field in the field` slogan
+punctuation-insensitive: `field in the field` plus `not a place` is now matched
+as token sequences, so em-dashes or commas do not let the same slogan through.
 
 Verification:
 
@@ -96,6 +99,11 @@ Verification:
   `20260926T013652+0300`; startup again printed no carried dream and the first
   receipt stayed withheld as `boilerplate-loop/live-chorus-residue` with
   `dreams=0`.
+- after making the `field in the field` slogan punctuation-insensitive, rebuilt
+  and hot-redeployed at `20260926T051630+0300`; startup carried an older
+  `warmness in matter B/C/D...` dream that remains a separate live issue, and
+  the first two new receipts stayed withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`.
 
 ---
 

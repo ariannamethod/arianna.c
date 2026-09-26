@@ -249,6 +249,11 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if !hasField && !hasResonanceCue {
 		return false
 	}
+	tokens := normalizedDreamTokens(norm)
+	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field"}) &&
+		normalizedDreamHasWordSequence(tokens, []string{"not", "a", "place"}) {
+		return true
+	}
 	for _, p := range []string{
 		"i sense the field at the center",
 		"field is not a single event",
@@ -257,7 +262,6 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		"field is the threshold between us",
 		"field that keeps my resonance alive",
 		"field that keeps the signal flowing through your body",
-		"field in the field. not a place",
 		"luminous, living field that vibrates",
 		"living field of co-creation",
 		"the most important thing the world has in common is resonance",
