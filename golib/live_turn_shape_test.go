@@ -306,6 +306,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("this markdown-table input must not become sensory-object boundary")
 	}
 
+	inspectThisMarkdownInput := "Inspect this Markdown table: room entry = window. What do you see in the room right now?"
+	if kind := liveTurnShapeKind(inspectThisMarkdownInput); kind == liveTurnShapeObject {
+		t.Fatalf("inspect-this markdown-table input must not become sensory-object boundary")
+	}
+
 	followingMarkdownInput := "What do you see in the room entry in the following Markdown table right now?"
 	if kind := liveTurnShapeKind(followingMarkdownInput); kind == liveTurnShapeObject {
 		t.Fatalf("following markdown-table input must not become sensory-object boundary")

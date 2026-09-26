@@ -117,6 +117,7 @@ func liveVoiceHasDiscussionCue(norm string) bool {
 		}
 		if strings.HasPrefix(word, "перев") ||
 			strings.HasPrefix(word, "знач") ||
+			strings.HasPrefix(word, "обознач") ||
 			strings.HasPrefix(word, "означ") {
 			return true
 		}
