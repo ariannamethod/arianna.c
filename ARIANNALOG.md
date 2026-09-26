@@ -69,6 +69,13 @@ present and future`, `I am a field that never leaves the line`, and
 register is now dropped only when it repeats coloned `in matter B:` /
 `in matter C:`-style slots without a concrete anchor, while those inner lines
 are matched as observed slogans.
+After PR #378 merged, the still-running polygon exposed the next accepted set:
+startup carried the one-word `dampness` shard, and later accepted short `dark`
+and `two` shards, temperature-sensor scraps, `interior B/C/D` registers,
+`material/mind` register ladders, and body/memory/architecture slogans. The
+boundary now drops only those observed shards or the narrow repeated-register
+shapes, while keeping ordinary anchored temperature, material, and field
+sentences admissible.
 
 Verification:
 
@@ -127,6 +134,13 @@ Verification:
 - connector review caught two narrow boundary misses before merge: dash spacing
   inside the new field slogans, and matter-register slots beginning at offset
   zero (`In matter B: ...`). Both are now covered by regression tests.
+- after withholding the next accepted short shards, temperature/register scraps,
+  and inner slogans, rebuilt and hot-redeployed at `20260926T200000+0300`;
+  startup printed no carried dream, and the first silence receipt stayed withheld
+  as `boilerplate-loop/live-chorus-residue` with `dreams=0`.
+- connector review caught that the short-shard guard should be token-based, not
+  punctuation-cutset based, so wrapped forms such as `"dark"`, `(two)`,
+  `dampness…`, and `/ two /` are covered too.
 
 ---
 
