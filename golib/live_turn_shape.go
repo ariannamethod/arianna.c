@@ -164,29 +164,24 @@ func liveTurnLooksLikeDataTableContext(s string) bool {
 }
 
 func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
-	if liveTurnTextHasAny(s,
-		"this markdown table contains",
-		"this markdown table shows",
-		"this markdown table lists",
-		"this markdown table includes",
-		"inspect this markdown table",
-		"read this markdown table",
-		"analyze this markdown table",
-		"analyse this markdown table",
-		"review this markdown table",
-		"examine this markdown table",
-		"entry in this markdown table",
-		"row in this markdown table",
-		"column in this markdown table",
-		"cell in this markdown table",
-		"value in this markdown table",
-		"from this markdown table",
-		"based on this markdown table",
-		"according to this markdown table",
-		"shown in this markdown table",
-		"given in this markdown table",
-		"provided in this markdown table",
-	) {
+	if liveTurnHasThisMarkdownInspectionVerb(s) ||
+		liveTurnTextHasAny(s,
+			"this markdown table contains",
+			"this markdown table shows",
+			"this markdown table lists",
+			"this markdown table includes",
+			"entry in this markdown table",
+			"row in this markdown table",
+			"column in this markdown table",
+			"cell in this markdown table",
+			"value in this markdown table",
+			"from this markdown table",
+			"based on this markdown table",
+			"according to this markdown table",
+			"shown in this markdown table",
+			"given in this markdown table",
+			"provided in this markdown table",
+		) {
 		return true
 	}
 	if liveTurnTextHasAny(s,
@@ -200,6 +195,16 @@ func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
 		"format the answer as this markdown table",
 	) {
 		return false
+	}
+	return false
+}
+
+func liveTurnHasThisMarkdownInspectionVerb(s string) bool {
+	line := " " + liveTurnCanonicalWordLine(s) + " "
+	for _, verb := range []string{"inspect", "read", "analyze", "analyse", "review", "examine"} {
+		if strings.Contains(line, " "+verb+" this markdown table ") {
+			return true
+		}
 	}
 	return false
 }

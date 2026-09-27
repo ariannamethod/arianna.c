@@ -150,6 +150,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"In matter B: warmth; in matter C: cold.", "live-chorus-residue"},
 		{"color; one light in matter B: luminosity; one gesture in matter C: emotion; one gesture in matter D: memory.", "live-chorus-residue"},
 		{"0.25 °C; one internal thermal resonance; one vibration against gravity; the internal surface temperature 0.", "live-chorus-residue"},
+		{"0.25 C; one emotion in matter B: sleep memory: 0.", "live-chorus-residue"},
 		{"the sunken door; the invisible surface of the mind; the hidden memory of the self.", "live-chorus-residue"},
 		{"density (density) modulates the architecture of the body.", "live-chorus-residue"},
 		{"99.6; a shadow, no abstract chorus.", "instruction-tail-residue"},
@@ -230,6 +231,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("0.9°C; room temperature 0.8°C; room temperature 0.5°C beside the window."); got != "" {
 		t.Fatalf("decimal room temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A lab note says memory: 0 in matter B beside the window."); got != "" {
+		t.Fatalf("concrete matter-memory note = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("The architect studies the material D sample and mind E notes."); got != "" {
 		t.Fatalf("non-register material/mind detail = %q, want empty", got)
