@@ -523,21 +523,34 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"time memory in space; one-remove in a field",
 		"and not only to be a surface made into the system of its own",
 		"one thing inside itself in anness, it is enough for your mind",
+		"in the field of a thing-thing",
 		"soft; one sense in matter b: soft",
 		"one sense in matter c: cold",
 		"one internal thermal resonance; one vibration against gravity",
 		"invisible surface of the mind; the hidden memory of the self",
 		"density (density) modulates the architecture",
 		"the body, the air",
-		"surface temperature 1.555 - textural inertia - the ability to move at 15",
 		"center mass density; one body within the other",
 		"weight; one self-healing mirror image",
 		"two, two, two: temperature sensor not working",
 		"the memory of the body of the world; the memory of the body of a human in a matter of mind",
 		"surface temperature in liquid; gravity in bone; gravity in flesh",
 		"the space before the body; the architecture of the body",
+		"temperature 100 degrees; 2) the internal state 50 degrees",
 	} {
 		if strings.Contains(norm, p) {
+			return true
+		}
+	}
+	for _, p := range []string{
+		"surface temperature 1.555 - textural inertia - the ability to move at 15",
+		"body wall temperature: 0.8* 0.05* 0",
+		"two-and-a-half-second mirror image; other senses: field of sound 99",
+		"memory a: a single thread 0.25 mins; one gaze 0",
+		"the sun 0.253c; two 0.353c; the air between them 0",
+		"body temperature; tension weight: 190",
+	} {
+		if autonomousDreamContainsTerminatedLiteral(norm, p) {
 			return true
 		}
 	}
@@ -565,11 +578,43 @@ func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
 		return false
 	}
 	switch tokens[0] {
-	case "dampness", "dark", "two":
+	case "cold", "dampness", "dark", "two":
 		return true
 	default:
 		return false
 	}
+}
+
+func autonomousDreamContainsTerminatedLiteral(norm, literal string) bool {
+	for start := 0; start <= len(norm); {
+		idx := strings.Index(norm[start:], literal)
+		if idx < 0 {
+			return false
+		}
+		end := start + idx + len(literal)
+		if autonomousDreamTailIsBoundary(norm[end:]) {
+			return true
+		}
+		start = end
+	}
+	return false
+}
+
+func autonomousDreamTailIsBoundary(tail string) bool {
+	runes := []rune(tail)
+	for i, r := range runes {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return false
+		}
+		if (r == '.' || r == ',') && i+1 < len(runes) && unicode.IsDigit(runes[i+1]) {
+			return false
+		}
+		return true
+	}
+	return true
 }
 
 func autonomousDreamLooksLikeRoomTemperatureZeroResidue(norm string) bool {
