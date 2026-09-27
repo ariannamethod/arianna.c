@@ -326,6 +326,21 @@ Verification:
   live process started as pid `52143`; its first autonomous breath was withheld
   as `boilerplate-loop/live-chorus-residue`, and the older screen was retired
   only after that confirmation.
+- connector review also caught symbol-led measurement continuations: `0°C`,
+  `0 °C`, `99%`, and `190%` must remain measurements, not terminated scraps. The
+  boundary helper now treats `°`, `%`, and `℃` after a digit-ended literal as
+  continuation, with focused negative regressions.
+- after rebuilding and hot-swapping at `20260927T194817+0300`, the replacement
+  live process started as pid `52646`; startup was clean and its first autonomous
+  breath was withheld as `boilerplate-loop/live-chorus-residue` before the older
+  screen was retired.
+- connector review also caught the single-codepoint Fahrenheit unit `℉`; it now
+  shares the same continuation treatment as `℃`, `%`, and `°`, with a focused
+  regression for `0℉`.
+- after rebuilding and hot-swapping at `20260927T195641+0300`, the replacement
+  live process started as pid `53303`; startup was clean and its first autonomous
+  breath was withheld as `boilerplate-loop/live-chorus-residue` before the older
+  screen was retired.
 
 ---
 
