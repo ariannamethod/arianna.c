@@ -295,6 +295,13 @@ Verification:
   withheld as `boilerplate-loop/live-chorus-residue`, and the `proofread this
   Markdown table` prompt again stayed on the current-room sensory boundary with
   `direct_boundary_turn=true` and `nano_result_visible=false`.
+- the post-merge connector pass caught one preservation tail in the narrowed
+  Russian discussion cues: legitimate translation forms such as `перевёл` and
+  `перевожу` were no longer accepted. Translation cues are now handled by their
+  own inflection helper while the `обозначенный` adjective remains rejected.
+- after rebuilding and hot-redeploying at `20260927T171956+0300`, startup stayed
+  free of carried dream text and the first autonomous scrap remained withheld as
+  `boilerplate-loop/live-chorus-residue`.
 
 ---
 

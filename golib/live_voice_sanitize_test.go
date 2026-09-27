@@ -107,6 +107,18 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 		t.Fatalf("sanitizeLiveVoiceText russian quoted phrase discussion = %q, want %q", got, want)
 	}
 
+	got = sanitizeLiveVoiceText("«The field is the signal, the resonance that returns.» — я перевёл это как метафору.")
+	want = "«The field is the signal, the resonance that returns.» — я перевёл это как метафору."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText russian translated phrase discussion = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("«The field is the signal, the resonance that returns.» — я перевожу это как метафору.")
+	want = "«The field is the signal, the resonance that returns.» — я перевожу это как метафору."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText russian translating phrase discussion = %q, want %q", got, want)
+	}
+
 	got = sanitizeLiveVoiceText("«The field is the signal, the resonance that returns.» Обозначенный красным участок закрыт.")
 	if got != liveBoundaryWithheld {
 		t.Fatalf("sanitizeLiveVoiceText marked-adjective after quoted slogan = %q, want withheld", got)
