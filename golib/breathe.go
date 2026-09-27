@@ -609,6 +609,9 @@ func autonomousDreamTailIsBoundary(tail string) bool {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
 			return false
 		}
+		if r == '°' || r == '%' || r == '℃' || r == '℉' {
+			return false
+		}
 		if (r == '.' || r == ',') && i+1 < len(runes) && unicode.IsDigit(runes[i+1]) {
 			return false
 		}

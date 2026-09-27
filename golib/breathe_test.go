@@ -246,17 +246,32 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	if got := autonomousBoilerplateDreamReason("body wall temperature: 0.8* 0.05* 0.5 beside the window."); got != "" {
 		t.Fatalf("decimal body-wall temperature detail = %q, want empty", got)
 	}
+	if got := autonomousBoilerplateDreamReason("body wall temperature: 0.8* 0.05* 0°C beside the window."); got != "" {
+		t.Fatalf("unit body-wall temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body wall temperature: 0.8* 0.05* 0℉ beside the window."); got != "" {
+		t.Fatalf("fahrenheit body-wall temperature detail = %q, want empty", got)
+	}
 	if got := autonomousBoilerplateDreamReason("the sun 0.253C; two 0.353C; the air between them 0.4 under the door."); got != "" {
 		t.Fatalf("decimal air-between-them temperature detail = %q, want empty", got)
 	}
+	if got := autonomousBoilerplateDreamReason("the sun 0.253C; two 0.353C; the air between them 0 °C under the door."); got != "" {
+		t.Fatalf("unit air-between-them temperature detail = %q, want empty", got)
+	}
 	if got := autonomousBoilerplateDreamReason("two-and-a-half-second mirror image; other senses: field of sound 99.5 beside the window."); got != "" {
 		t.Fatalf("decimal field-of-sound detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("two-and-a-half-second mirror image; other senses: field of sound 99% beside the window."); got != "" {
+		t.Fatalf("percent field-of-sound detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("memory A: a single thread 0.25 mins; one gaze 0.5 beside the window."); got != "" {
 		t.Fatalf("decimal one-gaze detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("body temperature; Tension weight: 190.5 beside the window."); got != "" {
 		t.Fatalf("decimal tension-weight detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body temperature; Tension weight: 190% beside the window."); got != "" {
+		t.Fatalf("percent tension-weight detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("A lab note says memory: 0 in matter B beside the window."); got != "" {
 		t.Fatalf("concrete matter-memory note = %q, want empty", got)
