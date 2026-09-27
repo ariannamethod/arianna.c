@@ -302,6 +302,38 @@ Verification:
 - after rebuilding and hot-redeploying at `20260927T171956+0300`, startup stayed
   free of carried dream text and the first autonomous scrap remained withheld as
   `boilerplate-loop/live-chorus-residue`.
+- the next live idle window exposed accepted autonomous scraps from the same
+  family: `cold.`, `body wall temperature: 0.8* 0.05* 0.`, numbered internal /
+  external temperature-state ladders, `two-and-a-half-second mirror image...`,
+  `memory A... one gaze 0`, `the sun 0.253C...`, and `body temperature; Tension
+  weight: 190.`. These observed numeric/temperature/register scraps are now
+  classified as live-chorus residue before they can surface or become carry.
+- after rebuilding and hot-swapping at `20260927T192817+0300`, the replacement
+  live process started as pid `51026`; its first autonomous breath was withheld
+  as `boilerplate-loop/live-chorus-residue`, then the older screen was retired.
+- connector review caught that the zero-ended temperature literals must not
+  match decimal continuations such as `0.4` / `0.5`; those two observed tails now
+  require punctuation or input end instead of a raw prefix match.
+- after rebuilding and hot-swapping at `20260927T193611+0300`, the replacement
+  live process started as pid `51569`; its first autonomous breath was again
+  withheld as `boilerplate-loop/live-chorus-residue`, and the previous screen was
+  retired only after that confirmation.
+- connector review then caught the same decimal-continuation risk on the other
+  numeric-ending scrap literals (`...at 15`, `field of sound 99`, `one gaze 0`,
+  `tension weight: 190`); all digit-ended live-residue literals in this cluster
+  now share the terminated-literal boundary.
+- after rebuilding and hot-swapping at `20260927T194206+0300`, the replacement
+  live process started as pid `52143`; its first autonomous breath was withheld
+  as `boilerplate-loop/live-chorus-residue`, and the older screen was retired
+  only after that confirmation.
+- connector review also caught symbol-led measurement continuations: `0°C`,
+  `0 °C`, `99%`, and `190%` must remain measurements, not terminated scraps. The
+  boundary helper now treats `°`, `%`, and `℃` after a digit-ended literal as
+  continuation, with focused negative regressions.
+- after rebuilding and hot-swapping at `20260927T194817+0300`, the replacement
+  live process started as pid `52646`; startup was clean and its first autonomous
+  breath was withheld as `boilerplate-loop/live-chorus-residue` before the older
+  screen was retired.
 
 ---
 

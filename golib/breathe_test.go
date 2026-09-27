@@ -145,6 +145,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"of words; the sun as thunder, not a white mirror. / in the space between two one. / to carry a text with an unused long-ing or empty in, just.", "live-chorus-residue"},
 		{"1.06mx29cm3. / time memory in space; one-remove in a field with the self.", "live-chorus-residue"},
 		{"1.06mx29cm3. / and not only to be a surface made into the system of its own.", "live-chorus-residue"},
+		{"1.06.3 dimensional. / in the field of a thing-thing. / that feels a little like to be one (1st), two.", "live-chorus-residue"},
 		{"soft; one sense in matter b: soft; one sense in matter c: cold.", "live-chorus-residue"},
 		{"warmness in matter B: warmness in matter C: warmness in matter D: warmth in matter.", "live-chorus-residue"},
 		{"In matter B: warmth; in matter C: cold.", "live-chorus-residue"},
@@ -170,8 +171,15 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"(two)", "live-chorus-residue"},
 		{"dampness…", "live-chorus-residue"},
 		{"/ two /", "live-chorus-residue"},
+		{"cold.", "live-chorus-residue"},
 		{"the body, the air.", "live-chorus-residue"},
 		{"surface temperature 1.555 - Textural inertia - The ability to move at 15.", "live-chorus-residue"},
+		{"body wall temperature: 0.8* 0.05* 0.", "live-chorus-residue"},
+		{"temperature 100 degrees; 2) the internal state 50 degrees; 6) the external state 60 degrees; 7) the external state 70 degrees.", "live-chorus-residue"},
+		{"two-and-a-half-second mirror image; other senses: field of sound 99.", "live-chorus-residue"},
+		{"memory A: a single thread 0.25 mins; one gaze 0.", "live-chorus-residue"},
+		{"the sun 0.253C; two 0.353C; the air between them 0.", "live-chorus-residue"},
+		{"body temperature; Tension weight: 190.", "live-chorus-residue"},
 		{"center mass density; one body within the other.", "live-chorus-residue"},
 		{"weight; one self-healing mirror image.", "live-chorus-residue"},
 		{"two, two, two: temperature sensor not working.", "live-chorus-residue"},
@@ -205,6 +213,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	if got := autonomousBoilerplateDreamReason("Internal surface temperature 0.5 °C beside the window."); got != "" {
 		t.Fatalf("concrete internal temperature detail = %q, want empty", got)
 	}
+	if got := autonomousBoilerplateDreamReason("surface temperature 1.555 - Textural inertia - The ability to move at 15.5 beside the window."); got != "" {
+		t.Fatalf("decimal surface-temperature movement detail = %q, want empty", got)
+	}
 	if got := autonomousBoilerplateDreamReason("A sensor detected internal thermal resonance at 60 hertz in the ceramic sample."); got != "" {
 		t.Fatalf("concrete thermal-resonance detail = %q, want empty", got)
 	}
@@ -231,6 +242,33 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("0.9°C; room temperature 0.8°C; room temperature 0.5°C beside the window."); got != "" {
 		t.Fatalf("decimal room temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body wall temperature: 0.8* 0.05* 0.5 beside the window."); got != "" {
+		t.Fatalf("decimal body-wall temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body wall temperature: 0.8* 0.05* 0°C beside the window."); got != "" {
+		t.Fatalf("unit body-wall temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("the sun 0.253C; two 0.353C; the air between them 0.4 under the door."); got != "" {
+		t.Fatalf("decimal air-between-them temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("the sun 0.253C; two 0.353C; the air between them 0 °C under the door."); got != "" {
+		t.Fatalf("unit air-between-them temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("two-and-a-half-second mirror image; other senses: field of sound 99.5 beside the window."); got != "" {
+		t.Fatalf("decimal field-of-sound detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("two-and-a-half-second mirror image; other senses: field of sound 99% beside the window."); got != "" {
+		t.Fatalf("percent field-of-sound detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("memory A: a single thread 0.25 mins; one gaze 0.5 beside the window."); got != "" {
+		t.Fatalf("decimal one-gaze detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body temperature; Tension weight: 190.5 beside the window."); got != "" {
+		t.Fatalf("decimal tension-weight detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("body temperature; Tension weight: 190% beside the window."); got != "" {
+		t.Fatalf("percent tension-weight detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("A lab note says memory: 0 in matter B beside the window."); got != "" {
 		t.Fatalf("concrete matter-memory note = %q, want empty", got)
