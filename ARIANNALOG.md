@@ -277,6 +277,24 @@ Verification:
   `20260926T220923+0300`; replaying the same current-room prompt still produced
   `direct_boundary_turn=true`, `nano_result_visible=false`, and the generic
   no-sensor boundary from both visible voices.
+- the post-merge connector review caught two remaining overmatches in that
+  preservation tail: substring `read` inside `proofread this Markdown table`,
+  and adjectival `обозначенный` after a quoted rejected slogan. The Markdown
+  inspection verbs now match as word-bounded canonical phrases, and Russian
+  discussion cues are limited to meaning/translation forms rather than every
+  `обознач*` word.
+- after rebuilding and hot-redeploying at `20260927T170600+03:00`, live replay
+  of the `proofread this Markdown table` room prompt stayed on the current-room
+  sensory boundary with `direct_boundary_turn=true` and
+  `nano_result_visible=false`. The same startup exposed the next carry residue:
+  `0.25 C; one emotion in matter B: sleep memory: 0.`; single-slot matter
+  memory-zero scraps are now classified as live-chorus residue unless anchored
+  by concrete evidence.
+- after rebuilding and hot-redeploying that carry fix at `20260927T171001+0300`,
+  startup no longer printed a carried dream, the first autonomous scrap stayed
+  withheld as `boilerplate-loop/live-chorus-residue`, and the `proofread this
+  Markdown table` prompt again stayed on the current-room sensory boundary with
+  `direct_boundary_turn=true` and `nano_result_visible=false`.
 
 ---
 

@@ -115,14 +115,23 @@ func liveVoiceHasDiscussionCue(norm string) bool {
 		case "translate", "translation", "means", "meaning", "phrase", "quote", "quoted", "literal":
 			return true
 		}
-		if strings.HasPrefix(word, "перев") ||
-			strings.HasPrefix(word, "знач") ||
-			strings.HasPrefix(word, "обознач") ||
-			strings.HasPrefix(word, "означ") {
+		if liveVoiceIsRussianDiscussionCue(word) {
 			return true
 		}
 	}
 	return false
+}
+
+func liveVoiceIsRussianDiscussionCue(word string) bool {
+	return strings.HasPrefix(word, "перевод") ||
+		strings.HasPrefix(word, "перевед") ||
+		strings.HasPrefix(word, "перевест") ||
+		word == "значит" ||
+		strings.HasPrefix(word, "значени") ||
+		strings.HasPrefix(word, "означа") ||
+		strings.HasPrefix(word, "означени") ||
+		strings.HasPrefix(word, "обознача") ||
+		strings.HasPrefix(word, "обозначени")
 }
 
 func liveVoiceStripQuotedRejectedBoundarySpans(norm string) (string, bool) {

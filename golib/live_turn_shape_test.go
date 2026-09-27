@@ -266,6 +266,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("this-markdown-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
 	}
 
+	proofreadThisMarkdownOutput := "What do you see in the room right now? Fill in this Markdown table so I can proofread this Markdown table."
+	if kind := liveTurnShapeKind(proofreadThisMarkdownOutput); kind != liveTurnShapeObject {
+		t.Fatalf("proofread-this-markdown-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+
 	followingTableOutput := "What do you see in the room right now? Use the following table for your answer."
 	if kind := liveTurnShapeKind(followingTableOutput); kind != liveTurnShapeObject {
 		t.Fatalf("following-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)

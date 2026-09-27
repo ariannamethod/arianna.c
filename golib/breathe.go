@@ -544,6 +544,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	if autonomousDreamLooksLikeMatterRegisterResidue(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikeSingleMatterMemoryRegisterResidue(norm) {
+		return true
+	}
 	if autonomousDreamLooksLikeInteriorRegisterResidue(norm) {
 		return true
 	}
@@ -586,6 +589,15 @@ func autonomousDreamLooksLikeMatterRegisterResidue(norm string) bool {
 		normalizedDreamHasRegisterSlot(norm, "matter", "c") ||
 		normalizedDreamHasRegisterSlot(norm, "matter", "d")
 	return hasB && hasOtherRegister
+}
+
+func autonomousDreamLooksLikeSingleMatterMemoryRegisterResidue(norm string) bool {
+	if autonomousDreamHasConcreteAnchor(norm) {
+		return false
+	}
+	return normalizedDreamHasRegisterSlot(norm, "matter", "b") &&
+		strings.Contains(norm, "memory: 0") &&
+		(strings.Contains(norm, "; one ") || strings.HasPrefix(norm, "one "))
 }
 
 func normalizedDreamMatterRegisterSlotCount(norm string) int {
