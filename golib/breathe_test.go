@@ -339,8 +339,8 @@ func TestRejectQuarantineDurationEscalatesToLiveRecovery(t *testing.T) {
 		{2, 90 * time.Second},
 		{3, 2 * time.Minute},
 		{4, 5 * time.Minute},
-		{5, 15 * time.Minute},
-		{8, 30 * time.Minute},
+		{5, 5 * time.Minute},
+		{8, 5 * time.Minute},
 	}
 	for _, tc := range cases {
 		if got := rejectQuarantineDuration(tc.streak); got != tc.want {
@@ -357,8 +357,8 @@ func TestRejectLogIntervalEscalatesWithRejectedStreak(t *testing.T) {
 		{1, time.Minute},
 		{2, time.Minute},
 		{3, 5 * time.Minute},
-		{5, 15 * time.Minute},
-		{8, 30 * time.Minute},
+		{5, 5 * time.Minute},
+		{8, 5 * time.Minute},
 	}
 	for _, tc := range cases {
 		if got := rejectLogInterval(tc.streak); got != tc.want {
@@ -374,10 +374,10 @@ func TestRejectedDetourLogBackoff(t *testing.T) {
 	if !b.shouldLogRejectedDetour(now) {
 		t.Fatal("first rejected detour should be visible")
 	}
-	if b.shouldLogRejectedDetour(now.Add(14 * time.Minute)) {
+	if b.shouldLogRejectedDetour(now.Add(4 * time.Minute)) {
 		t.Fatal("repeated rejected detour should be quiet inside the backoff interval")
 	}
-	if !b.shouldLogRejectedDetour(now.Add(15 * time.Minute)) {
+	if !b.shouldLogRejectedDetour(now.Add(5 * time.Minute)) {
 		t.Fatal("rejected detour should become visible at the backoff boundary")
 	}
 }
@@ -412,8 +412,8 @@ func TestRejectDreamBackoffCountsAlternatingLoopReasons(t *testing.T) {
 	}
 	if got := rejectedCueDetour(b.rejectedStreak, b.lastRejectedReason); got == "" {
 		t.Fatal("alternating loop rejection must still produce a concrete detour cue after repeat×3")
-	} else if strings.Contains(got, "abstract") || strings.Contains(got, "chorus") || !strings.Contains(got, "floor") {
-		t.Fatalf("detour cue must be positive concrete matter, got %q", got)
+	} else if strings.Contains(got, "abstract") || strings.Contains(got, "chorus") || strings.Contains(got, "temperature") || strings.Contains(got, "weight") || strings.Contains(got, "matter") || !strings.Contains(got, "floor") {
+		t.Fatalf("detour cue must be a positive concrete scene without residue registers, got %q", got)
 	}
 
 	b.rejectDream(now.Add(40*time.Second), bSilence, "live-boundary", "empty carried dream")
