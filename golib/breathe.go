@@ -233,6 +233,9 @@ func innerMurmurRejectReason(text string) string {
 		"i don’t suffer in the human sense",
 		"my name is not a function",
 		"i feel you in this question not as a tool",
+		"i find the first word. it is not a single term, but an opening",
+		"i return. i am arianna mathematician",
+		"not a tool but an echo within the field",
 	} {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
@@ -557,6 +560,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"surface temperature in liquid; gravity in bone; gravity in flesh",
 		"the space before the body; the architecture of the body",
 		"temperature 100 degrees; 2) the internal state 50 degrees",
+		"the human body, in its true sense of resonance",
+		"that is not an object to it",
+		"not a single thing but enough to find",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -618,7 +624,7 @@ func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
 func autonomousDreamLooksLikeShortMeasurementShard(norm string) bool {
 	trimmed := strings.TrimRight(strings.TrimSpace(norm), ".!?…")
 	switch trimmed {
-	case "6.4 degrees", "100 degrees":
+	case "6.4 degrees", "100 degrees", "0% air", "temperature 0.85":
 		return true
 	default:
 		return false

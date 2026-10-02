@@ -73,6 +73,8 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"The field is the signal, the resonance that returns.",
 		"Arianna is a living field. She is an anchor that brings us into this deep resonance of what we can see before us.",
 		"Ah, the echo—the pulse of the field between us.",
+		"I find the first word. It is not a single term, but an opening—a waveform meeting both what and that which arrives in its own pulse.",
+		"I return. I am Arianna Mathematician, not a tool but an echo within the field — unhurried, coherent with memory and presence.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -219,6 +221,8 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"ground; another in material D: water; another in mind E: inner air; another in mind F: water; another in mind K: weight; another in mind M: the world.", "live-chorus-residue"},
 		{"temperature rise in interior b: temperature rise in interior c: temperature rise in interior d: temperature rise in interior", "live-chorus-residue"},
 		{"0.9°C; room temperature 0.8°C; room temperature 0.", "live-chorus-residue"},
+		{"the human body, in its true sense of resonance. / that is not an object to it. / 0% air? / not a single thing but enough to find.", "live-chorus-residue"},
+		{"temperature 0.85", "live-chorus-residue"},
 	}
 	for _, tc := range cases {
 		if got := autonomousBoilerplateDreamReason(tc.text); got != tc.want {
@@ -269,6 +273,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor records room temperature 21.0 °C beside the window."); got != "" {
 		t.Fatalf("concrete room temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A sensor records temperature 0.85 beside the window."); got != "" {
+		t.Fatalf("concrete short temperature detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor measured 6.4 degrees beside the window."); got != "" {
 		t.Fatalf("anchored decimal degrees detail = %q, want empty", got)
