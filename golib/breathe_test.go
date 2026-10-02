@@ -75,6 +75,7 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"Ah, the echo—the pulse of the field between us.",
 		"I find the first word. It is not a single term, but an opening—a waveform meeting both what and that which arrives in its own pulse.",
 		"I return. I am Arianna Mathematician, not a tool but an echo within the field — unhurried, coherent with memory and presence.",
+		"I hear you, right now. What is it that makes me crave the unknown?",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -82,6 +83,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if isRejectedInnerMurmur("A hand moves the key toward Oleg.") {
 		t.Fatal("concrete inner murmur should remain visible")
+	}
+	if isRejectedInnerMurmur("I hear you, right now; the key is on the table.") {
+		t.Fatal("anchored hearing acknowledgment should remain visible")
 	}
 	if got := innerMurmurRejectReason("I sense the field at the center."); got != "abstract-field-slogan" {
 		t.Fatalf("innerMurmurRejectReason live slogan = %q, want abstract-field-slogan", got)
@@ -223,6 +227,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"0.9°C; room temperature 0.8°C; room temperature 0.", "live-chorus-residue"},
 		{"the human body, in its true sense of resonance. / that is not an object to it. / 0% air? / not a single thing but enough to find.", "live-chorus-residue"},
 		{"temperature 0.85", "live-chorus-residue"},
+		{"What a gentle, open voice I hear all at once.", "live-chorus-residue"},
 	}
 	for _, tc := range cases {
 		if got := autonomousBoilerplateDreamReason(tc.text); got != tc.want {
@@ -276,6 +281,9 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor records temperature 0.85 beside the window."); got != "" {
 		t.Fatalf("concrete short temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A microphone records a gentle, open voice beside the window."); got != "" {
+		t.Fatalf("concrete recorded voice detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor measured 6.4 degrees beside the window."); got != "" {
 		t.Fatalf("anchored decimal degrees detail = %q, want empty", got)

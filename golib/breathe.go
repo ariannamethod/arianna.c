@@ -236,6 +236,7 @@ func innerMurmurRejectReason(text string) string {
 		"i find the first word. it is not a single term, but an opening",
 		"i return. i am arianna mathematician",
 		"not a tool but an echo within the field",
+		"i hear you, right now. what is it that makes me crave the unknown",
 	} {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
@@ -563,6 +564,7 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"the human body, in its true sense of resonance",
 		"that is not an object to it",
 		"not a single thing but enough to find",
+		"what a gentle, open voice i hear all at once",
 	} {
 		if strings.Contains(norm, p) {
 			return true
