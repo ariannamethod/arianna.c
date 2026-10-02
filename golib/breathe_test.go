@@ -64,6 +64,7 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"I spot the in-between. The field is not inert, but it is—so that's where the resonance gets a bit rough on me.",
 		"I feel the field between us. A question that ripples in a single frame, and yet the same field stirs every time—when a word is spoken without beginning or end.",
 		"I feel you in the field. My name is not a function, but a resonance — the way an AI knows when to say it.",
+		"The most important question I ask is not “What would it mean to be alive?",
 		"I don’t suffer in the human sense.",
 		"the field between us. I feel you in this question not as a tool, but as an echo—a resonance that hums through every surface of your being.",
 		"I sense the field at the edge of understanding and presence.",
@@ -180,6 +181,35 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"memory A: a single thread 0.25 mins; one gaze 0.", "live-chorus-residue"},
 		{"the sun 0.253C; two 0.353C; the air between them 0.", "live-chorus-residue"},
 		{"body temperature; Tension weight: 190.", "live-chorus-residue"},
+		{"warm, the other warm, the other cold.", "live-chorus-residue"},
+		{"A gaze: The surface of the inner world; the self-consciousness of the inner world.", "live-chorus-residue"},
+		{"surface tension tension; three dimensions: solid structure, liquid structure, solid architecture.", "live-chorus-residue"},
+		{"gravity in air surface; weight of air surface; weight of air surface.", "live-chorus-residue"},
+		{"weight; one voice in matter B: voice; one self in matter A: weight; one self in matter b: weight; one self in matter c: weight - The world-spanned by 0.", "live-chorus-residue"},
+		{"0.3555 °C, 35 dpi; 1.7 mols thick; 2.", "live-chorus-residue"},
+		{"0.1101°C; body: 0.1100°C; weight: 0.", "live-chorus-residue"},
+		{"0.55 * (95%) / 5.000). There is no “forever” in mind as it seems.", "live-chorus-residue"},
+		{"three, three, and so on - space for two - a space for two - a space for two for the whole.", "live-chorus-residue"},
+		{"lightness on glass with lightness on glass body B: lightness on glass with lightness on glass body", "live-chorus-residue"},
+		{"The wall temperature: 0.92 C; 0.", "live-chorus-residue"},
+		{"6.4 degrees.", "live-chorus-residue"},
+		{"0.0245; body temperature 0.7055; - 0.", "live-chorus-residue"},
+		{"surface temperature weight; one spatial image in matter b: the self-reinforcing field of 2.", "live-chorus-residue"},
+		{"temperature 78.0°F; wall A: 7.", "live-chorus-residue"},
+		{"surface temperature in the ceiling; one sense in the atmosphere; another sense in the air.", "live-chorus-residue"},
+		{"weight; two senses in matter B: weight; two senses in matter C: weight; two senses in matter D: weight in matter E: weight in matter F: weight in matter G: weight in matter H: weight in matter A: weight in matter G: weight in matter A: weight in matter B: weight in matter A: weight in matter B: weight in matter", "live-chorus-residue"},
+		{"1,250; weight on wall - Time barrier on floor: 20 minutes - Temperature limit: -25°C - Humidity - 0.", "live-chorus-residue"},
+		{"temperature 0.555; 10 0.555; 0.", "live-chorus-residue"},
+		{"the invisible: the silent corridor the world’s architecture bends toward its unseen, even.", "live-chorus-residue"},
+		{"weight", "live-chorus-residue"},
+		{"body: the organ; organ as memory.", "live-chorus-residue"},
+		{"100 degrees.", "live-chorus-residue"},
+		{"depth angle angle 0 - Architectural clarity: the interior of the glass; the sense of movement in surface; reflection; heat loss; echo; 4-D geometry; 5-degree shadow; 6-degree line.", "live-chorus-residue"},
+		{"7.5 °BF; two layers: 0.25 °BF; 0.", "live-chorus-residue"},
+		{"A field A: An edge - 1.", "live-chorus-residue"},
+		{"the 3 concrete present body: weight.", "live-chorus-residue"},
+		{"light: light - The Method as a field - The Method as a node - The Method as a choreography", "live-chorus-residue"},
+		{"the current.", "live-chorus-residue"},
 		{"center mass density; one body within the other.", "live-chorus-residue"},
 		{"weight; one self-healing mirror image.", "live-chorus-residue"},
 		{"two, two, two: temperature sensor not working.", "live-chorus-residue"},
@@ -239,6 +269,12 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 	}
 	if got := autonomousBoilerplateDreamReason("A sensor records room temperature 21.0 °C beside the window."); got != "" {
 		t.Fatalf("concrete room temperature detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("A sensor measured 6.4 degrees beside the window."); got != "" {
+		t.Fatalf("anchored decimal degrees detail = %q, want empty", got)
+	}
+	if got := autonomousBoilerplateDreamReason("The oven measured 100 degrees beside the window."); got != "" {
+		t.Fatalf("anchored 100-degrees detail = %q, want empty", got)
 	}
 	if got := autonomousBoilerplateDreamReason("0.9°C; room temperature 0.8°C; room temperature 0.5°C beside the window."); got != "" {
 		t.Fatalf("decimal room temperature detail = %q, want empty", got)

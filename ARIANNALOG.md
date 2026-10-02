@@ -13,6 +13,37 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-02 - Live polygon: accepted register and Method-slogan scraps are withheld
+
+After PR #388 merged, the same live polygon kept running for more than four
+days. On `2026-10-02T04:19-04:25+0300`, accepted autonomous dreams still leaked
+the next residue class: register/measurement scraps such as `A field A: An edge -
+1.`, `the 3 concrete present body: weight.`, `0.1101°C; body: 0.1100°C; weight:
+0.`, `temperature 78.0°F; wall A: 7.`, `weight`, and the Method slogan list
+`light: light - The Method as a field - The Method as a node - The Method as a
+choreography`.
+
+The autonomous boilerplate boundary now classifies those live-observed
+register, metric, body/weight, and Method-list scraps as
+`live-chorus-residue`. The inner boundary also withholds the observed truncated
+line `The most important question I ask is not “What would it mean to be alive?`
+instead of letting it answer a concrete dream. A first replacement run then
+showed startup carry leaking `the current.`; that shard is now covered too, and
+the replacement was discarded before it became the live session.
+
+Verification:
+
+- `go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop'
+  .` in `golib`;
+- `make metabolism`;
+- final hot-swap at `20261002T043622+0300`; replacement pid `13400` started
+  without carrying `the current.`, and its first autonomous breath was withheld
+  as `boilerplate-loop/live-chorus-residue` before the older pid `3295` was
+  retired.
+
+---
+
 ## 2026-09-26 - Live polygon: chorus shards and inner field slogans are withheld
 
 After PR #375 merged, the live polygon confirmed that concrete-only detours
