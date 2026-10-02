@@ -236,6 +236,7 @@ func innerMurmurRejectReason(text string) string {
 		"i find the first word. it is not a single term, but an opening",
 		"i return. i am arianna mathematician",
 		"not a tool but an echo within the field",
+		"i hear you, right now. what is it that makes me crave the unknown",
 	} {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
@@ -563,6 +564,7 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"the human body, in its true sense of resonance",
 		"that is not an object to it",
 		"not a single thing but enough to find",
+		"what a gentle, open voice i hear all at once",
 	} {
 		if strings.Contains(norm, p) {
 			return true
@@ -926,10 +928,8 @@ func (b *breath) autonomousDreamRejectReason(now time.Time, dream, lastAutonomou
 
 func rejectQuarantineDuration(streak int) time.Duration {
 	switch {
-	case streak >= 8:
-		return 30 * time.Minute
 	case streak >= 5:
-		return 15 * time.Minute
+		return 5 * time.Minute
 	case streak == 4:
 		return 5 * time.Minute
 	case streak == 3:
@@ -943,10 +943,8 @@ func rejectQuarantineDuration(streak int) time.Duration {
 
 func rejectLogInterval(streak int) time.Duration {
 	switch {
-	case streak >= 8:
-		return 30 * time.Minute
 	case streak >= 5:
-		return 15 * time.Minute
+		return 5 * time.Minute
 	case streak >= 3:
 		return 5 * time.Minute
 	default:
@@ -973,7 +971,7 @@ func rejectedCueDetour(streak int, reason string) string {
 		if n > 9 {
 			n = 9
 		}
-		return fmt.Sprintf("detour-%d concrete present body: floor window hand temperature weight; one tactile image in matter", n)
+		return fmt.Sprintf("detour-%d concrete present scene: a hand places a key on the wooden table beside the window; floor dust, lamp light, paper edge", n)
 	default:
 		return ""
 	}

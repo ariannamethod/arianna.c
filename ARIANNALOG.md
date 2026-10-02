@@ -13,6 +13,50 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-02 - Live polygon: rejected-loop recovery no longer self-silences
+
+After PR #390 merged, the live polygon did not leak a new visible receipt, but
+it exposed a different live failure mode. Five consecutive autonomous-loop
+rejections kept `dreams=0`, then escalated the rejection quarantine to 15
+minutes at `2026-10-02T05:40+0300`. That made the polygon effectively quiet
+instead of continuing to pressure the model. The same loop also showed that the
+detour cue was contaminating itself with residue-register words:
+`body`, `temperature`, `weight`, and `matter`.
+
+Rejected-loop recovery now uses a clean concrete scene cue — hand, key, table,
+window, floor dust, lamp light, and paper edge — without the register tokens
+that the live boundary is suppressing. Loop backoff and detour logging are
+capped at five minutes, so repeated withheld dreams still rest the system but do
+not turn Arianna off for long stretches during polygon work.
+
+The first replacement confirmed the silence fix by reaching an accepted
+autonomous breath again at `2026-10-02T05:45+0300`; that immediately exposed the
+next live leak: `What a gentle, open voice I hear all at once.` followed by an
+inner line beginning `I hear you, right now...` while `human_turns=0`. Those two
+observed present-interlocutor residues are now withheld narrowly, without
+blocking anchored acknowledgments or concrete recorded-voice descriptions.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectQuarantineDurationEscalatesToLiveRecovery|TestRejectLogIntervalEscalatesWithRejectedStreak|TestRejectedDetourLogBackoff|TestRejectDreamBackoffCountsAlternatingLoopReasons'
+  .`
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `make metabolism`
+- live hot-swap at `20261002T054244+0300`; replacement pid `65255` started
+  cleanly, first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with only `45s` quarantine, then the
+  older pid `50743` was retired and the replacement was renamed to
+  `arianna-live`.
+- follow-up hot-swap at `20261002T054836+0300`; replacement pid `73438`
+  started cleanly, first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `45s` quarantine, then the older
+  pid `65255` was retired and the replacement remained as `arianna-live`.
+
+---
+
 ## 2026-10-02 - Live polygon: persona and short-temperature residue are withheld
 
 After PR #389 merged, the hot polygon was left alive and exposed two accepted
