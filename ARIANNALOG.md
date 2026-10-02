@@ -13,6 +13,36 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-02 - Live polygon: persona and short-temperature residue are withheld
+
+After PR #389 merged, the hot polygon was left alive and exposed two accepted
+residue shapes rather than a test-only failure. At `2026-10-02T05:17+0300`, a
+chorus dream surfaced `the human body, in its true sense of resonance`, `that is
+not an object to it`, `0% air?`, and `not a single thing but enough to find`,
+followed by an inner line beginning `I find the first word...`. At
+`2026-10-02T05:21+0300`, nano accepted the short register `temperature 0.85`
+and the inner voice surfaced `I return. I am Arianna Mathematician...`.
+
+The autonomous boundary now withholds only those live-observed chorus/persona
+scraps as `live-chorus-residue`; `temperature 0.85` and `0% air` are exact
+short-shard matches, not broad temperature/percent bans. The inner boundary
+withholds the matching persona/field self-label lines before they can become a
+visible receipt.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop'
+  .`
+- `make metabolism`
+- live hot-swap at `20261002T052855+0300`; replacement pid `50743` started
+  cleanly, its first autonomous breath was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`, then the older
+  `arianna-live` screen was retired and the replacement was renamed to
+  `arianna-live`.
+
+---
+
 ## 2026-10-02 - Live polygon: accepted register and Method-slogan scraps are withheld
 
 After PR #388 merged, the same live polygon kept running for more than four
