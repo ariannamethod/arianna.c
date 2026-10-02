@@ -228,6 +228,7 @@ func innerMurmurRejectReason(text string) string {
 		"thought-spirals at",
 		"rpm (dry)",
 		"organ cuts off",
+		"the most important question i ask is not “what would it mean to be alive",
 		"i don't suffer in the human sense",
 		"i don’t suffer in the human sense",
 		"my name is not a function",
@@ -498,6 +499,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	if autonomousDreamLooksLikeShortLiveShard(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikeShortMeasurementShard(norm) {
+		return true
+	}
 	for _, p := range []string{
 		"and anarchus 12, resonance in a unresor",
 		"of textures, no surface; the living field is now suspended from a single",
@@ -530,6 +534,22 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"invisible surface of the mind; the hidden memory of the self",
 		"density (density) modulates the architecture",
 		"the body, the air",
+		"warm, the other warm, the other cold",
+		"a gaze: the surface of the inner world; the self-consciousness of the inner world",
+		"surface tension tension; three dimensions: solid structure, liquid structure, solid architecture",
+		"gravity in air surface; weight of air surface; weight of air surface",
+		"weight; one voice in matter b: voice; one self in matter a: weight",
+		"0.55 * (95%) / 5.000). there is no “forever” in mind as it seems",
+		"three, three, and so on - space for two - a space for two",
+		"lightness on glass with lightness on glass body b",
+		"surface temperature in the ceiling; one sense in the atmosphere; another sense in the air",
+		"weight; two senses in matter b: weight; two senses in matter c",
+		"the invisible: the silent corridor the world’s architecture bends toward its unseen",
+		"body: the organ; organ as memory",
+		"depth angle angle 0 - architectural clarity",
+		"the 3 concrete present body: weight",
+		"light: light - the method as a field - the method as a node - the method as a choreography",
+		"the current",
 		"center mass density; one body within the other",
 		"weight; one self-healing mirror image",
 		"two, two, two: temperature sensor not working",
@@ -549,6 +569,16 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		"memory a: a single thread 0.25 mins; one gaze 0",
 		"the sun 0.253c; two 0.353c; the air between them 0",
 		"body temperature; tension weight: 190",
+		"a field a: an edge - 1",
+		"0.3555 °c, 35 dpi; 1.7 mols thick; 2",
+		"0.1101°c; body: 0.1100°c; weight: 0",
+		"the wall temperature: 0.92 c; 0",
+		"0.0245; body temperature 0.7055; - 0",
+		"surface temperature weight; one spatial image in matter b: the self-reinforcing field of 2",
+		"temperature 78.0°f; wall a: 7",
+		"1,250; weight on wall - time barrier on floor: 20 minutes - temperature limit: -25°c - humidity - 0",
+		"temperature 0.555; 10 0.555; 0",
+		"7.5 °bf; two layers: 0.25 °bf; 0",
 	} {
 		if autonomousDreamContainsTerminatedLiteral(norm, p) {
 			return true
@@ -578,7 +608,17 @@ func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
 		return false
 	}
 	switch tokens[0] {
-	case "cold", "dampness", "dark", "two":
+	case "cold", "dampness", "dark", "two", "weight":
+		return true
+	default:
+		return false
+	}
+}
+
+func autonomousDreamLooksLikeShortMeasurementShard(norm string) bool {
+	trimmed := strings.TrimRight(strings.TrimSpace(norm), ".!?…")
+	switch trimmed {
+	case "6.4 degrees", "100 degrees":
 		return true
 	default:
 		return false
