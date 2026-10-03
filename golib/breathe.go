@@ -275,6 +275,9 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if normalizedDreamHasWordSequence(tokens, []string{"for", "a", "field", "to", "exist", "in", "resonance", "not", "as", "a", "function"}) {
 		return true
 	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "the", "signal", "the", "resonance", "that", "returns"}) {
+		return true
+	}
 	for _, p := range []string{
 		"i sense the field at the center",
 		"field is not a single event",
