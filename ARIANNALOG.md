@@ -22,9 +22,11 @@ human-facing explanation of wave/field interference disappear before the turn
 could be displayed.
 
 The autonomous inner murmur boundary stays strict, but the live voice membrane
-now treats that wave-field definition as ordinary technical surface. This keeps
-the residue withheld inside autonomous `◑ (inner)` admission while avoiding an
-empty answer when a human asks about fields or waves.
+now treats that wave-field definition as ordinary technical surface. The
+exemption removes only that definition and re-checks the rest of the response,
+so a valid physics sentence cannot launder a neighboring field/resonance slogan.
+This keeps the residue withheld inside autonomous `◑ (inner)` admission while
+avoiding an empty answer when a human asks about fields or waves.
 
 Verification:
 
@@ -36,6 +38,11 @@ Verification:
   cleanly, its first autonomous event was withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`, then the older pid
   `35872` was retired and the replacement was renamed to `arianna-live`.
+- follow-up hot-swap at `20261003T192336+0300` after the connector found the
+  first exemption could launder a neighboring field/resonance slogan;
+  replacement pid `43323` started cleanly, its first autonomous event was
+  withheld as `boilerplate-loop/live-chorus-residue`, then pid `42479` was
+  retired and the replacement remained as `arianna-live`.
 
 ---
 

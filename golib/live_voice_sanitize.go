@@ -105,13 +105,19 @@ func isRejectedLiveVoiceText(text string) bool {
 func liveVoiceInnerRejectReason(text, norm string) string {
 	reason := innerMurmurRejectReason(text)
 	if reason == "abstract-field-slogan" && liveVoiceLooksLikeHumanFacingWaveFieldDefinition(norm) {
-		return ""
+		if innerMurmurRejectReason(liveVoiceWithoutHumanFacingWaveFieldDefinition(norm)) == "" {
+			return ""
+		}
 	}
 	return reason
 }
 
 func liveVoiceLooksLikeHumanFacingWaveFieldDefinition(norm string) bool {
 	return strings.Contains(norm, "a field is the point where two or more waves meet")
+}
+
+func liveVoiceWithoutHumanFacingWaveFieldDefinition(norm string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(norm, "a field is the point where two or more waves meet", " ")), " ")
 }
 
 func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {
