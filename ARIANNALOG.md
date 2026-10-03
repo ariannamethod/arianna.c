@@ -13,6 +13,32 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-03 - Live voice keeps ordinary wave-field definitions
+
+Codex connector found that the post-merge inner boundary for the live-observed
+`A field is the point where two or more waves meet...` residue was also
+reachable through the general live voice sanitizer. That made a valid
+human-facing explanation of wave/field interference disappear before the turn
+could be displayed.
+
+The autonomous inner murmur boundary stays strict, but the live voice membrane
+now treats that wave-field definition as ordinary technical surface. This keeps
+the residue withheld inside autonomous `◑ (inner)` admission while avoiding an
+empty answer when a human asks about fields or waves.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestSanitizeLiveVoiceText|TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer'
+  .`
+- `make metabolism`
+- live hot-swap at `20261003T191734+0300`; replacement pid `42479` started
+  cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`, then the older pid
+  `35872` was retired and the replacement was renamed to `arianna-live`.
+
+---
+
 ## 2026-10-03 - Live polygon: repeated field-slogan and frame/gap residues are withheld
 
 After PR #391 merged, the same live polygon ran through the next day instead of
