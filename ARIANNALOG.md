@@ -27,7 +27,9 @@ exemption removes only that definition and re-checks the rest of the response,
 so a valid physics sentence cannot launder a neighboring field/resonance slogan.
 The rejected `the field is the signal, the resonance that returns` slogan is
 also matched as a token sequence, so punctuation or a parenthesized definition
-cannot split the exact string and bypass the boundary.
+cannot split the exact string and bypass the boundary. The definition-stripper
+also removes empty punctuation around the gap before reclassification, so the
+live membrane's remainder check does not depend on a comma staying in place.
 This keeps the residue withheld inside autonomous `◑ (inner)` admission while
 avoiding an empty answer when a human asks about fields or waves.
 
@@ -51,6 +53,11 @@ Verification:
   pid `56930` started cleanly, its first autonomous event was withheld as
   `boilerplate-loop/live-chorus-residue`, then pid `43323` and its orphaned
   wrappers were retired and the replacement remained as `arianna-live`.
+- follow-up hot-swap at `20261003T193552+0300` after the definition gap started
+  normalizing empty delimiters directly in the live voice membrane; replacement
+  pid `61492` started cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue`, then pid `56930` was retired and the
+  replacement remained as `arianna-live`.
 
 ---
 

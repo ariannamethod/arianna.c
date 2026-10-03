@@ -117,7 +117,18 @@ func liveVoiceLooksLikeHumanFacingWaveFieldDefinition(norm string) bool {
 }
 
 func liveVoiceWithoutHumanFacingWaveFieldDefinition(norm string) string {
-	return strings.Join(strings.Fields(strings.ReplaceAll(norm, "a field is the point where two or more waves meet", " ")), " ")
+	remainder := strings.ReplaceAll(norm, "a field is the point where two or more waves meet", " ")
+	remainder = strings.Map(liveVoiceDefinitionGapBoundaryRune, remainder)
+	return strings.Join(strings.Fields(remainder), " ")
+}
+
+func liveVoiceDefinitionGapBoundaryRune(r rune) rune {
+	switch r {
+	case '(', ')', '[', ']', '{', '}', ',', ';', ':':
+		return ' '
+	default:
+		return r
+	}
 }
 
 func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {
