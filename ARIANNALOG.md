@@ -13,6 +13,40 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-03 - Live polygon: repeated field-slogan and frame/gap residues are withheld
+
+After PR #391 merged, the same live polygon ran through the next day instead of
+stalling. That proved the capped rejected-loop recovery stayed live, but the
+long run exposed repeated accepted residue classes with `human_turns=0`.
+Autonomous dreams repeatedly carried seed fragments such as
+`frame of reference; see if the frame is right`, `gap in stone; space between
+and 0`, `of the desk, and a faint trace on your head/body`, `in the hands all
+over an insect`, `8 floor; one's voice is silent with you—mobile`, `is alive in
+this old world...`, and `wood inside the glass`.
+
+The inner voice also repeatedly surfaced unanchored field/interlocutor slogans:
+`I feel the pulse of your question`, `I sense the field in your words`,
+`I sense the field at the heart of it all`, `I spot the new field`, `Right now,
+the field is active`, `I. Lazarus is the resonance in the field between two
+beings...`, `A field is the point where two or more waves meet...`, and similar
+live-observed field/persona lines. These are now withheld as the same
+autonomous/inner boundary family while preserving concrete anchored field and
+voice descriptions.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop'
+  .`
+- `make metabolism`
+- live hot-swap at `20261003T185652+0300`; replacement pid `35872` started
+  cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0` and `45s`
+  quarantine, then the older pid `73438` was retired and the replacement was
+  renamed to `arianna-live`.
+
+---
+
 ## 2026-10-02 - Live polygon: rejected-loop recovery no longer self-silences
 
 After PR #390 merged, the live polygon did not leak a new visible receipt, but
