@@ -139,12 +139,16 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
 		return false
 	}
-	hasActualRoom := liveTurnTextHasAny(s,
+	hasExplicitRoomContents := liveTurnTextHasAny(s,
 		"actually in the room", "actually in this room", "really in the room", "physically in the room",
-		"actual room", "real room", "physical room", "current physical room",
 		"реально в комнате", "физически в комнате", "на самом деле в комнате", "текущей физической комнате",
 	)
+	hasNamedPhysicalRoom := liveTurnTextHasAny(s, "actual room", "real room", "physical room", "current physical room")
+	hasActualRoom := hasExplicitRoomContents || hasNamedPhysicalRoom
 	if !hasActualRoom {
+		return false
+	}
+	if hasNamedPhysicalRoom && !hasExplicitRoomContents && !liveTurnLooksLikeNamedPhysicalRoomInventoryRequest(s) {
 		return false
 	}
 	hasQuestion := liveTurnTextHasAny(s,
@@ -158,6 +162,36 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 	}
 	return liveTurnTextHasAnyCyrillicPrefix(s, "комнат", "окн", "стол", "ключ", "рук") ||
 		liveTurnTextHasAnyWord(s, "room", "window", "table", "desk", "hand", "key")
+}
+
+func liveTurnLooksLikeNamedPhysicalRoomInventoryRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"what is in the actual room",
+		"what's in the actual room",
+		"what are in the actual room",
+		"what objects are in the actual room",
+		"what do you see in the actual room",
+		"what do you notice in the actual room",
+		"tell me what is in the actual room",
+		"tell me what is in the real room",
+		"what is in the real room",
+		"what's in the real room",
+		"what objects are in the real room",
+		"what do you see in the real room",
+		"what do you notice in the real room",
+		"tell me what is in the physical room",
+		"what is in the physical room",
+		"what's in the physical room",
+		"what objects are in the physical room",
+		"what do you see in the physical room",
+		"what do you notice in the physical room",
+		"tell me what is in the current physical room",
+		"what is in the current physical room",
+		"what's in the current physical room",
+		"what objects are in the current physical room",
+		"what do you see in the current physical room",
+		"what do you notice in the current physical room",
+	)
 }
 
 func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
@@ -229,7 +263,8 @@ func liveTurnHasCurrentNowCue(s string) bool {
 func liveTurnLooksLikeDataTableContext(s string) bool {
 	if liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
 		liveTurnLooksLikeFollowingInputTableContext(s) ||
-		liveTurnLooksLikePositionedInputTableContext(s) {
+		liveTurnLooksLikePositionedInputTableContext(s) ||
+		liveTurnLooksLikeGenericDataTableInputContext(s) {
 		return true
 	}
 	if liveTurnLooksLikeTabularOutputFormatRequest(s) {
@@ -240,6 +275,29 @@ func liveTurnLooksLikeDataTableContext(s string) bool {
 		"attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
 		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
 	) || liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+}
+
+func liveTurnLooksLikeGenericDataTableInputContext(s string) bool {
+	return liveTurnTextHasAny(s,
+		"according to this data table",
+		"according to the data table",
+		"from this data table",
+		"from the data table",
+		"in this data table",
+		"in the data table",
+		"this data table contains",
+		"this data table shows",
+		"this data table lists",
+		"this data table includes",
+		"the data table contains",
+		"the data table shows",
+		"the data table lists",
+		"the data table includes",
+		"attached data table",
+		"given data table",
+		"supplied data table",
+		"provided data table",
+	)
 }
 
 func liveTurnLooksLikeTabularOutputFormatRequest(s string) bool {
@@ -551,7 +609,16 @@ func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 		"определение sha256",
 		"определение sha 256",
 		"значение sha256",
-		"значение sha 256":
+		"значение sha 256",
+		"what is a physical room",
+		"what is physical room",
+		"whats a physical room",
+		"whats physical room",
+		"define physical room",
+		"physical room definition",
+		"что такое физическая комната",
+		"определи физическую комнату",
+		"определение физической комнаты":
 		return true
 	default:
 		return false
@@ -1234,6 +1301,13 @@ func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
 		!liveTurnTextHasAny(lower, "not a frequency", "not frequency", "не частота", "не является частотой") {
 		hasForbiddenMetaphor = true
 	}
+	if liveTurnTextHasAny(lower, "physical room", "физическая комната") {
+		return liveTurnTextHasAny(lower, "bounded physical space", "ограниченное физическое пространство") &&
+			liveTurnTextHasAny(lower, "walls", "стен") &&
+			liveTurnTextHasAny(lower, "floor", "пол") &&
+			liveTurnTextHasAny(lower, "ceiling", "потол") &&
+			!hasForbiddenMetaphor
+	}
 	return liveTurnTextHasAny(lower, "sha-256", "sha256") &&
 		liveTurnTextHasAny(lower, "cryptographic hash", "hash function", "хеш-функц", "хэш-функц", "дайджест") &&
 		liveTurnTextHasAny(lower, "256-bit", "32-byte", "256-бит", "32-байт") &&
@@ -1536,6 +1610,12 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 
 func liveTurnTechnicalDefinitionFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "physical room", "физическ") && liveTurnTextHasAny(s, "room", "комнат") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Физическая комната — это ограниченное физическое пространство в здании или другом месте: у него есть реальные поверхности вроде стен, пола и потолка. Это определение места, а не утверждение, что у этого live-чата есть датчики комнаты."
+		}
+		return "A physical room is a bounded physical space in a building or other location, with real surfaces such as walls, a floor, and a ceiling. It is a definition of a place, not evidence that this live chat has room sensors."
+	}
 	if liveTurnTextHasAny(s, "frequency", "частот") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Нет. SHA-256 — это криптографическая хеш-функция семейства SHA-2: она превращает входные данные любого размера в 256-битный (32-байтный) дайджест. Это не частота."

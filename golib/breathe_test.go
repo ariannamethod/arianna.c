@@ -126,6 +126,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
 		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("I'm a living field biologist documenting the wetlands."); got != "" {
+		t.Fatalf("living field biologist sentence rejected as %q", got)
+	}
 	if isRejectedInnerMurmur("I sense the field in the coil beside the table.") {
 		t.Fatal("anchored field-coil note should remain visible")
 	}

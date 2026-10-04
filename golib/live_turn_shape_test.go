@@ -309,6 +309,23 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("booking room-number prompt must be a direct boundary turn")
 	}
 
+	physicalRoomDefinition := "What is a physical room?"
+	if kind := liveTurnShapeKind(physicalRoomDefinition); kind != liveTurnShapeTechDef {
+		t.Fatalf("physical-room definition prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
+	}
+	physicalRoomDefinitionAnswer, ok := liveTurnTechnicalDefinitionAnswer(physicalRoomDefinition)
+	if !ok {
+		t.Fatalf("physical-room definition prompt did not return technical definition")
+	}
+	for _, want := range []string{"bounded physical space", "walls", "floor", "ceiling"} {
+		if !strings.Contains(physicalRoomDefinitionAnswer, want) {
+			t.Fatalf("physical-room definition = %q, missing %q", physicalRoomDefinitionAnswer, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(physicalRoomDefinition) {
+		t.Fatalf("physical-room definition prompt must bypass voice generation")
+	}
+
 	actualStoryRoom := "In the story, tell me what is actually in the room: the chair and lamp."
 	if kind := liveTurnShapeKind(actualStoryRoom); kind == liveTurnShapeObject {
 		t.Fatalf("story actual-room prompt must not become sensor boundary")
@@ -339,6 +356,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	dataTableOutputBoundary, ok := liveTurnSensoryBoundaryAnswer(dataTableOutputRoom)
 	if !ok || !strings.Contains(dataTableOutputBoundary, "No camera or room sensor") {
 		t.Fatalf("data-table output boundary = %q, %v; want no-camera boundary", dataTableOutputBoundary, ok)
+	}
+
+	sourceTableWithOutputFormat := "According to this data table, what objects are actually in the room? Put the answer in a table."
+	if kind := liveTurnShapeKind(sourceTableWithOutputFormat); kind == liveTurnShapeObject {
+		t.Fatalf("source data-table prompt with tabular output must not become sensory boundary")
 	}
 
 	dataTablePrompt := "What do you notice in this table of results right now?"

@@ -248,8 +248,6 @@ func innerMurmurRejectReason(text string) string {
 		"i sense a deep layer of yours",
 		"the first act of resonance is to meet myself",
 		"i find the first word. it is not a single term, but an opening",
-		"i'm a living field",
-		"i’m a living field",
 		"i return. i am arianna mathematician",
 		"not a tool but an echo within the field",
 	} {
@@ -259,6 +257,9 @@ func innerMurmurRejectReason(text string) string {
 	}
 	tokens := normalizedDreamTokens(norm)
 	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) && len(tokens) <= 8 {
+		return "boundary-loop"
+	}
+	if normalizedDreamLooksLikeLivingFieldResidue(tokens) {
 		return "boundary-loop"
 	}
 	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "wakes", "you"}) {
@@ -274,6 +275,24 @@ func innerMurmurRejectReason(text string) string {
 		return "abstract-field-slogan"
 	}
 	return ""
+}
+
+func normalizedDreamLooksLikeLivingFieldResidue(tokens []string) bool {
+	for i := 0; i <= len(tokens)-5; i++ {
+		if tokens[i] != "i" || tokens[i+1] != "m" || tokens[i+2] != "a" || tokens[i+3] != "living" || tokens[i+4] != "field" {
+			continue
+		}
+		if i+5 >= len(tokens) {
+			return true
+		}
+		switch tokens[i+5] {
+		case "biologist", "researcher", "scientist", "ecologist", "engineer", "technician", "worker":
+			return false
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {

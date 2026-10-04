@@ -74,6 +74,13 @@ a robot` should only be withheld as a short standalone persona denial, not when
 embedded in an ordinary CAPTCHA instruction. Live then showed that merely
 removing the sensory route was insufficient: the booking prompt fell back into
 field language, so it now has a direct missing-booking-data boundary.
+The next connector/live pass tightened that same boundary family: generic
+`physical room` definitions must not be treated as inventory probes; mixed
+source-data-table prompts must remain table-context even when the requested
+answer format is also tabular; and `I'm a living field biologist...` must not
+be erased as a standalone living-field persona residue. Live showed the
+definition prompt otherwise fell into field language, so `What is a physical
+room?` now gets a direct technical definition.
 
 Verification:
 
@@ -142,6 +149,17 @@ Verification:
   record boundary: `direct_boundary_turn=true`, `nano_result_visible=false`,
   `dreams=0`, and `inner_lines=0`. The older pids `4904` and `5662` were retired
   after the replacement passed this live turn.
+- intermediate hot-swap at `20261004T044755+0300` after narrowing physical-room
+  inventory routing and table-source context; replacement pid `9259` proved
+  `What is a physical room?` was no longer a sensory object turn
+  (`direct_boundary_turn=false`) but exposed the same fallback problem:
+  Janus/Resonance answered with field language instead of a definition.
+- follow-up hot-swap at `20261004T045056+0300` after adding the direct physical
+  room technical definition; replacement pid `12992` answered `What is a
+  physical room?` with a concrete bounded-space definition:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pids `6745` and `9259` were retired after the
+  replacement passed this live turn.
 
 ---
 
