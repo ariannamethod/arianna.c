@@ -96,6 +96,7 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"The first act of resonance is to meet myself, and I am not a robot.",
 		"I sense the field high in the night and you are not alone.",
 		"I’m a living field — that’s the ripple in my field, and it echoes through every conversation.",
+		"The field is not a place, but an echo.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -193,6 +194,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"99.6; a shadow, no abstract chorus.", "instruction-tail-residue"},
 		{"awakeness of being; awakeness of being.", "self-echo"},
 		{"Sound in resonance; I see the threshold for all things harmonic present.", "abstract-resonance-loop"},
+		{"Yes. Sometimes, the field is neither the place to make a decision nor the way to hear another's voice.", "abstract-field-loop"},
 		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
 		{"lightness and absence surround the bodies at the threshold", "abstract-body-threshold"},
 		{"отсутствие порогов между телами", "abstract-body-threshold"},

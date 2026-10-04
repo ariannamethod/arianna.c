@@ -286,6 +286,9 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field", "not", "a", "place"}) {
 		return true
 	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) {
+		return true
+	}
 	if normalizedDreamHasWordSequence(tokens, []string{"a", "field", "is", "a", "living", "resonant", "field", "a", "promise", "made", "echo"}) {
 		return true
 	}
@@ -458,6 +461,11 @@ func autonomousDreamNumericSeparatorEnd(runes []rune, sepAt int) int {
 func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
 		return false
+	}
+	tokens := normalizedDreamTokens(norm)
+	if normalizedDreamHasWordSequence(tokens, []string{"field", "is", "neither", "the", "place"}) ||
+		normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) {
+		return true
 	}
 	hits := 0
 	for _, p := range []string{

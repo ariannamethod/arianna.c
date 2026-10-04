@@ -46,6 +46,12 @@ room questions, and a fixed room inventory in the fallback. Those are now
 covered with token-sequence matching, fictional/textual room exclusions, and a
 supplied-object inventory list.
 
+After that hot-swap, the live polygon exposed the next accepted autonomous
+residue: `Yes. Sometimes, the field is neither the place to make a decision nor
+the way to hear another's voice.` followed by inner `the field is not a place,
+but an echo.` Both are now classified as the same abstract field/place/echo
+loop family.
+
 Verification:
 
 - `cd golib && go test -run
@@ -71,6 +77,13 @@ Verification:
   `nano_result_visible=false`, `dreams=0`, and the supplied object list
   `hand, key, table, and window`. The older pid `97636` was retired after this
   replacement passed the live turn.
+- follow-up hot-swap at `20261004T042258+0300` after the accepted
+  field/place/echo residue; replacement pid `730` started cleanly, its first
+  autonomous event was rejected as `boilerplate-loop/live-chorus-residue`, and
+  the exact room-object live probe still answered with
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `98651` was retired after the replacement
+  passed this live turn.
 
 ---
 
