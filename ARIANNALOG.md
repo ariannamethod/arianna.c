@@ -87,6 +87,11 @@ data; a physical `table` listed before a Markdown-table output request must
 stay in the room inventory; and Russian clock matching must not read `часы` out
 of unrelated words such as `часть`. Those are now covered by targeted
 regressions.
+The next connector pass tightened room-number intent: translation or other
+mentions of `hotel room number` must not become missing-booking boundaries, and
+a booking id digit must not be mistaken for a supplied room number. It also
+narrowed `I sense a hidden resonance in the field` to short standalone residue
+so explanatory rewrites are not erased.
 
 Verification:
 
@@ -174,6 +179,15 @@ Verification:
   answered with `table, chair, and lamp` preserved in the room inventory:
   `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
   `inner_lines=0`. The older pid `12992` was retired after the replacement
+  passed this live turn.
+- follow-up hot-swap at `20261004T050202+0300` after the room-number lookup
+  intent and hidden-resonance scope fixes; replacement pid `33709` started
+  cleanly, rejected its first autonomous event as
+  `boilerplate-loop/live-chorus-residue`, and `The room number is missing from
+  booking 12345; what is it?` answered with the missing booking/reservation
+  record boundary instead of treating `12345` as the supplied room number:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `19404` was retired after the replacement
   passed this live turn.
 
 ---

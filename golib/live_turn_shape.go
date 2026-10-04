@@ -198,11 +198,15 @@ func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
 	if liveTurnSuppliesRoomNumber(s) {
 		return false
 	}
+	if !liveTurnLooksLikeRoomNumberLookupRequest(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"actual room number",
 		"real room number",
 		"physical room number",
 		"current room number",
+		"room number",
 		"room number in the booking",
 		"room number in the reservation",
 		"booking room number",
@@ -213,8 +217,15 @@ func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
 	)
 }
 
-func liveTurnSuppliesRoomNumber(s string) bool {
+func liveTurnLooksLikeRoomNumberLookupRequest(s string) bool {
 	return liveTurnTextHasAny(s,
+		"what is", "what's", "which", "tell me", "say", "repeat", "find", "lookup", "look up", "retrieve", "missing", "unavailable",
+		"какой", "какая", "скажи", "найди", "отсутств", "не указан",
+	)
+}
+
+func liveTurnSuppliesRoomNumber(s string) bool {
+	return liveTurnPhraseFollowedByDigit(s,
 		"room number is",
 		"room number:",
 		"actual room number is",
@@ -222,7 +233,24 @@ func liveTurnSuppliesRoomNumber(s string) bool {
 		"real room number is",
 		"real room number:",
 		"номер комнаты",
-	) && liveTurnTextHasDigit(s)
+	)
+}
+
+func liveTurnPhraseFollowedByDigit(s string, phrases ...string) bool {
+	for _, phrase := range phrases {
+		idx := strings.Index(s, phrase)
+		if idx < 0 {
+			continue
+		}
+		tail := strings.TrimLeft(s[idx+len(phrase):], " \t\r\n:=-#№")
+		if tail == "" {
+			continue
+		}
+		for _, r := range tail {
+			return unicode.IsDigit(r)
+		}
+	}
+	return false
 }
 
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {

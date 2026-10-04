@@ -322,6 +322,14 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(suppliedRoomNumber); kind == liveTurnShapeExternal {
 		t.Fatalf("supplied booking room-number prompt must not claim missing booking data")
 	}
+	missingRoomNumberWithBookingID := "The room number is missing from booking 12345; what is it?"
+	if kind := liveTurnShapeKind(missingRoomNumberWithBookingID); kind != liveTurnShapeExternal {
+		t.Fatalf("missing room-number prompt with booking id kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	translateRoomNumber := "Translate 'hotel room number' into French."
+	if kind := liveTurnShapeKind(translateRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("translation prompt mentioning hotel room number must not claim missing booking data")
+	}
 
 	physicalRoomDefinition := "What is a physical room?"
 	if kind := liveTurnShapeKind(physicalRoomDefinition); kind != liveTurnShapeTechDef {
