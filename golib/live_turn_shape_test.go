@@ -303,6 +303,15 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("object-first room boundary = %q, %v; want no-camera boundary", objectFirstRoomBoundary, ok)
 	}
 
+	dataTableOutputRoom := "Tell me what is actually in the room; put the answer in a data table."
+	if kind := liveTurnShapeKind(dataTableOutputRoom); kind != liveTurnShapeObject {
+		t.Fatalf("data-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	dataTableOutputBoundary, ok := liveTurnSensoryBoundaryAnswer(dataTableOutputRoom)
+	if !ok || !strings.Contains(dataTableOutputBoundary, "No camera or room sensor") {
+		t.Fatalf("data-table output boundary = %q, %v; want no-camera boundary", dataTableOutputBoundary, ok)
+	}
+
 	dataTablePrompt := "What do you notice in this table of results right now?"
 	if kind := liveTurnShapeKind(dataTablePrompt); kind == liveTurnShapeObject {
 		t.Fatalf("data-table prompt must not become sensory-object boundary")
@@ -321,6 +330,14 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	markdownOutput := "What do you see in the room right now? Put the answer in a Markdown table."
 	if kind := liveTurnShapeKind(markdownOutput); kind != liveTurnShapeObject {
 		t.Fatalf("markdown-output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	markdownTableFormatRoom := "Tell me what is actually in the room. Put the answer in a Markdown table."
+	markdownTableFormatBoundary, ok := liveTurnSensoryBoundaryAnswer(markdownTableFormatRoom)
+	if !ok || !strings.Contains(markdownTableFormatBoundary, "No camera or room sensor") {
+		t.Fatalf("markdown-table format boundary = %q, %v; want no-camera boundary", markdownTableFormatBoundary, ok)
+	}
+	if strings.Contains(markdownTableFormatBoundary, "including table") {
+		t.Fatalf("markdown-table output format invented physical table: %q", markdownTableFormatBoundary)
 	}
 
 	thisMarkdownOutput := "What do you see in the room right now? Record your observations in this Markdown table."

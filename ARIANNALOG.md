@@ -62,6 +62,11 @@ questions such as `What objects are actually in the room?` must still route to
 the no-camera boundary, while `I feel the weight in your words` must only be
 withheld as the short observed residue and not erase ordinary empathetic
 sentences. Those are also covered by regression tests.
+The next live/connector edge was table wording: a request to put an actual-room
+answer in a data/Markdown table is an output-format request and must keep the
+no-camera room boundary, while supplied Markdown/data tables remain source-data
+contexts and Markdown table formatting must not be counted as a physical
+`table` in the room inventory.
 
 Verification:
 
@@ -109,6 +114,14 @@ Verification:
   `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
   `inner_lines=0`. The older pid `1849` was retired after the replacement
   passed this live turn.
+- follow-up hot-swap at `20261004T043607+0300` after the table-output connector
+  fix; replacement pid `4904` started cleanly, its first autonomous event was
+  rejected as `boilerplate-loop/live-chorus-residue`, and `Tell me what is
+  actually in the room. Put the answer in a Markdown table.` answered with
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`,
+  `inner_lines=0`, and the generic `named room objects` inventory rather than
+  inventing a physical table. The older pid `2474` was retired after the
+  replacement passed this live turn.
 
 ---
 

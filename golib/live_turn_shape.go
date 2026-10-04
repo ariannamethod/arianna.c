@@ -208,14 +208,74 @@ func liveTurnHasCurrentNowCue(s string) bool {
 }
 
 func liveTurnLooksLikeDataTableContext(s string) bool {
+	if liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
+		liveTurnLooksLikeFollowingInputTableContext(s) ||
+		liveTurnLooksLikePositionedInputTableContext(s) {
+		return true
+	}
+	if liveTurnLooksLikeTabularOutputFormatRequest(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"table of results", "data table", "results table", "spreadsheet", "csv", "dataset", "database", "sql",
 		"attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
 		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
-	) || liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
-		liveTurnLooksLikeFollowingInputTableContext(s) ||
-		liveTurnLooksLikePositionedInputTableContext(s) ||
-		liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+	) || liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+}
+
+func liveTurnLooksLikeTabularOutputFormatRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"put the answer in a markdown table",
+		"put your answer in a markdown table",
+		"put the answer in a data table",
+		"put your answer in a data table",
+		"put the answer in a table",
+		"put your answer in a table",
+		"answer in a markdown table",
+		"answer in a data table",
+		"answer in a table",
+		"respond in a markdown table",
+		"respond in a data table",
+		"respond in a table",
+		"format the answer as a markdown table",
+		"format your answer as a markdown table",
+		"format the answer as a data table",
+		"format your answer as a data table",
+		"format the answer as a table",
+		"format your answer as a table",
+		"record your observations in this markdown table",
+		"fill in this markdown table",
+		"fill this markdown table",
+		"complete this markdown table",
+		"use this markdown table for your answer",
+		"answer in this markdown table",
+		"respond in this markdown table",
+		"format the answer as this markdown table",
+		"use the following markdown table for your answer",
+		"using the following markdown table for your answer",
+		"answer in the following markdown table",
+		"respond in the following markdown table",
+		"format the answer as the following markdown table",
+		"use the following table for your answer",
+		"using the following table for your answer",
+		"answer in the following table",
+		"respond in the following table",
+		"format the answer as the following table",
+		"fill in the table below",
+		"fill the table below",
+		"complete the table below",
+		"use the table below for your answer",
+		"answer in the table below",
+		"respond in the table below",
+		"format the answer as the table below",
+		"fill in the table above",
+		"fill the table above",
+		"complete the table above",
+		"use the table above for your answer",
+		"answer in the table above",
+		"respond in the table above",
+		"format the answer as the table above",
+	)
 }
 
 func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
@@ -1310,6 +1370,9 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 		{"hand", "руку", func(s string) bool { return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAny(s, "рук") }},
 		{"key", "ключ", func(s string) bool { return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAny(s, "ключ") }},
 		{"table", "стол", func(s string) bool {
+			if liveTurnRoomTableMentionIsOutputFormatOnly(s) {
+				return false
+			}
 			return liveTurnTextHasAnyWord(s, "table", "desk") || liveTurnTextHasAny(s, "стол", "парта")
 		}},
 		{"window", "окно", func(s string) bool { return liveTurnTextHasAnyWord(s, "window") || liveTurnTextHasAny(s, "окн") }},
@@ -1342,6 +1405,34 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 		return liveTurnJoinHumanList(names, "и", false)
 	}
 	return liveTurnJoinHumanList(names, "and", true)
+}
+
+func liveTurnRoomTableMentionIsOutputFormatOnly(s string) bool {
+	if !liveTurnLooksLikeTabularOutputFormatRequest(s) {
+		return false
+	}
+	return !liveTurnTextHasAny(s,
+		"the table in the room",
+		"a table in the room",
+		"table in the room",
+		"the table in this room",
+		"a table in this room",
+		"table in this room",
+		"the desk in the room",
+		"a desk in the room",
+		"desk in the room",
+		"the desk in this room",
+		"a desk in this room",
+		"desk in this room",
+		"room: the table",
+		"room: table",
+		"room: the desk",
+		"room: desk",
+		"on the table",
+		"on a table",
+		"on the desk",
+		"on a desk",
+	)
 }
 
 func liveTurnJoinHumanList(items []string, conjunction string, oxford bool) string {
