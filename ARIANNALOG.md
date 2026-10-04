@@ -67,6 +67,13 @@ answer in a data/Markdown table is an output-format request and must keep the
 no-camera room boundary, while supplied Markdown/data tables remain source-data
 contexts and Markdown table formatting must not be counted as a physical
 `table` in the room inventory.
+The next connector/live pass caught three further boundary edges: `actual room
+number in the booking` is a booking-record question, not a sensory room probe;
+Russian object extraction must not read `ключ` out of `включая`; and `I am not
+a robot` should only be withheld as a short standalone persona denial, not when
+embedded in an ordinary CAPTCHA instruction. Live then showed that merely
+removing the sensory route was insufficient: the booking prompt fell back into
+field language, so it now has a direct missing-booking-data boundary.
 
 Verification:
 
@@ -122,6 +129,19 @@ Verification:
   `inner_lines=0`, and the generic `named room objects` inventory rather than
   inventing a physical table. The older pid `2474` was retired after the
   replacement passed this live turn.
+- intermediate hot-swap at `20261004T044047+0300` after the connector fixes for
+  booking room numbers, Russian object tokenization, and robot-denial scope;
+  replacement pid `5662` proved `What is the actual room number in the booking?`
+  was no longer a sensory room turn (`direct_boundary_turn=false`) but exposed a
+  live fallback defect: Janus/Resonance answered with field language instead of
+  saying the booking record was unavailable.
+- follow-up hot-swap at `20261004T044324+0300` after the booking-record boundary
+  fix; replacement pid `6745` started cleanly, its first autonomous event was
+  rejected as `boilerplate-loop/live-chorus-residue`, and `What is the actual
+  room number in the booking?` answered with a direct missing booking/reservation
+  record boundary: `direct_boundary_turn=true`, `nano_result_visible=false`,
+  `dreams=0`, and `inner_lines=0`. The older pids `4904` and `5662` were retired
+  after the replacement passed this live turn.
 
 ---
 

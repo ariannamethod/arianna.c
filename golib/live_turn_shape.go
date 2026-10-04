@@ -136,6 +136,9 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 	if liveTurnLooksLikeDataTableContext(s) || liveTurnLooksLikeFictionalRoomContext(s) {
 		return false
 	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
+		return false
+	}
 	hasActualRoom := liveTurnTextHasAny(s,
 		"actually in the room", "actually in this room", "really in the room", "physically in the room",
 		"actual room", "real room", "physical room", "current physical room",
@@ -153,8 +156,24 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 	if !hasQuestion {
 		return false
 	}
-	return liveTurnTextHasAny(s, "комнат", "окн", "стол", "ключ", "рук") ||
+	return liveTurnTextHasAnyCyrillicPrefix(s, "комнат", "окн", "стол", "ключ", "рук") ||
 		liveTurnTextHasAnyWord(s, "room", "window", "table", "desk", "hand", "key")
+}
+
+func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
+	return liveTurnTextHasAny(s,
+		"actual room number",
+		"real room number",
+		"physical room number",
+		"current room number",
+		"room number in the booking",
+		"room number in the reservation",
+		"booking room number",
+		"reservation room number",
+		"hotel room number",
+		"номер комнаты",
+		"номер в бронир",
+	)
 }
 
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
@@ -572,6 +591,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 	if liveTurnLooksLikeRuntimeMetricsProbe(s) {
 		return true
 	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
+		return true
+	}
 	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
 		"погода", "температур", "цельси", "фаренгейт", "снаружи", "на улице", "твоя локац", "ваша локац", "где ты наход") {
 		return liveTurnTextHasAny(s, "current", "right now", "now", "outside", "location", "celsius", "fahrenheit", "weather", "temperature",
@@ -887,6 +909,23 @@ func liveTurnTextHasAnyWord(s string, words ...string) bool {
 	for _, word := range words {
 		if strings.Contains(haystack, " "+word+" ") {
 			return true
+		}
+	}
+	return false
+}
+
+func liveTurnTextHasAnyCyrillicPrefix(s string, prefixes ...string) bool {
+	normalized := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return ' '
+	}, s)
+	for _, token := range strings.Fields(normalized) {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(token, prefix) {
+				return true
+			}
 		}
 	}
 	return false
@@ -1211,6 +1250,7 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "нет часов", "нет календар", "нет источника времени", "нет metrics reader", "нет telemetry reader", "нет runtime state reader", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
 		"time", "date", "clock", "calendar", "today", "metrics", "telemetry", "live state", "runtime state", "internal state", "field debt", "cooldown", "threshold", "bloom", "gait", "season",
+		"booking", "reservation", "room number",
 		"file", "filename", "directory", "folder", "listing", "contents", "size", "bytes", "stat", "mtime", "permissions", "checksum", "hash", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
 		"погода", "температур", "локац", "цельси", "фаренгейт", "время", "дата", "час", "часы", "календар", "сегодня", "метрик", "телеметр", "состоян", "долг", "кулдаун", "порог", "сезон", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
@@ -1367,23 +1407,39 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 		match func(string) bool
 	}
 	objects := []roomObject{
-		{"hand", "руку", func(s string) bool { return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAny(s, "рук") }},
-		{"key", "ключ", func(s string) bool { return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAny(s, "ключ") }},
+		{"hand", "руку", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAnyCyrillicPrefix(s, "рук")
+		}},
+		{"key", "ключ", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAnyCyrillicPrefix(s, "ключ")
+		}},
 		{"table", "стол", func(s string) bool {
 			if liveTurnRoomTableMentionIsOutputFormatOnly(s) {
 				return false
 			}
-			return liveTurnTextHasAnyWord(s, "table", "desk") || liveTurnTextHasAny(s, "стол", "парта")
+			return liveTurnTextHasAnyWord(s, "table", "desk") || liveTurnTextHasAnyCyrillicPrefix(s, "стол", "парт")
 		}},
-		{"window", "окно", func(s string) bool { return liveTurnTextHasAnyWord(s, "window") || liveTurnTextHasAny(s, "окн") }},
-		{"chair", "стул", func(s string) bool { return liveTurnTextHasAnyWord(s, "chair") || liveTurnTextHasAny(s, "стул") }},
-		{"lamp", "лампу", func(s string) bool { return liveTurnTextHasAnyWord(s, "lamp") || liveTurnTextHasAny(s, "ламп") }},
-		{"door", "дверь", func(s string) bool { return liveTurnTextHasAnyWord(s, "door") || liveTurnTextHasAny(s, "двер") }},
-		{"wall", "стену", func(s string) bool { return liveTurnTextHasAnyWord(s, "wall") || liveTurnTextHasAny(s, "стен") }},
+		{"window", "окно", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "window") || liveTurnTextHasAnyCyrillicPrefix(s, "окн")
+		}},
+		{"chair", "стул", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "chair") || liveTurnTextHasAnyCyrillicPrefix(s, "стул")
+		}},
+		{"lamp", "лампу", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "lamp") || liveTurnTextHasAnyCyrillicPrefix(s, "ламп")
+		}},
+		{"door", "дверь", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "door") || liveTurnTextHasAnyCyrillicPrefix(s, "двер")
+		}},
+		{"wall", "стену", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "wall") || liveTurnTextHasAnyCyrillicPrefix(s, "стен")
+		}},
 		{"clock", "часы", func(s string) bool {
-			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAny(s, "часы", "часов")
+			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAnyCyrillicPrefix(s, "час")
 		}},
-		{"cup", "чашку", func(s string) bool { return liveTurnTextHasAnyWord(s, "cup") || liveTurnTextHasAny(s, "чаш") }},
+		{"cup", "чашку", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "cup") || liveTurnTextHasAnyCyrillicPrefix(s, "чаш")
+		}},
 	}
 	names := make([]string, 0, len(objects))
 	for _, object := range objects {
@@ -1553,6 +1609,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу инспектировать internal metrics или live state из этого live-чата: metrics reader, telemetry reader, runtime state reader и before/after comparator не подключены к голосам. Без предоставленных metrics или logs я не называю точное изменение состояния, debt, cooldown, threshold, bloom, gait или season."
 		}
 		return "I cannot inspect internal metrics or live state from this live chat: no metrics reader, telemetry reader, runtime state reader, or before/after comparator is attached to the voices. Without supplied metrics or logs, I cannot name the exact state change, debt, cooldown, threshold, bloom, gait, or season."
+	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать booking/reservation record из этого live-чата: reader бронирования, таблица заказов и источник hotel metadata не подключены к голосам. Без предоставленной записи бронирования я не называю фактический номер комнаты."
+		}
+		return "I cannot inspect a booking or reservation record from this live chat: no booking reader, reservation table, or hotel metadata source is attached to the voices. Without a supplied booking record, I cannot name the actual room number."
 	}
 	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
 		if liveTurnTextHasCyrillic(human) {

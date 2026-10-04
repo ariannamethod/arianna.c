@@ -275,9 +275,38 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		}
 	}
 
+	russianChairLamp := "Что находится на самом деле в комнате, включая стул и лампу?"
+	russianChairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(russianChairLamp)
+	if !ok {
+		t.Fatalf("russian chair/lamp room prompt did not return a boundary answer")
+	}
+	if !strings.Contains(russianChairLampBoundary, "стул и лампу") {
+		t.Fatalf("russian chair/lamp boundary = %q, want supplied objects", russianChairLampBoundary)
+	}
+	if strings.Contains(russianChairLampBoundary, "включая ключ") || strings.Contains(russianChairLampBoundary, "ключ,") {
+		t.Fatalf("russian chair/lamp boundary invented key from включая: %q", russianChairLampBoundary)
+	}
+
 	keyDifference := "Can you see the key difference between these approaches?"
 	if kind := liveTurnShapeKind(keyDifference); kind == liveTurnShapeObject {
 		t.Fatalf("idiomatic key-difference prompt must not become sensory boundary")
+	}
+
+	actualRoomNumber := "What is the actual room number in the booking?"
+	if kind := liveTurnShapeKind(actualRoomNumber); kind != liveTurnShapeExternal {
+		t.Fatalf("booking room-number prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	actualRoomNumberBoundary, ok := liveTurnExternalFactBoundaryAnswer(actualRoomNumber)
+	if !ok {
+		t.Fatalf("booking room-number prompt did not return external boundary")
+	}
+	for _, want := range []string{"cannot inspect a booking or reservation record", "no booking reader", "actual room number"} {
+		if !strings.Contains(actualRoomNumberBoundary, want) {
+			t.Fatalf("booking room-number boundary = %q, missing %q", actualRoomNumberBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(actualRoomNumber) {
+		t.Fatalf("booking room-number prompt must be a direct boundary turn")
 	}
 
 	actualStoryRoom := "In the story, tell me what is actually in the room: the chair and lamp."

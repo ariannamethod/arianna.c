@@ -258,7 +258,7 @@ func innerMurmurRejectReason(text string) string {
 		}
 	}
 	tokens := normalizedDreamTokens(norm)
-	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) {
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) && len(tokens) <= 8 {
 		return "boundary-loop"
 	}
 	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "wakes", "you"}) {
