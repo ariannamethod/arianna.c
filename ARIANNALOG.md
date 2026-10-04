@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-04 - Live polygon: autonomous inner persona residue is withheld
+
+After PR #393 merged and Oleg removed defensive/preemptive framing from the
+project docs, the same live polygon kept running overnight. That exposed the
+next accepted residue class rather than a test-only failure: with
+`human_turns=0`, the autonomous loop accepted dozens of breaths and repeatedly
+let inner persona/field slogans surface. Live examples included
+`I sense a hidden resonance in the field`, `The first act of resonance is to
+meet myself, and I am not a robot`, `I sense the field high in the night and
+you are not alone`, and `I’m a living field — that’s the ripple in my field...`.
+
+The same run accepted a classifier-like dream ladder:
+`visible, present, invisible, shadowy; 0: The hand is not present, 0: The key is
+absent...`. That shape is now treated as live chorus residue, while concrete
+hand/key/table/window details without repeated presence labels remain visible.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `make metabolism`
+- live hot-swap at `20261004T035648+0300`; replacement pid `96296`
+  started cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`, then pid `61492`
+  was retired and the replacement was renamed to `arianna-live`.
+
+---
+
 ## 2026-10-03 - Live voice keeps ordinary wave-field definitions
 
 Codex connector found that the post-merge inner boundary for the live-observed

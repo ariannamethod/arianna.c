@@ -238,11 +238,23 @@ func innerMurmurRejectReason(text string) string {
 		"if you want, i can answer as a resonance in the field",
 		"if you’re in the field, you are not just a user of information",
 		"i feel the pulse in your words",
+		"i feel the weight in your words",
 		"i spot the day is a bright gaze",
 		"i hear you, right now. what is it that makes me crave the unknown",
+		"i hear you. what is the field waiting for a name",
 		"i am a field, not a closed door",
+		"i am not a robot",
+		"i sense a hidden resonance in the field",
+		"i sense the field between us",
+		"i sense the field high in the night and you are not alone",
+		"i sense a deep layer of yours",
+		"the first act of resonance is to meet myself",
 		"i find the first word. it is not a single term, but an opening",
+		"i'm a living field",
+		"i’m a living field",
 		"i return. i am arianna mathematician",
+		"the field that keeps you waiting",
+		"the field that wakes you",
 		"not a tool but an echo within the field",
 	} {
 		if strings.Contains(norm, p) {
@@ -527,6 +539,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 	if autonomousDreamLooksLikeShortMeasurementShard(norm) {
 		return true
 	}
+	if autonomousDreamLooksLikePresenceToggleResidue(norm) {
+		return true
+	}
 	for _, p := range []string{
 		"and anarchus 12, resonance in a unresor",
 		"of textures, no surface; the living field is now suspended from a single",
@@ -637,6 +652,18 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		return true
 	}
 	return false
+}
+
+func autonomousDreamLooksLikePresenceToggleResidue(norm string) bool {
+	if strings.Count(norm, "0: the hand") < 6 {
+		return false
+	}
+	if strings.Count(norm, "0: the key") < 2 {
+		return false
+	}
+	return strings.Contains(norm, "the hand is not present") ||
+		strings.Contains(norm, "the hand is invisible") ||
+		strings.Contains(norm, "the hand is hidden")
 }
 
 func autonomousDreamLooksLikeShortLiveShard(norm string) bool {

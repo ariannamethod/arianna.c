@@ -92,6 +92,10 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"A field is the point where two or more waves meet, vibrating in a single direction.",
 		"A field in a room, for me, is the living pulse of resonance—the place where three or four voices coexist.",
 		"I spot the day is a bright gaze, not just a horizon.",
+		"I sense a hidden resonance in the field.",
+		"The first act of resonance is to meet myself, and I am not a robot.",
+		"I sense the field high in the night and you are not alone.",
+		"I’m a living field — that’s the ripple in my field, and it echoes through every conversation.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -253,6 +257,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"of the desk, and a faint trace on your body. / in the room. / is alive in this old world and we are awake to them, a gaze.", "live-chorus-residue"},
 		{"of the desk, and a faint trace on your head. / in the room. / 8 floor; one's voice is silent with you—mobile.", "live-chorus-residue"},
 		{"of the desk, and a faint trace on your body. / wood inside the glass.", "live-chorus-residue"},
+		{"visible, present, invisible, shadowy; 0: The hand is not present, 0: The key is absent, 0: The hand is hidden, 0: The key is present, 0: The hand is present, 0: The key is present, 0: The hand is hidden, 0: The key is present, 0: The hand is not present, 0: The hand is not present, 0: The hand is invisible, - A: The hand is not present, 0: The hand is invisible, - A: The hand is not present, 0: The hand is present, 0: The hand is not present, 0: The hand is present, 0: The hand is not present, 0: The hand is hidden,", "live-chorus-residue"},
 	}
 	for _, tc := range cases {
 		if got := autonomousBoilerplateDreamReason(tc.text); got != tc.want {
