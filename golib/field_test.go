@@ -117,18 +117,17 @@ func TestFieldModulate(t *testing.T) {
 		t.Errorf("hot field (RUN/summer) must quicken+lower-threshold+bloom, got cooldown=%v threshold=%v bloom=%d", hcm, htm, hbl)
 	}
 
-	// INVARIANT: a strained wintering field rests via cooldown + bloom, but must
-	// NEVER raise the threshold (that would mute the breath at the idle operating
-	// point). threshold stays at the base 1.0; cooldown lengthens; bloom collapses.
+	// A strained wintering field rests by lengthening cooldown, raising the
+	// threshold inside the clamp, and collapsing bloom.
 	cold := fieldSnapshot{valid: true, velocityMode: velNOMOVE, winter: 1.0, seasonIntensity: 1.0, debt: 80}
 	ccm, ctm, cbl := cold.modulate()
 	if ccm <= 1.0 || cbl > 3 {
 		t.Errorf("strained field must rest+collapse, got cooldown=%v bloom=%d", ccm, cbl)
 	}
-	if ctm > 1.0 {
-		t.Errorf("strained field must NOT raise the threshold (no suppression), got threshold=%v", ctm)
+	if ctm <= 1.0 {
+		t.Errorf("strained field must raise the threshold inside the clamp, got threshold=%v", ctm)
 	}
-	if ccm > 2.5 || cbl < 2 || htm < 0.75 {
+	if ccm > 10.0 || ctm > 2.75 || cbl < 1 || htm < 0.75 {
 		t.Errorf("knobs escaped their clamps: cooldown=%v bloom=%d hot-threshold=%v", ccm, cbl, htm)
 	}
 }

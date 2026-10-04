@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const dreamAdmissionNeutralCandidateText = "A small brass key rests beside the quiet window."
+
 func TestDreamAdmissionShadowRejectsMutation(t *testing.T) {
 	t.Setenv("AM_DREAM_ADMISSION", dreamAdmissionShadow)
 
@@ -19,8 +21,8 @@ func TestDreamAdmissionShadowRejectsMutation(t *testing.T) {
 	before := iw.GetSnapshot()
 	r := dreamResult{
 		frag:      "the archive remembers the field before it speaks",
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("nano", "test", "seed", "fragment", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("nano", "test", "seed", "fragment", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "test") {
 		t.Fatal("shadow dream candidate must not be admitted")
@@ -48,8 +50,8 @@ func TestDreamAdmissionLiveAcceptsCandidate(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "test", "seed", "", "I love this beautiful joyful field and its living resonance", []chorusCell{{text: "a"}, {text: "?"}}),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "test", "seed", "", dreamAdmissionNeutralCandidateText, []chorusCell{{text: "a"}, {text: "?"}}),
 	}
 	if !admitDreamToInnerWorld(iw, &r, "test") {
 		t.Fatal("live dream candidate should be admitted")
@@ -242,8 +244,8 @@ func TestDreamAdmissionLiveSourceGateFailsClosed(t *testing.T) {
 
 	before := iw.GetSnapshot()
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "test", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "test", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "test") {
 		t.Fatal("live admission must reject a source outside the allowlist")
@@ -269,8 +271,8 @@ func TestDreamAdmissionLiveSourceGateAllowsListedSource(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "test", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "test", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if !admitDreamToInnerWorld(iw, &r, "test") {
 		t.Fatalf("listed source should pass live admission: %+v", r.candidate)
@@ -289,8 +291,8 @@ func TestDreamAdmissionLiveRoutePlanGateAllowsProvenSource(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "identity", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if !admitDreamToInnerWorld(iw, &r, "identity") {
 		t.Fatalf("proven route source should pass live route-plan admission: %+v", r.candidate)
@@ -317,8 +319,8 @@ func TestDreamAdmissionLiveRouteChoiceDryRunDoesNotGate(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("direct", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("direct", "identity", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if !admitDreamToInnerWorld(iw, &r, "identity") {
 		t.Fatalf("dry-run route choice must not reject live admission: %+v", r.candidate)
@@ -346,8 +348,8 @@ func TestAdmitDreamToInnerWorldPreservesTypedCandidateTrigger(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "chorus-identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "chorus-identity", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "human-turn") {
 		t.Fatal("shadow admission must not admit")
@@ -372,8 +374,8 @@ func TestDreamAdmissionLiveRouteChoiceDryRunWritesReceipt(t *testing.T) {
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("direct", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("direct", "identity", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "identity") {
 		t.Fatal("shadow dry-run receipt must not admit")
@@ -410,8 +412,8 @@ func TestDreamAdmissionLiveRouteTurnBridgeDryRunWritesAdmissionReceipt(t *testin
 
 	turnObs := admissionLiveRouteTurnObservationForHuman("Who are you?")
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("nano", "human-turn", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("nano", "human-turn", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorldWithTurnObservation(iw, &r, "human-turn", turnObs) {
 		t.Fatal("shadow turn-bridge receipt must not admit")
@@ -449,8 +451,8 @@ func TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource(t *testing.T) {
 
 	before := iw.GetSnapshot()
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("direct", "identity", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("direct", "identity", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "identity") {
 		t.Fatal("live route-plan admission must reject a source that does not match the prompt class route")
@@ -483,8 +485,8 @@ func TestDreamAdmissionLiveRoutePlanGateFailsClosedForUnknownClass(t *testing.T)
 	defer iw.Stop()
 
 	r := dreamResult{
-		dream:     "I love this beautiful joyful field and its living resonance",
-		candidate: newDreamCandidate("chorus", "unknown-pressure", "seed", "", "I love this beautiful joyful field and its living resonance", nil),
+		dream:     dreamAdmissionNeutralCandidateText,
+		candidate: newDreamCandidate("chorus", "unknown-pressure", "seed", "", dreamAdmissionNeutralCandidateText, nil),
 	}
 	if admitDreamToInnerWorld(iw, &r, "unknown-pressure") {
 		t.Fatal("unknown prompt class must fail closed when live route-plan admission is required")
