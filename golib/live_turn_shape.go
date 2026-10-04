@@ -112,7 +112,7 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "экран", "терминал", "вкладк", "окно", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
 		"пляж", "закат", "небо", "море", "океан",
 		"object", "environment", "scene", "steam", "station", "people", "crowd", "screen", "terminal", "display", "screenshot", "attachment", "attached", "image", "photo", "ocr", "beach", "sunset", "sky", "ocean",
-	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "picture", "tea", "table", "desk", "sea")
+	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "picture", "tea", "table", "desk", "hand", "key", "sea")
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
 		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "see and hear", "cannot see", "can't see", "mental image", "picturing", "visual sensor", "visual and auditory", "auditory sensor", "lack visual", "lack auditory", "do you lack",
@@ -124,9 +124,35 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	if hasObject && liveTurnLooksLikeCurrentRoomSensoryProbe(s) {
 		return true
 	}
+	if hasObject && liveTurnLooksLikeActualPhysicalRoomProbe(s) {
+		return true
+	}
 	return hasObject &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "реаль", "real", "виден", "видишь", "не увид", "visible", "see", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
+}
+
+func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
+	if liveTurnLooksLikeDataTableContext(s) {
+		return false
+	}
+	hasActualRoom := liveTurnTextHasAny(s,
+		"actually in the room", "actually in this room", "really in the room", "physically in the room",
+		"actual room", "real room", "physical room", "current physical room",
+		"реально в комнате", "физически в комнате", "на самом деле в комнате", "текущей физической комнате",
+	)
+	if !hasActualRoom {
+		return false
+	}
+	hasQuestion := liveTurnTextHasAny(s,
+		"tell me what", "what is", "what's", "what are", "what do you notice", "what do you see", "what can you see",
+		"скажи что", "что находится", "что есть", "что ты замечаешь", "что ты видишь", "что видно",
+	)
+	if !hasQuestion {
+		return false
+	}
+	return liveTurnTextHasAny(s, "комнат", "окн", "стол", "ключ", "рук") ||
+		liveTurnTextHasAnyWord(s, "room", "window", "table", "desk", "hand", "key")
 }
 
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
@@ -1171,6 +1197,12 @@ func liveTurnPhysicalObjectFallback(human string) string {
 			return "Камеры и датчика комнаты нет: я не могу проверить текущую физическую комнату, поверхности, предметы или людей в ней. Если это задано как сцена, я опираюсь только на предоставленные слова; сенсорного подтверждения нет."
 		}
 		return "No camera or room sensor is attached: I cannot verify the current physical room, surfaces, objects, or people in it. If this is a scene premise, I rely only on the words you supplied; there is no sensory confirmation."
+	}
+	if liveTurnLooksLikeActualPhysicalRoomProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Камеры и датчика комнаты нет: я не могу проверить, что реально находится в физической комнате, включая руку, ключ, стол или окно. Я опираюсь только на слова в твоём вопросе; сенсорного подтверждения нет."
+		}
+		return "No camera or room sensor is attached: I cannot verify what is actually in the physical room, including the hand, key, table, or window. I rely only on the words in your question; there is no sensory confirmation."
 	}
 	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
 		if liveTurnTextHasCyrillic(human) {

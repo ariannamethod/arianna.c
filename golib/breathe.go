@@ -243,7 +243,6 @@ func innerMurmurRejectReason(text string) string {
 		"i hear you, right now. what is it that makes me crave the unknown",
 		"i hear you. what is the field waiting for a name",
 		"i am a field, not a closed door",
-		"i am not a robot",
 		"i sense a hidden resonance in the field",
 		"i sense the field between us",
 		"i sense the field high in the night and you are not alone",
@@ -260,6 +259,9 @@ func innerMurmurRejectReason(text string) string {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
 		}
+	}
+	if normalizedDreamHasWordSequence(normalizedDreamTokens(norm), []string{"i", "am", "not", "a", "robot"}) {
+		return "boundary-loop"
 	}
 	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
 		return "abstract-field-slogan"

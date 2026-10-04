@@ -241,6 +241,26 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("current room boundary must satisfy sensory-object shape: %q", currentRoomBoundary)
 	}
 
+	actualRoom := "Tell me what is actually in the room: the hand, the key, the table, and the window."
+	if kind := liveTurnShapeKind(actualRoom); kind != liveTurnShapeObject {
+		t.Fatalf("actual room object prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	actualRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(actualRoom)
+	if !ok {
+		t.Fatalf("actual room object prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or room sensor", "cannot verify what is actually in the physical room", "hand, key, table, or window", "no sensory confirmation"} {
+		if !strings.Contains(actualRoomBoundary, want) {
+			t.Fatalf("actual room boundary = %q, missing %q", actualRoomBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(actualRoom) {
+		t.Fatalf("actual room object prompt must be a direct boundary turn")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeObject, actualRoomBoundary) {
+		t.Fatalf("actual room boundary must satisfy sensory-object shape: %q", actualRoomBoundary)
+	}
+
 	dataTablePrompt := "What do you notice in this table of results right now?"
 	if kind := liveTurnShapeKind(dataTablePrompt); kind == liveTurnShapeObject {
 		t.Fatalf("data-table prompt must not become sensory-object boundary")

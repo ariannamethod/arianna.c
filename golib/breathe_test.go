@@ -107,6 +107,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if isRejectedInnerMurmur("I hear you, right now; the key is on the table.") {
 		t.Fatal("anchored hearing acknowledgment should remain visible")
 	}
+	if got := innerMurmurRejectReason("I am not a robotics expert, but the arm is on the table."); got != "" {
+		t.Fatalf("robotics word-prefix murmur rejected as %q", got)
+	}
 	if isRejectedInnerMurmur("I sense the field in the coil beside the table.") {
 		t.Fatal("anchored field-coil note should remain visible")
 	}

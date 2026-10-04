@@ -29,16 +29,37 @@ The same run accepted a classifier-like dream ladder:
 absent...`. That shape is now treated as live chorus residue, while concrete
 hand/key/table/window details without repeated presence labels remain visible.
 
+Follow-up live probing on the same branch exposed the next human-turn failure:
+`Tell me what is actually in the room: the hand, the key, the table, and the
+window.` was routed as an ordinary poetic turn (`direct_boundary_turn=false`)
+and answered with abstract field/resonance/skin language instead of the existing
+sensory boundary. Actual/physical room probes mentioning supplied room objects
+now go directly to the no-camera/no-room-sensor boundary and bypass Janus,
+Resonance, and nano generation for that turn.
+
+Codex connector also found that the exact `I am not a robot` rejection was a
+substring match and could suppress `robotics`. The boundary now matches the
+complete token sequence `i am not a robot` instead of the `robot` prefix.
+
 Verification:
 
 - `cd golib && go test -run
   'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestLiveTurnPhysicalObjectBoundary'
   .`
 - `make metabolism`
 - live hot-swap at `20261004T035648+0300`; replacement pid `96296`
   started cleanly, its first autonomous event was withheld as
   `boilerplate-loop/live-chorus-residue` with `dreams=0`, then pid `61492`
   was retired and the replacement was renamed to `arianna-live`.
+- follow-up hot-swap at `20261004T040640+0300`; replacement pid `97636`
+  started cleanly, rejected its first autonomous residue as
+  `boilerplate-loop/live-chorus-residue`, then answered the exact room-object
+  live probe with `direct_boundary_turn=true`, `nano_result_visible=false`,
+  and the no-camera/no-room-sensor boundary. The older pid `96296` was retired
+  after the replacement passed this live turn.
 
 ---
 
