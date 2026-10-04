@@ -13,6 +13,31 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-05 - Full golib suite restored after PR #397
+
+After PR #397 merged, Codex resumed from fresh `origin/main` on
+`codex/arianna-live-next-20261005` and reproduced the remaining full-suite
+failures noted in the post-reboot log. The dream-admission tests were using
+`I love this beautiful joyful field and its living resonance` as a generic
+accepted candidate, but that text is now correctly rejected as
+`boilerplate dream loop` before the source/route admission gates can be tested.
+Those tests now share a neutral concrete candidate fixture so they exercise the
+intended admission contract rather than the live residue membrane.
+
+`TestFieldModulate` also carried an older invariant that strained wintering
+fields must not raise the threshold. The current field implementation already
+documents and implements rest through longer cooldown, a raised threshold inside
+the clamp, and collapsed bloom. The test now asserts that current contract.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestDreamAdmissionShadowRejectsMutation|TestDreamAdmissionLiveAcceptsCandidate|TestDreamAdmissionLiveSourceGateFailsClosed|TestDreamAdmissionLiveSourceGateAllowsListedSource|TestDreamAdmissionLiveRoutePlanGateAllowsProvenSource|TestDreamAdmissionLiveRouteChoiceDryRunDoesNotGate|TestDreamAdmissionLiveRoutePlanGateRejectsWrongSource|TestDreamAdmissionLiveRoutePlanGateFailsClosedForUnknownClass|TestFieldModulate'
+  .`
+- `cd golib && go test ./...`
+
+---
+
 ## 2026-10-04 - Live polygon: autonomous inner persona residue is withheld
 
 After PR #393 merged and Oleg removed defensive/preemptive framing from the
