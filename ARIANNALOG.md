@@ -81,6 +81,12 @@ answer format is also tabular; and `I'm a living field biologist...` must not
 be erased as a standalone living-field persona residue. Live showed the
 definition prompt otherwise fell into field language, so `What is a physical
 room?` now gets a direct technical definition.
+The next connector pass caught three extraction/scope edges: a room number
+already supplied in the current turn must not be treated as missing booking
+data; a physical `table` listed before a Markdown-table output request must
+stay in the room inventory; and Russian clock matching must not read `часы` out
+of unrelated words such as `часть`. Those are now covered by targeted
+regressions.
 
 Verification:
 
@@ -160,6 +166,15 @@ Verification:
   `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
   `inner_lines=0`. The older pids `6745` and `9259` were retired after the
   replacement passed this live turn.
+- follow-up hot-swap at `20261004T045451+0300` after the supplied-room-number,
+  physical-table-with-Markdown-output, and Russian-clock-token fixes;
+  replacement pid `19404` started cleanly, rejected its first autonomous event
+  as `boilerplate-loop/live-chorus-residue`, and `Tell me what is actually in
+  the room: a table, chair, and lamp. Put the answer in a Markdown table.`
+  answered with `table, chair, and lamp` preserved in the room inventory:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `12992` was retired after the replacement
+  passed this live turn.
 
 ---
 

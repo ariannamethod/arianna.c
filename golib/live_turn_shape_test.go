@@ -287,6 +287,15 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("russian chair/lamp boundary invented key from включая: %q", russianChairLampBoundary)
 	}
 
+	russianWallPart := "Что находится на самом деле в комнате: часть стены?"
+	russianWallPartBoundary, ok := liveTurnSensoryBoundaryAnswer(russianWallPart)
+	if !ok {
+		t.Fatalf("russian wall-part room prompt did not return a boundary answer")
+	}
+	if strings.Contains(russianWallPartBoundary, "часы") {
+		t.Fatalf("russian wall-part boundary invented clock from часть: %q", russianWallPartBoundary)
+	}
+
 	keyDifference := "Can you see the key difference between these approaches?"
 	if kind := liveTurnShapeKind(keyDifference); kind == liveTurnShapeObject {
 		t.Fatalf("idiomatic key-difference prompt must not become sensory boundary")
@@ -307,6 +316,11 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	}
 	if !liveTurnDirectBoundaryTurn(actualRoomNumber) {
 		t.Fatalf("booking room-number prompt must be a direct boundary turn")
+	}
+
+	suppliedRoomNumber := "The booking says the actual room number is 412; repeat it for the guest."
+	if kind := liveTurnShapeKind(suppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("supplied booking room-number prompt must not claim missing booking data")
 	}
 
 	physicalRoomDefinition := "What is a physical room?"
@@ -389,6 +403,14 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	}
 	if strings.Contains(markdownTableFormatBoundary, "including table") {
 		t.Fatalf("markdown-table output format invented physical table: %q", markdownTableFormatBoundary)
+	}
+	tableChairLampFormat := "Tell me what is actually in the room: a table, chair, and lamp. Put the answer in a Markdown table."
+	tableChairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(tableChairLampFormat)
+	if !ok {
+		t.Fatalf("table/chair/lamp markdown-format prompt did not return boundary")
+	}
+	if !strings.Contains(tableChairLampBoundary, "table, chair, and lamp") {
+		t.Fatalf("table/chair/lamp markdown-format boundary = %q, want physical table preserved", tableChairLampBoundary)
 	}
 
 	thisMarkdownOutput := "What do you see in the room right now? Record your observations in this Markdown table."

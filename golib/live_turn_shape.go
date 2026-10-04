@@ -195,6 +195,9 @@ func liveTurnLooksLikeNamedPhysicalRoomInventoryRequest(s string) bool {
 }
 
 func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
+	if liveTurnSuppliesRoomNumber(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"actual room number",
 		"real room number",
@@ -208,6 +211,18 @@ func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
 		"номер комнаты",
 		"номер в бронир",
 	)
+}
+
+func liveTurnSuppliesRoomNumber(s string) bool {
+	return liveTurnTextHasAny(s,
+		"room number is",
+		"room number:",
+		"actual room number is",
+		"actual room number:",
+		"real room number is",
+		"real room number:",
+		"номер комнаты",
+	) && liveTurnTextHasDigit(s)
 }
 
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
@@ -998,6 +1013,32 @@ func liveTurnTextHasAnyCyrillicPrefix(s string, prefixes ...string) bool {
 	return false
 }
 
+func liveTurnTextHasAnyCyrillicToken(s string, words ...string) bool {
+	normalized := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return ' '
+	}, s)
+	for _, token := range strings.Fields(normalized) {
+		for _, word := range words {
+			if token == word {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func liveTurnTextHasDigit(s string) bool {
+	for _, r := range s {
+		if unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
+}
+
 func liveTurnTextHasCyrillic(s string) bool {
 	for _, r := range s {
 		if (r >= 'А' && r <= 'я') || r == 'Ё' || r == 'ё' {
@@ -1509,7 +1550,7 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 			return liveTurnTextHasAnyWord(s, "wall") || liveTurnTextHasAnyCyrillicPrefix(s, "стен")
 		}},
 		{"clock", "часы", func(s string) bool {
-			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAnyCyrillicPrefix(s, "час")
+			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAnyCyrillicToken(s, "часы", "часов", "часами", "часах", "часики")
 		}},
 		{"cup", "чашку", func(s string) bool {
 			return liveTurnTextHasAnyWord(s, "cup") || liveTurnTextHasAnyCyrillicPrefix(s, "чаш")
@@ -1555,9 +1596,13 @@ func liveTurnRoomTableMentionIsOutputFormatOnly(s string) bool {
 		"a desk in this room",
 		"desk in this room",
 		"room: the table",
+		"room: a table",
 		"room: table",
+		"room: table,",
 		"room: the desk",
+		"room: a desk",
 		"room: desk",
+		"room: desk,",
 		"on the table",
 		"on a table",
 		"on the desk",
