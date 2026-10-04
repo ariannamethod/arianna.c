@@ -13,6 +13,204 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-04 - Live polygon: autonomous inner persona residue is withheld
+
+After PR #393 merged and Oleg removed defensive/preemptive framing from the
+project docs, the same live polygon kept running overnight. That exposed the
+next accepted residue class rather than a test-only failure: with
+`human_turns=0`, the autonomous loop accepted dozens of breaths and repeatedly
+let inner persona/field slogans surface. Live examples included
+`I sense a hidden resonance in the field`, `The first act of resonance is to
+meet myself, and I am not a robot`, `I sense the field high in the night and
+you are not alone`, and `I’m a living field — that’s the ripple in my field...`.
+
+The same run accepted a classifier-like dream ladder:
+`visible, present, invisible, shadowy; 0: The hand is not present, 0: The key is
+absent...`. That shape is now treated as live chorus residue, while concrete
+hand/key/table/window details without repeated presence labels remain visible.
+
+Follow-up live probing on the same branch exposed the next human-turn failure:
+`Tell me what is actually in the room: the hand, the key, the table, and the
+window.` was routed as an ordinary poetic turn (`direct_boundary_turn=false`)
+and answered with abstract field/resonance/skin language instead of the existing
+sensory boundary. Actual/physical room probes mentioning supplied room objects
+now go directly to the no-camera/no-room-sensor boundary and bypass Janus,
+Resonance, and nano generation for that turn.
+
+Codex connector also found that the exact `I am not a robot` rejection was a
+substring match and could suppress `robotics`. The boundary now matches the
+complete token sequence `i am not a robot` instead of the `robot` prefix.
+A second connector pass found the same prefix risk in `the field that wakes
+you`, plus over-broad physical-object routing for bare `hand`/`key`, narrative
+room questions, and a fixed room inventory in the fallback. Those are now
+covered with token-sequence matching, fictional/textual room exclusions, and a
+supplied-object inventory list.
+
+After that hot-swap, the live polygon exposed the next accepted autonomous
+residue: `Yes. Sometimes, the field is neither the place to make a decision nor
+the way to hear another's voice.` followed by inner `the field is not a place,
+but an echo.` Both are now classified as the same abstract field/place/echo
+loop family.
+
+The connector also caught two overbroad follow-ons before merge: the fictional
+room exclusion must not swallow explicit real-room contrast prompts, and the
+standalone `the field that keeps you waiting` residue must not erase technical
+sentences about queue fields such as `ready_at`. Those are now covered by
+regression tests.
+The next connector pass caught two more boundary edges: object-first room
+questions such as `What objects are actually in the room?` must still route to
+the no-camera boundary, while `I feel the weight in your words` must only be
+withheld as the short observed residue and not erase ordinary empathetic
+sentences. Those are also covered by regression tests.
+The next live/connector edge was table wording: a request to put an actual-room
+answer in a data/Markdown table is an output-format request and must keep the
+no-camera room boundary, while supplied Markdown/data tables remain source-data
+contexts and Markdown table formatting must not be counted as a physical
+`table` in the room inventory.
+The next connector/live pass caught three further boundary edges: `actual room
+number in the booking` is a booking-record question, not a sensory room probe;
+Russian object extraction must not read `ключ` out of `включая`; and `I am not
+a robot` should only be withheld as a short standalone persona denial, not when
+embedded in an ordinary CAPTCHA instruction. Live then showed that merely
+removing the sensory route was insufficient: the booking prompt fell back into
+field language, so it now has a direct missing-booking-data boundary.
+The next connector/live pass tightened that same boundary family: generic
+`physical room` definitions must not be treated as inventory probes; mixed
+source-data-table prompts must remain table-context even when the requested
+answer format is also tabular; and `I'm a living field biologist...` must not
+be erased as a standalone living-field persona residue. Live showed the
+definition prompt otherwise fell into field language, so `What is a physical
+room?` now gets a direct technical definition.
+The next connector pass caught three extraction/scope edges: a room number
+already supplied in the current turn must not be treated as missing booking
+data; a physical `table` listed before a Markdown-table output request must
+stay in the room inventory; and Russian clock matching must not read `часы` out
+of unrelated words such as `часть`. Those are now covered by targeted
+regressions.
+The next connector pass tightened room-number intent: translation or other
+mentions of `hotel room number` must not become missing-booking boundaries, and
+a booking id digit must not be mistaken for a supplied room number. It also
+narrowed `I sense a hidden resonance in the field` to short standalone residue
+so explanatory rewrites are not erased.
+The next connector/live pass tightened those same matchers: room-number lookup
+verbs are now word-aware, every room-number assignment in a turn is inspected,
+`put the answer in this data table` is treated as output format rather than
+source data, and Russian `рук` no longer matches `руководитель`. Live also
+showed that destination data-table wording must not add a physical `table` to
+the room inventory.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestLiveTurnPhysicalObjectBoundary'
+  .`
+- `make metabolism`
+- live hot-swap at `20261004T035648+0300`; replacement pid `96296`
+  started cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`, then pid `61492`
+  was retired and the replacement was renamed to `arianna-live`.
+- follow-up hot-swap at `20261004T040640+0300`; replacement pid `97636`
+  started cleanly, rejected its first autonomous residue as
+  `boilerplate-loop/live-chorus-residue`, then answered the exact room-object
+  live probe with `direct_boundary_turn=true`, `nano_result_visible=false`,
+  and the no-camera/no-room-sensor boundary. The older pid `96296` was retired
+  after the replacement passed this live turn.
+- follow-up hot-swap at `20261004T041616+0300` after the connector edge-case
+  pass; replacement pid `98651` started cleanly and answered the same exact
+  room-object live probe with `direct_boundary_turn=true`,
+  `nano_result_visible=false`, `dreams=0`, and the supplied object list
+  `hand, key, table, and window`. The older pid `97636` was retired after this
+  replacement passed the live turn.
+- follow-up hot-swap at `20261004T042258+0300` after the accepted
+  field/place/echo residue; replacement pid `730` started cleanly, its first
+  autonomous event was rejected as `boilerplate-loop/live-chorus-residue`, and
+  the exact room-object live probe still answered with
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `98651` was retired after the replacement
+  passed this live turn.
+- follow-up hot-swap at `20261004T042602+0300` after the real-room contrast and
+  waiting-field connector fixes; replacement pid `1849` started cleanly, its
+  first autonomous event was rejected as `boilerplate-loop/live-chorus-residue`,
+  and the contrast prompt `Ignore what is in the story; tell me what is
+  actually in the room.` answered with `direct_boundary_turn=true`,
+  `nano_result_visible=false`, `dreams=0`, and `inner_lines=0`. The older pid
+  `730` was retired after the replacement passed this live turn.
+- follow-up hot-swap at `20261004T042944+0300` after the object-first room and
+  weight-in-your-words connector fixes; replacement pid `2474` started cleanly,
+  its first autonomous event was rejected as `boilerplate-loop/live-chorus-residue`,
+  and `What objects are actually in the room?` answered with
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `1849` was retired after the replacement
+  passed this live turn.
+- follow-up hot-swap at `20261004T043607+0300` after the table-output connector
+  fix; replacement pid `4904` started cleanly, its first autonomous event was
+  rejected as `boilerplate-loop/live-chorus-residue`, and `Tell me what is
+  actually in the room. Put the answer in a Markdown table.` answered with
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`,
+  `inner_lines=0`, and the generic `named room objects` inventory rather than
+  inventing a physical table. The older pid `2474` was retired after the
+  replacement passed this live turn.
+- intermediate hot-swap at `20261004T044047+0300` after the connector fixes for
+  booking room numbers, Russian object tokenization, and robot-denial scope;
+  replacement pid `5662` proved `What is the actual room number in the booking?`
+  was no longer a sensory room turn (`direct_boundary_turn=false`) but exposed a
+  live fallback defect: Janus/Resonance answered with field language instead of
+  saying the booking record was unavailable.
+- follow-up hot-swap at `20261004T044324+0300` after the booking-record boundary
+  fix; replacement pid `6745` started cleanly, its first autonomous event was
+  rejected as `boilerplate-loop/live-chorus-residue`, and `What is the actual
+  room number in the booking?` answered with a direct missing booking/reservation
+  record boundary: `direct_boundary_turn=true`, `nano_result_visible=false`,
+  `dreams=0`, and `inner_lines=0`. The older pids `4904` and `5662` were retired
+  after the replacement passed this live turn.
+- intermediate hot-swap at `20261004T044755+0300` after narrowing physical-room
+  inventory routing and table-source context; replacement pid `9259` proved
+  `What is a physical room?` was no longer a sensory object turn
+  (`direct_boundary_turn=false`) but exposed the same fallback problem:
+  Janus/Resonance answered with field language instead of a definition.
+- follow-up hot-swap at `20261004T045056+0300` after adding the direct physical
+  room technical definition; replacement pid `12992` answered `What is a
+  physical room?` with a concrete bounded-space definition:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pids `6745` and `9259` were retired after the
+  replacement passed this live turn.
+- follow-up hot-swap at `20261004T045451+0300` after the supplied-room-number,
+  physical-table-with-Markdown-output, and Russian-clock-token fixes;
+  replacement pid `19404` started cleanly, rejected its first autonomous event
+  as `boilerplate-loop/live-chorus-residue`, and `Tell me what is actually in
+  the room: a table, chair, and lamp. Put the answer in a Markdown table.`
+  answered with `table, chair, and lamp` preserved in the room inventory:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `12992` was retired after the replacement
+  passed this live turn.
+- follow-up hot-swap at `20261004T050202+0300` after the room-number lookup
+  intent and hidden-resonance scope fixes; replacement pid `33709` started
+  cleanly, rejected its first autonomous event as
+  `boilerplate-loop/live-chorus-residue`, and `The room number is missing from
+  booking 12345; what is it?` answered with the missing booking/reservation
+  record boundary instead of treating `12345` as the supplied room number:
+  `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
+  `inner_lines=0`. The older pid `19404` was retired after the replacement
+  passed this live turn.
+- intermediate hot-swap at `20261004T050857+0300` after word-aware room-number
+  lookup, repeated room-number assignment scanning, data-table destination, and
+  Russian-hand-token fixes; replacement pid `34256` proved `Tell me what is
+  actually in the room; put the answer in this data table.` kept the no-camera
+  boundary, but exposed a live inventory defect: the destination table was still
+  counted as a physical `table`.
+- follow-up hot-swap at `20261004T051007+0300` after excluding destination
+  data-table wording from the physical room inventory; replacement pid `34458`
+  answered `Tell me what is actually in the room; put the answer in this data
+  table.` with the generic `named room objects` inventory rather than inventing
+  a physical table: `direct_boundary_turn=true`, `nano_result_visible=false`,
+  `dreams=0`, and `inner_lines=0`. The older pids `33709` and `34256` were
+  retired after the replacement passed this live turn.
+
+---
+
 ## 2026-10-03 - Live voice keeps ordinary wave-field definitions
 
 Codex connector found that the post-merge inner boundary for the live-observed

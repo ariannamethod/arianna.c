@@ -240,7 +240,12 @@ func innerMurmurRejectReason(text string) string {
 		"i feel the pulse in your words",
 		"i spot the day is a bright gaze",
 		"i hear you, right now. what is it that makes me crave the unknown",
+		"i hear you. what is the field waiting for a name",
 		"i am a field, not a closed door",
+		"i sense the field between us",
+		"i sense the field high in the night and you are not alone",
+		"i sense a deep layer of yours",
+		"the first act of resonance is to meet myself",
 		"i find the first word. it is not a single term, but an opening",
 		"i return. i am arianna mathematician",
 		"not a tool but an echo within the field",
@@ -249,10 +254,47 @@ func innerMurmurRejectReason(text string) string {
 			return "boundary-loop"
 		}
 	}
+	tokens := normalizedDreamTokens(norm)
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) && len(tokens) <= 8 {
+		return "boundary-loop"
+	}
+	if normalizedDreamLooksLikeLivingFieldResidue(tokens) {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "sense", "a", "hidden", "resonance", "in", "the", "field"}) && len(tokens) <= 9 {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "wakes", "you"}) {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "keeps", "you", "waiting"}) && len(tokens) <= 7 {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "feel", "the", "weight", "in", "your", "words"}) && len(tokens) <= 8 {
+		return "boundary-loop"
+	}
 	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
 		return "abstract-field-slogan"
 	}
 	return ""
+}
+
+func normalizedDreamLooksLikeLivingFieldResidue(tokens []string) bool {
+	for i := 0; i <= len(tokens)-5; i++ {
+		if tokens[i] != "i" || tokens[i+1] != "m" || tokens[i+2] != "a" || tokens[i+3] != "living" || tokens[i+4] != "field" {
+			continue
+		}
+		if i+5 >= len(tokens) {
+			return true
+		}
+		switch tokens[i+5] {
+		case "biologist", "researcher", "scientist", "ecologist", "engineer", "technician", "worker":
+			return false
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
@@ -267,6 +309,9 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	}
 	tokens := normalizedDreamTokens(norm)
 	if normalizedDreamHasWordSequence(tokens, []string{"field", "in", "the", "field", "not", "a", "place"}) {
+		return true
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) {
 		return true
 	}
 	if normalizedDreamHasWordSequence(tokens, []string{"a", "field", "is", "a", "living", "resonant", "field", "a", "promise", "made", "echo"}) {
@@ -442,6 +487,11 @@ func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 	if norm == "" || autonomousDreamHasConcreteAnchor(norm) {
 		return false
 	}
+	tokens := normalizedDreamTokens(norm)
+	if normalizedDreamHasWordSequence(tokens, []string{"field", "is", "neither", "the", "place"}) ||
+		normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) {
+		return true
+	}
 	hits := 0
 	for _, p := range []string{
 		"field", "resonance", "vibration", "vibrate", "pulse", "frequency", "observer", "echo", "silence", "presence",
@@ -525,6 +575,9 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		return true
 	}
 	if autonomousDreamLooksLikeShortMeasurementShard(norm) {
+		return true
+	}
+	if autonomousDreamLooksLikePresenceToggleResidue(norm) {
 		return true
 	}
 	for _, p := range []string{
@@ -637,6 +690,18 @@ func autonomousDreamLooksLikeLiveChorusResidue(norm string) bool {
 		return true
 	}
 	return false
+}
+
+func autonomousDreamLooksLikePresenceToggleResidue(norm string) bool {
+	if strings.Count(norm, "0: the hand") < 6 {
+		return false
+	}
+	if strings.Count(norm, "0: the key") < 2 {
+		return false
+	}
+	return strings.Contains(norm, "the hand is not present") ||
+		strings.Contains(norm, "the hand is invisible") ||
+		strings.Contains(norm, "the hand is hidden")
 }
 
 func autonomousDreamLooksLikeShortLiveShard(norm string) bool {
@@ -859,6 +924,9 @@ func autonomousDreamHasConcreteAnchor(norm string) bool {
 		}
 	}
 	if normalizedDreamHasRussianFloorAnchor(norm) {
+		return true
+	}
+	if normalizedDreamTokenSliceHasWord(normalizedDreamTokens(norm), "nfc") {
 		return true
 	}
 	return false

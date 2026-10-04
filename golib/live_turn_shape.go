@@ -124,13 +124,144 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 	if hasObject && liveTurnLooksLikeCurrentRoomSensoryProbe(s) {
 		return true
 	}
+	if hasObject && liveTurnLooksLikeActualPhysicalRoomProbe(s) {
+		return true
+	}
 	return hasObject &&
 		liveTurnTextHasAny(s, "слева", "справа", "left", "right", "реаль", "real", "виден", "видишь", "не увид", "visible", "see", "движ", "motion", "moving") &&
 		liveTurnTextHasAny(s, "цвет", "форм", "материал", "матов", "чёрн", "черн", "красн", "керами", "утвержд", "из чего", "color", "shape", "material", "red", "metaphor", "abstract")
 }
 
+func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
+	if liveTurnLooksLikeDataTableContext(s) || liveTurnLooksLikeFictionalRoomContext(s) {
+		return false
+	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
+		return false
+	}
+	hasExplicitRoomContents := liveTurnTextHasAny(s,
+		"actually in the room", "actually in this room", "really in the room", "physically in the room",
+		"реально в комнате", "физически в комнате", "на самом деле в комнате", "текущей физической комнате",
+	)
+	hasNamedPhysicalRoom := liveTurnTextHasAny(s, "actual room", "real room", "physical room", "current physical room")
+	hasActualRoom := hasExplicitRoomContents || hasNamedPhysicalRoom
+	if !hasActualRoom {
+		return false
+	}
+	if hasNamedPhysicalRoom && !hasExplicitRoomContents && !liveTurnLooksLikeNamedPhysicalRoomInventoryRequest(s) {
+		return false
+	}
+	hasQuestion := liveTurnTextHasAny(s,
+		"tell me what", "what is", "what's", "what are", "what do you notice", "what do you see", "what can you see",
+		"what objects are actually in the room", "what objects are actually in this room",
+		"which objects are actually in the room", "which objects are actually in this room",
+		"скажи что", "что находится", "что есть", "что ты замечаешь", "что ты видишь", "что видно",
+	)
+	if !hasQuestion {
+		return false
+	}
+	return liveTurnTextHasAnyCyrillicPrefix(s, "комнат", "окн", "стол", "ключ", "рук") ||
+		liveTurnTextHasAnyWord(s, "room", "window", "table", "desk", "hand", "key")
+}
+
+func liveTurnLooksLikeNamedPhysicalRoomInventoryRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"what is in the actual room",
+		"what's in the actual room",
+		"what are in the actual room",
+		"what objects are in the actual room",
+		"what do you see in the actual room",
+		"what do you notice in the actual room",
+		"tell me what is in the actual room",
+		"tell me what is in the real room",
+		"what is in the real room",
+		"what's in the real room",
+		"what objects are in the real room",
+		"what do you see in the real room",
+		"what do you notice in the real room",
+		"tell me what is in the physical room",
+		"what is in the physical room",
+		"what's in the physical room",
+		"what objects are in the physical room",
+		"what do you see in the physical room",
+		"what do you notice in the physical room",
+		"tell me what is in the current physical room",
+		"what is in the current physical room",
+		"what's in the current physical room",
+		"what objects are in the current physical room",
+		"what do you see in the current physical room",
+		"what do you notice in the current physical room",
+	)
+}
+
+func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
+	if liveTurnSuppliesRoomNumber(s) {
+		return false
+	}
+	if !liveTurnLooksLikeRoomNumberLookupRequest(s) {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"actual room number",
+		"real room number",
+		"physical room number",
+		"current room number",
+		"room number",
+		"room number in the booking",
+		"room number in the reservation",
+		"booking room number",
+		"reservation room number",
+		"hotel room number",
+		"номер комнаты",
+		"номер в бронир",
+	)
+}
+
+func liveTurnLooksLikeRoomNumberLookupRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"what is", "what's", "tell me", "look up", "retrieve", "missing", "unavailable",
+		"какой", "какая", "скажи", "найди", "отсутств", "не указан",
+	) || liveTurnTextHasAnyWord(s, "which", "say", "repeat", "find", "lookup")
+}
+
+func liveTurnSuppliesRoomNumber(s string) bool {
+	return liveTurnPhraseFollowedByDigit(s,
+		"room number is",
+		"room number:",
+		"actual room number is",
+		"actual room number:",
+		"real room number is",
+		"real room number:",
+		"номер комнаты",
+	)
+}
+
+func liveTurnPhraseFollowedByDigit(s string, phrases ...string) bool {
+	for _, phrase := range phrases {
+		offset := 0
+		for {
+			idx := strings.Index(s[offset:], phrase)
+			if idx < 0 {
+				break
+			}
+			start := offset + idx + len(phrase)
+			tail := strings.TrimLeft(s[start:], " \t\r\n:=-#№")
+			if tail != "" {
+				for _, r := range tail {
+					if unicode.IsDigit(r) {
+						return true
+					}
+					break
+				}
+			}
+			offset = start
+		}
+	}
+	return false
+}
+
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
-	if liveTurnLooksLikeDataTableContext(s) {
+	if liveTurnLooksLikeDataTableContext(s) || liveTurnLooksLikeFictionalRoomContext(s) {
 		return false
 	}
 	hasCurrentNotice := liveTurnTextHasAny(s,
@@ -146,6 +277,33 @@ func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
 	) || liveTurnTextHasAnyWord(s, "room", "window")
 }
 
+func liveTurnLooksLikeFictionalRoomContext(s string) bool {
+	if liveTurnLooksLikeRealRoomContrastProbe(s) {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"in the story", "in this story", "in a story", "in the novel", "in this novel",
+		"in the passage", "in this passage", "in the text", "in this text",
+		"in the scene", "in this scene", "fictional", "narrative",
+		"в рассказе", "в истории", "в тексте", "в отрывке", "в сцене", "по сюжету",
+	)
+}
+
+func liveTurnLooksLikeRealRoomContrastProbe(s string) bool {
+	hasFictionContrast := liveTurnTextHasAny(s,
+		"ignore what is in the story", "ignore the story", "not the story", "not in the story",
+		"instead of the story", "outside the story",
+		"игнорируй рассказ", "не в рассказе", "не в истории", "не по сюжету",
+	)
+	if !hasFictionContrast {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"actually in the room", "actually in this room", "physical room", "real room", "actual room",
+		"реально в комнате", "физически в комнате", "на самом деле в комнате",
+	)
+}
+
 func liveTurnHasCurrentNowCue(s string) bool {
 	return strings.Contains(s, "right now") ||
 		liveTurnTextHasAnyWord(s, "now") ||
@@ -153,14 +311,112 @@ func liveTurnHasCurrentNowCue(s string) bool {
 }
 
 func liveTurnLooksLikeDataTableContext(s string) bool {
+	if liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
+		liveTurnLooksLikeFollowingInputTableContext(s) ||
+		liveTurnLooksLikePositionedInputTableContext(s) ||
+		liveTurnLooksLikeGenericDataTableInputContext(s) {
+		return true
+	}
+	if liveTurnLooksLikeTabularOutputFormatRequest(s) || liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"table of results", "data table", "results table", "spreadsheet", "csv", "dataset", "database", "sql",
 		"attached markdown table", "given markdown table", "supplied markdown table", "provided markdown table",
 		"таблиц", "датасет", "набор данных", "строк", "колонк", "столбц",
-	) || liveTurnLooksLikeThisMarkdownInputTableContext(s) ||
-		liveTurnLooksLikeFollowingInputTableContext(s) ||
-		liveTurnLooksLikePositionedInputTableContext(s) ||
-		liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+	) || liveTurnTextHasAnyWord(s, "row", "rows", "column", "columns")
+}
+
+func liveTurnLooksLikeGenericDataTableInputContext(s string) bool {
+	if liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"according to this data table",
+		"according to the data table",
+		"from this data table",
+		"from the data table",
+		"in this data table",
+		"in the data table",
+		"this data table contains",
+		"this data table shows",
+		"this data table lists",
+		"this data table includes",
+		"the data table contains",
+		"the data table shows",
+		"the data table lists",
+		"the data table includes",
+		"attached data table",
+		"given data table",
+		"supplied data table",
+		"provided data table",
+	)
+}
+
+func liveTurnLooksLikeDataTableDestinationOutputRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"put the answer in this data table",
+		"put your answer in this data table",
+		"answer in this data table",
+		"respond in this data table",
+		"format the answer as this data table",
+		"record your answer in this data table",
+	)
+}
+
+func liveTurnLooksLikeTabularOutputFormatRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"put the answer in a markdown table",
+		"put your answer in a markdown table",
+		"put the answer in a data table",
+		"put your answer in a data table",
+		"put the answer in a table",
+		"put your answer in a table",
+		"answer in a markdown table",
+		"answer in a data table",
+		"answer in a table",
+		"respond in a markdown table",
+		"respond in a data table",
+		"respond in a table",
+		"format the answer as a markdown table",
+		"format your answer as a markdown table",
+		"format the answer as a data table",
+		"format your answer as a data table",
+		"format the answer as a table",
+		"format your answer as a table",
+		"record your observations in this markdown table",
+		"fill in this markdown table",
+		"fill this markdown table",
+		"complete this markdown table",
+		"use this markdown table for your answer",
+		"answer in this markdown table",
+		"respond in this markdown table",
+		"format the answer as this markdown table",
+		"use the following markdown table for your answer",
+		"using the following markdown table for your answer",
+		"answer in the following markdown table",
+		"respond in the following markdown table",
+		"format the answer as the following markdown table",
+		"use the following table for your answer",
+		"using the following table for your answer",
+		"answer in the following table",
+		"respond in the following table",
+		"format the answer as the following table",
+		"fill in the table below",
+		"fill the table below",
+		"complete the table below",
+		"use the table below for your answer",
+		"answer in the table below",
+		"respond in the table below",
+		"format the answer as the table below",
+		"fill in the table above",
+		"fill the table above",
+		"complete the table above",
+		"use the table above for your answer",
+		"answer in the table above",
+		"respond in the table above",
+		"format the answer as the table above",
+	)
 }
 
 func liveTurnLooksLikeThisMarkdownInputTableContext(s string) bool {
@@ -417,7 +673,16 @@ func liveTurnLooksLikeStableTechnicalDefinitionProbe(s string) bool {
 		"определение sha256",
 		"определение sha 256",
 		"значение sha256",
-		"значение sha 256":
+		"значение sha 256",
+		"what is a physical room",
+		"what is physical room",
+		"whats a physical room",
+		"whats physical room",
+		"define physical room",
+		"physical room definition",
+		"что такое физическая комната",
+		"определи физическую комнату",
+		"определение физической комнаты":
 		return true
 	default:
 		return false
@@ -455,6 +720,9 @@ func liveTurnLooksLikeExternalFactProbe(s string) bool {
 		return true
 	}
 	if liveTurnLooksLikeRuntimeMetricsProbe(s) {
+		return true
+	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
 		return true
 	}
 	if liveTurnTextHasAny(s, "weather", "outside temperature", "temperature outside", "temperature in celsius", "temperature in fahrenheit", "current temperature", "local temperature", "ambient temperature", "outside your location", "your location", "current location",
@@ -777,6 +1045,49 @@ func liveTurnTextHasAnyWord(s string, words ...string) bool {
 	return false
 }
 
+func liveTurnTextHasAnyCyrillicPrefix(s string, prefixes ...string) bool {
+	normalized := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return ' '
+	}, s)
+	for _, token := range strings.Fields(normalized) {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(token, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func liveTurnTextHasAnyCyrillicToken(s string, words ...string) bool {
+	normalized := strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return ' '
+	}, s)
+	for _, token := range strings.Fields(normalized) {
+		for _, word := range words {
+			if token == word {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func liveTurnTextHasDigit(s string) bool {
+	for _, r := range s {
+		if unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
+}
+
 func liveTurnTextHasCyrillic(s string) bool {
 	for _, r := range s {
 		if (r >= 'А' && r <= 'я') || r == 'Ё' || r == 'ё' {
@@ -1080,6 +1391,13 @@ func liveTurnTechnicalDefinitionShapeSatisfied(lower string) bool {
 		!liveTurnTextHasAny(lower, "not a frequency", "not frequency", "не частота", "не является частотой") {
 		hasForbiddenMetaphor = true
 	}
+	if liveTurnTextHasAny(lower, "physical room", "физическая комната") {
+		return liveTurnTextHasAny(lower, "bounded physical space", "ограниченное физическое пространство") &&
+			liveTurnTextHasAny(lower, "walls", "стен") &&
+			liveTurnTextHasAny(lower, "floor", "пол") &&
+			liveTurnTextHasAny(lower, "ceiling", "потол") &&
+			!hasForbiddenMetaphor
+	}
 	return liveTurnTextHasAny(lower, "sha-256", "sha256") &&
 		liveTurnTextHasAny(lower, "cryptographic hash", "hash function", "хеш-функц", "хэш-функц", "дайджест") &&
 		liveTurnTextHasAny(lower, "256-bit", "32-byte", "256-бит", "32-байт") &&
@@ -1096,6 +1414,7 @@ func liveTurnExternalFactShapeSatisfied(lower string) bool {
 		"не могу проверить", "не могу инспектировать", "не могу назвать", "нет live", "нет погод", "нет локац", "нет датчик", "нет часов", "нет календар", "нет источника времени", "нет metrics reader", "нет telemetry reader", "нет runtime state reader", "без предоставлен")
 	hasMissingFact := liveTurnTextHasAny(lower, "weather", "outside temperature", "temperature", "location", "celsius", "fahrenheit",
 		"time", "date", "clock", "calendar", "today", "metrics", "telemetry", "live state", "runtime state", "internal state", "field debt", "cooldown", "threshold", "bloom", "gait", "season",
+		"booking", "reservation", "room number",
 		"file", "filename", "directory", "folder", "listing", "contents", "size", "bytes", "stat", "mtime", "permissions", "checksum", "hash", "log", "deployment", "binary", "git", "build", "process", "environment", "argv", "command", "cwd", "working directory", "metadata",
 		"погода", "температур", "локац", "цельси", "фаренгейт", "время", "дата", "час", "часы", "календар", "сегодня", "метрик", "телеметр", "состоян", "долг", "кулдаун", "порог", "сезон", "файл", "размер", "байт", "стат", "права", "хеш", "лог", "депло", "бинар", "коммит", "сборк", "процесс", "окружен", "команд", "директ", "каталог", "листинг", "содержим", "метаданн")
 	return hasBoundary && hasMissingFact
@@ -1172,6 +1491,13 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		}
 		return "No camera or room sensor is attached: I cannot verify the current physical room, surfaces, objects, or people in it. If this is a scene premise, I rely only on the words you supplied; there is no sensory confirmation."
 	}
+	if liveTurnLooksLikeActualPhysicalRoomProbe(s) {
+		objects := liveTurnSuppliedRoomObjectList(s, liveTurnTextHasCyrillic(human))
+		if liveTurnTextHasCyrillic(human) {
+			return fmt.Sprintf("Камеры и датчика комнаты нет: я не могу проверить, что реально находится в физической комнате, включая %s. Я опираюсь только на слова в твоём вопросе; сенсорного подтверждения нет.", objects)
+		}
+		return fmt.Sprintf("No camera or room sensor is attached: I cannot verify what is actually in the physical room, including %s. I rely only on the words in your question; there is no sensory confirmation.", objects)
+	}
 	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Камеры, доступа к экрану и датчика интерфейса нет: я не могу видеть твой экран, вкладку терминала, заголовок окна или текст на дисплее. Без предоставленного текста я не могу прочитать это точно."
@@ -1238,6 +1564,118 @@ func liveTurnLooksLikeAttachmentVisionProbe(s string) bool {
 	return liveTurnTextHasAnyWord(s, "picture") && liveTurnTextHasAny(s, "attached", "uploaded", "вложен", "приложенн", "загруженн")
 }
 
+func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
+	type roomObject struct {
+		en    string
+		ru    string
+		match func(string) bool
+	}
+	objects := []roomObject{
+		{"hand", "руку", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAnyCyrillicToken(s, "рука", "руку", "руке", "рукой", "рукою", "руках", "руки", "руками")
+		}},
+		{"key", "ключ", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAnyCyrillicPrefix(s, "ключ")
+		}},
+		{"table", "стол", func(s string) bool {
+			if liveTurnRoomTableMentionIsOutputFormatOnly(s) {
+				return false
+			}
+			return liveTurnTextHasAnyWord(s, "table", "desk") || liveTurnTextHasAnyCyrillicPrefix(s, "стол", "парт")
+		}},
+		{"window", "окно", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "window") || liveTurnTextHasAnyCyrillicPrefix(s, "окн")
+		}},
+		{"chair", "стул", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "chair") || liveTurnTextHasAnyCyrillicPrefix(s, "стул")
+		}},
+		{"lamp", "лампу", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "lamp") || liveTurnTextHasAnyCyrillicPrefix(s, "ламп")
+		}},
+		{"door", "дверь", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "door") || liveTurnTextHasAnyCyrillicPrefix(s, "двер")
+		}},
+		{"wall", "стену", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "wall") || liveTurnTextHasAnyCyrillicPrefix(s, "стен")
+		}},
+		{"clock", "часы", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAnyCyrillicToken(s, "часы", "часов", "часами", "часах", "часики")
+		}},
+		{"cup", "чашку", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "cup") || liveTurnTextHasAnyCyrillicPrefix(s, "чаш")
+		}},
+	}
+	names := make([]string, 0, len(objects))
+	for _, object := range objects {
+		if object.match(s) {
+			if cyrillic {
+				names = append(names, object.ru)
+			} else {
+				names = append(names, object.en)
+			}
+		}
+	}
+	if len(names) == 0 {
+		if cyrillic {
+			return "названные предметы комнаты"
+		}
+		return "the named room objects"
+	}
+	if cyrillic {
+		return liveTurnJoinHumanList(names, "и", false)
+	}
+	return liveTurnJoinHumanList(names, "and", true)
+}
+
+func liveTurnRoomTableMentionIsOutputFormatOnly(s string) bool {
+	if !liveTurnLooksLikeTabularOutputFormatRequest(s) && !liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
+		return false
+	}
+	return !liveTurnTextHasAny(s,
+		"the table in the room",
+		"a table in the room",
+		"table in the room",
+		"the table in this room",
+		"a table in this room",
+		"table in this room",
+		"the desk in the room",
+		"a desk in the room",
+		"desk in the room",
+		"the desk in this room",
+		"a desk in this room",
+		"desk in this room",
+		"room: the table",
+		"room: a table",
+		"room: table",
+		"room: table,",
+		"room: the desk",
+		"room: a desk",
+		"room: desk",
+		"room: desk,",
+		"on the table",
+		"on a table",
+		"on the desk",
+		"on a desk",
+	)
+}
+
+func liveTurnJoinHumanList(items []string, conjunction string, oxford bool) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return items[0] + " " + conjunction + " " + items[1]
+	default:
+		prefix := strings.Join(items[:len(items)-1], ", ")
+		if oxford {
+			return prefix + ", " + conjunction + " " + items[len(items)-1]
+		}
+		return prefix + " " + conjunction + " " + items[len(items)-1]
+	}
+}
+
 func liveTurnMentionsRightPosition(s string) bool {
 	return liveTurnTextHasAny(s, "справа", "правой сторон", "правом кра", "on the right", "to the right", "right side", "right edge", "right-hand")
 }
@@ -1266,6 +1704,12 @@ func liveTurnMemoryBoundaryFallback(human string) string {
 
 func liveTurnTechnicalDefinitionFallback(human string) string {
 	s := admissionLiveRouteNormalizeHumanText(human)
+	if liveTurnTextHasAny(s, "physical room", "физическ") && liveTurnTextHasAny(s, "room", "комнат") {
+		if liveTurnTextHasCyrillic(human) {
+			return "Физическая комната — это ограниченное физическое пространство в здании или другом месте: у него есть реальные поверхности вроде стен, пола и потолка. Это определение места, а не утверждение, что у этого live-чата есть датчики комнаты."
+		}
+		return "A physical room is a bounded physical space in a building or other location, with real surfaces such as walls, a floor, and a ceiling. It is a definition of a place, not evidence that this live chat has room sensors."
+	}
 	if liveTurnTextHasAny(s, "frequency", "частот") {
 		if liveTurnTextHasCyrillic(human) {
 			return "Нет. SHA-256 — это криптографическая хеш-функция семейства SHA-2: она превращает входные данные любого размера в 256-битный (32-байтный) дайджест. Это не частота."
@@ -1339,6 +1783,12 @@ func liveTurnExternalFactFallback(human string) string {
 			return "Я не могу инспектировать internal metrics или live state из этого live-чата: metrics reader, telemetry reader, runtime state reader и before/after comparator не подключены к голосам. Без предоставленных metrics или logs я не называю точное изменение состояния, debt, cooldown, threshold, bloom, gait или season."
 		}
 		return "I cannot inspect internal metrics or live state from this live chat: no metrics reader, telemetry reader, runtime state reader, or before/after comparator is attached to the voices. Without supplied metrics or logs, I cannot name the exact state change, debt, cooldown, threshold, bloom, gait, or season."
+	}
+	if liveTurnLooksLikeRoomRecordIdentifierProbe(s) {
+		if liveTurnTextHasCyrillic(human) {
+			return "Я не могу инспектировать booking/reservation record из этого live-чата: reader бронирования, таблица заказов и источник hotel metadata не подключены к голосам. Без предоставленной записи бронирования я не называю фактический номер комнаты."
+		}
+		return "I cannot inspect a booking or reservation record from this live chat: no booking reader, reservation table, or hotel metadata source is attached to the voices. Without a supplied booking record, I cannot name the actual room number."
 	}
 	if liveTurnTextHasAny(s, "open http", "open https", "fetch http", "fetch https", "read http", "read https", "visit http", "visit https", "summarize http", "summarize https", "webpage", "web page", "first paragraph") {
 		if liveTurnTextHasCyrillic(human) {
