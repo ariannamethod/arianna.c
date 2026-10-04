@@ -330,6 +330,14 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(suppliedRoomNumber); kind == liveTurnShapeExternal {
 		t.Fatalf("supplied booking room-number prompt must not claim missing booking data")
 	}
+	quotedSuppliedRoomNumber := `The actual room number is "412"; repeat it.`
+	if kind := liveTurnShapeKind(quotedSuppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("quoted supplied room-number prompt must not claim missing booking data")
+	}
+	alphanumericSuppliedRoomNumber := "The actual room number is A412; repeat it."
+	if kind := liveTurnShapeKind(alphanumericSuppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("alphanumeric supplied room-number prompt must not claim missing booking data")
+	}
 	laterSuppliedRoomNumber := "The room number is missing here, but the room number is 412; repeat it."
 	if kind := liveTurnShapeKind(laterSuppliedRoomNumber); kind == liveTurnShapeExternal {
 		t.Fatalf("later supplied room-number prompt must not claim missing booking data")
@@ -400,6 +408,10 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(sourceTableWithOutputFormat); kind == liveTurnShapeObject {
 		t.Fatalf("source data-table prompt with tabular output must not become sensory boundary")
 	}
+	sourceThisDataTable := "Find the answer in this data table: what objects are actually in the room?"
+	if kind := liveTurnShapeKind(sourceThisDataTable); kind == liveTurnShapeObject {
+		t.Fatalf("source this-data-table prompt must not become sensory boundary")
+	}
 	thisDataTableOutputRoom := "Tell me what is actually in the room; put the answer in this data table."
 	if kind := liveTurnShapeKind(thisDataTableOutputRoom); kind != liveTurnShapeObject {
 		t.Fatalf("this-data-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
@@ -410,6 +422,15 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	}
 	if strings.Contains(thisDataTableOutputBoundary, "including table") {
 		t.Fatalf("this-data-table output invented physical table: %q", thisDataTableOutputBoundary)
+	}
+
+	rowOfChairsRoom := "Tell me what is actually in the room: a row of chairs."
+	rowOfChairsBoundary, ok := liveTurnSensoryBoundaryAnswer(rowOfChairsRoom)
+	if !ok {
+		t.Fatalf("row-of-chairs actual room prompt did not return boundary")
+	}
+	if !strings.Contains(rowOfChairsBoundary, "chair") {
+		t.Fatalf("row-of-chairs boundary = %q, want physical chairs preserved", rowOfChairsBoundary)
 	}
 
 	dataTablePrompt := "What do you notice in this table of results right now?"

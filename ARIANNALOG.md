@@ -98,6 +98,13 @@ verbs are now word-aware, every room-number assignment in a turn is inspected,
 source data, and Russian `рук` no longer matches `руководитель`. Live also
 showed that destination data-table wording must not add a physical `table` to
 the room inventory.
+After the reboot, the connector's completed review on `177fd78` supplied the
+next three edges: quoted and alphanumeric room identifiers supplied in the
+current turn must not become missing-booking boundaries; `answer in this data
+table` must stay a source-table lookup unless an output command governs it; and
+ordinary physical `row` wording such as `a row of chairs` must not be swallowed
+as tabular context. Those are now covered by regression tests, and plural
+`chairs` is preserved in the supplied room-object inventory.
 
 Verification:
 
@@ -208,6 +215,26 @@ Verification:
   a physical table: `direct_boundary_turn=true`, `nano_result_visible=false`,
   `dreams=0`, and `inner_lines=0`. The older pids `33709` and `34256` were
   retired after the replacement passed this live turn.
+- after reboot there was no surviving live `screen` or `metabolism --chat`
+  process, so the `34458` polygon state was not carried forward as live fact.
+- post-reboot regression/fix pass: `cd golib && go test -run
+  'TestLiveTurnPhysicalObjectBoundary' .` failed first on the quoted supplied
+  room number, then passed after the matcher repair.
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails|TestLiveTurnPhysicalObjectBoundary|TestLiveTurnExternalFactBoundary'
+  .` passed after the new quoted/alphanumeric room-number, source data-table,
+  and row-of-chairs regressions were added.
+- `make metabolism` rebuilt the live binary after the matcher repair.
+- temporary live PTY checks answered `Tell me what is actually in the room; put
+  the answer in this data table.` with the generic `named room objects`
+  no-camera boundary, and `Tell me what is actually in the room: a row of
+  chairs.` with a no-camera boundary preserving `chair` in the supplied
+  inventory. The temporary PTY was closed with `/quit`; no live screen was left
+  running.
+- `cd golib && go test ./...` still fails outside this matcher patch in
+  `dream_admission_test.go` boilerplate-admission expectations and
+  `field_test.go:TestFieldModulate`; the targeted live-shape/external-boundary
+  suite above passed.
 
 ---
 
