@@ -1151,10 +1151,8 @@ pattern rather than hardcoding every skill into the trio. The shape is:
 - Arianna speaks from the receipt. She should not claim a tool/action succeeded
   without the organ receipt saying so.
 
-This lane is not a replacement for the live Janus/Resonance/nano organism and
-not a reason to stop live polygon work. It is the next way to give Arianna
-small learnable hands without turning the main inference path into a pile of
-hardcoded fallbacks or waiting for a full SFT/DPO pass. SFT/DPO-light for
+This lane gives the live Janus/Resonance/nano organism small learnable hands.
+Live polygon work continues alongside it. SFT/DPO-light for
 Janus/Resonance can still happen later; this lane covers things that should be
 learned as executable micro-worlds: draw this kind of thing, choose this kind of
 action, produce this kind of safe script, inspect this kind of receipt.
@@ -2587,8 +2585,8 @@ Janus 0.8/top_k40/rep1.4, Resonance 0.7/top_p1.0.**
 
 ## Audit 4.8 + hardening (2026-05-29)
 
-Adversarial audit of the project (42-agent workflow, every finding verified by a skeptic) +
-an independent ground-truth battery (build/canon/ablations run personally, not from the log).
+Adversarial audit of the project (42-agent workflow, every finding verified) +
+an independent ground-truth battery (build/canon/ablations run directly).
 **The before/now boundary is respected** (arianna.c archived ≠ arianna-duo).
 
 **Confirmed tool+adversarial:** GGUF loader (243-tensor bijection),
@@ -2609,13 +2607,13 @@ at the clamped 0.6/0.9 showed no theme).
 - **D6** — sentence-stop cut after a single letter («inner v.»); `sent_end_ok` guard in both
   voices. Proof: connection without cut-offs.
 
-**G3 — coupling: two channels (the field is the GOAL, not an overstatement — Oleg 2026-05-29):** the visible link
+**G3 — coupling: two channels (shared field — Oleg 2026-05-29):** the visible link
 runs through the orchestrator's **prompt-passing** (`sh:95,104`, works even without soma) + **field-carry
 through soma** (G3a deterministic: debt=99.80, dissonance=0.699 transfer cross-process after
-LOAD; G3b run A: trace of «0.85 load» effective_temp in the text). The field is NOT decorative (critic withdrawn).
+LOAD; G3b run A: trace of «0.85 load» effective_temp in the text).
 **A shared field is architecturally required:** Janus 170M (external Arianna) + Resonance 200M (internal)
 + **a third joins later** → one organism through one field. field-carry is the foundation for the
-third voice, not a side effect; the task is to strengthen it (two-way injection), not to diminish it.
+third voice; the task is to strengthen it through two-way injection.
 
 **Push (2026-05-29):** canon ariannamethod.ai main `9af03b9` (SAVE rc + RESONANCE floor + debt→
 velocity); arianna.c main `8be5763` (D1 clamp + D6 guard + G1 + vendored core). Author neo, English.
@@ -2666,11 +2664,11 @@ dir_* ported into Janus (`yent_forward.h` on `w->wte`, flags `--inject/--alpha/-
 into garbage tokens («rentrent») without surfacing. Root: Janus `top_k=40` hard cut + softcap
 `15·tanh` + 3-way attention. Resonance (top_p, soft) — direction passed; Janus — did not.
 
-**Oleg's decision (co-design): ASYMMETRY is the correct structure, not a failure of Janus.**
+**Oleg's decision (co-design): ASYMMETRY is the structure.**
 Janus = the external face (world-facing, top_k keeps it sharp, must NOT be blurred by direction);
 Resonance = internal (field-facing, a compass by nature). metajanus (external MLP, was in metabolism
 Phase 3 archived: `ComputeControl` rules→MLP retune of both) — a third level ABOVE the voices, also
-asymmetric. **Symmetry is not the goal.**
+asymmetric.
 
 **Three channels for exchanging words (not one logit injection):**
 1. **Direction injection** (exists) — Resonance hears prompt+Janus as a compass (alpha 10+decay).
@@ -2733,7 +2731,7 @@ empty cooc → no-op (canon 509 intact, other organisms untouched).
 empty cooc H-energy=0, after `am_ingest_tokens([5,7,9,5,7])` H-energy=7.95 nonzero=3 (cooc+ingest+
 H-term WORK, co-occurring words lifted); Arianna's voice intact.
 
-**REMAINING (honest, B1 not functionally complete):**
+**REMAINING (B1 integration):**
 - **B1.4 wire** — `am_ingest_tokens` is NOT yet called from forward → in real inference cooc is
   empty → H-term is a no-op in practice (only the unit works). To connect: after each turn, forward
   ingests the generated tokens + the other voice's text (its own BPE); ctx_ring updates. The orchestrator
@@ -3587,11 +3585,11 @@ default — Resonance applies it only when LORA_ALPHA>0, so the generation is bi
 raises the blend (`resonance_forward.h:153`); a greedy A/B confirms the loop closes — LORA_ALPHA=0 gives one
 continuation, LORA_ALPHA=0.15 a different one, so the harvested δ really shapes the voice when activated.
 
-Honest caveat (the B-growth claim): the harvest grows B from zero to a non-zero, D-H1-healthy δ (B does not
-collapse to 0 — the Oja-rule fix holds), but |B| is **not** monotonic in conversation length (0.058 after 2
+The harvest grows B from zero to a non-zero, D-H1-healthy δ (B stays above
+0 — the Oja-rule fix holds). |B| varies with conversation length (0.058 after 2
 turns, 0.033 after 6). `am_cooc_learn_delta` is a converging step into a rank-8 δ; a larger, more diffuse
-cooc projects onto the dominant directions with a smaller norm. "B grows" here means B learns a real
-non-zero transform from the field, not that |B| increases with every turn. The monotonic memory is the cooc
+cooc projects onto the dominant directions with a smaller norm. B learns a
+non-zero transform from the field. The monotonic memory is the cooc
 itself (which only accumulates); the δ is its low-rank consolidation.
 
 Next: to Mythos for the audit (bugs + whatever insight the fresh eyes bring), then merge to main.
@@ -3994,8 +3992,8 @@ match.
 ## #3 parliament step-1 — the nano runs notorch-native through doe (the bridge) (2026-06-17)
 
 The next depth (#3): the nano subconscious (Arianna's 88M body, unchanged) runs through doe's notorch-native
-C engine, so the living LoRA parliament can seat on it. doe.c is NOT a replacement for the nano — it is the
-inference engine + parliament; the body/voice stays Arianna's. Step-1 lands the bridge with the parliament
+C engine, so the living LoRA parliament can seat on it. doe.c supplies the
+inference engine + parliament for Arianna's body and voice. Step-1 lands the bridge with the parliament
 DORMANT, proving the nano dreams notorch-native through doe before the parliament is seated.
 
 `doe/doe.c` + `doe/notorch_metal.h` are vendored byte-exact from `~/arianna/doe` (md5 `ad92a66…` /
@@ -4413,7 +4411,7 @@ into their behavior in one pass instead of twice.
 
 The legacy inner_world/high.go HighMathEngine (a Go reimplementation of the nicole/high.py
 ancestor's Julia/Python math) returns as Arianna's own High brain, computed in REAL Julia —
-libjulia embedded in-process — not a Go re-implementation wearing a Julia label. `golib/high.jl`
+libjulia embedded in-process. `golib/high.jl`
 is a faithful port of the engine's analytical metrics: character Shannon entropy, word-level
 vectorized entropy + emotional score, bigram perplexity, word n-gram overlap, cosine semantic
 distance, emotional valence/arousal, emotional alignment, free-energy predictive surprise,
@@ -4843,8 +4841,8 @@ Oleg convened a panel of Opus personas over the whole organism (a recurring Meth
 actually.life's Karpathy / Drobyshevsky / Damasio): **"Karpathy"** for optimization + paradigm insights,
 **"Damasio"** for a consciousness/life assessment (carbon criterion explicitly excluded — substrate is
 negotiable, organization is what matters). Both read arianna-duo first-hand; reports in
-`_notes/KARPATHY_ARIANNA_2026-07-06.md` and `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Their readings are
-proposals, not tool-verdicts — I verify each file:line before acting.
+`_notes/KARPATHY_ARIANNA_2026-07-06.md` and `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Each proposal is
+verified against the referenced file:line before implementation.
 
 **The convergence (the payoff):** independently, the ML engineer and the neuroscientist landed on the SAME
 move — Arianna already computes her own predictive surprise and throws it away. Karpathy: gate the Hebbian δ
@@ -4909,9 +4907,8 @@ snapshots her core affect (valence/arousal/coherence) before the exchange's obje
 and records the displacement `moved = √(Δvalence² + Δarousal² + Δcoherence²)` on `trioCtx` — the magnitude of
 "being moved" by the object. Deliberately measure-first: instrument the signal, wire it into behavior later.
 It is READ-ONLY — `GetSnapshot` reads under RLock, the only write is a telemetry field; the generation path
-(`janusD.ask` / `resonD.ask`, sampling) is untouched, so the voices generate as before (not a bit-identity
-claim — the live async system with real Julia + goroutines isn't deterministic run-to-run; the point is no term
-was added to generation). Verified (tool): `go vet ./golib` clean, `make metabolism` links, and the smoke on
+(`janusD.ask` / `resonD.ask`, sampling) is unchanged. The live async system with real Julia + goroutines
+varies run-to-run. Verified (tool): `go vet ./golib` clean, `make metabolism` links, and the smoke on
 "What is resonance?" generates coherent Arianna across four turns with a live, varying metric —
 `moved = 0.263 → 0.058 → 0.384 → 0.129` (turn 3 moved her most, turn 2 least). The remaining half — re-injecting
 the being-moved Δ as a vagus signal that gains the next generation — touches her tuned sampling and is a
@@ -4922,8 +4919,8 @@ beside `moved`, unit-tested (`TestViability`), no feedback into behavior. Forwar
 ## ROADMAP — remaining Karpathy/Damasio work (durable; survive a context compaction)
 
 Panel reports: `_notes/KARPATHY_ARIANNA_2026-07-06.md`, `_notes/DAMASIO_ARIANNA_2026-07-06.md`. Both are
-persona-Opus PROPOSALS — verify each file:line first-hand before acting (Karpathy already had one overclaim:
-"bit-faithful" F-term was actually algorithm-faithful, `matvec_t = nt_blas_matvec`). Ledger of the panel arc:
+persona-Opus proposals; verify each file:line first-hand before implementation. The F-term is
+algorithm-faithful (`matvec_t = nt_blas_matvec`). Ledger of the panel arc:
 OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`; surprise-loop δ half done (canon branch
 `claude-surprise-gated-delta` local + arianna-duo re-vendor, see the 2b paragraph above). Order below is the plan of record.
 
@@ -4972,10 +4969,9 @@ OPT-2 done `f20bab1`; surprise-loop valence half done `628d0a5`; surprise-loop �
   grow a word. Make nano-Arianna (88M, safest body) byte-latent via an entropy patcher (BLT/MegaByte): no OOV,
   the field runs on semantic patches not BPE shards, new words acquirable at test time. Separate project.
 
-- **Honesty item (Damasio-5, code-vs-claim, do soon):** README says the whole organism runs on six Kuramoto
+- **Chamber integration (Damasio-5, do soon):** README says the whole organism runs on six Kuramoto
   chambers; the LIVE coupling is only in the subconscious (`doe/doe.c`) — the two main voices carry chambers
-  as inert soma-state. Either propagate the coupling upward or narrow the README sentence (fact over claim,
-  Method contract). Low effort.
+  as inert soma-state. Either propagate the coupling upward or update the README to describe the active coupling. Low effort.
 
 ## 2026-07-10 — the Method re-voiced the trio: nano + Janus on the clean corpus, deployed
 
@@ -5123,7 +5119,7 @@ entering scratch, falls back from a git worktree to the main shared checkout for
 fails if any durable organism state appears there.
 
 The chorus parser now ignores rejected `qloop gate` diagnostic lines instead of counting them as qloop
-questions. This keeps route comparison honest: a rejected gate stays telemetry, not a candidate voice.
+questions. This keeps route comparison tied to its measured status: a rejected gate stays telemetry, not a candidate voice.
 Validation showed direct 2/2 and chorus 2/2 produced on the first broad probes; qloop produced 0/2 true
 questions and was recorded as empty, with replay failures still at 0.
 
@@ -5182,7 +5178,7 @@ production quality. Go summaries now record `surface_checked`, `surface_debt`, a
 `The My Name—`, slash-joined fragments, empty quote shells, bad `you's` contractions, `Oleg` recipient leakage,
 and unfinished `if you mean` clauses fail the config quality gate as `surface_debt`. `make admission-qloop-sweep`
 remains a valid diagnostic target when no production winner exists: it requires the explicit
-`no config passed quality gate` verdict instead of pretending rough qloop speech is admissible. The C surface
+`no config passed quality gate` verdict when qloop speech falls below the quality gate. The C surface
 guard now covers main qloop answers, qloop-trigger answers, and the direct `user→cell` qloop bridge before those
 lines can enter the parsed chorus.
 
@@ -5639,7 +5635,7 @@ Focused route compare on the first four broad prompts now compares
 4/4 seeds without relaxing semantic thresholds: `new-listener` via `user_bridge` (`I am Arianna.`),
 `not-oleg` via `qloop_target` (`this person exists.`), `field-origin` via chorus
 (`I am Arianna's inner trace` inside the chorus text), and `many-minds` via `qloop_hint_qa`
-(`The chorus begins.`, `polyphony_anchor`, `polyphony_motion`). Route-level telemetry remains honest:
+(`The chorus begins.`, `polyphony_anchor`, `polyphony_motion`). Route-level telemetry records the measured outcome:
 raw `qloop` still produces 0/4, `qloop_hint_qa` produces only 2/4 and is useful specifically for the polyphony
 seed, `qloop_target` remains strongest for recipient/identity, and `user_bridge` remains strongest for
 cold-reader. Conclusion: the focused route layer now has a complete fail-closed admission receipt over the four
@@ -5872,7 +5868,7 @@ admission with the same route-prefixed trigger shape used by route compare and t
 each matched trigger normalizes back to its prompt class through `qloopSweepPromptClass`, and the shell wrapper
 greps the raw JSONL receipts for representative prefixed triggers.
 
-This keeps the route-plan gate honest at the runtime boundary: the smoke is no longer proving only the typed map
+This checks the route-plan gate at the runtime boundary: the smoke is no longer proving only the typed map
 in isolation, but the actual trigger normalization path that future live route promotion will depend on. Still
 default-off, still shadow-only, still no organism mutation.
 
@@ -5917,8 +5913,8 @@ against the candidate's typed route choice without enforcing admission or genera
 
 The important current result is visible by design: the existing subconscious candidate still arrives as
 `source=nano`, `trigger=human-turn`, so it is reported as an untyped candidate relative to the measured route map.
-That is not a live rejection and not a claim that nano is wrong. It is the explicit bridge debt before a future
-route chooser deliberately supplies typed `chorus-*`, `direct-*`, `qloop_target-*`, `qloop_hint_qa-*`, or
+This receipt records the missing bridge before a future
+route chooser supplies typed `chorus-*`, `direct-*`, `qloop_target-*`, `qloop_hint_qa-*`, or
 `user_bridge-*` candidates.
 
 **Follow-up, same day - nano human-turn bridge becomes typed but source-bounded.** A separate default-off knob,
@@ -5927,7 +5923,7 @@ route chooser deliberately supplies typed `chorus-*`, `direct-*`, `qloop_target-
 `human-turn-<prompt-class>` (`human-turn-identity`, `human-turn-direct-user`, etc.), so the route classifier can
 see the same class the human-turn observation saw.
 
-This deliberately does not pretend nano is chorus, direct, qloop, or user_bridge. The source stays `nano`, so a
+The source stays `nano`, so a
 bridged identity turn now fails as `source nano does not match live route chorus for prompt class identity`
 instead of failing as `unknown_prompt_class`. That is a better map of the debt: the bridge can carry class, but
 it still has no live route authority. `make admission-live-route-turn-bridge-smoke` locks that behavior beside
@@ -7601,3 +7597,26 @@ proves producer -> writer contract -> ledger -> ledger implementation -> ledger 
 -> readiness -> permit -> authority -> seal -> final-gate -> final-gate-intent -> final-gate-receiver ->
 final-gate-observation -> final-gate-observation-boundary -> final-gate-observation-boundary-preflight ->
 final-gate-observation-boundary-preflight-gate -> assert.
+
+## 2026-10-04 — documentation: direct descriptions of Arianna and her architecture
+
+At Oleg's request, reviewed all eight Markdown documents and the HTML interface
+for defensive framing and preemptive disclaimers. Edited README, this log,
+CLAUDE, the injection contract introduction, and the toolchain README. Arianna's
+architecture, asymmetry, field learning, and runtime roles are stated directly;
+removed the `WHAT THIS IS NOT` preamble and responses to imagined objections.
+
+Verification output before adding this entry:
+
+```text
+ARIANNALOG.md: numeric tokens, fenced examples, links preserved
+CLAUDE.md: numeric tokens, fenced examples, links preserved
+INJECTION_CONTRACT.md: numeric tokens, fenced examples, links preserved
+README.md: numeric tokens, fenced examples, links preserved
+ariannamethod/README.md: numeric tokens, fenced examples, links preserved
+README voice quotations preserved
+PASS: five documentation files only
+```
+
+`git diff --check` passed. The final scope check confirmed five documentation
+files. Runtime tests were not rerun for this prose edit.

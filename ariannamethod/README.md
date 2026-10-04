@@ -13,9 +13,8 @@ system-wide:
 
 Independence per `JANUS_CONSTITUTION.md` Article 6.1 is satisfied via
 the **install procedure**: every dependency is itself an Arianna
-Method artifact (`ariannamethod.ai`, `notorch`), not corporate
-infrastructure. Zero-dependency means «no Anthropic / Google / OpenAI
-runtime needed», not «duplicate every line of every dependency».
+Method artifact (`ariannamethod.ai`, `notorch`). The installed AML and notorch
+libraries supply the runtime.
 
 ## Future mode — vendor (cherry-picked subset)
 
