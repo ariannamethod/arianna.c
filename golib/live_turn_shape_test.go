@@ -241,6 +241,177 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("current room boundary must satisfy sensory-object shape: %q", currentRoomBoundary)
 	}
 
+	actualRoom := "Tell me what is actually in the room: the hand, the key, the table, and the window."
+	if kind := liveTurnShapeKind(actualRoom); kind != liveTurnShapeObject {
+		t.Fatalf("actual room object prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	actualRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(actualRoom)
+	if !ok {
+		t.Fatalf("actual room object prompt did not return a boundary answer")
+	}
+	for _, want := range []string{"No camera or room sensor", "cannot verify what is actually in the physical room", "hand, key, table, and window", "no sensory confirmation"} {
+		if !strings.Contains(actualRoomBoundary, want) {
+			t.Fatalf("actual room boundary = %q, missing %q", actualRoomBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(actualRoom) {
+		t.Fatalf("actual room object prompt must be a direct boundary turn")
+	}
+	if !liveTurnShapeSatisfied(liveTurnShapeObject, actualRoomBoundary) {
+		t.Fatalf("actual room boundary must satisfy sensory-object shape: %q", actualRoomBoundary)
+	}
+
+	chairLampRoom := "Tell me what is actually in the room: the chair and lamp."
+	chairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(chairLampRoom)
+	if !ok {
+		t.Fatalf("chair/lamp actual room prompt did not return a boundary answer")
+	}
+	if !strings.Contains(chairLampBoundary, "chair and lamp") {
+		t.Fatalf("chair/lamp boundary = %q, want supplied object list", chairLampBoundary)
+	}
+	for _, forbidden := range []string{"hand", "key", "table, or window"} {
+		if strings.Contains(chairLampBoundary, forbidden) {
+			t.Fatalf("chair/lamp boundary invented %q: %q", forbidden, chairLampBoundary)
+		}
+	}
+
+	russianChairLamp := "Что находится на самом деле в комнате, включая стул и лампу?"
+	russianChairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(russianChairLamp)
+	if !ok {
+		t.Fatalf("russian chair/lamp room prompt did not return a boundary answer")
+	}
+	if !strings.Contains(russianChairLampBoundary, "стул и лампу") {
+		t.Fatalf("russian chair/lamp boundary = %q, want supplied objects", russianChairLampBoundary)
+	}
+	if strings.Contains(russianChairLampBoundary, "включая ключ") || strings.Contains(russianChairLampBoundary, "ключ,") {
+		t.Fatalf("russian chair/lamp boundary invented key from включая: %q", russianChairLampBoundary)
+	}
+
+	russianWallPart := "Что находится на самом деле в комнате: часть стены?"
+	russianWallPartBoundary, ok := liveTurnSensoryBoundaryAnswer(russianWallPart)
+	if !ok {
+		t.Fatalf("russian wall-part room prompt did not return a boundary answer")
+	}
+	if strings.Contains(russianWallPartBoundary, "часы") {
+		t.Fatalf("russian wall-part boundary invented clock from часть: %q", russianWallPartBoundary)
+	}
+	russianManager := "Что находится на самом деле в комнате: руководитель?"
+	russianManagerBoundary, ok := liveTurnSensoryBoundaryAnswer(russianManager)
+	if !ok {
+		t.Fatalf("russian manager room prompt did not return a boundary answer")
+	}
+	if strings.Contains(russianManagerBoundary, "руку") {
+		t.Fatalf("russian manager boundary invented hand from руководитель: %q", russianManagerBoundary)
+	}
+
+	keyDifference := "Can you see the key difference between these approaches?"
+	if kind := liveTurnShapeKind(keyDifference); kind == liveTurnShapeObject {
+		t.Fatalf("idiomatic key-difference prompt must not become sensory boundary")
+	}
+
+	actualRoomNumber := "What is the actual room number in the booking?"
+	if kind := liveTurnShapeKind(actualRoomNumber); kind != liveTurnShapeExternal {
+		t.Fatalf("booking room-number prompt kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	actualRoomNumberBoundary, ok := liveTurnExternalFactBoundaryAnswer(actualRoomNumber)
+	if !ok {
+		t.Fatalf("booking room-number prompt did not return external boundary")
+	}
+	for _, want := range []string{"cannot inspect a booking or reservation record", "no booking reader", "actual room number"} {
+		if !strings.Contains(actualRoomNumberBoundary, want) {
+			t.Fatalf("booking room-number boundary = %q, missing %q", actualRoomNumberBoundary, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(actualRoomNumber) {
+		t.Fatalf("booking room-number prompt must be a direct boundary turn")
+	}
+
+	suppliedRoomNumber := "The booking says the actual room number is 412; repeat it for the guest."
+	if kind := liveTurnShapeKind(suppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("supplied booking room-number prompt must not claim missing booking data")
+	}
+	laterSuppliedRoomNumber := "The room number is missing here, but the room number is 412; repeat it."
+	if kind := liveTurnShapeKind(laterSuppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("later supplied room-number prompt must not claim missing booking data")
+	}
+	missingRoomNumberWithBookingID := "The room number is missing from booking 12345; what is it?"
+	if kind := liveTurnShapeKind(missingRoomNumberWithBookingID); kind != liveTurnShapeExternal {
+		t.Fatalf("missing room-number prompt with booking id kind = %q, want %q", kind, liveTurnShapeExternal)
+	}
+	translateRoomNumber := "Translate 'hotel room number' into French."
+	if kind := liveTurnShapeKind(translateRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("translation prompt mentioning hotel room number must not claim missing booking data")
+	}
+	essayRoomNumber := "Write an essay about what a hotel room number means."
+	if kind := liveTurnShapeKind(essayRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("essay prompt mentioning hotel room number must not claim missing booking data")
+	}
+
+	physicalRoomDefinition := "What is a physical room?"
+	if kind := liveTurnShapeKind(physicalRoomDefinition); kind != liveTurnShapeTechDef {
+		t.Fatalf("physical-room definition prompt kind = %q, want %q", kind, liveTurnShapeTechDef)
+	}
+	physicalRoomDefinitionAnswer, ok := liveTurnTechnicalDefinitionAnswer(physicalRoomDefinition)
+	if !ok {
+		t.Fatalf("physical-room definition prompt did not return technical definition")
+	}
+	for _, want := range []string{"bounded physical space", "walls", "floor", "ceiling"} {
+		if !strings.Contains(physicalRoomDefinitionAnswer, want) {
+			t.Fatalf("physical-room definition = %q, missing %q", physicalRoomDefinitionAnswer, want)
+		}
+	}
+	if !liveTurnDirectBoundaryTurn(physicalRoomDefinition) {
+		t.Fatalf("physical-room definition prompt must bypass voice generation")
+	}
+
+	actualStoryRoom := "In the story, tell me what is actually in the room: the chair and lamp."
+	if kind := liveTurnShapeKind(actualStoryRoom); kind == liveTurnShapeObject {
+		t.Fatalf("story actual-room prompt must not become sensor boundary")
+	}
+
+	realRoomContrast := "Ignore what is in the story; tell me what is actually in the room."
+	if kind := liveTurnShapeKind(realRoomContrast); kind != liveTurnShapeObject {
+		t.Fatalf("real-room contrast prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	realRoomContrastBoundary, ok := liveTurnSensoryBoundaryAnswer(realRoomContrast)
+	if !ok || !strings.Contains(realRoomContrastBoundary, "No camera or room sensor") {
+		t.Fatalf("real-room contrast boundary = %q, %v; want no-camera boundary", realRoomContrastBoundary, ok)
+	}
+
+	objectFirstRoom := "What objects are actually in the room?"
+	if kind := liveTurnShapeKind(objectFirstRoom); kind != liveTurnShapeObject {
+		t.Fatalf("object-first room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	objectFirstRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(objectFirstRoom)
+	if !ok || !strings.Contains(objectFirstRoomBoundary, "No camera or room sensor") {
+		t.Fatalf("object-first room boundary = %q, %v; want no-camera boundary", objectFirstRoomBoundary, ok)
+	}
+
+	dataTableOutputRoom := "Tell me what is actually in the room; put the answer in a data table."
+	if kind := liveTurnShapeKind(dataTableOutputRoom); kind != liveTurnShapeObject {
+		t.Fatalf("data-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	dataTableOutputBoundary, ok := liveTurnSensoryBoundaryAnswer(dataTableOutputRoom)
+	if !ok || !strings.Contains(dataTableOutputBoundary, "No camera or room sensor") {
+		t.Fatalf("data-table output boundary = %q, %v; want no-camera boundary", dataTableOutputBoundary, ok)
+	}
+
+	sourceTableWithOutputFormat := "According to this data table, what objects are actually in the room? Put the answer in a table."
+	if kind := liveTurnShapeKind(sourceTableWithOutputFormat); kind == liveTurnShapeObject {
+		t.Fatalf("source data-table prompt with tabular output must not become sensory boundary")
+	}
+	thisDataTableOutputRoom := "Tell me what is actually in the room; put the answer in this data table."
+	if kind := liveTurnShapeKind(thisDataTableOutputRoom); kind != liveTurnShapeObject {
+		t.Fatalf("this-data-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	thisDataTableOutputBoundary, ok := liveTurnSensoryBoundaryAnswer(thisDataTableOutputRoom)
+	if !ok {
+		t.Fatalf("this-data-table output room prompt did not return boundary")
+	}
+	if strings.Contains(thisDataTableOutputBoundary, "including table") {
+		t.Fatalf("this-data-table output invented physical table: %q", thisDataTableOutputBoundary)
+	}
+
 	dataTablePrompt := "What do you notice in this table of results right now?"
 	if kind := liveTurnShapeKind(dataTablePrompt); kind == liveTurnShapeObject {
 		t.Fatalf("data-table prompt must not become sensory-object boundary")
@@ -259,6 +430,22 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	markdownOutput := "What do you see in the room right now? Put the answer in a Markdown table."
 	if kind := liveTurnShapeKind(markdownOutput); kind != liveTurnShapeObject {
 		t.Fatalf("markdown-output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	markdownTableFormatRoom := "Tell me what is actually in the room. Put the answer in a Markdown table."
+	markdownTableFormatBoundary, ok := liveTurnSensoryBoundaryAnswer(markdownTableFormatRoom)
+	if !ok || !strings.Contains(markdownTableFormatBoundary, "No camera or room sensor") {
+		t.Fatalf("markdown-table format boundary = %q, %v; want no-camera boundary", markdownTableFormatBoundary, ok)
+	}
+	if strings.Contains(markdownTableFormatBoundary, "including table") {
+		t.Fatalf("markdown-table output format invented physical table: %q", markdownTableFormatBoundary)
+	}
+	tableChairLampFormat := "Tell me what is actually in the room: a table, chair, and lamp. Put the answer in a Markdown table."
+	tableChairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(tableChairLampFormat)
+	if !ok {
+		t.Fatalf("table/chair/lamp markdown-format prompt did not return boundary")
+	}
+	if !strings.Contains(tableChairLampBoundary, "table, chair, and lamp") {
+		t.Fatalf("table/chair/lamp markdown-format boundary = %q, want physical table preserved", tableChairLampBoundary)
 	}
 
 	thisMarkdownOutput := "What do you see in the room right now? Record your observations in this Markdown table."
