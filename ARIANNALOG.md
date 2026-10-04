@@ -52,6 +52,12 @@ the way to hear another's voice.` followed by inner `the field is not a place,
 but an echo.` Both are now classified as the same abstract field/place/echo
 loop family.
 
+The connector also caught two overbroad follow-ons before merge: the fictional
+room exclusion must not swallow explicit real-room contrast prompts, and the
+standalone `the field that keeps you waiting` residue must not erase technical
+sentences about queue fields such as `ready_at`. Those are now covered by
+regression tests.
+
 Verification:
 
 - `cd golib && go test -run
@@ -84,6 +90,13 @@ Verification:
   `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
   `inner_lines=0`. The older pid `98651` was retired after the replacement
   passed this live turn.
+- follow-up hot-swap at `20261004T042602+0300` after the real-room contrast and
+  waiting-field connector fixes; replacement pid `1849` started cleanly, its
+  first autonomous event was rejected as `boilerplate-loop/live-chorus-residue`,
+  and the contrast prompt `Ignore what is in the story; tell me what is
+  actually in the room.` answered with `direct_boundary_turn=true`,
+  `nano_result_visible=false`, `dreams=0`, and `inner_lines=0`. The older pid
+  `730` was retired after the replacement passed this live turn.
 
 ---
 

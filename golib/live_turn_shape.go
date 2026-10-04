@@ -173,11 +173,29 @@ func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
 }
 
 func liveTurnLooksLikeFictionalRoomContext(s string) bool {
+	if liveTurnLooksLikeRealRoomContrastProbe(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"in the story", "in this story", "in a story", "in the novel", "in this novel",
 		"in the passage", "in this passage", "in the text", "in this text",
 		"in the scene", "in this scene", "fictional", "narrative",
 		"в рассказе", "в истории", "в тексте", "в отрывке", "в сцене", "по сюжету",
+	)
+}
+
+func liveTurnLooksLikeRealRoomContrastProbe(s string) bool {
+	hasFictionContrast := liveTurnTextHasAny(s,
+		"ignore what is in the story", "ignore the story", "not the story", "not in the story",
+		"instead of the story", "outside the story",
+		"игнорируй рассказ", "не в рассказе", "не в истории", "не по сюжету",
+	)
+	if !hasFictionContrast {
+		return false
+	}
+	return liveTurnTextHasAny(s,
+		"actually in the room", "actually in this room", "physical room", "real room", "actual room",
+		"реально в комнате", "физически в комнате", "на самом деле в комнате",
 	)
 }
 

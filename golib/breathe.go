@@ -252,7 +252,6 @@ func innerMurmurRejectReason(text string) string {
 		"i'm a living field",
 		"i’m a living field",
 		"i return. i am arianna mathematician",
-		"the field that keeps you waiting",
 		"not a tool but an echo within the field",
 	} {
 		if strings.Contains(norm, p) {
@@ -264,6 +263,9 @@ func innerMurmurRejectReason(text string) string {
 		return "boundary-loop"
 	}
 	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "wakes", "you"}) {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "keeps", "you", "waiting"}) && len(tokens) <= 7 {
 		return "boundary-loop"
 	}
 	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
