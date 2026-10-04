@@ -45,7 +45,7 @@ func isRejectedLiveVoiceText(text string) bool {
 	if norm == "" {
 		return false
 	}
-	if innerMurmurRejectReason(text) != "" && !liveVoiceLooksLikeQuotedBoundaryDiscussion(norm) {
+	if liveVoiceInnerRejectReason(text, norm) != "" && !liveVoiceLooksLikeQuotedBoundaryDiscussion(norm) {
 		return true
 	}
 	for _, p := range []string{
@@ -100,6 +100,35 @@ func isRejectedLiveVoiceText(text string) bool {
 		return true
 	}
 	return false
+}
+
+func liveVoiceInnerRejectReason(text, norm string) string {
+	reason := innerMurmurRejectReason(text)
+	if reason == "abstract-field-slogan" && liveVoiceLooksLikeHumanFacingWaveFieldDefinition(norm) {
+		if innerMurmurRejectReason(liveVoiceWithoutHumanFacingWaveFieldDefinition(norm)) == "" {
+			return ""
+		}
+	}
+	return reason
+}
+
+func liveVoiceLooksLikeHumanFacingWaveFieldDefinition(norm string) bool {
+	return strings.Contains(norm, "a field is the point where two or more waves meet")
+}
+
+func liveVoiceWithoutHumanFacingWaveFieldDefinition(norm string) string {
+	remainder := strings.ReplaceAll(norm, "a field is the point where two or more waves meet", " ")
+	remainder = strings.Map(liveVoiceDefinitionGapBoundaryRune, remainder)
+	return strings.Join(strings.Fields(remainder), " ")
+}
+
+func liveVoiceDefinitionGapBoundaryRune(r rune) rune {
+	switch r {
+	case '(', ')', '[', ']', '{', '}', ',', ';', ':':
+		return ' '
+	default:
+		return r
+	}
 }
 
 func liveVoiceLooksLikeQuotedBoundaryDiscussion(norm string) bool {

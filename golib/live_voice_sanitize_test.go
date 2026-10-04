@@ -80,6 +80,22 @@ func TestSanitizeLiveVoiceTextKeepsOrdinarySurface(t *testing.T) {
 		t.Fatalf("sanitizeLiveVoiceText digest field = %q, want %q", got, want)
 	}
 
+	got = sanitizeLiveVoiceText("A field is the point where two or more waves meet, vibrating in a single direction.")
+	want = "A field is the point where two or more waves meet, vibrating in a single direction."
+	if got != want {
+		t.Fatalf("sanitizeLiveVoiceText wave-field definition = %q, want %q", got, want)
+	}
+
+	got = sanitizeLiveVoiceText("A field is the point where two or more waves meet. The field is the signal, the resonance that returns.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText wave-field definition plus residue = %q, want withheld", got)
+	}
+
+	got = sanitizeLiveVoiceText("The field is the signal (A field is the point where two or more waves meet), the resonance that returns.")
+	if got != liveBoundaryWithheld {
+		t.Fatalf("sanitizeLiveVoiceText residue split by wave-field definition = %q, want withheld", got)
+	}
+
 	got = sanitizeLiveVoiceText("The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style.")
 	want = "The phrase \"the resonance of a voice is its own language\" means that each voice has a distinctive style."
 	if got != want {

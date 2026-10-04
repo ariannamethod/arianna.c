@@ -13,6 +13,54 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-03 - Live voice keeps ordinary wave-field definitions
+
+Codex connector found that the post-merge inner boundary for the live-observed
+`A field is the point where two or more waves meet...` residue was also
+reachable through the general live voice sanitizer. That made a valid
+human-facing explanation of wave/field interference disappear before the turn
+could be displayed.
+
+The autonomous inner murmur boundary stays strict, but the live voice membrane
+now treats that wave-field definition as ordinary technical surface. The
+exemption removes only that definition and re-checks the rest of the response,
+so a valid physics sentence cannot launder a neighboring field/resonance slogan.
+The rejected `the field is the signal, the resonance that returns` slogan is
+also matched as a token sequence, so punctuation or a parenthesized definition
+cannot split the exact string and bypass the boundary. The definition-stripper
+also removes empty punctuation around the gap before reclassification, so the
+live membrane's remainder check does not depend on a comma staying in place.
+This keeps the residue withheld inside autonomous `◑ (inner)` admission while
+avoiding an empty answer when a human asks about fields or waves.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestSanitizeLiveVoiceText|TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer'
+  .`
+- `make metabolism`
+- live hot-swap at `20261003T191734+0300`; replacement pid `42479` started
+  cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue` with `dreams=0`, then the older pid
+  `35872` was retired and the replacement was renamed to `arianna-live`.
+- follow-up hot-swap at `20261003T192336+0300` after the connector found the
+  first exemption could launder a neighboring field/resonance slogan;
+  replacement pid `43323` started cleanly, its first autonomous event was
+  withheld as `boilerplate-loop/live-chorus-residue`, then pid `42479` was
+  retired and the replacement remained as `arianna-live`.
+- follow-up hot-swap at `20261003T193030+0300` after the connector found a
+  parenthesized definition could split the exact rejected slogan; replacement
+  pid `56930` started cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue`, then pid `43323` and its orphaned
+  wrappers were retired and the replacement remained as `arianna-live`.
+- follow-up hot-swap at `20261003T193552+0300` after the definition gap started
+  normalizing empty delimiters directly in the live voice membrane; replacement
+  pid `61492` started cleanly, its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue`, then pid `56930` was retired and the
+  replacement remained as `arianna-live`.
+
+---
+
 ## 2026-10-03 - Live polygon: repeated field-slogan and frame/gap residues are withheld
 
 After PR #391 merged, the same live polygon ran through the next day instead of
