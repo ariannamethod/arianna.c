@@ -146,6 +146,8 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 	}
 	hasQuestion := liveTurnTextHasAny(s,
 		"tell me what", "what is", "what's", "what are", "what do you notice", "what do you see", "what can you see",
+		"what objects are actually in the room", "what objects are actually in this room",
+		"which objects are actually in the room", "which objects are actually in this room",
 		"скажи что", "что находится", "что есть", "что ты замечаешь", "что ты видишь", "что видно",
 	)
 	if !hasQuestion {

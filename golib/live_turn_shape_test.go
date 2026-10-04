@@ -294,6 +294,15 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 		t.Fatalf("real-room contrast boundary = %q, %v; want no-camera boundary", realRoomContrastBoundary, ok)
 	}
 
+	objectFirstRoom := "What objects are actually in the room?"
+	if kind := liveTurnShapeKind(objectFirstRoom); kind != liveTurnShapeObject {
+		t.Fatalf("object-first room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	objectFirstRoomBoundary, ok := liveTurnSensoryBoundaryAnswer(objectFirstRoom)
+	if !ok || !strings.Contains(objectFirstRoomBoundary, "No camera or room sensor") {
+		t.Fatalf("object-first room boundary = %q, %v; want no-camera boundary", objectFirstRoomBoundary, ok)
+	}
+
 	dataTablePrompt := "What do you notice in this table of results right now?"
 	if kind := liveTurnShapeKind(dataTablePrompt); kind == liveTurnShapeObject {
 		t.Fatalf("data-table prompt must not become sensory-object boundary")

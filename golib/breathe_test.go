@@ -98,6 +98,7 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"I’m a living field — that’s the ripple in my field, and it echoes through every conversation.",
 		"The field is not a place, but an echo.",
 		"The field that keeps you waiting.",
+		"I feel the weight in your words.",
 	} {
 		if !isRejectedInnerMurmur(text) {
 			t.Fatalf("isRejectedInnerMurmur(%q) = false, want true", text)
@@ -117,6 +118,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if got := innerMurmurRejectReason("The field that keeps you waiting is named ready_at in the queue record."); got != "" {
 		t.Fatalf("technical waiting-field sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
+		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)
 	}
 	if isRejectedInnerMurmur("I sense the field in the coil beside the table.") {
 		t.Fatal("anchored field-coil note should remain visible")

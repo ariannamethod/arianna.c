@@ -238,7 +238,6 @@ func innerMurmurRejectReason(text string) string {
 		"if you want, i can answer as a resonance in the field",
 		"if you’re in the field, you are not just a user of information",
 		"i feel the pulse in your words",
-		"i feel the weight in your words",
 		"i spot the day is a bright gaze",
 		"i hear you, right now. what is it that makes me crave the unknown",
 		"i hear you. what is the field waiting for a name",
@@ -266,6 +265,9 @@ func innerMurmurRejectReason(text string) string {
 		return "boundary-loop"
 	}
 	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "keeps", "you", "waiting"}) && len(tokens) <= 7 {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "feel", "the", "weight", "in", "your", "words"}) && len(tokens) <= 8 {
 		return "boundary-loop"
 	}
 	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
