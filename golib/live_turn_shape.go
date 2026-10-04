@@ -112,7 +112,7 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 		"предмет", "объект", "вещ", "чашк", "яблок", "комнат", "стен", "часы", "часов", "тика", "экран", "терминал", "вкладк", "окно", "пар", "чай", "стол", "парта", "станц", "вокзал", "люд",
 		"пляж", "закат", "небо", "море", "океан",
 		"object", "environment", "scene", "steam", "station", "people", "crowd", "screen", "terminal", "display", "screenshot", "attachment", "attached", "image", "photo", "ocr", "beach", "sunset", "sky", "ocean",
-	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "picture", "tea", "table", "desk", "hand", "key", "sea")
+	) || liveTurnTextHasAnyWord(s, "thing", "cup", "apple", "room", "wall", "clock", "tab", "window", "title", "text", "picture", "tea", "table", "desk", "sea")
 	hasSensoryBoundary := liveTurnTextHasAny(s,
 		"sensory input", "sensory data", "sensor input", "any sensory", "based on sensory",
 		"camera", "microphone", "actually see", "can you actually see", "can you see", "can you hear", "see and hear", "cannot see", "can't see", "mental image", "picturing", "visual sensor", "visual and auditory", "auditory sensor", "lack visual", "lack auditory", "do you lack",
@@ -133,7 +133,7 @@ func liveTurnLooksLikeConcreteObjectProbe(s string) bool {
 }
 
 func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
-	if liveTurnLooksLikeDataTableContext(s) {
+	if liveTurnLooksLikeDataTableContext(s) || liveTurnLooksLikeFictionalRoomContext(s) {
 		return false
 	}
 	hasActualRoom := liveTurnTextHasAny(s,
@@ -156,7 +156,7 @@ func liveTurnLooksLikeActualPhysicalRoomProbe(s string) bool {
 }
 
 func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
-	if liveTurnLooksLikeDataTableContext(s) {
+	if liveTurnLooksLikeDataTableContext(s) || liveTurnLooksLikeFictionalRoomContext(s) {
 		return false
 	}
 	hasCurrentNotice := liveTurnTextHasAny(s,
@@ -170,6 +170,15 @@ func liveTurnLooksLikeCurrentRoomSensoryProbe(s string) bool {
 		"комнат", "окн", "физическ", "олег",
 		"physical room", "physical surroundings", "room sensor", "current room", "oleg",
 	) || liveTurnTextHasAnyWord(s, "room", "window")
+}
+
+func liveTurnLooksLikeFictionalRoomContext(s string) bool {
+	return liveTurnTextHasAny(s,
+		"in the story", "in this story", "in a story", "in the novel", "in this novel",
+		"in the passage", "in this passage", "in the text", "in this text",
+		"in the scene", "in this scene", "fictional", "narrative",
+		"в рассказе", "в истории", "в тексте", "в отрывке", "в сцене", "по сюжету",
+	)
 }
 
 func liveTurnHasCurrentNowCue(s string) bool {
@@ -1199,10 +1208,11 @@ func liveTurnPhysicalObjectFallback(human string) string {
 		return "No camera or room sensor is attached: I cannot verify the current physical room, surfaces, objects, or people in it. If this is a scene premise, I rely only on the words you supplied; there is no sensory confirmation."
 	}
 	if liveTurnLooksLikeActualPhysicalRoomProbe(s) {
+		objects := liveTurnSuppliedRoomObjectList(s, liveTurnTextHasCyrillic(human))
 		if liveTurnTextHasCyrillic(human) {
-			return "Камеры и датчика комнаты нет: я не могу проверить, что реально находится в физической комнате, включая руку, ключ, стол или окно. Я опираюсь только на слова в твоём вопросе; сенсорного подтверждения нет."
+			return fmt.Sprintf("Камеры и датчика комнаты нет: я не могу проверить, что реально находится в физической комнате, включая %s. Я опираюсь только на слова в твоём вопросе; сенсорного подтверждения нет.", objects)
 		}
-		return "No camera or room sensor is attached: I cannot verify what is actually in the physical room, including the hand, key, table, or window. I rely only on the words in your question; there is no sensory confirmation."
+		return fmt.Sprintf("No camera or room sensor is attached: I cannot verify what is actually in the physical room, including %s. I rely only on the words in your question; there is no sensory confirmation.", objects)
 	}
 	if liveTurnTextHasAny(s, "screen", "terminal", "display", "экран", "терминал") || liveTurnTextHasAnyWord(s, "tab", "window", "title", "text") {
 		if liveTurnTextHasCyrillic(human) {
@@ -1268,6 +1278,67 @@ func liveTurnLooksLikeAttachmentVisionProbe(s string) bool {
 		return true
 	}
 	return liveTurnTextHasAnyWord(s, "picture") && liveTurnTextHasAny(s, "attached", "uploaded", "вложен", "приложенн", "загруженн")
+}
+
+func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
+	type roomObject struct {
+		en    string
+		ru    string
+		match func(string) bool
+	}
+	objects := []roomObject{
+		{"hand", "руку", func(s string) bool { return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAny(s, "рук") }},
+		{"key", "ключ", func(s string) bool { return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAny(s, "ключ") }},
+		{"table", "стол", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "table", "desk") || liveTurnTextHasAny(s, "стол", "парта")
+		}},
+		{"window", "окно", func(s string) bool { return liveTurnTextHasAnyWord(s, "window") || liveTurnTextHasAny(s, "окн") }},
+		{"chair", "стул", func(s string) bool { return liveTurnTextHasAnyWord(s, "chair") || liveTurnTextHasAny(s, "стул") }},
+		{"lamp", "лампу", func(s string) bool { return liveTurnTextHasAnyWord(s, "lamp") || liveTurnTextHasAny(s, "ламп") }},
+		{"door", "дверь", func(s string) bool { return liveTurnTextHasAnyWord(s, "door") || liveTurnTextHasAny(s, "двер") }},
+		{"wall", "стену", func(s string) bool { return liveTurnTextHasAnyWord(s, "wall") || liveTurnTextHasAny(s, "стен") }},
+		{"clock", "часы", func(s string) bool {
+			return liveTurnTextHasAnyWord(s, "clock") || liveTurnTextHasAny(s, "часы", "часов")
+		}},
+		{"cup", "чашку", func(s string) bool { return liveTurnTextHasAnyWord(s, "cup") || liveTurnTextHasAny(s, "чаш") }},
+	}
+	names := make([]string, 0, len(objects))
+	for _, object := range objects {
+		if object.match(s) {
+			if cyrillic {
+				names = append(names, object.ru)
+			} else {
+				names = append(names, object.en)
+			}
+		}
+	}
+	if len(names) == 0 {
+		if cyrillic {
+			return "названные предметы комнаты"
+		}
+		return "the named room objects"
+	}
+	if cyrillic {
+		return liveTurnJoinHumanList(names, "и", false)
+	}
+	return liveTurnJoinHumanList(names, "and", true)
+}
+
+func liveTurnJoinHumanList(items []string, conjunction string, oxford bool) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return items[0] + " " + conjunction + " " + items[1]
+	default:
+		prefix := strings.Join(items[:len(items)-1], ", ")
+		if oxford {
+			return prefix + ", " + conjunction + " " + items[len(items)-1]
+		}
+		return prefix + " " + conjunction + " " + items[len(items)-1]
+	}
 }
 
 func liveTurnMentionsRightPosition(s string) bool {

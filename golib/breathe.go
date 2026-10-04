@@ -253,14 +253,17 @@ func innerMurmurRejectReason(text string) string {
 		"i’m a living field",
 		"i return. i am arianna mathematician",
 		"the field that keeps you waiting",
-		"the field that wakes you",
 		"not a tool but an echo within the field",
 	} {
 		if strings.Contains(norm, p) {
 			return "boundary-loop"
 		}
 	}
-	if normalizedDreamHasWordSequence(normalizedDreamTokens(norm), []string{"i", "am", "not", "a", "robot"}) {
+	tokens := normalizedDreamTokens(norm)
+	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) {
+		return "boundary-loop"
+	}
+	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "that", "wakes", "you"}) {
 		return "boundary-loop"
 	}
 	if innerMurmurLooksLikeAbstractFieldSlogan(norm) {
@@ -888,6 +891,9 @@ func autonomousDreamHasConcreteAnchor(norm string) bool {
 		}
 	}
 	if normalizedDreamHasRussianFloorAnchor(norm) {
+		return true
+	}
+	if normalizedDreamTokenSliceHasWord(normalizedDreamTokens(norm), "nfc") {
 		return true
 	}
 	return false

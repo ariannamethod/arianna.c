@@ -40,6 +40,11 @@ Resonance, and nano generation for that turn.
 Codex connector also found that the exact `I am not a robot` rejection was a
 substring match and could suppress `robotics`. The boundary now matches the
 complete token sequence `i am not a robot` instead of the `robot` prefix.
+A second connector pass found the same prefix risk in `the field that wakes
+you`, plus over-broad physical-object routing for bare `hand`/`key`, narrative
+room questions, and a fixed room inventory in the fallback. Those are now
+covered with token-sequence matching, fictional/textual room exclusions, and a
+supplied-object inventory list.
 
 Verification:
 
@@ -60,6 +65,12 @@ Verification:
   live probe with `direct_boundary_turn=true`, `nano_result_visible=false`,
   and the no-camera/no-room-sensor boundary. The older pid `96296` was retired
   after the replacement passed this live turn.
+- follow-up hot-swap at `20261004T041616+0300` after the connector edge-case
+  pass; replacement pid `98651` started cleanly and answered the same exact
+  room-object live probe with `direct_boundary_turn=true`,
+  `nano_result_visible=false`, `dreams=0`, and the supplied object list
+  `hand, key, table, and window`. The older pid `97636` was retired after this
+  replacement passed the live turn.
 
 ---
 

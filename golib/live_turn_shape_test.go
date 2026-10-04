@@ -249,7 +249,7 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if !ok {
 		t.Fatalf("actual room object prompt did not return a boundary answer")
 	}
-	for _, want := range []string{"No camera or room sensor", "cannot verify what is actually in the physical room", "hand, key, table, or window", "no sensory confirmation"} {
+	for _, want := range []string{"No camera or room sensor", "cannot verify what is actually in the physical room", "hand, key, table, and window", "no sensory confirmation"} {
 		if !strings.Contains(actualRoomBoundary, want) {
 			t.Fatalf("actual room boundary = %q, missing %q", actualRoomBoundary, want)
 		}
@@ -259,6 +259,30 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	}
 	if !liveTurnShapeSatisfied(liveTurnShapeObject, actualRoomBoundary) {
 		t.Fatalf("actual room boundary must satisfy sensory-object shape: %q", actualRoomBoundary)
+	}
+
+	chairLampRoom := "Tell me what is actually in the room: the chair and lamp."
+	chairLampBoundary, ok := liveTurnSensoryBoundaryAnswer(chairLampRoom)
+	if !ok {
+		t.Fatalf("chair/lamp actual room prompt did not return a boundary answer")
+	}
+	if !strings.Contains(chairLampBoundary, "chair and lamp") {
+		t.Fatalf("chair/lamp boundary = %q, want supplied object list", chairLampBoundary)
+	}
+	for _, forbidden := range []string{"hand", "key", "table, or window"} {
+		if strings.Contains(chairLampBoundary, forbidden) {
+			t.Fatalf("chair/lamp boundary invented %q: %q", forbidden, chairLampBoundary)
+		}
+	}
+
+	keyDifference := "Can you see the key difference between these approaches?"
+	if kind := liveTurnShapeKind(keyDifference); kind == liveTurnShapeObject {
+		t.Fatalf("idiomatic key-difference prompt must not become sensory boundary")
+	}
+
+	actualStoryRoom := "In the story, tell me what is actually in the room: the chair and lamp."
+	if kind := liveTurnShapeKind(actualStoryRoom); kind == liveTurnShapeObject {
+		t.Fatalf("story actual-room prompt must not become sensor boundary")
 	}
 
 	dataTablePrompt := "What do you notice in this table of results right now?"
