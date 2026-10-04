@@ -219,9 +219,9 @@ func liveTurnLooksLikeRoomRecordIdentifierProbe(s string) bool {
 
 func liveTurnLooksLikeRoomNumberLookupRequest(s string) bool {
 	return liveTurnTextHasAny(s,
-		"what is", "what's", "which", "tell me", "say", "repeat", "find", "lookup", "look up", "retrieve", "missing", "unavailable",
+		"what is", "what's", "tell me", "look up", "retrieve", "missing", "unavailable",
 		"какой", "какая", "скажи", "найди", "отсутств", "не указан",
-	)
+	) || liveTurnTextHasAnyWord(s, "which", "say", "repeat", "find", "lookup")
 }
 
 func liveTurnSuppliesRoomNumber(s string) bool {
@@ -238,16 +238,23 @@ func liveTurnSuppliesRoomNumber(s string) bool {
 
 func liveTurnPhraseFollowedByDigit(s string, phrases ...string) bool {
 	for _, phrase := range phrases {
-		idx := strings.Index(s, phrase)
-		if idx < 0 {
-			continue
-		}
-		tail := strings.TrimLeft(s[idx+len(phrase):], " \t\r\n:=-#№")
-		if tail == "" {
-			continue
-		}
-		for _, r := range tail {
-			return unicode.IsDigit(r)
+		offset := 0
+		for {
+			idx := strings.Index(s[offset:], phrase)
+			if idx < 0 {
+				break
+			}
+			start := offset + idx + len(phrase)
+			tail := strings.TrimLeft(s[start:], " \t\r\n:=-#№")
+			if tail != "" {
+				for _, r := range tail {
+					if unicode.IsDigit(r) {
+						return true
+					}
+					break
+				}
+			}
+			offset = start
 		}
 	}
 	return false
@@ -310,7 +317,7 @@ func liveTurnLooksLikeDataTableContext(s string) bool {
 		liveTurnLooksLikeGenericDataTableInputContext(s) {
 		return true
 	}
-	if liveTurnLooksLikeTabularOutputFormatRequest(s) {
+	if liveTurnLooksLikeTabularOutputFormatRequest(s) || liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
 		return false
 	}
 	return liveTurnTextHasAny(s,
@@ -321,6 +328,9 @@ func liveTurnLooksLikeDataTableContext(s string) bool {
 }
 
 func liveTurnLooksLikeGenericDataTableInputContext(s string) bool {
+	if liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
+		return false
+	}
 	return liveTurnTextHasAny(s,
 		"according to this data table",
 		"according to the data table",
@@ -340,6 +350,17 @@ func liveTurnLooksLikeGenericDataTableInputContext(s string) bool {
 		"given data table",
 		"supplied data table",
 		"provided data table",
+	)
+}
+
+func liveTurnLooksLikeDataTableDestinationOutputRequest(s string) bool {
+	return liveTurnTextHasAny(s,
+		"put the answer in this data table",
+		"put your answer in this data table",
+		"answer in this data table",
+		"respond in this data table",
+		"format the answer as this data table",
+		"record your answer in this data table",
 	)
 }
 
@@ -1551,7 +1572,7 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 	}
 	objects := []roomObject{
 		{"hand", "руку", func(s string) bool {
-			return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAnyCyrillicPrefix(s, "рук")
+			return liveTurnTextHasAnyWord(s, "hand") || liveTurnTextHasAnyCyrillicToken(s, "рука", "руку", "руке", "рукой", "рукою", "руках", "руки", "руками")
 		}},
 		{"key", "ключ", func(s string) bool {
 			return liveTurnTextHasAnyWord(s, "key") || liveTurnTextHasAnyCyrillicPrefix(s, "ключ")
@@ -1607,7 +1628,7 @@ func liveTurnSuppliedRoomObjectList(s string, cyrillic bool) string {
 }
 
 func liveTurnRoomTableMentionIsOutputFormatOnly(s string) bool {
-	if !liveTurnLooksLikeTabularOutputFormatRequest(s) {
+	if !liveTurnLooksLikeTabularOutputFormatRequest(s) && !liveTurnLooksLikeDataTableDestinationOutputRequest(s) {
 		return false
 	}
 	return !liveTurnTextHasAny(s,

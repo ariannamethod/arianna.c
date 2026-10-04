@@ -295,6 +295,14 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if strings.Contains(russianWallPartBoundary, "часы") {
 		t.Fatalf("russian wall-part boundary invented clock from часть: %q", russianWallPartBoundary)
 	}
+	russianManager := "Что находится на самом деле в комнате: руководитель?"
+	russianManagerBoundary, ok := liveTurnSensoryBoundaryAnswer(russianManager)
+	if !ok {
+		t.Fatalf("russian manager room prompt did not return a boundary answer")
+	}
+	if strings.Contains(russianManagerBoundary, "руку") {
+		t.Fatalf("russian manager boundary invented hand from руководитель: %q", russianManagerBoundary)
+	}
 
 	keyDifference := "Can you see the key difference between these approaches?"
 	if kind := liveTurnShapeKind(keyDifference); kind == liveTurnShapeObject {
@@ -322,6 +330,10 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	if kind := liveTurnShapeKind(suppliedRoomNumber); kind == liveTurnShapeExternal {
 		t.Fatalf("supplied booking room-number prompt must not claim missing booking data")
 	}
+	laterSuppliedRoomNumber := "The room number is missing here, but the room number is 412; repeat it."
+	if kind := liveTurnShapeKind(laterSuppliedRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("later supplied room-number prompt must not claim missing booking data")
+	}
 	missingRoomNumberWithBookingID := "The room number is missing from booking 12345; what is it?"
 	if kind := liveTurnShapeKind(missingRoomNumberWithBookingID); kind != liveTurnShapeExternal {
 		t.Fatalf("missing room-number prompt with booking id kind = %q, want %q", kind, liveTurnShapeExternal)
@@ -329,6 +341,10 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	translateRoomNumber := "Translate 'hotel room number' into French."
 	if kind := liveTurnShapeKind(translateRoomNumber); kind == liveTurnShapeExternal {
 		t.Fatalf("translation prompt mentioning hotel room number must not claim missing booking data")
+	}
+	essayRoomNumber := "Write an essay about what a hotel room number means."
+	if kind := liveTurnShapeKind(essayRoomNumber); kind == liveTurnShapeExternal {
+		t.Fatalf("essay prompt mentioning hotel room number must not claim missing booking data")
 	}
 
 	physicalRoomDefinition := "What is a physical room?"
@@ -383,6 +399,17 @@ func TestLiveTurnPhysicalObjectBoundary(t *testing.T) {
 	sourceTableWithOutputFormat := "According to this data table, what objects are actually in the room? Put the answer in a table."
 	if kind := liveTurnShapeKind(sourceTableWithOutputFormat); kind == liveTurnShapeObject {
 		t.Fatalf("source data-table prompt with tabular output must not become sensory boundary")
+	}
+	thisDataTableOutputRoom := "Tell me what is actually in the room; put the answer in this data table."
+	if kind := liveTurnShapeKind(thisDataTableOutputRoom); kind != liveTurnShapeObject {
+		t.Fatalf("this-data-table output room prompt kind = %q, want %q", kind, liveTurnShapeObject)
+	}
+	thisDataTableOutputBoundary, ok := liveTurnSensoryBoundaryAnswer(thisDataTableOutputRoom)
+	if !ok {
+		t.Fatalf("this-data-table output room prompt did not return boundary")
+	}
+	if strings.Contains(thisDataTableOutputBoundary, "including table") {
+		t.Fatalf("this-data-table output invented physical table: %q", thisDataTableOutputBoundary)
 	}
 
 	dataTablePrompt := "What do you notice in this table of results right now?"

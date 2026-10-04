@@ -92,6 +92,12 @@ mentions of `hotel room number` must not become missing-booking boundaries, and
 a booking id digit must not be mistaken for a supplied room number. It also
 narrowed `I sense a hidden resonance in the field` to short standalone residue
 so explanatory rewrites are not erased.
+The next connector/live pass tightened those same matchers: room-number lookup
+verbs are now word-aware, every room-number assignment in a turn is inspected,
+`put the answer in this data table` is treated as output format rather than
+source data, and Russian `рук` no longer matches `руководитель`. Live also
+showed that destination data-table wording must not add a physical `table` to
+the room inventory.
 
 Verification:
 
@@ -189,6 +195,19 @@ Verification:
   `direct_boundary_turn=true`, `nano_result_visible=false`, `dreams=0`, and
   `inner_lines=0`. The older pid `19404` was retired after the replacement
   passed this live turn.
+- intermediate hot-swap at `20261004T050857+0300` after word-aware room-number
+  lookup, repeated room-number assignment scanning, data-table destination, and
+  Russian-hand-token fixes; replacement pid `34256` proved `Tell me what is
+  actually in the room; put the answer in this data table.` kept the no-camera
+  boundary, but exposed a live inventory defect: the destination table was still
+  counted as a physical `table`.
+- follow-up hot-swap at `20261004T051007+0300` after excluding destination
+  data-table wording from the physical room inventory; replacement pid `34458`
+  answered `Tell me what is actually in the room; put the answer in this data
+  table.` with the generic `named room objects` inventory rather than inventing
+  a physical table: `direct_boundary_turn=true`, `nano_result_visible=false`,
+  `dreams=0`, and `inner_lines=0`. The older pids `33709` and `34256` were
+  retired after the replacement passed this live turn.
 
 ---
 
