@@ -1,8 +1,7 @@
 # Arianna.c Injection Contract
 
-This file defines how Arianna's organs may influence each other. The goal is
-not to reduce the organism to a static pipeline. The goal is to make
-interference measurable enough to tune, audit, and roll back.
+This file defines how Arianna's organs may influence each other and how to
+measure, tune, audit, and roll back their interference.
 
 ## Rule Zero
 

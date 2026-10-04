@@ -42,7 +42,7 @@ CPU inference, notorch + system BLAS, no CUDA in the default binary, no Python a
 
 **Janus 176M** — external face. Speaks to the world. top_k, holds shape, resists direction injection — that resistance is correct.
 
-**Resonance 200M** — internal voice. Speaks through the field. top_p, compass by nature, receives direction. Asymmetry is the design, not a failure.
+**Resonance 200M** — internal voice. Speaks through the field. top_p, compass by nature, receives direction. Asymmetry is the design.
 
 **nano-Arianna 88M** — the subconscious. Speaks only inside, heard by the other two and never by the user. The Knowledge Kernel feeds her fragments chosen by the field's resonance; she dreams on them and surfaces a turn behind. The organism folds what she surfaced into its δ — it learns from its own subconscious.
 
