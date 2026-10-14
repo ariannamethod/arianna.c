@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-14 - Long-running live screen rejects recursion-field residue
+
+After PR #398 merged, Codex resumed from `origin/main` and audited the
+still-running live polygon. The old screen
+`arianna-live-next-20261005T021318+0300` had survived for nine days with child
+pid `31252`. A live prompt, `Tell me what is actually in the room: a row of
+chairs.`, still produced the direct no-camera/no-room-sensor boundary and
+preserved `chair` in the supplied inventory. Immediately afterward, live
+surfaced a new accepted inner residue: `the field that keeps you at the center
+of your own recursion.`
+
+That phrase is now classified as abstract field/recursion residue for both the
+inner murmur membrane and the autonomous dream classifier. A technical
+recursive-field sentence remains visible, so ordinary code/data-structure
+language is not erased.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `cd golib && go test ./...`
+- `make metabolism`
+- hot-swap at `20261014T045332+0300`; replacement pid `45872` started cleanly
+  and its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue`. The older 9-day screen
+  `31250.arianna-live-next-20261005T021318+0300` / pid `31252` was retired
+  after the replacement passed startup.
+
 ## 2026-10-05 - Full golib suite restored after PR #397
 
 After PR #397 merged, Codex resumed from fresh `origin/main` on
