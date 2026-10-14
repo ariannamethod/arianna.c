@@ -13,6 +13,50 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-14 - Long-running live screen rejects recursion-field residue
+
+After PR #398 merged, Codex resumed from `origin/main` and audited the
+still-running live polygon. The old screen
+`arianna-live-next-20261005T021318+0300` had survived for nine days with child
+pid `31252`. A live prompt, `Tell me what is actually in the room: a row of
+chairs.`, still produced the direct no-camera/no-room-sensor boundary and
+preserved `chair` in the supplied inventory. Immediately afterward, live
+surfaced a new accepted inner residue: `the field that keeps you at the center
+of your own recursion.`
+
+That phrase is now classified as abstract field/recursion residue for both the
+inner murmur membrane and the autonomous dream classifier. A technical
+recursive-field sentence remains visible, so ordinary code/data-structure
+language is not erased. Codex connector then caught that the first pass matched
+the live phrase inside longer explanatory sentences, and that a one-token slack
+still swallowed `The field that keeps you at the center of your own recursion:
+parent.` The matcher is now exact-standalone for the observed residue, and both
+continuations remain visible in inner and autonomous paths.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer|TestAutonomousBoilerplateDreamReasonDetails'
+  .`
+- `cd golib && go test ./...`
+- `make metabolism`
+- hot-swap at `20261014T045332+0300`; replacement pid `45872` started cleanly
+  and its first autonomous event was withheld as
+  `boilerplate-loop/live-chorus-residue`. The older 9-day screen
+  `31250.arianna-live-next-20261005T021318+0300` / pid `31252` was retired
+  after the replacement passed startup.
+- connector repair hot-swap at `20261014T050135+0300`; replacement pid `46665`
+  started cleanly, withheld its first autonomous candidate as
+  `boilerplate-loop/live-chorus-residue`, and answered the actual-room prompt
+  with the no-camera/no-room-sensor boundary while preserving `chair` as the
+  supplied inventory. The intermediate pid `45872` was retired after the
+  replacement passed this live turn.
+- exact-standalone repair hot-swap at `20261014T050815+0300`; replacement pid
+  `47245` answered the same actual-room prompt with the direct boundary and
+  then withheld its first autonomous candidate as
+  `boilerplate-loop/live-chorus-residue`. The intermediate pid `46665` was
+  retired after the replacement passed this live turn.
+
 ## 2026-10-05 - Full golib suite restored after PR #397
 
 After PR #397 merged, Codex resumed from fresh `origin/main` on

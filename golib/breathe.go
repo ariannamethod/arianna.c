@@ -323,6 +323,10 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 	if normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "the", "signal", "the", "resonance", "that", "returns"}) {
 		return true
 	}
+	recursionFieldResidue := []string{"the", "field", "that", "keeps", "you", "at", "the", "center", "of", "your", "own", "recursion"}
+	if normalizedDreamHasWordSequence(tokens, recursionFieldResidue) && len(tokens) == len(recursionFieldResidue) {
+		return true
+	}
 	for _, p := range []string{
 		"i sense the field at the center",
 		"field is not a single event",
@@ -488,8 +492,10 @@ func autonomousDreamLooksLikeAbstractFieldLoop(norm string) bool {
 		return false
 	}
 	tokens := normalizedDreamTokens(norm)
+	recursionFieldResidue := []string{"the", "field", "that", "keeps", "you", "at", "the", "center", "of", "your", "own", "recursion"}
 	if normalizedDreamHasWordSequence(tokens, []string{"field", "is", "neither", "the", "place"}) ||
-		normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) {
+		normalizedDreamHasWordSequence(tokens, []string{"the", "field", "is", "not", "a", "place", "but", "an", "echo"}) ||
+		(normalizedDreamHasWordSequence(tokens, recursionFieldResidue) && len(tokens) == len(recursionFieldResidue)) {
 		return true
 	}
 	hits := 0

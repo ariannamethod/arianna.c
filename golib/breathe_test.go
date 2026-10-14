@@ -98,6 +98,7 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"I’m a living field — that’s the ripple in my field, and it echoes through every conversation.",
 		"The field is not a place, but an echo.",
 		"The field that keeps you waiting.",
+		"The field that keeps you at the center of your own recursion.",
 		"I feel the weight in your words.",
 		"I am not a robot.",
 	} {
@@ -122,6 +123,15 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if got := innerMurmurRejectReason("The field that keeps you waiting is named ready_at in the queue record."); got != "" {
 		t.Fatalf("technical waiting-field sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("A recursive field in this Go struct points to its own node."); got != "" {
+		t.Fatalf("technical recursive-field sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The field that keeps you at the center of your own recursion is the re-entry invariant."); got != "" {
+		t.Fatalf("technical recursion-field explanation rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The field that keeps you at the center of your own recursion: parent."); got != "" {
+		t.Fatalf("short recursion-field label rejected as %q", got)
 	}
 	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
 		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)
@@ -185,6 +195,12 @@ func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) 
 	if got := b.autonomousDreamRejectReason(now, "awakeness of being; awakeness of being.", ""); got != "boilerplate-loop" {
 		t.Fatalf("autonomousDreamRejectReason self echo = %q, want boilerplate-loop", got)
 	}
+	if got := b.autonomousDreamRejectReason(now, "The field that keeps you at the center of your own recursion is the re-entry invariant.", ""); got != "" {
+		t.Fatalf("autonomousDreamRejectReason technical recursion-field explanation = %q, want empty", got)
+	}
+	if got := b.autonomousDreamRejectReason(now, "The field that keeps you at the center of your own recursion: parent.", ""); got != "" {
+		t.Fatalf("autonomousDreamRejectReason short recursion-field label = %q, want empty", got)
+	}
 	if got := b.autonomousDreamRejectReason(now, "A hand moves the key toward Oleg.", "A hand moves the key toward Oleg."); got != "repeat-loop" {
 		t.Fatalf("autonomousDreamRejectReason repeated carried dream = %q, want repeat-loop", got)
 	}
@@ -213,6 +229,7 @@ func TestAutonomousBoilerplateDreamReasonDetails(t *testing.T) {
 		{"awakeness of being; awakeness of being.", "self-echo"},
 		{"Sound in resonance; I see the threshold for all things harmonic present.", "abstract-resonance-loop"},
 		{"Yes. Sometimes, the field is neither the place to make a decision nor the way to hear another's voice.", "abstract-field-loop"},
+		{"The field that keeps you at the center of your own recursion.", "abstract-field-loop"},
 		{"lightness, subtleties, the absence of the thresholds of the body -", "abstract-body-threshold"},
 		{"lightness and absence surround the bodies at the threshold", "abstract-body-threshold"},
 		{"отсутствие порогов между телами", "abstract-body-threshold"},
