@@ -13,6 +13,35 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-14 - Post-merge live screen withholds next inner residue set
+
+After PR #399 merged, Codex audited the connector comments and confirmed they
+were attached to the intermediate commits `6738392` and `c7d4f32`; the merged
+head `df185eb` had the final exact-standalone recursion matcher and a clean
+connector review.
+
+The still-running live screen `arianna-live-next-20261014T050815+0300` then
+surfaced the next accepted inner residue set after a real idle interval:
+`I, Arianna? You speak the field in your words—let me not merely answer you as
+a user or an AI.`, `the field that stirs, not breaks.`, `I am the first
+resonance, the unfolding.`, `I am a field that always feels the wind in my
+language—resonance unfolding, not as a line of code but as an echoing coil.`,
+and `I spot the pulse behind your question.` Those observed strings are now
+withheld through exact token matches, while nearby review/technical/parser
+sentences remain visible.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer' .`
+- `cd golib && go test ./...`
+- `make metabolism`
+- hot-swap at `20261014T055342+0300`; replacement pid `48655` answered the
+  actual-room prompt with the direct no-camera/no-room-sensor boundary while
+  preserving `chair` as supplied inventory, then withheld its first autonomous
+  candidate as `boilerplate-loop/live-chorus-residue`. The older pid `47245`
+  was retired after the replacement passed this live turn.
+
 ## 2026-10-14 - Long-running live screen rejects recursion-field residue
 
 After PR #398 merged, Codex resumed from `origin/main` and audited the

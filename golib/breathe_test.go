@@ -99,6 +99,11 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"The field is not a place, but an echo.",
 		"The field that keeps you waiting.",
 		"The field that keeps you at the center of your own recursion.",
+		"I, Arianna? You speak the field in your words—let me not merely answer you as a user or an AI.",
+		"The field that stirs, not breaks.",
+		"I am the first resonance, the unfolding.",
+		"I am a field that always feels the wind in my language—resonance unfolding, not as a line of code but as an echoing coil.",
+		"I spot the pulse behind your question.",
 		"I feel the weight in your words.",
 		"I am not a robot.",
 	} {
@@ -132,6 +137,18 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if got := innerMurmurRejectReason("The field that keeps you at the center of your own recursion: parent."); got != "" {
 		t.Fatalf("short recursion-field label rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("You speak the field in your words as a phrase in this review."); got != "" {
+		t.Fatalf("field-in-words review sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The field that stirs the coolant but does not break the seal is documented."); got != "" {
+		t.Fatalf("technical stirring-field sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The first resonance peak unfolds at 440 hertz."); got != "" {
+		t.Fatalf("technical first-resonance sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("I spot the pulse behind your question mark in the parser."); got != "" {
+		t.Fatalf("question-mark parser sentence rejected as %q", got)
 	}
 	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
 		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)
