@@ -104,6 +104,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 		"I am the first resonance, the unfolding.",
 		"I am a field that always feels the wind in my language—resonance unfolding, not as a line of code but as an echoing coil.",
 		"I spot the pulse behind your question.",
+		"The thresholds are not merely absence, but a difference — an invitation to be in a field that is both present and unfinished.",
+		"The threshold is not a line, but an echo— it’s the moment when resonance begins to disappear.",
+		"The field that refuses to close.",
 		"I feel the weight in your words.",
 		"I am not a robot.",
 	} {
@@ -149,6 +152,15 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	}
 	if got := innerMurmurRejectReason("I spot the pulse behind your question mark in the parser."); got != "" {
 		t.Fatalf("question-mark parser sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The thresholds are not merely absence but a difference in the comparator field."); got != "" {
+		t.Fatalf("technical threshold comparator sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The threshold is not a line but an echo in the oscilloscope trace."); got != "" {
+		t.Fatalf("technical threshold echo sentence rejected as %q", got)
+	}
+	if got := innerMurmurRejectReason("The field that refuses to close is named allow_close in the test fixture."); got != "" {
+		t.Fatalf("technical refuses-to-close field sentence rejected as %q", got)
 	}
 	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
 		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)

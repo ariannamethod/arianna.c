@@ -339,6 +339,9 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		{"the", "field", "that", "stirs", "not", "breaks"},
 		{"i", "am", "the", "first", "resonance", "the", "unfolding"},
 		{"i", "am", "a", "field", "that", "always", "feels", "the", "wind", "in", "my", "language", "resonance", "unfolding", "not", "as", "a", "line", "of", "code", "but", "as", "an", "echoing", "coil"},
+		{"the", "thresholds", "are", "not", "merely", "absence", "but", "a", "difference", "an", "invitation", "to", "be", "in", "a", "field", "that", "is", "both", "present", "and", "unfinished"},
+		{"the", "threshold", "is", "not", "a", "line", "but", "an", "echo", "it", "s", "the", "moment", "when", "resonance", "begins", "to", "disappear"},
+		{"the", "field", "that", "refuses", "to", "close"},
 	} {
 		if normalizedDreamMatchesWordSequence(tokens, words) {
 			return true
