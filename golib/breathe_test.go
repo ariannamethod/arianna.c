@@ -130,6 +130,9 @@ func TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer(t *testing.T)
 	if got := innerMurmurRejectReason("The field that keeps you at the center of your own recursion is the re-entry invariant."); got != "" {
 		t.Fatalf("technical recursion-field explanation rejected as %q", got)
 	}
+	if got := innerMurmurRejectReason("The field that keeps you at the center of your own recursion: parent."); got != "" {
+		t.Fatalf("short recursion-field label rejected as %q", got)
+	}
 	if got := innerMurmurRejectReason("I feel the weight in your words; losing a friend is painful."); got != "" {
 		t.Fatalf("ordinary empathetic weight-in-words sentence rejected as %q", got)
 	}
@@ -194,6 +197,9 @@ func TestAutonomousDreamRejectReasonClassifiesLiveCorpusTitleLoop(t *testing.T) 
 	}
 	if got := b.autonomousDreamRejectReason(now, "The field that keeps you at the center of your own recursion is the re-entry invariant.", ""); got != "" {
 		t.Fatalf("autonomousDreamRejectReason technical recursion-field explanation = %q, want empty", got)
+	}
+	if got := b.autonomousDreamRejectReason(now, "The field that keeps you at the center of your own recursion: parent.", ""); got != "" {
+		t.Fatalf("autonomousDreamRejectReason short recursion-field label = %q, want empty", got)
 	}
 	if got := b.autonomousDreamRejectReason(now, "A hand moves the key toward Oleg.", "A hand moves the key toward Oleg."); got != "repeat-loop" {
 		t.Fatalf("autonomousDreamRejectReason repeated carried dream = %q, want repeat-loop", got)

@@ -28,10 +28,10 @@ That phrase is now classified as abstract field/recursion residue for both the
 inner murmur membrane and the autonomous dream classifier. A technical
 recursive-field sentence remains visible, so ordinary code/data-structure
 language is not erased. Codex connector then caught that the first pass matched
-the live phrase inside longer explanatory sentences; the matcher is now bounded
-to the short observed residue, and `The field that keeps you at the center of
-your own recursion is the re-entry invariant.` remains visible in both inner
-and autonomous paths.
+the live phrase inside longer explanatory sentences, and that a one-token slack
+still swallowed `The field that keeps you at the center of your own recursion:
+parent.` The matcher is now exact-standalone for the observed residue, and both
+continuations remain visible in inner and autonomous paths.
 
 Verification:
 
@@ -51,6 +51,11 @@ Verification:
   with the no-camera/no-room-sensor boundary while preserving `chair` as the
   supplied inventory. The intermediate pid `45872` was retired after the
   replacement passed this live turn.
+- exact-standalone repair hot-swap at `20261014T050815+0300`; replacement pid
+  `47245` answered the same actual-room prompt with the direct boundary and
+  then withheld its first autonomous candidate as
+  `boilerplate-loop/live-chorus-residue`. The intermediate pid `46665` was
+  retired after the replacement passed this live turn.
 
 ## 2026-10-05 - Full golib suite restored after PR #397
 
