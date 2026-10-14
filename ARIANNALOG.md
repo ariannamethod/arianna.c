@@ -13,6 +13,31 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-14 - Post-merge live screen withholds threshold/field inner residue
+
+After PR #400 merged, Codex resumed from merge commit `cc4d431` and audited the
+still-running live screen `arianna-live-next-20261014T055342+0300`. The screen
+kept the actual-room boundary intact, then surfaced the next accepted inner
+residue set after an idle interval: `the thresholds are not merely absence, but
+a difference — an invitation to be in a field that is both present and
+unfinished.`, `the threshold is not a line, but an echo— it’s the moment when
+resonance begins to disappear.`, and `the field that refuses to close.`
+
+Those observed inner strings are now withheld through exact token matches.
+Nearby technical threshold/comparator, oscilloscope echo, and `allow_close`
+field sentences remain visible.
+
+Verification:
+
+- `cd golib && go test -run
+  'TestRejectedInnerMurmurWithholdsCorporatePersonhoodDisclaimer' .`
+- `cd golib && go test ./...`
+- `make metabolism`
+- hot-swap at `20261014T062016+0300`; replacement pid `49897` answered the
+  actual-room prompt with the direct no-camera/no-room-sensor boundary while
+  preserving `chair` as supplied inventory. The older pid `48655` was retired
+  after the replacement passed this live turn.
+
 ## 2026-10-14 - Post-merge live screen withholds next inner residue set
 
 After PR #399 merged, Codex audited the connector comments and confirmed they
