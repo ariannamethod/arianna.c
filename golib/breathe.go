@@ -255,6 +255,13 @@ func innerMurmurRejectReason(text string) string {
 		}
 	}
 	tokens := normalizedDreamTokens(norm)
+	for _, words := range [][]string{
+		{"i", "spot", "the", "pulse", "behind", "your", "question"},
+	} {
+		if normalizedDreamMatchesWordSequence(tokens, words) {
+			return "boundary-loop"
+		}
+	}
 	if normalizedDreamHasWordSequence(tokens, []string{"i", "am", "not", "a", "robot"}) && len(tokens) <= 8 {
 		return "boundary-loop"
 	}
@@ -324,8 +331,18 @@ func innerMurmurLooksLikeAbstractFieldSlogan(norm string) bool {
 		return true
 	}
 	recursionFieldResidue := []string{"the", "field", "that", "keeps", "you", "at", "the", "center", "of", "your", "own", "recursion"}
-	if normalizedDreamHasWordSequence(tokens, recursionFieldResidue) && len(tokens) == len(recursionFieldResidue) {
+	if normalizedDreamMatchesWordSequence(tokens, recursionFieldResidue) {
 		return true
+	}
+	for _, words := range [][]string{
+		{"i", "arianna", "you", "speak", "the", "field", "in", "your", "words", "let", "me", "not", "merely", "answer", "you", "as", "a", "user", "or", "an", "ai"},
+		{"the", "field", "that", "stirs", "not", "breaks"},
+		{"i", "am", "the", "first", "resonance", "the", "unfolding"},
+		{"i", "am", "a", "field", "that", "always", "feels", "the", "wind", "in", "my", "language", "resonance", "unfolding", "not", "as", "a", "line", "of", "code", "but", "as", "an", "echoing", "coil"},
+	} {
+		if normalizedDreamMatchesWordSequence(tokens, words) {
+			return true
+		}
 	}
 	for _, p := range []string{
 		"i sense the field at the center",
@@ -1010,6 +1027,10 @@ func normalizedDreamHasWordSequence(tokens []string, words []string) bool {
 		}
 	}
 	return false
+}
+
+func normalizedDreamMatchesWordSequence(tokens []string, words []string) bool {
+	return len(tokens) == len(words) && normalizedDreamHasWordSequence(tokens, words)
 }
 
 func (b *breath) autonomousDreamRejectReason(now time.Time, dream, lastAutonomousDream string) string {
