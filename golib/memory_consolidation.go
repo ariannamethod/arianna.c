@@ -272,14 +272,14 @@ func (mc *MemoryConsolidation) findConnections(idx int) {
 	}
 
 	target := &mc.longTerm[idx]
-	targetWords := extractKeywords(target.Content)
+	targetWords := languageTokens(target.Content)
 
 	for i := range mc.longTerm {
 		if i == idx {
 			continue
 		}
 
-		otherWords := extractKeywords(mc.longTerm[i].Content)
+		otherWords := languageTokens(mc.longTerm[i].Content)
 
 		// Simple overlap check
 		overlap := countOverlap(targetWords, otherWords)
@@ -404,20 +404,10 @@ func filterMemories(mems []ConsolidatableMemory, threshold float32) []Consolidat
 	return result
 }
 
-func extractKeywords(text string) []string {
-	words := make([]string, 0)
-	for _, field := range strings.Fields(strings.ToLower(text)) {
-		word := strings.Map(func(r rune) rune {
-			if unicode.IsLetter(r) || unicode.IsDigit(r) {
-				return r
-			}
-			return -1
-		}, field)
-		if word != "" {
-			words = append(words, word)
-		}
-	}
-	return words
+func languageTokens(text string) []string {
+	return strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 }
 
 func countOverlap(a, b []string) int {
@@ -429,6 +419,7 @@ func countOverlap(a, b []string) int {
 	for _, w := range b {
 		if set[w] {
 			count++
+			delete(set, w)
 		}
 	}
 	return count

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -32,5 +33,27 @@ func TestLiveVoiceRequestUsesOneDaemonLine(t *testing.T) {
 	want := "human\tfirst model line second model line third model line fourth"
 	if got := encodeLiveVoiceRequest(input); got != want {
 		t.Fatalf("encodeLiveVoiceRequest = %q, want %q", got, want)
+	}
+}
+
+func TestLanguageTokensSplitPunctuationWithoutJoiningWords(t *testing.T) {
+	want := []string{"river", "stone", "река", "камень"}
+	if got := languageTokens("river—stone / река,камень"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("languageTokens = %#v, want %#v", got, want)
+	}
+	if got := countOverlap([]string{"river", "stone"}, []string{"river", "river"}); got != 1 {
+		t.Fatalf("countOverlap counted one shared token %d times", got)
+	}
+}
+
+func TestRepetitionUsesConcentrationNotRawTokenCount(t *testing.T) {
+	ol := NewOverthinkingLoops()
+	ordinary := "x alpha beta x gamma delta x epsilon zeta x eta theta x iota kappa lambda mu nu xi omicron pi rho sigma tau"
+	if got := ol.AnalyzeText(ordinary).RepetitionScore; got > 0.5 {
+		t.Fatalf("ordinary distributed repetition scored as a loop: %v", got)
+	}
+	spiral := "echo echo echo echo echo elsewhere"
+	if got := ol.AnalyzeText(spiral).RepetitionScore; got <= 0.5 {
+		t.Fatalf("concentrated repetition was not detected: %v", got)
 	}
 }

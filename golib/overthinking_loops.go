@@ -12,7 +12,6 @@
 package main
 
 import (
-	"strings"
 	"time"
 )
 
@@ -23,25 +22,17 @@ type OverthinkingLoops struct {
 	running bool
 
 	// Detection state
-	recentConcepts []string
-	conceptCounts  map[string]int
-	lastText       string // previous utterance, for the cross-turn loop signal (High brain)
+	lastText string // previous utterance, for the cross-turn loop signal (High brain)
 
 	// Thresholds
 	repetitionThreshold int // concepts repeated this many times = spiral
-
-	// Decay
-	decayRate float32
 }
 
 // NewOverthinkingLoops creates a new overthinking detector
 func NewOverthinkingLoops() *OverthinkingLoops {
 	return &OverthinkingLoops{
 		stop:                make(chan struct{}),
-		recentConcepts:      make([]string, 0, 50),
-		conceptCounts:       make(map[string]int),
 		repetitionThreshold: 3,
-		decayRate:           0.1,
 	}
 }
 
@@ -83,14 +74,6 @@ func (ol *OverthinkingLoops) Step(dt float32) {
 		state.SelfRefCount = max(0, state.SelfRefCount-1)
 	}
 
-	// Decay concept counts
-	for k := range ol.conceptCounts {
-		ol.conceptCounts[k]--
-		if ol.conceptCounts[k] <= 0 {
-			delete(ol.conceptCounts, k)
-		}
-	}
-
 	state.mu.Unlock()
 
 	// Process signals
@@ -121,8 +104,7 @@ func (ol *OverthinkingLoops) run() {
 func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 	result := OverthinkResult{}
 
-	text = strings.ToLower(text)
-	words := strings.Fields(text)
+	words := languageTokens(text)
 
 	// 1. Check for repetition spiral
 	result.RepetitionScore = ol.checkRepetition(words)
@@ -186,11 +168,12 @@ func (ol *OverthinkingLoops) checkRepetition(words []string) float32 {
 		return 0
 	}
 
-	// Count concept frequency
+	// Measure concentration rather than raw frequency. A token repeated five
+	// times across a long utterance is ordinary grammar; a token occupying most
+	// of an utterance is a repetition spiral. This needs no language dictionary.
 	localCounts := make(map[string]int)
 	for _, w := range words {
 		localCounts[w]++
-		ol.conceptCounts[w]++
 	}
 
 	// Check for high frequency concepts
@@ -201,15 +184,8 @@ func (ol *OverthinkingLoops) checkRepetition(words []string) float32 {
 		}
 	}
 
-	// Also check global counts
-	for _, count := range ol.conceptCounts {
-		if count > ol.repetitionThreshold {
-			return float32(count) / float32(ol.repetitionThreshold+3)
-		}
-	}
-
-	if maxCount > 2 {
-		return float32(maxCount-1) / 5.0
+	if maxCount > 1 {
+		return float32(maxCount-1) / float32(len(words)-1)
 	}
 	return 0
 }
