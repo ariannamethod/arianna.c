@@ -2174,7 +2174,12 @@ static char *build_fts_match(const char *query_text) {
     sb_init(&sb);
     for (int i = 0; i < count; i++) {
         if (i) sb_append_n(&sb, " OR ", 4);
-        sb_append_n(&sb, terms[i], strlen(terms[i]));
+        sb_append_n(&sb, "\"", 1);
+        for (const char *p = terms[i]; *p; p++) {
+            if (*p == '"') sb_append_n(&sb, "\"", 1);
+            sb_append_n(&sb, p, 1);
+        }
+        sb_append_n(&sb, "\"", 1);
     }
     return sb.data;
 }
