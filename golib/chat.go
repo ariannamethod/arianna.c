@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -59,6 +62,10 @@ func runChat() {
 
 	var voiceMu sync.Mutex
 	breathStop := make(chan struct{})
+	var breathStopOnce sync.Once
+	stopBreathing := func() {
+		breathStopOnce.Do(func() { close(breathStop) })
+	}
 	breathDone := make(chan struct{})
 	go runBreathing(tc, &voiceMu, &lastDream, breathStop, breathDone)
 
@@ -66,30 +73,88 @@ func runChat() {
 	defer faceFR.close()
 	recordLiveMetric("startup", tc, faceFR.read(), nil)
 
+	// systemd/FIFO launchers may hand us a non-blocking pipe. Scanner treats an
+	// initial EAGAIN as terminal input failure, so restore normal stream semantics
+	// before entering the long-lived chat loop.
+	if err := syscall.SetNonblock(int(os.Stdin.Fd()), false); err != nil {
+		fmt.Printf("│  input stream: %v\n", err)
+	}
+	var signalShutdown atomic.Bool
+	shutdownSignals := make(chan os.Signal, 1)
+	shutdownRequested := make(chan struct{})
+	signalWatcherDone := make(chan struct{})
+	signal.Notify(shutdownSignals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-shutdownSignals:
+			signalShutdown.Store(true)
+			stopBreathing()
+			close(shutdownRequested)
+		case <-signalWatcherDone:
+		}
+	}()
+	defer func() {
+		signal.Stop(shutdownSignals)
+		close(signalWatcherDone)
+	}()
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	type chatInput struct {
+		text string
+		err  error
+		done bool
+	}
+	input := make(chan chatInput, 1)
+	go func() {
+		for sc.Scan() {
+			input <- chatInput{text: sc.Text()}
+		}
+		input <- chatInput{err: sc.Err(), done: true}
+	}()
 	prevReson := ""
 	fmt.Print("│\n└▶ ")
-	for sc.Scan() {
-		human := strings.TrimSpace(sc.Text())
+chatLoop:
+	for {
+		var in chatInput
+		select {
+		case <-shutdownRequested:
+			break chatLoop
+		case in = <-input:
+			if in.done {
+				if in.err != nil && !signalShutdown.Load() {
+					fmt.Printf("│  input stream closed: %v\n", in.err)
+				}
+				break chatLoop
+			}
+		}
+
+		human := strings.TrimSpace(in.text)
 		if human == "" {
 			fmt.Print("└▶ ")
 			continue
 		}
 		if human == "/quit" || human == "/exit" {
-			break
+			break chatLoop
 		}
 
 		fmt.Printf("│  ◇ human: %s\n", ellipsize(human, 140))
 		liveMetricAdd(&tc.humanTurns, 1)
 		voiceMu.Lock()
+		if signalShutdown.Load() {
+			voiceMu.Unlock()
+			break chatLoop
+		}
 		tc.iw.ProcessText(human)
 		if tc.nan != nil {
 			sendLatest(tc.seedCh, human)
 		}
 
 		fs := faceFR.read()
-		janus, reson, dr, hasDream := tc.turn(human, prevReson, lastDream, fs.surfaces())
+		janus, reson, dr, hasDream := tc.turnUntil(human, prevReson, lastDream, fs.surfaces(), signalShutdown.Load)
+		if signalShutdown.Load() {
+			voiceMu.Unlock()
+			break chatLoop
+		}
 		janusVisible := liveVoiceTextVisible(janus)
 		resonVisible := liveVoiceTextVisible(reson)
 		if janusVisible {
@@ -146,7 +211,7 @@ func runChat() {
 		fmt.Print("│\n└▶ ")
 	}
 
-	close(breathStop)
+	stopBreathing()
 	breathJoin := dreamTimeout
 	if tc.nan != nil && tc.nan.doeBin != "" {
 		breathJoin = doeDreamTimeout

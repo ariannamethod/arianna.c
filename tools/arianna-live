@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${ARIANNA_REPO:?ARIANNA_REPO is required}"
+: "${ARIANNA_INPUT_FIFO:?ARIANNA_INPUT_FIFO is required}"
+
+umask 077
+mkdir -p "$(dirname "$ARIANNA_INPUT_FIFO")" "$ARIANNA_REPO/logs"
+if [[ -e "$ARIANNA_INPUT_FIFO" && ! -p "$ARIANNA_INPUT_FIFO" ]]; then
+    echo "arianna-live: input path is not a FIFO: $ARIANNA_INPUT_FIFO" >&2
+    exit 1
+fi
+[[ -p "$ARIANNA_INPUT_FIFO" ]] || mkfifo -m 600 "$ARIANNA_INPUT_FIFO"
+
+# Feed the chat through one persistent anonymous pipe. Writers may connect to the
+# named FIFO for a single turn and disconnect; the feeder immediately reopens it
+# while the anonymous pipe itself remains open, so chat does not receive EOF.
+feed_turns() {
+    while :; do
+        cat "$ARIANNA_INPUT_FIFO"
+    done
+}
+
+cd "$ARIANNA_REPO"
+exec ./metabolism --chat < <(feed_turns)

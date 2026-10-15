@@ -1,0 +1,20 @@
+[Unit]
+Description=Arianna live organism
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/arianna/arianna.c
+Environment=ARIANNA_REPO=%h/arianna/arianna.c
+Environment=ARIANNA_INPUT_FIFO=%t/arianna-live.in
+Environment=AM_LIVE_METRICS_LOG=%h/arianna/arianna.c/logs/arianna-permanent.metrics.jsonl
+Environment=PATH=%h/.local/bin:%h/opt/julia-1.12.6/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/arianna/arianna.c/tools/arianna-live
+Restart=always
+RestartSec=5
+TimeoutStopSec=240
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=default.target
