@@ -16,11 +16,23 @@ func sanitizeLiveVoiceText(text string) string {
 			return r
 		}
 		if unicode.IsControl(r) {
+			if unicode.IsSpace(r) {
+				return ' '
+			}
 			return -1
 		}
 		return r
 	}, text)
 	return strings.TrimSpace(text)
+}
+
+// encodeLiveVoiceRequest keeps the daemon's one-line request framing intact.
+// Newlines remain part of the organism's text everywhere else; only the wire
+// representation flattens them so one ask always produces one daemon turn.
+func encodeLiveVoiceRequest(text string) string {
+	text = strings.ReplaceAll(text, "\r\n", " ")
+	text = strings.ReplaceAll(text, "\r", " ")
+	return strings.ReplaceAll(text, "\n", " ")
 }
 
 func sanitizeLiveCarriedDream(text string) string {

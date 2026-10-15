@@ -125,7 +125,7 @@ var voiceTimeout = func() time.Duration {
 // voiceMu forever (a human turn or the autonomous breathing stuck for good), so on
 // timeout the process is killed (which unblocks the read with EOF) and marked dead.
 func (v *voice) ask(line string) string {
-	if _, err := fmt.Fprintln(v.in, line); err != nil {
+	if _, err := fmt.Fprintln(v.in, encodeLiveVoiceRequest(line)); err != nil {
 		v.dead = true
 		return ""
 	}
