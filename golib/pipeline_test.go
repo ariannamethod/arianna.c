@@ -30,13 +30,12 @@ func TestSurfacesContract(t *testing.T) {
 	}
 }
 
-// ── chorusText: rune-safe cap (the #2 fix) ──────────────────────────────────────
-func TestChorusTextRuneSafe(t *testing.T) {
-	// a multibyte run far over maxDreamLen must cap to valid UTF-8.
+// ── chorusText: preserve the complete polyphony ─────────────────────────────────
+func TestChorusTextPreservesCompleteUTF8(t *testing.T) {
 	cells := []chorusCell{{text: strings.Repeat("поле резонанса ", 200)}} // Cyrillic = 2 bytes/letter
 	s := chorusText(cells)
-	if len(s) > maxDreamLen+len("…")+8 {
-		t.Errorf("chorusText not capped: len=%d", len(s))
+	if s != cells[0].text {
+		t.Errorf("chorusText rewrote model output")
 	}
 	if !utf8.ValidString(s) {
 		t.Errorf("chorusText produced invalid UTF-8 at the cap")
@@ -98,8 +97,11 @@ func TestParseDoeDream(t *testing.T) {
 	if d == "" {
 		t.Fatal("parseDoeDream returned empty for a real dream")
 	}
-	if strings.Contains(d, "[life]") || strings.Contains(d, "[doe]") || strings.Contains(d, "mycelium") || strings.HasPrefix(d, "A:") {
-		t.Errorf("parseDoeDream leaked a log/label: %q", d)
+	if strings.Contains(d, "[life]") || strings.Contains(d, "[doe]") || strings.Contains(d, "mycelium") {
+		t.Errorf("parseDoeDream leaked a transport log: %q", d)
+	}
+	if !strings.HasPrefix(d, "A:") {
+		t.Errorf("parseDoeDream rewrote the model's leading label: %q", d)
 	}
 	if !strings.Contains(d, "the field hums a living response") {
 		t.Errorf("parseDoeDream lost the dream body: %q", d)
@@ -152,8 +154,7 @@ func TestDreamDropsInvalidUTF8(t *testing.T) {
 	if !strings.Contains(cd, "field is alive") {
 		t.Errorf("cleanDream dropped real text: %q", cd)
 	}
-	// a SHORT chorus dream (under maxDreamLen, so the cap branch is skipped) with a
-	// raw byte-fallback must still be sanitized before it reaches lastDream / inject.
+	// A raw byte-fallback must still be sanitized before it reaches lastDream / inject.
 	ch := chorusText([]chorusCell{{text: "the field \xff hums"}, {text: "a living \xfe note"}})
 	if !utf8.ValidString(ch) || strings.ContainsRune(ch, 0xFFFD) {
 		t.Errorf("chorusText left invalid UTF-8 on a short dream: %q", ch)
@@ -302,41 +303,6 @@ func TestBreathTick(t *testing.T) {
 	}
 }
 
-// ── moodWord priority + dreamCue field tint ─────────────────────────────────────
-func TestMoodWordAndDreamCue(t *testing.T) {
-	if moodWord(Snapshot{TraumaLevel: 0.6, WanderPull: 0.9}) != "fear, the held breath" {
-		t.Error("trauma must win over wander")
-	}
-	if moodWord(Snapshot{WanderPull: 0.7, Arousal: 0.6}) != "drifting, the mind wanders far" {
-		t.Error("wander must win over arousal")
-	}
-	// lastDream present → not re-fed; field valid → tinted.
-	cue := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 1}, "the tide", "")
-	if strings.Contains(cue, "the tide") || !strings.Contains(cue, "summer") {
-		t.Errorf("cue must avoid last-dream loop and carry field tint: %q", cue)
-	}
-	// no dream + no field → inner mood, non-empty, no tint.
-	bare := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "", "")
-	if bare == "" || strings.Contains(bare, "summer") {
-		t.Errorf("bare cue wrong: %q", bare)
-	}
-	detour := "detour-3 concrete present body: floor window hand temperature weight; one tactile image in matter"
-	escape := dreamCue(Snapshot{Coherence: 0.9, Arousal: 0.7}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 1}, "old dream", detour)
-	if escape != detour {
-		t.Fatalf("detour recovery cue must stay concrete-only:\n got %q\nwant %q", escape, detour)
-	}
-	for _, leak := range []string{"old dream", "summer", "field", "resonance", "abstract", "chorus"} {
-		if strings.Contains(escape, leak) {
-			t.Fatalf("detour recovery cue leaked %q into escape cue: %q", leak, escape)
-		}
-	}
-	for _, anchor := range []string{"floor", "hand"} {
-		if !strings.Contains(escape, anchor) {
-			t.Fatalf("detour recovery cue lost concrete anchor %q: %q", anchor, escape)
-		}
-	}
-}
-
 // ── tickBudget / tickDelay ──────────────────────────────────────────────────────
 func TestViability(t *testing.T) {
 	if got := viability(Snapshot{}, false, false); got != 1.0 {
@@ -373,15 +339,8 @@ func TestTickBudgetDelay(t *testing.T) {
 	}
 }
 
-// ── nano cleaners: stripLabel / cutSentence / sanitizeCue / cleanDream ───────────
+// ── nano cleaners: sanitizeCue / cleanDream ─────────────────────────────────────
 func TestNanoCleaners(t *testing.T) {
-	if stripLabel("Arianna: the field") != "the field" {
-		t.Error("stripLabel must drop a leading Arianna: label")
-	}
-	if got := cutSentence("the resonant field is alive and well today and more"); !strings.HasSuffix(got, ".") && len(got) < len("the resonant field is alive") {
-		// cutSentence cuts at the first sentence end after 30 chars; no period here → returns whole
-		_ = got
-	}
 	if got := sanitizeCue("What is, resonance?!\n  the field"); strings.ContainsAny(got, "?,!\n") {
 		t.Errorf("sanitizeCue left punctuation: %q", got)
 	}
@@ -390,7 +349,7 @@ func TestNanoCleaners(t *testing.T) {
 	}
 	// cleanDream: text after the "[<n> tokens .. tok/s]" frame.
 	d := cleanDream("[nanollama] banner\nstreamed\n[16 tokens, 30.0 tok/s]\nA: the clean dream here.\n")
-	if d == "" || strings.Contains(d, "tokens") || strings.HasPrefix(d, "A:") {
+	if d == "" || strings.Contains(d, "tokens") || !strings.HasPrefix(d, "A:") {
 		t.Errorf("cleanDream wrong: %q", d)
 	}
 	// guard: ensure the os import is exercised (temp-file existence is asserted elsewhere).

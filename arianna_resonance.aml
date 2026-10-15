@@ -115,7 +115,7 @@ static void resonance_save_breath(void) {
 BLOOD MAIN {
 int main(int argc, char **argv) {
     const char *weights_path = "weights/arianna_resonance_v3_f16.gguf";
-    const char *prompt       = "Who are you?";
+    const char *prompt       = NULL;
     int   max_tokens         = 100;
     float temp               = 0.7f;
     float top_p              = 1.0f;   /* champion: full nucleus. top_p 0.9 starves Resonance (empty/broken). */
@@ -141,6 +141,10 @@ int main(int argc, char **argv) {
     /* R-5: atof yields NaN/inf on junk; the downstream temp<=0 guard is NaN-transparent. */
     if (!isfinite(temp) || temp <= 0.0f) temp = 0.7f;
     if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 1.0f;
+    if (!daemon_mode && (!prompt || !*prompt)) {
+        fprintf(stderr, "usage: %s --daemon | -p <prompt> [options]\n", argv[0]);
+        return 1;
+    }
 
     srand((unsigned)time(NULL));
 
@@ -151,17 +155,17 @@ int main(int argc, char **argv) {
         fprintf(stderr, "[resonance] FIELD OFF — Dario overlay gated\n"); }
 
     if (daemon_mode) {
-        /* metabolism Phase 2 hot-loop — same protocol as Janus daemon. */
+        /* metabolism Phase 2 hot-loop — same length-framed protocol as Janus. */
         fprintf(stderr, "[resonance] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
                 temp, top_p, max_tokens);
         /* R-4: getline reads a full line however long, so a >8KB prompt+inject
-         * stays one turn — a fixed buffer would split it and shift the <END> protocol. */
+         * stays one turn — a fixed buffer would split request boundaries. */
         char *line = NULL; size_t linecap = 0; ssize_t nread;
         while ((nread = getline(&line, &linecap, stdin)) != -1) {
             size_t L = (size_t)nread;
             while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
             if (L == 0) {
-                fputs("<END>\n", stdout); fflush(stdout);
+                fputs("AMF1 0\n", stdout); fflush(stdout);
                 continue;
             }
             /* per-turn inject: the metabolism sends "<prompt>\t<inject>"; split on the
@@ -170,9 +174,7 @@ int main(int argc, char **argv) {
             char *tab = strchr(line, '\t');
             const char *turn_inject = inject_text;
             if (tab) { *tab = '\0'; turn_inject = tab + 1; }
-            resonance_generate(&ctx, line, max_tokens, temp, top_p, turn_inject, inject_alpha, inject_beta);
-            fputs("\n<END>\n", stdout);
-            fflush(stdout);
+            resonance_generate(&ctx, line, max_tokens, temp, top_p, turn_inject, inject_alpha, inject_beta, 1);
         }
         free(line);
         fprintf(stderr, "[resonance] daemon EOF — exiting\n");
@@ -182,7 +184,7 @@ int main(int argc, char **argv) {
     }
 
     /* Larynx-α now lives inside resonance_generate (so daemon + one-shot share it). */
-    resonance_generate(&ctx, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+    resonance_generate(&ctx, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta, 0);
     resonance_save_breath();
     resonance_free(&ctx);
     return 0;

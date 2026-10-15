@@ -91,6 +91,9 @@ func (iw *InnerWorld) Stop() {
 // Step performs a single synchronous step of all processes
 // Use this when you want deterministic stepping instead of async
 func (iw *InnerWorld) Step(dt float32) {
+	if dt <= 0 || float32Invalid(dt) {
+		return
+	}
 	iw.mu.Lock()
 	defer iw.mu.Unlock()
 
@@ -309,28 +312,11 @@ func (iw *InnerWorld) ProcessText(text string) TextAnalysis {
 		analysis.TemporalDissonance = pd.GetTemporalDissonance()
 	}
 
-	// Her mood arises from the text itself: the real Julia valence/arousal (legacy
-	// AnalyzeEmotion) nudge the emotional drift toward what the words actually carry —
-	// her feeling comes from her own thoughts, not a label. The nudge is a modest pull
-	// (gain 0.3) toward the text's lean and intensity (baseline arousal 0.3), and is
-	// skipped silently on any Julia fault, leaving the drift untouched.
-	if ed := iw.GetEmotionalDrift(); ed != nil {
-		if v, err := HighValence(text); err == nil {
-			if a, err2 := HighArousal(text); err2 == nil {
-				const emoGain = 0.3
-				dV := float32(v) * emoGain
-				// Being wrong about the interlocutor should FEEL bad (Damasio); her own predictive
-				// surprise between her last turn and this one is her free-energy (Karpathy). Route it as
-				// negative valence so her mood is grounded in her prediction of the world, not only in the
-				// words' sentiment. Skipped silently on the first turn or any Julia fault.
-				if iw.prevText != "" {
-					if s, err3 := HighPredictiveSurprise(iw.prevText, text); err3 == nil {
-						const surpriseGain = 0.25
-						dV -= float32(s) * surpriseGain
-					}
-				}
-				ed.Nudge(dV, (float32(a)-0.3)*emoGain)
-			}
+	// Predictive surprise is language-agnostic (distance and entropy) and belongs
+	// to the body. It can move valence without assigning emotions to word lists.
+	if ed := iw.GetEmotionalDrift(); ed != nil && iw.prevText != "" {
+		if s, err := HighPredictiveSurprise(iw.prevText, text); err == nil {
+			ed.Nudge(-float32(s)*0.25, 0)
 		}
 	}
 	iw.prevText = text

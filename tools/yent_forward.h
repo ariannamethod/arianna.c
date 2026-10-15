@@ -72,17 +72,6 @@ static float siluf(float x) { return x > -20 ? x / (1 + expf(-x)) : 0; }
 
 static float softcap15(float x) { return 15.0f * tanhf(x / 15.0f); }
 
-/* A .!? at obuf[pos] is a real sentence end unless it follows a single isolated
- * letter ("the inner v." — v is a clipped "voice"). A one-letter word with a
- * space (or start) before it is an abbreviation/clip, not a thought boundary. */
-static int sent_end_ok(const char *obuf, int pos) {
-    int j = pos - 1, run = 0;
-    while (j >= 0 && ((obuf[j] >= 'a' && obuf[j] <= 'z') ||
-                      (obuf[j] >= 'A' && obuf[j] <= 'Z'))) { run++; j--; }
-    if (run == 1 && (j < 0 || obuf[j] == ' ')) return 0;
-    return 1;
-}
-
 /* ── DIRECTION injection (Dario A/F field-pressure, NOT logit-boost/token-paste) ──
  * Same mechanism as resonance_forward.h, ported for Janus (embeddings = w->wte,
  * matvec_t over [V,E]). Injected words become a destiny-EMA compass (A) +

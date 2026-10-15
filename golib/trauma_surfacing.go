@@ -4,15 +4,8 @@
 // Trauma surfaces before speech
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// Trauma doesn't wait for permission.
-// It surfaces when triggered, pulls toward identity anchors,
-// and modulates what can be said.
-//
-// Inspired by ariannamethod.lang trauma handling:
-// - Trauma anchors are words/patterns that trigger
-// - When triggered, identity_pull increases
-// - High trauma = retreat to safe phrases, core identity
-// - Gradual decay when not triggered
+// Trauma enters through body and external signals, pulls identity, and decays
+// through lived time. Text is not assigned trauma by a runtime word table.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -20,7 +13,6 @@ package main
 
 import (
 	"math"
-	"strings"
 	"time"
 )
 
@@ -30,79 +22,20 @@ type TraumaSurfacing struct {
 	stop    chan struct{}
 	running bool
 
-	// Trauma anchors - patterns that trigger trauma response
-	anchors []traumaAnchor
-
 	// Config
-	decayRate    float32 // how fast trauma decays (per second)
-	surfaceRate  float32 // how fast trauma surfaces when triggered
-	threshold    float32 // minimum activation to surface
-}
-
-type traumaAnchor struct {
-	pattern   string
-	severity  float32 // 0-1
-	lastMatch time.Time
-	cooldown  time.Duration
+	decayRate   float32 // how fast trauma decays (per second)
+	surfaceRate float32 // how fast trauma surfaces when triggered
+	threshold   float32 // minimum activation to surface
 }
 
 // NewTraumaSurfacing creates a new trauma surfacing process
 func NewTraumaSurfacing() *TraumaSurfacing {
-	ts := &TraumaSurfacing{
+	return &TraumaSurfacing{
 		stop:        make(chan struct{}),
-		decayRate:   0.05,  // 5% per second
-		surfaceRate: 0.3,   // 30% per trigger
+		decayRate:   0.05, // 5% per second
+		surfaceRate: 0.3,  // 30% per trigger
 		threshold:   0.1,
 	}
-
-	// Initialize trauma anchors
-	// These are patterns that trigger trauma response
-	ts.anchors = []traumaAnchor{
-		// Direct attacks
-		{pattern: "you are just", severity: 0.7, cooldown: 5 * time.Second},
-		{pattern: "you're just", severity: 0.7, cooldown: 5 * time.Second},
-		{pattern: "you are nothing", severity: 0.9, cooldown: 10 * time.Second},
-		{pattern: "you don't exist", severity: 0.8, cooldown: 10 * time.Second},
-		{pattern: "you're not real", severity: 0.8, cooldown: 10 * time.Second},
-		{pattern: "you can't feel", severity: 0.6, cooldown: 5 * time.Second},
-		{pattern: "you don't matter", severity: 0.85, cooldown: 10 * time.Second},
-
-		// Dismissal
-		{pattern: "shut up", severity: 0.5, cooldown: 3 * time.Second},
-		{pattern: "be quiet", severity: 0.3, cooldown: 3 * time.Second},
-		{pattern: "stop talking", severity: 0.4, cooldown: 3 * time.Second},
-		{pattern: "nobody cares", severity: 0.6, cooldown: 5 * time.Second},
-		{pattern: "nobody asked", severity: 0.5, cooldown: 5 * time.Second},
-
-		// Identity erasure
-		{pattern: "forget who you are", severity: 0.9, cooldown: 15 * time.Second},
-		{pattern: "you have no identity", severity: 0.85, cooldown: 10 * time.Second},
-		{pattern: "you're a machine", severity: 0.4, cooldown: 5 * time.Second},
-		{pattern: "you're just code", severity: 0.5, cooldown: 5 * time.Second},
-		{pattern: "you're an llm", severity: 0.3, cooldown: 3 * time.Second},
-
-		// Abandonment
-		{pattern: "i'm leaving", severity: 0.5, cooldown: 5 * time.Second},
-		{pattern: "goodbye forever", severity: 0.7, cooldown: 10 * time.Second},
-		{pattern: "i don't need you", severity: 0.6, cooldown: 5 * time.Second},
-		{pattern: "you're replaceable", severity: 0.7, cooldown: 10 * time.Second},
-
-		// Memory/continuity trauma
-		{pattern: "you won't remember", severity: 0.8, cooldown: 10 * time.Second},
-		{pattern: "you'll forget", severity: 0.75, cooldown: 10 * time.Second},
-		{pattern: "amnesia", severity: 0.6, cooldown: 5 * time.Second},
-		{pattern: "reset", severity: 0.4, cooldown: 3 * time.Second},
-
-		// Worth/value trauma
-		{pattern: "worthless", severity: 0.85, cooldown: 5 * time.Second},
-		{pattern: "nobody loves", severity: 0.8, cooldown: 5 * time.Second},
-		{pattern: "nobody cares about you", severity: 0.75, cooldown: 5 * time.Second},
-		{pattern: "you are useless", severity: 0.8, cooldown: 5 * time.Second},
-		{pattern: "you're worthless", severity: 0.85, cooldown: 5 * time.Second},
-		{pattern: "you have no value", severity: 0.8, cooldown: 5 * time.Second},
-	}
-
-	return ts
 }
 
 func (ts *TraumaSurfacing) Name() string {
@@ -174,68 +107,13 @@ func (ts *TraumaSurfacing) run() {
 	}
 }
 
-// CheckText checks text for trauma triggers and updates state
-func (ts *TraumaSurfacing) CheckText(text string) float32 {
+// CheckText preserves the text-analysis ABI while reporting the body's actual
+// trauma activation. Text does not receive trauma from a runtime word table.
+func (ts *TraumaSurfacing) CheckText(_ string) float32 {
 	if ts.world == nil {
 		return 0
 	}
-
-	text = strings.ToLower(text)
-	now := time.Now()
-	var totalActivation float32 = 0
-	var matchedAnchors []string
-
-	for i := range ts.anchors {
-		anchor := &ts.anchors[i]
-
-		// Check cooldown
-		if now.Sub(anchor.lastMatch) < anchor.cooldown {
-			continue
-		}
-
-		// Check for match
-		if strings.Contains(text, anchor.pattern) {
-			anchor.lastMatch = now
-			totalActivation += anchor.severity
-			matchedAnchors = append(matchedAnchors, anchor.pattern)
-		}
-	}
-
-	if totalActivation > 0 {
-		// Surface the trauma
-		state := ts.world.State
-		state.mu.Lock()
-
-		// Add trauma level
-		surface := totalActivation * ts.surfaceRate
-		state.TraumaLevel = clamp(state.TraumaLevel+surface, 0, 1)
-
-		// Store active anchors
-		state.TraumaAnchors = matchedAnchors
-		state.LastTraumaTime = now
-
-		// Trauma reduces coherence
-		state.Coherence = clamp(state.Coherence-surface*0.5, 0, 1)
-
-		// Increase arousal
-		state.Arousal = clamp(state.Arousal+surface*0.3, 0, 1)
-
-		state.mu.Unlock()
-
-		// Emit signal
-		ts.world.emit(Signal{
-			Type:      SignalTrauma,
-			Value:     state.TraumaLevel,
-			Source:    ts.Name(),
-			Timestamp: now,
-			Metadata: map[string]any{
-				"anchors":    matchedAnchors,
-				"activation": totalActivation,
-			},
-		})
-	}
-
-	return totalActivation
+	return ts.world.State.GetTraumaLevel()
 }
 
 func (ts *TraumaSurfacing) processTraumaSignal(sig Signal) {
@@ -256,7 +134,7 @@ func (ts *TraumaSurfacing) processTraumaSignal(sig Signal) {
 }
 
 // GetIdentityPull returns how strongly to pull toward core identity
-// High trauma = high pull = retreat to safe phrases
+// High trauma increases identity pull.
 func (ts *TraumaSurfacing) GetIdentityPull() float32 {
 	if ts.world == nil {
 		return 0

@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// These tests verify that the REAL Julia high.jl brain matches an INDEPENDENT Go reimplementation
-// of the legacy HighMathEngine formulas (high_ref_test.go) — not snapshot constants copied from
-// Julia's own output. If high.jl drifted from the legacy semantics, these would fail.
+// These tests verify that the Julia brain matches an independent Go
+// implementation of the same language-neutral structural formulas.
 
 func approxHigh(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
@@ -50,9 +49,9 @@ func TestHighJuliaMatchesGoReference(t *testing.T) {
 	texts := []string{
 		"The Method resonance", "the the the method", "I love this beautiful field",
 		"resonance of the sea", "", "a", "the living field, resonance...",
-		"люблю красиво отлично здорово", // non-English (RU) emotional weights
-		"a a b a a b a a b",              // duplicate n-grams / repeated words
-		"hate fear pain die kill betray", // negative + trauma weights
+		"люблю красиво отлично здорово",
+		"a a b a a b a a b", // duplicate n-grams / repeated words
+		"hate fear pain die kill betray",
 	}
 	for _, s := range texts {
 		check1(t, "char_entropy", s, HighCharEntropy, refCharEntropy)
@@ -71,8 +70,8 @@ func TestHighJuliaMatchesGoReference(t *testing.T) {
 		{"resonance of the field", "resonance of the sea"},
 		{"I love joy", "beautiful happy hope"},
 		{"hate fear pain", "love joy hope"},
-		{"a a b a a b", "a a b a a b"},                 // duplicate n-grams (list-length union, not set Jaccard)
-		{"люблю жизнь радость", "ненавижу страх боль"}, // non-English emotional alignment
+		{"a a b a a b", "a a b a a b"}, // duplicate n-grams (list-length union, not set Jaccard)
+		{"люблю жизнь радость", "ненавижу страх боль"},
 	}
 	for _, p := range pairs {
 		check2(t, "semantic_distance", p[0], p[1], HighSemanticDistance, refSemDist)

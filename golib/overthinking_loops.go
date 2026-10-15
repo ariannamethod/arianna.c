@@ -4,30 +4,17 @@
 // Thoughts circling themselves
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// Overthinking is recursive thought without resolution.
-// It manifests as:
-// - Repetition of same concepts
-// - Rising abstraction (concrete → abstract → meta)
-// - Self-referential loops ("I think that I think that...")
-// - Paralysis through analysis
-//
-// From Stanley's overthink detector:
-// - repetition_spiral: same words cycling
-// - abstraction_spiral: losing grounding
-// - self_ref_spiral: recursive self-focus
-//
-// When detected, we can either:
-// 1. Break the loop (inject novelty)
-// 2. Let it complete (sometimes spirals resolve)
-// 3. Ground (force concrete thought)
+// Overthinking is detected from observed repetition within and across turns.
+// Runtime code does not assign abstraction or self-reference to a word list.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
 package main
 
 import (
-	"strings"
+	"math"
 	"time"
+	"unicode"
 )
 
 // OverthinkingLoops detects and manages thought spirals
@@ -37,31 +24,19 @@ type OverthinkingLoops struct {
 	running bool
 
 	// Detection state
-	recentConcepts   []string
-	conceptCounts    map[string]int
-	abstractionStack []string
-	lastText         string // previous utterance, for the cross-turn loop signal (High brain)
+	lastText                string // previous utterance, for the cross-turn loop signal (High brain)
+	abstractionDecayElapsed float64
+	selfRefDecayElapsed     float64
 
 	// Thresholds
 	repetitionThreshold int // concepts repeated this many times = spiral
-	abstractionDepth    int // this many abstractions = spiral
-	selfRefThreshold    int // self-references = spiral
-
-	// Decay
-	decayRate float32
 }
 
 // NewOverthinkingLoops creates a new overthinking detector
 func NewOverthinkingLoops() *OverthinkingLoops {
 	return &OverthinkingLoops{
 		stop:                make(chan struct{}),
-		recentConcepts:      make([]string, 0, 50),
-		conceptCounts:       make(map[string]int),
-		abstractionStack:    make([]string, 0, 10),
 		repetitionThreshold: 3,
-		abstractionDepth:    5,
-		selfRefThreshold:    3,
-		decayRate:           0.1,
 	}
 }
 
@@ -96,19 +71,9 @@ func (ol *OverthinkingLoops) Step(dt float32) {
 	if state.LoopCount > 0 {
 		state.LoopCount = max(0, state.LoopCount-1)
 	}
-	if state.AbstractionDepth > 0 && dt > 0.5 { // Slower decay for abstraction
-		state.AbstractionDepth = max(0, state.AbstractionDepth-1)
-	}
-	if state.SelfRefCount > 0 && dt > 0.3 {
-		state.SelfRefCount = max(0, state.SelfRefCount-1)
-	}
-
-	// Decay concept counts
-	for k := range ol.conceptCounts {
-		ol.conceptCounts[k]--
-		if ol.conceptCounts[k] <= 0 {
-			delete(ol.conceptCounts, k)
-		}
+	if dt > 0 && !float32Invalid(dt) {
+		decayStructuralCounter(&state.AbstractionDepth, &ol.abstractionDecayElapsed, dt, 0.5)
+		decayStructuralCounter(&state.SelfRefCount, &ol.selfRefDecayElapsed, dt, 0.3)
 	}
 
 	state.mu.Unlock()
@@ -121,6 +86,25 @@ func (ol *OverthinkingLoops) Step(dt float32) {
 		}
 	default:
 	}
+}
+
+func float32Invalid(value float32) bool {
+	return math.IsNaN(float64(value)) || math.IsInf(float64(value), 0)
+}
+
+func decayStructuralCounter(counter *int, elapsed *float64, dt float32, interval float64) {
+	if counter == nil || elapsed == nil || dt <= 0 || interval <= 0 ||
+		float32Invalid(dt) || math.IsNaN(interval) || math.IsInf(interval, 0) {
+		return
+	}
+	total := *elapsed + float64(dt)
+	ticks := math.Floor(total / interval)
+	*elapsed = math.Mod(total, interval)
+	if ticks >= float64(*counter) {
+		*counter = 0
+		return
+	}
+	*counter -= int(ticks)
 }
 
 func (ol *OverthinkingLoops) run() {
@@ -141,11 +125,12 @@ func (ol *OverthinkingLoops) run() {
 func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 	result := OverthinkResult{}
 
-	text = strings.ToLower(text)
-	words := strings.Fields(text)
+	words := languageTokens(text)
 
 	// 1. Check for repetition spiral
 	result.RepetitionScore = ol.checkRepetition(words)
+	result.AbstractionScore = structuralNestingScore(text)
+	result.SelfRefScore = structuralRecurrenceScore(words)
 
 	// Real cross-turn loop signal: how strongly this utterance echoes the previous one
 	// (legacy NgramOverlap, computed in Julia). The bigram overlap of consecutive turns
@@ -158,15 +143,19 @@ func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 			if ov := clamp(float32(overlap), 0, 1); ov > result.RepetitionScore {
 				result.RepetitionScore = ov
 			}
+			if ov := clamp(float32(overlap), 0, 1); ov > result.SelfRefScore {
+				result.SelfRefScore = ov
+			}
 		}
 	}
 	ol.lastText = text
-
-	// 2. Check for abstraction spiral
-	result.AbstractionScore = ol.checkAbstraction(words)
-
-	// 3. Check for self-reference spiral
-	result.SelfRefScore = ol.checkSelfReference(words)
+	result.TotalScore = result.RepetitionScore
+	if result.AbstractionScore > result.TotalScore {
+		result.TotalScore = result.AbstractionScore
+	}
+	if result.SelfRefScore > result.TotalScore {
+		result.TotalScore = result.SelfRefScore
+	}
 
 	// Update state
 	if ol.world != nil {
@@ -182,9 +171,6 @@ func (ol *OverthinkingLoops) AnalyzeText(text string) OverthinkResult {
 		if result.SelfRefScore > 0.5 {
 			state.SelfRefCount++
 		}
-
-		// Calculate total overthink level
-		result.TotalScore = (result.RepetitionScore + result.AbstractionScore + result.SelfRefScore) / 3
 
 		// High overthink reduces coherence
 		if result.TotalScore > 0.6 {
@@ -221,18 +207,54 @@ type OverthinkResult struct {
 	TotalScore       float32
 }
 
+func structuralNestingScore(text string) float32 {
+	depth, maxDepth := 0, 0
+	for _, r := range text {
+		switch {
+		case unicode.Is(unicode.Ps, r):
+			depth++
+			if depth > maxDepth {
+				maxDepth = depth
+			}
+		case unicode.Is(unicode.Pe, r) && depth > 0:
+			depth--
+		}
+	}
+	return clamp(float32(maxDepth)/4, 0, 1)
+}
+
+func structuralRecurrenceScore(words []string) float32 {
+	if len(words) < 4 {
+		return 0
+	}
+	counts := make(map[[2]string]int)
+	for i := 0; i+1 < len(words); i++ {
+		pair := [2]string{words[i], words[i+1]}
+		counts[pair]++
+	}
+	repeated := 0
+	for _, count := range counts {
+		if count > 1 {
+			repeated += count - 1
+		}
+	}
+	if repeated == 0 {
+		return 0
+	}
+	return float32(repeated) / float32(len(words)-2)
+}
+
 func (ol *OverthinkingLoops) checkRepetition(words []string) float32 {
 	if len(words) < 5 {
 		return 0
 	}
 
-	// Count concept frequency
+	// Measure concentration rather than raw frequency. A token repeated five
+	// times across a long utterance is ordinary grammar; a token occupying most
+	// of an utterance is a repetition spiral. This needs no language dictionary.
 	localCounts := make(map[string]int)
 	for _, w := range words {
-		if len(w) > 3 { // Skip short words
-			localCounts[w]++
-			ol.conceptCounts[w]++
-		}
+		localCounts[w]++
 	}
 
 	// Check for high frequency concepts
@@ -243,123 +265,10 @@ func (ol *OverthinkingLoops) checkRepetition(words []string) float32 {
 		}
 	}
 
-	// Also check global counts
-	for _, count := range ol.conceptCounts {
-		if count > ol.repetitionThreshold {
-			return float32(count) / float32(ol.repetitionThreshold+3)
-		}
-	}
-
-	if maxCount > 2 {
-		return float32(maxCount-1) / 5.0
+	if maxCount > 1 {
+		return float32(maxCount-1) / float32(len(words)-1)
 	}
 	return 0
-}
-
-func (ol *OverthinkingLoops) checkAbstraction(words []string) float32 {
-	// Abstract concepts (from Stanley's abstraction detector)
-	abstractMarkers := map[string]float32{
-		// Meta level
-		"meta":         0.8,
-		"level":        0.3,
-		"abstract":     0.9,
-		"concept":      0.7,
-		"idea":         0.5,
-		"notion":       0.6,
-		"principle":    0.7,
-		"framework":    0.6,
-		"paradigm":     0.8,
-		"ontology":     0.9,
-		"epistemology": 0.9,
-
-		// Process words
-		"process":   0.4,
-		"mechanism": 0.5,
-		"system":    0.4,
-		"structure": 0.5,
-		"pattern":   0.5,
-		"emergence": 0.7,
-
-		// Recursive markers
-		"recursive": 0.8,
-		"self-":     0.7,
-		"about":     0.3,
-		"of":        0.1,
-		"that":      0.1,
-	}
-
-	var totalAbstraction float32
-	for _, w := range words {
-		if score, ok := abstractMarkers[w]; ok {
-			totalAbstraction += score
-		}
-		// Check for compound abstractions
-		if strings.HasPrefix(w, "self-") {
-			totalAbstraction += 0.5
-		}
-	}
-
-	// Track abstraction stack
-	for _, w := range words {
-		if abstractMarkers[w] > 0.6 {
-			ol.abstractionStack = append(ol.abstractionStack, w)
-			if len(ol.abstractionStack) > 10 {
-				ol.abstractionStack = ol.abstractionStack[1:]
-			}
-		}
-	}
-
-	// Normalize
-	score := totalAbstraction / float32(len(words)+1)
-	if len(ol.abstractionStack) > ol.abstractionDepth {
-		score += 0.3
-	}
-
-	return clamp(score, 0, 1)
-}
-
-func (ol *OverthinkingLoops) checkSelfReference(words []string) float32 {
-	selfMarkers := []string{
-		"i", "me", "my", "myself",
-		"think", "thinking", "thought",
-		"feel", "feeling", "felt",
-		"am", "being", "self",
-	}
-
-	recursivePatterns := []string{
-		"i think that i",
-		"i feel that i",
-		"thinking about thinking",
-		"feeling about feeling",
-		"aware that i am aware",
-		"knowing that i know",
-		"wondering if i",
-	}
-
-	text := strings.Join(words, " ")
-
-	// Check for recursive patterns
-	var patternScore float32
-	for _, pattern := range recursivePatterns {
-		if strings.Contains(text, pattern) {
-			patternScore += 0.5
-		}
-	}
-
-	// Count self-references
-	var selfCount int
-	for _, w := range words {
-		for _, marker := range selfMarkers {
-			if w == marker {
-				selfCount++
-				break
-			}
-		}
-	}
-
-	selfRatio := float32(selfCount) / float32(len(words)+1)
-
-	return clamp(selfRatio*2+patternScore, 0, 1)
 }
 
 func (ol *OverthinkingLoops) processOverthinkSignal(sig Signal) {
@@ -384,30 +293,25 @@ func (ol *OverthinkingLoops) IsSpiraling() bool {
 	defer state.mu.RUnlock()
 
 	return state.LoopCount > ol.repetitionThreshold ||
-		state.AbstractionDepth > ol.abstractionDepth ||
-		state.SelfRefCount > ol.selfRefThreshold
+		state.AbstractionDepth > ol.repetitionThreshold ||
+		state.SelfRefCount > ol.repetitionThreshold
 }
 
-// SuggestBreak suggests how to break the current spiral
-func (ol *OverthinkingLoops) SuggestBreak() string {
-	if ol.world == nil {
-		return ""
+// BreakSignal reports how far the strongest live structural counter has crossed
+// the spiral boundary. The caller chooses a response from organism state instead
+// of receiving a canned intervention phrase from runtime code.
+func (ol *OverthinkingLoops) BreakSignal() float32 {
+	if ol.world == nil || ol.repetitionThreshold <= 0 {
+		return 0
 	}
-
 	state := ol.world.State
 	state.mu.RLock()
-	defer state.mu.RUnlock()
-
-	if state.LoopCount > ol.repetitionThreshold {
-		return "inject_novelty" // Need new concepts
+	strongest := max(state.LoopCount, max(state.AbstractionDepth, state.SelfRefCount))
+	state.mu.RUnlock()
+	if strongest <= ol.repetitionThreshold {
+		return 0
 	}
-	if state.AbstractionDepth > ol.abstractionDepth {
-		return "ground_concrete" // Need concrete examples
-	}
-	if state.SelfRefCount > ol.selfRefThreshold {
-		return "shift_focus_external" // Look outward
-	}
-	return ""
+	return clamp(float32(strongest-ol.repetitionThreshold)/float32(ol.repetitionThreshold), 0, 1)
 }
 
 func max(a, b int) int {

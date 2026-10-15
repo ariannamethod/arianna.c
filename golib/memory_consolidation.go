@@ -26,7 +26,11 @@ package main
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // MemoryConsolidation manages memory formation and decay
@@ -53,15 +57,15 @@ type MemoryConsolidation struct {
 
 // ConsolidatableMemory is a memory with consolidation metadata
 type ConsolidatableMemory struct {
-	Content     string
-	Created     time.Time
-	LastAccess  time.Time
-	Strength    float32 // 0-1, decays over time
-	Emotion     float32 // -1 to 1, affects consolidation priority
-	Arousal     float32 // 0-1, affects consolidation priority
-	AccessCount int
+	Content      string
+	Created      time.Time
+	LastAccess   time.Time
+	Strength     float32 // 0-1, decays over time
+	Emotion      float32 // -1 to 1, affects consolidation priority
+	Arousal      float32 // 0-1, affects consolidation priority
+	AccessCount  int
 	Consolidated bool
-	Connections []int // indices of connected memories
+	Connections  []int // indices of connected memories
 }
 
 // NewMemoryConsolidation creates a new memory consolidation process
@@ -223,13 +227,14 @@ func (mc *MemoryConsolidation) processConsolidation(dt float32) {
 	candidate.Strength = min32(candidate.Strength*1.5, 1.0) // Boost on consolidation
 	mc.longTerm = append(mc.longTerm, candidate)
 
-	// Find connections to other long-term memories
-	mc.findConnections(len(mc.longTerm) - 1)
-
 	// If over capacity, evict
 	if len(mc.longTerm) > mc.longTermCapacity {
 		mc.evictWeakest(&mc.longTerm)
 	}
+
+	// Rebuild connections after any eviction so indices and corpus frequencies
+	// both describe the retained memories.
+	mc.rebuildConnections()
 
 	// Emit signal
 	if mc.world != nil {
@@ -264,28 +269,54 @@ func (mc *MemoryConsolidation) consolidationPriority(m ConsolidatableMemory) flo
 	return m.Strength * (1 + emotionFactor + arousalFactor + accessFactor) * recencyFactor
 }
 
-func (mc *MemoryConsolidation) findConnections(idx int) {
-	if idx >= len(mc.longTerm) {
+func (mc *MemoryConsolidation) rebuildConnections() {
+	documents := len(mc.longTerm)
+	if documents == 0 {
 		return
 	}
 
-	target := &mc.longTerm[idx]
-	targetWords := extractKeywords(target.Content)
-
+	tokens := make([][]string, documents)
+	documentFrequency := make(map[string]int)
 	for i := range mc.longTerm {
-		if i == idx {
-			continue
-		}
-
-		otherWords := extractKeywords(mc.longTerm[i].Content)
-
-		// Simple overlap check
-		overlap := countOverlap(targetWords, otherWords)
-		if overlap >= 2 { // At least 2 shared keywords
-			target.Connections = append(target.Connections, i)
-			mc.longTerm[i].Connections = append(mc.longTerm[i].Connections, idx)
+		mc.longTerm[i].Connections = mc.longTerm[i].Connections[:0]
+		tokens[i] = languageTokens(mc.longTerm[i].Content)
+		seen := make(map[string]bool)
+		for _, token := range tokens[i] {
+			if !seen[token] {
+				documentFrequency[token]++
+				seen[token] = true
+			}
 		}
 	}
+
+	for i := 0; i < documents; i++ {
+		for j := i + 1; j < documents; j++ {
+			shared := countSignificantOverlap(tokens[i], tokens[j], documentFrequency, documents)
+			if shared >= 2 && (documents >= 4 || countSharedBigrams(tokens[i], tokens[j]) > 0) {
+				mc.longTerm[i].Connections = append(mc.longTerm[i].Connections, j)
+				mc.longTerm[j].Connections = append(mc.longTerm[j].Connections, i)
+			}
+		}
+	}
+}
+
+func countSharedBigrams(a, b []string) int {
+	if len(a) < 2 || len(b) < 2 {
+		return 0
+	}
+	pairs := make(map[[2]string]struct{}, len(a)-1)
+	for i := 0; i+1 < len(a); i++ {
+		pairs[[2]string{a[i], a[i+1]}] = struct{}{}
+	}
+	shared := 0
+	for i := 0; i+1 < len(b); i++ {
+		pair := [2]string{b[i], b[i+1]}
+		if _, ok := pairs[pair]; ok {
+			shared++
+			delete(pairs, pair)
+		}
+	}
+	return shared
 }
 
 func (mc *MemoryConsolidation) evictWeakest(pool *[]ConsolidatableMemory) {
@@ -402,35 +433,25 @@ func filterMemories(mems []ConsolidatableMemory, threshold float32) []Consolidat
 	return result
 }
 
-func extractKeywords(text string) []string {
-	// Simple keyword extraction - in production would use better NLP
-	words := make([]string, 0)
-	current := ""
-	for _, r := range text {
-		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' {
-			current += string(r)
-		} else if len(current) > 3 {
-			words = append(words, current)
-			current = ""
-		} else {
-			current = ""
-		}
-	}
-	if len(current) > 3 {
-		words = append(words, current)
-	}
-	return words
+func languageTokens(text string) []string {
+	text = norm.NFC.String(strings.ToLower(text))
+	return strings.FieldsFunc(text, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsMark(r)
+	})
 }
 
-func countOverlap(a, b []string) int {
+func countSignificantOverlap(a, b []string, documentFrequency map[string]int, documents int) int {
 	set := make(map[string]bool)
 	for _, w := range a {
 		set[w] = true
 	}
 	count := 0
 	for _, w := range b {
-		if set[w] {
+		// Fewer than four documents cannot establish ubiquity. These links are
+		// rebuilt once the retained corpus is large enough to measure it.
+		if set[w] && (documents < 4 || documentFrequency[w]*2 <= documents) {
 			count++
+			delete(set, w)
 		}
 	}
 	return count

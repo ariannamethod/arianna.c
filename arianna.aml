@@ -290,7 +290,7 @@ BLOOD COMPILE arianna_single {
 static void arianna_generate_single(Weights *w, const char *prompt,
                                     int max_tokens, float temp, float top_p,
                                     const char *inject_text, float inject_alpha,
-                                    float inject_beta) {
+                                    float inject_beta, int framed) {
     am_field_sync_in();  /* B/F-8: read the live shared field (Resonance's debt/season/dissonance) before this turn */
     int ctx[4096];
     int len = arianna_encode_chat_prompt(prompt, ctx, 4096);
@@ -312,7 +312,12 @@ static void arianna_generate_single(Weights *w, const char *prompt,
 
     float *logits = calloc(V, sizeof(float));
     float *hidden = calloc(E, sizeof(float));
-    if (!logits || !hidden) { fprintf(stderr, "[arianna] FATAL: OOM allocating logits/hidden\n"); free(logits); free(hidden); return; }
+    if (!logits || !hidden) {
+        fprintf(stderr, "[arianna] FATAL: OOM allocating logits/hidden\n");
+        free(logits); free(hidden);
+        if (framed) { fputs("AMF1 0\n", stdout); fflush(stdout); }
+        return;
+    }
 
     fprintf(stderr, "[arianna] prefill %d tokens (parallel)... ", len);
     fflush(stderr);
@@ -324,8 +329,6 @@ static void arianna_generate_single(Weights *w, const char *prompt,
     struct timespec ts0, ts1;
     clock_gettime(CLOCK_MONOTONIC, &ts0);
     int gen_start = len;
-    int gen_chars = 0;                 /* chars emitted this turn */
-    const int MIN_SENT_CHARS = 30;     /* min before honoring a . ! ? cut */
     for (int step = 0; step < max_tokens && len < T; step++) {
         /* Within-turn decay: direction is a compass, strong at the start, fading
          * (~halves every 5 tokens) so the voice develops the theme in its own
@@ -341,29 +344,12 @@ static void arianna_generate_single(Weights *w, const char *prompt,
         char decoded[64];
         int n = nt_bpe_decode(&g_bpe, &next, 1, decoded, sizeof(decoded) - 1);
         if (olen + n < (int)sizeof(obuf)) { memcpy(obuf + olen, decoded, n); olen += n; }
-        gen_chars += n;
-
         am_register_prophecy_debt(am_compute_prophecy_debt(logits, next, V));
         am_step(0.05f);
         dir_age(next);
 
         ctx[len] = next;
         len++;
-
-        /* Forward-scan sentence stop (port of clean_voice from old project,
-         * arianna.c/scripts/arianna2arianna.sh:67-77): after a min length,
-         * end the turn at the first . ! ? so the CLI -n cap never severs a
-         * word mid-sentence. Whole sentences out, no mid-word truncation. */
-        if (gen_chars >= MIN_SENT_CHARS) {
-            int sent_end = 0, kpos = -1;
-            for (int k = 0; k < n; k++)
-                if (decoded[k] == '.' || decoded[k] == '!' || decoded[k] == '?') {
-                    sent_end = 1; kpos = k; break;
-                }
-            /* Skip a false boundary after a single-letter clip ("inner v."). */
-            if (sent_end && !sent_end_ok(obuf, (olen - n) + kpos)) sent_end = 0;
-            if (sent_end) break;
-        }
 
         forward_token(w, next, len - 1, logits, hidden);
     }
@@ -407,19 +393,8 @@ static void arianna_generate_single(Weights *w, const char *prompt,
      * sampled (e.g. raw 0xFF) before it reaches the terminal. Whole-buffer pass over
      * the accumulated reply; valid multi-byte (em-dash etc.) survives. */
     olen = utf8_sanitize(obuf, olen);
-    /* Post-decode space-guard over the WHOLE text: insert a space at every
-     * [a-z][A-Z] boundary. BPE sometimes emits a word-token without its
-     * leading space ("eConnected", and glue living INSIDE one token's decode
-     * that the per-token guard missed). lowercase→Uppercase is always a word
-     * boundary in natural English (no camelCase inside words). Digits left
-     * alone ("15th" is legitimate). Whole-text pass = deterministic zero. */
-    for (int i = 0; i < olen; i++) {
-        if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
-            obuf[i-1] >= 'a' && obuf[i-1] <= 'z') {
-            putchar(' ');
-        }
-        putchar((unsigned char)obuf[i]);
-    }
+    if (framed) fprintf(stdout, "AMF1 %d\n", olen);
+    if (olen > 0) fwrite(obuf, 1, (size_t)olen, stdout);
     fflush(stdout);
     clock_gettime(CLOCK_MONOTONIC, &ts1);
     double el = (ts1.tv_sec - ts0.tv_sec) + (ts1.tv_nsec - ts0.tv_nsec) / 1e9;
@@ -594,7 +569,7 @@ static void arianna_chain_display(const char *prompt,
 BLOOD MAIN {
 int main(int argc, char **argv) {
     const char *gguf_path = "weights/arianna_v4_sft_f16.gguf";
-    const char *prompt    = "Who are you?";
+    const char *prompt    = NULL;
     int   max_tokens      = 120;
     float temp            = 0.8f;     /* Phase 7 Arianna champion */
     float top_p           = 0.9f;     /* Phase 7 champion (top_k=40 делает реальный cut) */
@@ -625,6 +600,10 @@ int main(int argc, char **argv) {
     /* J-11: atof yields NaN/inf on junk; the downstream temp<=0 / total<=0 gates are NaN-transparent. */
     if (!isfinite(temp) || temp <= 0.0f) temp = 0.8f;
     if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 0.9f;
+    if (!daemon_mode && (!prompt || !*prompt)) {
+        fprintf(stderr, "usage: %s --daemon | -p <prompt> [options]\n", argv[0]);
+        return 1;
+    }
 
     srand((unsigned)time(NULL));
     jcal_init();
@@ -634,8 +613,7 @@ int main(int argc, char **argv) {
 
     if (daemon_mode) {
         /* metabolism Phase 2 hot-loop: read prompts from stdin, generate
-         * one reply per line, emit «<END>\n» marker after each turn so
-         * the parent can frame replies in its read loop. EOF on stdin →
+         * one reply per line and emit an AMF1 byte-length frame. EOF on stdin →
          * SAVE + cleanup + exit.
          *
          * One process per voice, kept hot across many turns. KV cache
@@ -644,18 +622,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "[arianna] daemon mode — temp=%.3f top_p=%.3f n=%d\n",
                 temp, top_p, max_tokens);
         /* J-10: getline reads a full line however long, so a >8KB prompt stays one
-         * turn — a fixed buffer would split it and shift the <END> protocol. */
+         * turn — a fixed buffer would split it and shift request boundaries. */
         char *line = NULL; size_t linecap = 0; ssize_t nread;
         while ((nread = getline(&line, &linecap, stdin)) != -1) {
             size_t L = (size_t)nread;
             while (L > 0 && (line[L-1] == '\n' || line[L-1] == '\r')) line[--L] = 0;
             if (L == 0) {
-                fputs("<END>\n", stdout); fflush(stdout);
+                fputs("AMF1 0\n", stdout); fflush(stdout);
                 continue;
             }
-            arianna_generate_single(&w, line, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
-            fputs("\n<END>\n", stdout);
-            fflush(stdout);
+            arianna_generate_single(&w, line, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta, 1);
         }
         free(line);
         fprintf(stderr, "[arianna] daemon EOF — exiting\n");
@@ -694,7 +670,7 @@ int main(int argc, char **argv) {
         spa_free(&g_spa);
     } else {
         /* Single mode: autoregressive generation. */
-        arianna_generate_single(&w, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta);
+        arianna_generate_single(&w, prompt, max_tokens, temp, top_p, inject_text, inject_alpha, inject_beta, 0);
     }
 
     am_field_detach();  /* B/F-8: unmap the live shared field (the mmap file persists it) */
