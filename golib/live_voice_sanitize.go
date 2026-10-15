@@ -26,13 +26,17 @@ func sanitizeLiveVoiceText(text string) string {
 	return strings.TrimSpace(text)
 }
 
-// encodeLiveVoiceRequest keeps the daemon's one-line request framing intact.
-// Newlines remain part of the organism's text everywhere else; only the wire
-// representation flattens them so one ask always produces one daemon turn.
-func encodeLiveVoiceRequest(text string) string {
+// encodeLiveVoiceField keeps one daemon field on one physical line and prevents
+// model or user tabs from becoming protocol separators.
+func encodeLiveVoiceField(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", " ")
 	text = strings.ReplaceAll(text, "\r", " ")
-	return strings.ReplaceAll(text, "\n", " ")
+	text = strings.ReplaceAll(text, "\n", " ")
+	return strings.ReplaceAll(text, "\t", " ")
+}
+
+func encodeLiveVoiceRequest(prompt, injection string) string {
+	return encodeLiveVoiceField(prompt) + "\t" + encodeLiveVoiceField(injection)
 }
 
 func sanitizeLiveCarriedDream(text string) string {

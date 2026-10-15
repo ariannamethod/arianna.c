@@ -91,6 +91,9 @@ func (iw *InnerWorld) Stop() {
 // Step performs a single synchronous step of all processes
 // Use this when you want deterministic stepping instead of async
 func (iw *InnerWorld) Step(dt float32) {
+	if dt <= 0 || float32Invalid(dt) {
+		return
+	}
 	iw.mu.Lock()
 	defer iw.mu.Unlock()
 
@@ -291,6 +294,8 @@ func (iw *InnerWorld) ProcessText(text string) TextAnalysis {
 	if ol := iw.GetOverthinkingLoops(); ol != nil {
 		result := ol.AnalyzeText(text)
 		analysis.RepetitionScore = result.RepetitionScore
+		analysis.AbstractionScore = result.AbstractionScore
+		analysis.SelfRefScore = result.SelfRefScore
 		analysis.OverthinkTotal = result.TotalScore
 	}
 

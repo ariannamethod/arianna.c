@@ -162,18 +162,18 @@ func TestFieldSurfaces(t *testing.T) {
 	}
 }
 
-// TestDreamCue verifies that autonomous generation is seeded only by Arianna's
-// carried output or numerical body/field state, never a handwritten sentence.
+// TestDreamCue verifies that every autonomous seed carries the current numerical
+// body/field state, with the previous dream retained as context when present.
 func TestDreamCue(t *testing.T) {
-	carried := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "the tide remembers", "")
-	if carried != "the tide remembers" {
+	carried := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "the tide remembers")
+	if carried != "0.000 0.000 0.000 0.000 0.000 0.900 2 0 the tide remembers" {
 		t.Fatalf("carried dream changed: %q", carried)
 	}
-	fromField := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "", "")
+	fromField := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "")
 	if fromField != "0.000 0.000 0.000 0.000 0.000 0.900 2 0" {
 		t.Fatalf("field state cue = %q", fromField)
 	}
-	fromBody := dreamCue(Snapshot{Arousal: 0.2, Valence: -0.1, Coherence: 0.8, WanderPull: 0.4}, fieldSnapshot{}, "", "")
+	fromBody := dreamCue(Snapshot{Arousal: 0.2, Valence: -0.1, Coherence: 0.8, WanderPull: 0.4}, fieldSnapshot{}, "")
 	if fromBody != "0.200 -0.100 0.800 0.400" {
 		t.Fatalf("body state cue = %q", fromBody)
 	}

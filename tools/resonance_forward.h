@@ -689,7 +689,7 @@ static int resonance_sample_token(float *logits, int *cctx, int len,
 static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
                                int max_gen, float temp, float top_p,
                                const char *inject_text, float inject_alpha,
-                               float inject_beta) {
+                               float inject_beta, int framed) {
     am_field_sync_in();  /* B/F-8: read the live shared field (the other voice's debt/season/dissonance) before this turn */
     int cctx[4096];
     int len = nt_bpe_encode(&ctx->bpe, prompt, (int)strlen(prompt), cctx, 4096);
@@ -766,7 +766,11 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
     }
 
     float *logits = calloc(V, sizeof(float));
-    if (!logits) { fprintf(stderr, "[resonance] logits alloc failed (V=%d)\n", V); return; }
+    if (!logits) {
+        fprintf(stderr, "[resonance] logits alloc failed (V=%d)\n", V);
+        if (framed) { fputs("AMF1 0\n", stdout); fflush(stdout); }
+        return;
+    }
     fprintf(stderr, "[resonance] prefill %d tokens... ", len);
     fflush(stderr);
     for (int i = 0; i < len; i++)
@@ -822,9 +826,8 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
     /* UTF-8 output guard: drop any byte-fallback / invalid-UTF-8 byte (raw 0xFF, a
      * lone continuation) before output; valid multi-byte survives. */
     olen = utf8_sanitize(obuf, olen);
-    for (int i = 0; i < olen; i++) {
-        putchar((unsigned char)obuf[i]);
-    }
+    if (framed) fprintf(stdout, "AMF1 %d\n", olen);
+    if (olen > 0) fwrite(obuf, 1, (size_t)olen, stdout);
     fflush(stdout);
     clock_gettime(CLOCK_MONOTONIC, &ts1);
     double el = (ts1.tv_sec - ts0.tv_sec) + (ts1.tv_nsec - ts0.tv_nsec) / 1e9;

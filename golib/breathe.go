@@ -80,16 +80,20 @@ func (b *breath) tick(s Snapshot, now time.Time, tm, coolMult float64) int {
 // what she is resonating with NOW — the resonant spiral made dynamic, not a fixed
 // seed. (Phase-3 #6 follow-on: the field steers not just WHETHER she dreams but
 // WHAT she dreams on.)
-func dreamCue(s Snapshot, fs fieldSnapshot, lastDream, _ string) string {
-	if carried := strings.TrimSpace(lastDream); carried != "" {
-		return carried
-	}
+
+func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
+	var state string
 	if fs.valid {
-		return fmt.Sprintf("%.3f %.3f %.3f %.3f %.3f %.3f %d %d",
+		state = fmt.Sprintf("%.3f %.3f %.3f %.3f %.3f %.3f %d %d",
 			fs.debt, fs.temporalDebt, fs.velocityMagnitude, fs.seasonPhase,
 			fs.seasonIntensity, fs.summer, fs.velocityMode, fs.season)
+	} else {
+		state = fmt.Sprintf("%.3f %.3f %.3f %.3f", s.Arousal, s.Valence, s.Coherence, s.WanderPull)
 	}
-	return fmt.Sprintf("%.3f %.3f %.3f %.3f", s.Arousal, s.Valence, s.Coherence, s.WanderPull)
+	if carried := strings.TrimSpace(lastDream); carried != "" {
+		return state + " " + carried
+	}
+	return state
 }
 
 // runBreathing is the autonomous inner life. On a timer it ticks the breath; when
@@ -149,7 +153,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			voiceMu.Lock()
 			prevLD := *lastDream
 			voiceMu.Unlock()
-			cue := dreamCue(s, fs, prevLD, "")
+			cue := dreamCue(s, fs, prevLD)
 			seed := cue
 			if f := kkRetrieve("./kk-cli", "weights/nano.kk.db", cue); f != "" {
 				seed = f
@@ -224,7 +228,7 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 			// the inner voice answers the chorus — no human. The dreamSentinel marks
 			// this as the subconscious's dream so Resonance imprints its words on the
 			// cooc harder (Road-1c) — the daemon strips the marker before generation.
-			reson := tc.resonD.ask(dream + "\t" + dreamSentinel + dream)
+			reson := tc.resonD.askInjected(dream, dreamSentinel+dream)
 			innerAccepted := liveVoiceTextVisible(reson)
 			if innerAccepted {
 				tc.iw.ProcessText(reson)

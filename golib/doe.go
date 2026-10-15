@@ -103,7 +103,7 @@ const maxDoeSeedBytes = 1000
 // doeStatusCmd is doe's read-only REPL command (doe.c:3470): it prints a `[field]
 // step=…` line and continues WITHOUT generating, resetting the KV cache, or touching
 // the experts. Sent after each seed, that reply is the end-of-generation sentinel
-// (doe prints no <END> frame).
+// (doe uses its own line protocol).
 const doeStatusCmd = "status"
 
 // doePrimeTimeout bounds the daemon's first load (the 169.8MB model + the sonar

@@ -5,7 +5,8 @@ package main
 // voices, with the inner world in the loop and gating the rhythm:
 //
 //   hot daemons (4b.2)        : each voice runs once as a persistent --daemon
-//     process; the metabolism talks to it over stdin/stdout framed by <END>, so
+//     process; the metabolism talks to it over stdin/stdout with length-prefixed
+//     reply frames, so
 //     there is no 5-6s spawn per turn — the organism stays responsive.
 //   conversation -> inner world : each voice's words feed ProcessText.
 //   inner world -> conversation : Resonance's per-turn inject (Janus's words, sent
@@ -30,12 +31,12 @@ import (
 )
 
 // voice is a persistent --daemon process talked to over stdin/stdout, framed by
-// a "<END>" line after each reply.
+// an AMF1 byte length before each reply.
 type voice struct {
 	cmd  *exec.Cmd
 	in   io.WriteCloser
-	out  *bufio.Scanner
-	dead bool   // set when the daemon stops responding (EOF before the <END> frame)
+	out  *bufio.Reader
+	dead bool   // set when the daemon stops responding or truncates a frame
 	bin  string // remembered so a fallen voice can be respawned in place
 	args []string
 }
@@ -54,8 +55,7 @@ func startVoice(bin string, args []string) (*voice, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	sc := bufio.NewScanner(outPipe)
-	sc.Buffer(make([]byte, 1<<20), 1<<20) // tolerate long lines
+	reader := bufio.NewReaderSize(outPipe, 1<<20)
 	if _, err := fmt.Fprintln(in); err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
@@ -63,17 +63,13 @@ func startVoice(bin string, args []string) (*voice, error) {
 	}
 	ready := make(chan bool, 1)
 	go func() {
-		for sc.Scan() {
-			if strings.TrimSpace(sc.Text()) == "<END>" {
-				ready <- true
-				return
-			}
-		}
-		ready <- false
+		_, ok := readLiveVoiceFrame(reader)
+		ready <- ok
 	}()
 	select {
 	case ok := <-ready:
 		if !ok {
+			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
 			return nil, fmt.Errorf("daemon exited before ready")
 		}
@@ -82,11 +78,11 @@ func startVoice(bin string, args []string) (*voice, error) {
 		_ = cmd.Wait()
 		return nil, fmt.Errorf("daemon readiness timeout")
 	}
-	return &voice{cmd: cmd, in: in, out: sc, bin: bin, args: args}, nil
+	return &voice{cmd: cmd, in: in, out: reader, bin: bin, args: args}, nil
 }
 
 // respawn revives a fallen voice in place: kill and reap the old daemon, then start a fresh one
-// with the same bin+args. A hot voice daemon can stop framing <END> after a turn or two; reviving
+// with the same bin+args. A hot voice daemon can stop completing frames after a turn or two; reviving
 // it lets the trio survive one voice's death instead of ending the whole session. Caller holds
 // voiceMu (the voices are single-stream — a revive must not race a concurrent ask or the breath).
 func (v *voice) respawn() error {
@@ -103,7 +99,7 @@ func (v *voice) respawn() error {
 }
 
 // voiceTimeout bounds one ask: our voices emit a bounded token budget. On an idle
-// machine that frames <END> in seconds, but a 176M CPU voice under heavy contention
+// machine that completes a frame in seconds, but a 176M CPU voice under heavy contention
 // (other jobs saturating the cores) can legitimately take far longer — 30s treated a
 // merely-slow voice as wedged and killed it, silencing the trio. The ceiling is
 // generous so a slow-but-alive voice finishes its turn; a genuine wedge is still
@@ -118,40 +114,38 @@ var voiceTimeout = func() time.Duration {
 	return 120 * time.Second
 }()
 
-// ask sends one request line and reads the reply up to the <END> frame. If the
-// daemon dies (stdin closed, or EOF before <END>), it marks the voice dead so the
+// ask sends one request line and reads one length-prefixed reply. If the daemon
+// dies (stdin closed, or EOF before the full frame), it marks the voice dead so the
 // caller can stop instead of looping over silent empty turns (Mythos M3). The read
-// runs under a deadline: a daemon that wedges before <END> would otherwise hold
+// runs under a deadline: a daemon that wedges mid-frame would otherwise hold
 // voiceMu forever (a human turn or the autonomous breathing stuck for good), so on
 // timeout the process is killed (which unblocks the read with EOF) and marked dead.
 func (v *voice) ask(line string) string {
-	if _, err := fmt.Fprintln(v.in, encodeLiveVoiceRequest(line)); err != nil {
+	return v.askWire(encodeLiveVoiceField(line))
+}
+
+func (v *voice) askInjected(prompt, injection string) string {
+	return v.askWire(encodeLiveVoiceRequest(prompt, injection))
+}
+
+func (v *voice) askWire(line string) string {
+	if _, err := fmt.Fprintln(v.in, line); err != nil {
 		v.dead = true
 		return ""
 	}
 	type reply struct {
-		text   string
-		sawEnd bool
+		text     string
+		complete bool
 	}
 	ch := make(chan reply, 1)
 	go func() {
-		var b strings.Builder
-		sawEnd := false
-		for v.out.Scan() {
-			t := v.out.Text()
-			if strings.TrimSpace(t) == "<END>" {
-				sawEnd = true
-				break
-			}
-			b.WriteString(t)
-			b.WriteByte('\n')
-		}
-		ch <- reply{sanitizeLiveVoiceText(b.String()), sawEnd}
+		text, complete := readLiveVoiceFrame(v.out)
+		ch <- reply{text, complete}
 	}()
 	select {
 	case r := <-ch:
-		if !r.sawEnd {
-			v.dead = true // Scan returned false before the <END> frame — the daemon is gone
+		if !r.complete {
+			v.dead = true
 		}
 		return r.text
 	case <-time.After(voiceTimeout):
@@ -162,6 +156,31 @@ func (v *voice) ask(line string) string {
 		<-ch
 		return ""
 	}
+}
+
+const (
+	liveVoiceFramePrefix = "AMF1 "
+	liveVoiceFrameMax    = 1 << 20
+)
+
+func readLiveVoiceFrame(reader *bufio.Reader) (string, bool) {
+	header, err := reader.ReadString('\n')
+	if err != nil {
+		return "", false
+	}
+	header = strings.TrimSuffix(strings.TrimSuffix(header, "\n"), "\r")
+	if !strings.HasPrefix(header, liveVoiceFramePrefix) {
+		return "", false
+	}
+	size, err := strconv.Atoi(strings.TrimPrefix(header, liveVoiceFramePrefix))
+	if err != nil || size < 0 || size > liveVoiceFrameMax {
+		return "", false
+	}
+	payload := make([]byte, size)
+	if _, err := io.ReadFull(reader, payload); err != nil {
+		return "", false
+	}
+	return sanitizeLiveVoiceText(string(payload)), true
 }
 
 func (v *voice) close() {
@@ -379,7 +398,7 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 	if surfaceDream && strings.TrimSpace(lastDream) != "" {
 		resonParts = append(resonParts, lastDream)
 	}
-	reson = tc.resonD.ask(human + "\t" + strings.Join(resonParts, " "))
+	reson = tc.resonD.askInjected(human, strings.Join(resonParts, " "))
 	if liveVoiceTextVisible(reson) {
 		tc.iw.ProcessText(reson)
 	}

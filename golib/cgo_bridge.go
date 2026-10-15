@@ -56,6 +56,7 @@ typedef struct {
 import "C"
 
 import (
+	"strconv"
 	"unsafe"
 )
 
@@ -329,6 +330,31 @@ func inner_world_is_spiraling() C.int {
 		}
 	}
 	return 0
+}
+
+//export inner_world_suggest_break
+func inner_world_suggest_break(buf *C.char, bufSize C.int) {
+	if buf == nil || bufSize <= 0 {
+		return
+	}
+	*buf = 0
+	ol := Global().GetOverthinkingLoops()
+	if ol == nil {
+		return
+	}
+	strength := ol.BreakSignal()
+	if strength <= 0 {
+		return
+	}
+	signal := strconv.FormatFloat(float64(strength), 'g', -1, 32)
+	size := len(signal)
+	if size >= int(bufSize) {
+		size = int(bufSize) - 1
+	}
+	for i := 0; i < size; i++ {
+		*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(i))) = C.char(signal[i])
+	}
+	*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(size))) = 0
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -107,10 +107,13 @@ func (ts *TraumaSurfacing) run() {
 	}
 }
 
-// CheckText keeps the text boundary without assigning trauma to words. Trauma
-// enters through body signals and lived state, not an English phrase table.
+// CheckText preserves the text-analysis ABI while reporting the body's actual
+// trauma activation. Text does not receive trauma from a runtime word table.
 func (ts *TraumaSurfacing) CheckText(_ string) float32 {
-	return 0
+	if ts.world == nil {
+		return 0
+	}
+	return ts.world.State.GetTraumaLevel()
 }
 
 func (ts *TraumaSurfacing) processTraumaSignal(sig Signal) {

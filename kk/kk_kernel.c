@@ -49,7 +49,6 @@
 #define KK_MIN_CHUNK_CHARS 220
 #define KK_MAX_QUERY_TOKENS 16
 #define KK_MAX_KEYWORDS 24
-#define KK_KEYWORD_LEN 32
 #define KK_LINK_KIND_STRUCTURAL 1
 #define KK_LINK_KIND_RELATED 2
 #define KK_DEFAULT_WATCH_INTERVAL 5
@@ -212,15 +211,30 @@ typedef struct {
 } ResolutionStage;
 
 typedef struct {
+    char *text;
+    int frequency;
+    int first_ordinal;
+    int document_frequency;
+    double score;
+} KeywordCandidate;
+
+typedef struct {
     int id;
     int ordinal;
     int section_id;
     int token_estimate;
     char *text;
     char *heading;
-    char keywords[KK_MAX_KEYWORDS][KK_KEYWORD_LEN];
+    KeywordCandidate *candidates;
+    int candidate_count;
+    char **token_sequence;
+    int token_sequence_count;
+    char *keywords[KK_MAX_KEYWORDS];
     int keyword_count;
 } LinkChunk;
+
+static int collect_keyword_candidates(sqlite3 *db, const char *text, KeywordCandidate **out);
+static void free_keyword_candidates(KeywordCandidate *candidates, int count);
 
 /* ═══════════════════════════════════════════════════════════════════
  * kk_ctx — the opaque context
@@ -1266,26 +1280,13 @@ static int get_namespace_id(sqlite3 *db, const char *name, const char *scope) {
     return id;
 }
 
-static int estimate_tokens(const char *text) {
-    int count = 0, in_token = 0;
-    for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
-        if (isalnum(*p)) {
-            if (!in_token) count++;
-            in_token = 1;
-        } else {
-            in_token = 0;
-        }
-    }
-    return count > 0 ? count : 1;
-}
-
-static int contains_word_ci(const char *haystack, const char *needle) {
-    size_t n = strlen(needle);
-    if (n == 0) return 0;
-    for (const char *p = haystack; *p; p++) {
-        if (!strncasecmp(p, needle, n)) return 1;
-    }
-    return 0;
+static int estimate_tokens(sqlite3 *db, const char *text) {
+    KeywordCandidate *candidates = NULL;
+    int candidate_count = collect_keyword_candidates(db, text, &candidates);
+    int total = 0;
+    for (int i = 0; i < candidate_count; i++) total += candidates[i].frequency;
+    free_keyword_candidates(candidates, candidate_count);
+    return total > 0 ? total : 1;
 }
 
 static double clamp01(double v) {
@@ -1342,38 +1343,201 @@ static char *normalize_text(const char *input) {
  * KEYWORD EXTRACTION
  * ═══════════════════════════════════════════════════════════════════ */
 
-static int keyword_exists(char terms[KK_MAX_KEYWORDS][KK_KEYWORD_LEN], int count, const char *tok) {
-    for (int i = 0; i < count; i++) if (!strcmp(terms[i], tok)) return 1;
+static int keyword_candidate_compare(const void *lhs, const void *rhs) {
+    const KeywordCandidate *a = lhs;
+    const KeywordCandidate *b = rhs;
+    if (a->score != b->score) return a->score > b->score ? -1 : 1;
+    if (a->frequency != b->frequency) return a->frequency < b->frequency ? -1 : 1;
+    return a->first_ordinal - b->first_ordinal;
+}
+
+typedef struct {
+    KeywordCandidate *items;
+    int count;
+    int capacity;
+    int ordinal;
+    char **sequence;
+    int sequence_count;
+    int sequence_capacity;
+} KeywordCollector;
+
+static fts5_api *fts5_api_from_db(sqlite3 *db) {
+    fts5_api *api = NULL;
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT fts5(?1)", -1, &stmt, NULL) != SQLITE_OK) return NULL;
+    sqlite3_bind_pointer(stmt, 1, &api, "fts5_api_ptr", NULL);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return api;
+}
+
+static int collect_keyword_token(void *opaque, int flags, const char *token, int token_len,
+                                 int start, int end) {
+    (void)flags; (void)start; (void)end;
+    KeywordCollector *collector = opaque;
+    if (token_len <= 0) return SQLITE_OK;
+    int found = -1;
+    for (int i = 0; i < collector->count; i++) {
+        if ((int)strlen(collector->items[i].text) == token_len &&
+            !memcmp(collector->items[i].text, token, (size_t)token_len)) {
+            found = i;
+            break;
+        }
+    }
+    int candidate_index = found;
+    if (found >= 0) {
+        collector->items[found].frequency++;
+    } else {
+        if (collector->count == collector->capacity) {
+            collector->capacity *= 2;
+            collector->items = xrealloc(collector->items,
+                                        (size_t)collector->capacity * sizeof(*collector->items));
+        }
+        candidate_index = collector->count;
+        KeywordCandidate *candidate = &collector->items[collector->count++];
+        candidate->text = xmalloc((size_t)token_len + 1);
+        memcpy(candidate->text, token, (size_t)token_len);
+        candidate->text[token_len] = '\0';
+        candidate->frequency = 1;
+        candidate->first_ordinal = collector->ordinal;
+        candidate->document_frequency = 0;
+        candidate->score = 0.0;
+    }
+    if (collector->sequence_count == collector->sequence_capacity) {
+        collector->sequence_capacity *= 2;
+        collector->sequence = xrealloc(collector->sequence,
+            (size_t)collector->sequence_capacity * sizeof(*collector->sequence));
+    }
+    collector->sequence[collector->sequence_count++] = collector->items[candidate_index].text;
+    collector->ordinal++;
+    return SQLITE_OK;
+}
+
+static void free_keyword_candidates(KeywordCandidate *candidates, int count) {
+    if (!candidates) return;
+    for (int i = 0; i < count; i++) free(candidates[i].text);
+    free(candidates);
+}
+
+static int collect_keyword_data(sqlite3 *db, const char *text, KeywordCandidate **out,
+                                char ***sequence_out, int *sequence_count_out) {
+    *out = NULL;
+    if (sequence_out) *sequence_out = NULL;
+    if (sequence_count_out) *sequence_count_out = 0;
+    fts5_api *api = fts5_api_from_db(db);
+    if (!api) return 0;
+    void *tokenizer_context = NULL;
+    fts5_tokenizer tokenizer = {0};
+    if (api->xFindTokenizer(api, "unicode61", &tokenizer_context, &tokenizer) != SQLITE_OK) return 0;
+    /* Match the default unicode61 configuration used by existing chunk_fts
+     * tables as well as newly created ones. */
+    const char *args[] = {"remove_diacritics", "1"};
+    Fts5Tokenizer *instance = NULL;
+    if (tokenizer.xCreate(tokenizer_context, args, 2, &instance) != SQLITE_OK) return 0;
+
+    KeywordCollector collector = {
+        .items = xmalloc(32 * sizeof(*collector.items)),
+        .capacity = 32,
+        .sequence = xmalloc(64 * sizeof(*collector.sequence)),
+        .sequence_capacity = 64,
+    };
+    const char *source = text ? text : "";
+    int rc = tokenizer.xTokenize(instance, &collector, FTS5_TOKENIZE_DOCUMENT,
+                                 source, (int)strlen(source), collect_keyword_token);
+    tokenizer.xDelete(instance);
+    if (rc != SQLITE_OK) {
+        free_keyword_candidates(collector.items, collector.count);
+        free(collector.sequence);
+        return 0;
+    }
+    *out = collector.items;
+    if (sequence_out) *sequence_out = collector.sequence;
+    else free(collector.sequence);
+    if (sequence_count_out) *sequence_count_out = collector.sequence_count;
+    return collector.count;
+}
+
+static int collect_keyword_candidates(sqlite3 *db, const char *text, KeywordCandidate **out) {
+    return collect_keyword_data(db, text, out, NULL, NULL);
+}
+
+static int candidate_exists(const KeywordCandidate *candidates, int count, const char *text) {
+    for (int i = 0; i < count; i++) if (!strcmp(candidates[i].text, text)) return 1;
     return 0;
 }
 
-static int collect_keywords(const char *text, char terms[KK_MAX_KEYWORDS][KK_KEYWORD_LEN]) {
-    int count = 0;
-    char *copy = xstrdup(text ? text : "");
-    char *save = NULL;
-    for (char *tok = strtok_r(copy, " \t\n,.;:!?()[]{}<>\"'/-", &save);
-         tok && count < KK_MAX_KEYWORDS;
-         tok = strtok_r(NULL, " \t\n,.;:!?()[]{}<>\"'/-", &save)) {
-        char term[KK_KEYWORD_LEN];
-        size_t n = strlen(tok);
-        if (n == 0) continue;
-        if (n >= sizeof(term)) n = sizeof(term) - 1;
-        memcpy(term, tok, n);
-        term[n] = '\0';
-        if (keyword_exists(terms, count, term)) continue;
-        strncpy(terms[count], term, sizeof(terms[count]));
-        terms[count][sizeof(terms[count]) - 1] = '\0';
-        count++;
-    }
-    free(copy);
+static int collect_keywords(sqlite3 *db, const char *text, char *terms[KK_MAX_KEYWORDS]) {
+    KeywordCandidate *candidates = NULL;
+    int candidate_count = collect_keyword_candidates(db, text, &candidates);
+    for (int i = 0; i < candidate_count; i++)
+        candidates[i].score = 1.0 + log1p((double)candidates[i].frequency);
+    qsort(candidates, (size_t)candidate_count, sizeof(*candidates), keyword_candidate_compare);
+    int count = candidate_count < KK_MAX_KEYWORDS ? candidate_count : KK_MAX_KEYWORDS;
+    for (int i = 0; i < count; i++) terms[i] = xstrdup(candidates[i].text);
+    free_keyword_candidates(candidates, candidate_count);
     return count;
 }
 
-static int shared_keyword_count(char a[KK_MAX_KEYWORDS][KK_KEYWORD_LEN], int ac, char b[KK_MAX_KEYWORDS][KK_KEYWORD_LEN], int bc) {
+static void free_keywords(char *terms[KK_MAX_KEYWORDS], int count) {
+    for (int i = 0; i < count; i++) free(terms[i]);
+}
+
+static void select_link_keywords(LinkChunk *chunks, int count) {
+    for (int i = 0; i < count; i++) {
+        for (int k = 0; k < chunks[i].candidate_count; k++) {
+            KeywordCandidate *candidate = &chunks[i].candidates[k];
+            int document_frequency = 0;
+            for (int j = 0; j < count; j++) {
+                if (candidate_exists(chunks[j].candidates, chunks[j].candidate_count, candidate->text))
+                    document_frequency++;
+            }
+            candidate->document_frequency = document_frequency;
+        }
+    }
+    for (int i = 0; i < count; i++) {
+        for (int k = 0; k < chunks[i].candidate_count; k++) {
+            KeywordCandidate *candidate = &chunks[i].candidates[k];
+            if (count >= 4 && candidate->document_frequency * 2 > count) {
+                candidate->score = -1.0;
+            } else {
+                double idf = log(((double)count + 1.0) /
+                                 ((double)candidate->document_frequency + 0.5));
+                candidate->score = idf * (1.0 + log1p((double)candidate->frequency));
+            }
+        }
+        qsort(chunks[i].candidates, (size_t)chunks[i].candidate_count,
+              sizeof(*chunks[i].candidates), keyword_candidate_compare);
+        chunks[i].keyword_count = 0;
+        for (int k = 0; k < chunks[i].candidate_count &&
+                        chunks[i].keyword_count < KK_MAX_KEYWORDS; k++) {
+            if (chunks[i].candidates[k].score < 0.0) break;
+            chunks[i].keywords[chunks[i].keyword_count++] = chunks[i].candidates[k].text;
+        }
+    }
+}
+
+static int shared_keyword_count(char *a[KK_MAX_KEYWORDS], int ac,
+                                char *b[KK_MAX_KEYWORDS], int bc) {
     int shared = 0;
     for (int i = 0; i < ac; i++) {
         for (int j = 0; j < bc; j++) {
             if (!strcmp(a[i], b[j])) {
+                shared++;
+                break;
+            }
+        }
+    }
+    return shared;
+}
+
+static int shared_candidate_bigram_count(const LinkChunk *a, const LinkChunk *b) {
+    int shared = 0;
+    for (int i = 0; i + 1 < a->token_sequence_count; i++) {
+        const char *left = a->token_sequence[i];
+        const char *right = a->token_sequence[i + 1];
+        for (int j = 0; j + 1 < b->token_sequence_count; j++) {
+            if (!strcmp(left, b->token_sequence[j]) &&
+                !strcmp(right, b->token_sequence[j + 1])) {
                 shared++;
                 break;
             }
@@ -1663,11 +1827,11 @@ static int count_shared_lines(const char *a, const char *b) {
     return shared;
 }
 
-static void compute_diff_metrics(const char *prev, const char *curr, int *char_delta, int *token_delta, double *change_ratio, char *summary, size_t summary_sz) {
+static void compute_diff_metrics(sqlite3 *db, const char *prev, const char *curr, int *char_delta, int *token_delta, double *change_ratio, char *summary, size_t summary_sz) {
     int prev_chars = (int)strlen(prev ? prev : "");
     int curr_chars = (int)strlen(curr ? curr : "");
-    int prev_tokens = estimate_tokens(prev ? prev : "");
-    int curr_tokens = estimate_tokens(curr ? curr : "");
+    int prev_tokens = estimate_tokens(db, prev ? prev : "");
+    int curr_tokens = estimate_tokens(db, curr ? curr : "");
     int prev_lines = count_nonempty_lines(prev ? prev : "");
     int curr_lines = count_nonempty_lines(curr ? curr : "");
     int shared_lines = count_shared_lines(prev ? prev : "", curr ? curr : "");
@@ -1821,6 +1985,8 @@ static void free_link_chunks(LinkChunk *chunks, int count) {
     for (int i = 0; i < count; i++) {
         free(chunks[i].text);
         free(chunks[i].heading);
+        free_keyword_candidates(chunks[i].candidates, chunks[i].candidate_count);
+        free(chunks[i].token_sequence);
     }
     free(chunks);
 }
@@ -1847,25 +2013,33 @@ static void infer_related_links(sqlite3 *db, int version_id) {
         chunks[count].token_estimate = sqlite3_column_int(stmt, 3);
         chunks[count].text = xstrdup(col_text(stmt, 4));
         chunks[count].heading = xstrdup(col_text(stmt, 5));
-        chunks[count].keyword_count = collect_keywords(chunks[count].text, chunks[count].keywords);
+        chunks[count].candidate_count = collect_keyword_data(
+            db, chunks[count].text, &chunks[count].candidates,
+            &chunks[count].token_sequence, &chunks[count].token_sequence_count);
+        chunks[count].keyword_count = 0;
         count++;
     }
     sqlite3_finalize(stmt);
+
+    select_link_keywords(chunks, count);
 
     for (int i = 0; i < count; i++) {
         for (int j = i + 1; j < count; j++) {
             int shared = shared_keyword_count(chunks[i].keywords, chunks[i].keyword_count,
                                               chunks[j].keywords, chunks[j].keyword_count);
             if (shared < 2) continue;
+            if (count < 4 && shared_candidate_bigram_count(&chunks[i], &chunks[j]) == 0) continue;
             int uni = union_keyword_count(chunks[i].keyword_count, chunks[j].keyword_count, shared);
             double jaccard = (double)shared / (double)uni;
             int heading_shared = 0;
-            char hk1[KK_MAX_KEYWORDS][KK_KEYWORD_LEN] = {{0}};
-            char hk2[KK_MAX_KEYWORDS][KK_KEYWORD_LEN] = {{0}};
-            int hc1 = collect_keywords(chunks[i].heading, hk1);
-            int hc2 = collect_keywords(chunks[j].heading, hk2);
+            char *hk1[KK_MAX_KEYWORDS] = {0};
+            char *hk2[KK_MAX_KEYWORDS] = {0};
+            int hc1 = collect_keywords(db, chunks[i].heading, hk1);
+            int hc2 = collect_keywords(db, chunks[j].heading, hk2);
             if (chunks[i].section_id == chunks[j].section_id) heading_shared = 1;
             else if (shared_keyword_count(hk1, hc1, hk2, hc2) > 0) heading_shared = 1;
+            free_keywords(hk1, hc1);
+            free_keywords(hk2, hc2);
             int ordinal_gap = abs(chunks[i].ordinal - chunks[j].ordinal);
             double proximity = 1.0 / (1.0 + (double)ordinal_gap);
             int min_tokens = chunks[i].token_estimate < chunks[j].token_estimate ? chunks[i].token_estimate : chunks[j].token_estimate;
@@ -1940,7 +2114,7 @@ static int ingest_file(sqlite3 *db, const char *path, const char *namespace_name
     char *prev_content = NULL;
     if (has_latest && latest_version_id > 0) {
         prev_content = get_version_content(db, latest_version_id);
-        compute_diff_metrics(prev_content ? prev_content : "", content, &char_delta, &token_delta, &change_ratio, diff_summary, sizeof(diff_summary));
+        compute_diff_metrics(db, prev_content ? prev_content : "", content, &char_delta, &token_delta, &change_ratio, diff_summary, sizeof(diff_summary));
     }
 
     int version_num = latest_num + 1;
@@ -1969,7 +2143,7 @@ static int ingest_file(sqlite3 *db, const char *path, const char *namespace_name
         for (int j = 0; j < chunk_count; j++) {
             int chunk_id = insert_chunk_row(db, version_id, doc_id, section_id, chunk_ordinal++,
                                             (int)chunks[j].start, (int)chunks[j].end,
-                                            estimate_tokens(chunks[j].text), chunks[j].text);
+                                            estimate_tokens(db, chunks[j].text), chunks[j].text);
             insert_fts_row(db, chunk_id, chunks[j].text, namespace_name, scope, abs_path, filename, heading);
             /* build PostGPT-style metaweights for RRPRAM resonance */
             { kk_chunk_meta cmeta; build_meta_from_text(chunks[j].text, (int)strlen(chunks[j].text), &cmeta); store_chunk_meta(db, chunk_id, &cmeta); }
@@ -2044,7 +2218,7 @@ static int ingest_buffer_internal(sqlite3 *db, const char *path, const char *tex
     char *prev_content = NULL;
     if (has_latest && latest_version_id > 0) {
         prev_content = get_version_content(db, latest_version_id);
-        compute_diff_metrics(prev_content ? prev_content : "", content, &char_delta, &token_delta, &change_ratio, diff_summary, sizeof(diff_summary));
+        compute_diff_metrics(db, prev_content ? prev_content : "", content, &char_delta, &token_delta, &change_ratio, diff_summary, sizeof(diff_summary));
     }
 
     int version_num = latest_num + 1;
@@ -2073,7 +2247,7 @@ static int ingest_buffer_internal(sqlite3 *db, const char *path, const char *tex
         for (int j = 0; j < chunk_count; j++) {
             int chunk_id = insert_chunk_row(db, version_id, doc_id, section_id, chunk_ordinal++,
                                             (int)chunks[j].start, (int)chunks[j].end,
-                                            estimate_tokens(chunks[j].text), chunks[j].text);
+                                            estimate_tokens(db, chunks[j].text), chunks[j].text);
             insert_fts_row(db, chunk_id, chunks[j].text, namespace_name, scope, path, filename, heading);
             { kk_chunk_meta cmeta; build_meta_from_text(chunks[j].text, (int)strlen(chunks[j].text), &cmeta); store_chunk_meta(db, chunk_id, &cmeta); }
             if (runtime[i].first_chunk_id == 0) runtime[i].first_chunk_id = chunk_id;
@@ -2131,28 +2305,6 @@ static void scan_dir(sqlite3 *db, const char *root, const char *namespace_name, 
  * QUERY TERM / FTS MATCH
  * ═══════════════════════════════════════════════════════════════════ */
 
-static int build_query_terms(const char *query_text, char terms[KK_MAX_QUERY_TOKENS][64]) {
-    int count = 0;
-    char *copy = xstrdup(query_text);
-    char *save = NULL;
-    for (char *tok = strtok_r(copy, " \t\n,.;:!?()[]{}<>\"'", &save);
-         tok && count < KK_MAX_QUERY_TOKENS;
-         tok = strtok_r(NULL, " \t\n,.;:!?()[]{}<>\"'", &save)) {
-        char term[64];
-        size_t n = strlen(tok);
-        if (n >= sizeof(term)) n = sizeof(term) - 1;
-        memcpy(term, tok, n);
-        term[n] = '\0';
-        if (n > 0) {
-            strncpy(terms[count], term, sizeof(terms[count]));
-            terms[count][sizeof(terms[count]) - 1] = '\0';
-            count++;
-        }
-    }
-    free(copy);
-    return count;
-}
-
 static void log_retrieval(sqlite3 *db, const char *query_text, const char *access_scope, const char *namespace_filter, const char *mode, int top_k) {
     sqlite3_stmt *stmt = NULL;
     const char *sql = "INSERT INTO retrieval_log(query_text, access_scope, namespace_filter, mode, top_k) VALUES(?, ?, ?, ?, ?);";
@@ -2166,22 +2318,43 @@ static void log_retrieval(sqlite3 *db, const char *query_text, const char *acces
     sqlite3_finalize(stmt);
 }
 
-static char *build_fts_match(const char *query_text) {
-    char terms[KK_MAX_QUERY_TOKENS][64];
-    int count = build_query_terms(query_text, terms);
-    if (count == 0) return NULL;
+static char *build_fts_match(sqlite3 *db, const char *query_text) {
+    KeywordCandidate *terms = NULL;
+    int term_count = collect_keyword_candidates(db, query_text, &terms);
+    int count = term_count < KK_MAX_QUERY_TOKENS ? term_count : KK_MAX_QUERY_TOKENS;
+    if (count == 0) {
+        free_keyword_candidates(terms, term_count);
+        return NULL;
+    }
     StrBuf sb;
     sb_init(&sb);
     for (int i = 0; i < count; i++) {
         if (i) sb_append_n(&sb, " OR ", 4);
         sb_append_n(&sb, "\"", 1);
-        for (const char *p = terms[i]; *p; p++) {
+        for (const char *p = terms[i].text; *p; p++) {
             if (*p == '"') sb_append_n(&sb, "\"", 1);
             sb_append_n(&sb, p, 1);
         }
         sb_append_n(&sb, "\"", 1);
     }
+    free_keyword_candidates(terms, term_count);
     return sb.data;
+}
+
+static int normalized_term_overlap(sqlite3 *db, const char *text, const char *query_text,
+                                   int *term_count_out) {
+    KeywordCandidate *query = NULL;
+    KeywordCandidate *body = NULL;
+    int query_count = collect_keyword_candidates(db, query_text, &query);
+    int body_count = collect_keyword_candidates(db, text, &body);
+    int limit = query_count < KK_MAX_QUERY_TOKENS ? query_count : KK_MAX_QUERY_TOKENS;
+    int overlap = 0;
+    for (int i = 0; i < limit; i++)
+        if (candidate_exists(body, body_count, query[i].text)) overlap++;
+    free_keyword_candidates(query, query_count);
+    free_keyword_candidates(body, body_count);
+    if (term_count_out) *term_count_out = limit;
+    return overlap;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -2244,11 +2417,10 @@ static void format_score_policy(const ScorePolicy *p, char *buf, size_t buf_sz) 
              p->lexical, p->recency, p->trust, p->linkage, p->scope, p->namespace_match, p->freshness);
 }
 
-static void explain_score(const QueryResult *r, const char *query_text, char *buf, size_t buf_sz) {
-    char terms[KK_MAX_QUERY_TOKENS][64];
-    int term_count = build_query_terms(query_text, terms);
-    int overlap = 0;
-    for (int i = 0; i < term_count; i++) if (contains_word_ci(r->raw_text, terms[i])) overlap++;
+static void explain_score(sqlite3 *db, const QueryResult *r, const char *query_text,
+                          char *buf, size_t buf_sz) {
+    int term_count = 0;
+    int overlap = normalized_term_overlap(db, r->raw_text, query_text, &term_count);
     snprintf(buf, buf_sz,
              "overlap=%d/%d lexical=%.2f*%.2f=%.3f recency=%.2f->%.3f trust=%.2f->%.3f linkage=%.2f->%.3f scope=%.2f->%.3f namespace=%.2f->%.3f freshness=%.2f->%.3f change=%.2f",
              overlap, term_count,
@@ -2266,7 +2438,7 @@ static void explain_score(const QueryResult *r, const char *query_text, char *bu
  * LOAD QUERY RESULTS (with Hebbian boost)
  * ═══════════════════════════════════════════════════════════════════ */
 
-static int load_query_results(sqlite3_stmt *stmt, const char *access_scope, const char *namespace_filter, int top_k, QueryResult **out_results,
+static int load_query_results(sqlite3 *db, sqlite3_stmt *stmt, const char *access_scope, const char *namespace_filter, int top_k, QueryResult **out_results,
                               const ScorePolicy *policy, const kk_hebbian_bridge *bridge) {
     QueryResult *results = xmalloc((size_t)(top_k * 6 + 4) * sizeof(*results));
     int count = 0;
@@ -2328,8 +2500,8 @@ static int load_query_results(sqlite3_stmt *stmt, const char *access_scope, cons
         /* Hebbian boost from dario's co-occurrence field */
         r.hebbian_boost = 0.0;
         if (bridge && bridge->word_resonance) {
-            char kw[KK_MAX_KEYWORDS][KK_KEYWORD_LEN];
-            int kw_count = collect_keywords(r.raw_text, kw);
+            char *kw[KK_MAX_KEYWORDS] = {0};
+            int kw_count = collect_keywords(db, r.raw_text, kw);
             if (kw_count > 0) {
                 double total_resonance = 0.0;
                 for (int ki = 0; ki < kw_count; ki++) {
@@ -2340,6 +2512,7 @@ static int load_query_results(sqlite3_stmt *stmt, const char *access_scope, cons
                 if (!isfinite(r.hebbian_boost)) r.hebbian_boost = 0.0;
                 r.resonance += r.hebbian_boost;
             }
+            free_keywords(kw, kw_count);
         }
         r.resonance = clamp01(r.resonance);
 
@@ -2386,7 +2559,7 @@ static int fetch_results(kk_ctx *ctx, const char *query_text, const char *access
         "AND (? IS NULL OR ns.name = ?) "
         "ORDER BY lexical DESC LIMIT ?;";
     sqlite3_stmt *stmt = NULL;
-    char *fts_query = build_fts_match(query_text);
+    char *fts_query = build_fts_match(ctx->db, query_text);
     if (!fts_query) return 0;
     ScorePolicy policy = load_score_policy();
     if (policy_out) *policy_out = policy;
@@ -2401,7 +2574,7 @@ static int fetch_results(kk_ctx *ctx, const char *query_text, const char *access
         sqlite3_bind_null(stmt, 4);
     }
     sqlite3_bind_int(stmt, 5, top_k * 6);
-    int count = load_query_results(stmt, access_scope, namespace_filter, top_k, out_results, &policy, ctx->bridge);
+    int count = load_query_results(ctx->db, stmt, access_scope, namespace_filter, top_k, out_results, &policy, ctx->bridge);
     sqlite3_finalize(stmt);
     free(fts_query);
     return count;
@@ -2428,7 +2601,7 @@ static int fetch_results_exact_scope(kk_ctx *ctx, const char *query_text, const 
         "AND (? IS NULL OR ns.name = ?) "
         "ORDER BY lexical DESC LIMIT ?;";
     sqlite3_stmt *stmt = NULL;
-    char *fts_query = build_fts_match(query_text);
+    char *fts_query = build_fts_match(ctx->db, query_text);
     if (!fts_query) return 0;
     ScorePolicy policy = load_score_policy();
     if (policy_out) *policy_out = policy;
@@ -2443,7 +2616,7 @@ static int fetch_results_exact_scope(kk_ctx *ctx, const char *query_text, const 
         sqlite3_bind_null(stmt, 4);
     }
     sqlite3_bind_int(stmt, 5, top_k * 6);
-    int count = load_query_results(stmt, scope_name, namespace_filter, top_k, out_results, &policy, ctx->bridge);
+    int count = load_query_results(ctx->db, stmt, scope_name, namespace_filter, top_k, out_results, &policy, ctx->bridge);
     sqlite3_finalize(stmt);
     free(fts_query);
     return count;
@@ -2471,15 +2644,6 @@ static void free_query_results(QueryResult *results, int count) {
  * RENDERING (query term overlap, score policy JSON, result JSON)
  * ═══════════════════════════════════════════════════════════════════ */
 
-static int query_term_overlap(const QueryResult *r, const char *query_text, int *term_count_out) {
-    char terms[KK_MAX_QUERY_TOKENS][64];
-    int term_count = build_query_terms(query_text, terms);
-    int overlap = 0;
-    for (int i = 0; i < term_count; i++) if (contains_word_ci(r->raw_text, terms[i])) overlap++;
-    if (term_count_out) *term_count_out = term_count;
-    return overlap;
-}
-
 static void append_score_policy_json(StrBuf *sb, const ScorePolicy *policy) {
     sb_append(sb, "\"score_policy\":{");
     sb_appendf(sb, "\"lexical\":%.6f,", policy->lexical);
@@ -2492,9 +2656,9 @@ static void append_score_policy_json(StrBuf *sb, const ScorePolicy *policy) {
     sb_append(sb, "}");
 }
 
-static void append_result_json(StrBuf *sb, const QueryResult *r, const char *query_text) {
+static void append_result_json(sqlite3 *db, StrBuf *sb, const QueryResult *r, const char *query_text) {
     int term_count = 0;
-    int overlap = query_term_overlap(r, query_text, &term_count);
+    int overlap = normalized_term_overlap(db, r->raw_text, query_text, &term_count);
     char *excerpt = make_excerpt(r->raw_text, 220);
     char *locator = make_locator(r);
     char *lineage = make_lineage_summary(r);
@@ -3526,7 +3690,9 @@ static void print_chunk_excerpt(const char *text, size_t limit) {
     printf("...\n");
 }
 
-static void render_query_results(const char *mode, const char *query_text, const char *access_scope, const char *namespace_filter, QueryResult *results, int count, const ScorePolicy *policy) {
+static void render_query_results(sqlite3 *db, const char *mode, const char *query_text,
+                                 const char *access_scope, const char *namespace_filter,
+                                 QueryResult *results, int count, const ScorePolicy *policy) {
     char policy_buf[256];
     format_score_policy(policy, policy_buf, sizeof(policy_buf));
 
@@ -3544,7 +3710,7 @@ static void render_query_results(const char *mode, const char *query_text, const
         sb_append(&sb, "\"results\":[");
         for (int i = 0; i < count; i++) {
             if (i) sb_append(&sb, ",");
-            append_result_json(&sb, &results[i], query_text);
+            append_result_json(db, &sb, &results[i], query_text);
         }
         sb_append(&sb, "]}\n");
         fputs(sb.data, stdout);
@@ -3554,7 +3720,7 @@ static void render_query_results(const char *mode, const char *query_text, const
 
     for (int i = 0; i < count; i++) {
         char reason[768];
-        explain_score(&results[i], query_text, reason, sizeof(reason));
+        explain_score(db, &results[i], query_text, reason, sizeof(reason));
         printf("result %d\n", i + 1);
         printf("  doc: %s\n", results[i].path);
         printf("  version: %d (version_id=%d sha=%s)\n", results[i].version_num, results[i].version_id, results[i].sha256);
@@ -3714,7 +3880,8 @@ int main(int argc, char **argv) {
             printf("mode: %s\n", mode);
             printf("hits: %d\n\n", count);
         }
-        render_query_results(mode, query_text, access_scope, namespace_filter, results, count, &policy);
+        render_query_results(k->db, mode, query_text, access_scope, namespace_filter,
+                             results, count, &policy);
         free_query_results(results, count);
         kk_close(k);
         return 0;
