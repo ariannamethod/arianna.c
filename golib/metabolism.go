@@ -377,7 +377,17 @@ func (tc *trioCtx) stop() {
 // attention wanders inward) and any earlier dream surfaces. Each voice feeds the
 // inner world. Returns the words; the caller prints and controls the loop.
 func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (janus, reson string, dr dreamResult, hasDream bool) {
+	return tc.turnUntil(human, context, lastDream, surfaceDream, nil)
+}
+
+// turnUntil lets the long-lived chat stop between voice generations without
+// killing a daemon that is currently saving its own evolving state. Batch mode
+// passes no stop function and retains the ordinary full exchange.
+func (tc *trioCtx) turnUntil(human, context, lastDream string, surfaceDream bool, stopping func() bool) (janus, reson string, dr dreamResult, hasDream bool) {
 	before := tc.iw.GetSnapshot()
+	if stopping != nil && stopping() {
+		return
+	}
 
 	janusParts := []string{human}
 	if strings.TrimSpace(context) != "" {
@@ -390,6 +400,9 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 	if liveVoiceTextVisible(janus) {
 		tc.iw.ProcessText(janus)
 	}
+	if stopping != nil && stopping() {
+		return
+	}
 
 	resonParts := []string{human}
 	if liveVoiceTextVisible(janus) {
@@ -401,6 +414,9 @@ func (tc *trioCtx) turn(human, context, lastDream string, surfaceDream bool) (ja
 	reson = tc.resonD.askInjected(human, strings.Join(resonParts, " "))
 	if liveVoiceTextVisible(reson) {
 		tc.iw.ProcessText(reson)
+	}
+	if stopping != nil && stopping() {
+		return
 	}
 
 	if tc.nan != nil {

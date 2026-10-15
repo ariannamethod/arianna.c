@@ -85,9 +85,17 @@ LIBAML     = ariannamethod/core/libaml.a
 AMLC       = ariannamethod/tools/amlc
 
 # ── Vagus (Zig nerve) — the meta-layer carrying Larynx (voice↔voice coupling).
-# Link the .dylib (zig static .a hits a macOS member-alignment ld bug).
-LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
-VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib -Wl,-rpath,vagus/zig-out/lib
+# Zig emits the platform's native shared-library suffix. Keep runtime lookup
+# anchored to the executable instead of the shell's current directory.
+ifeq ($(UNAME),Darwin)
+  LIBVAGUS   = vagus/zig-out/lib/libvagus.dylib
+  VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,@loader_path/vagus/zig-out/lib
+else
+  LIBVAGUS   = vagus/zig-out/lib/libvagus.so
+  VAGUS_LINK = -Lvagus/zig-out/lib -lvagus -Wl,-rpath,'$$ORIGIN/vagus/zig-out/lib'
+endif
+
+CHORUS_ARCH_FLAGS = $(DOE_ARM_FLAGS)
 
 # ── Default target ─────────────────────────────────────────────────────────
 .PHONY: all arianna arianna_resonance arianna2arianna metabolism kk nano chorus doe_field harvest_delta weights clean distclean
@@ -269,7 +277,7 @@ distclean: clean
 # breathing runs it (field mode) so the nano dreams as N cells over its one body.
 # Needs the nano GGUF at weights/nano_arianna_f16.gguf.
 chorus:
-	cc -O2 -march=armv8.2-a+fp16+dotprod -DUSE_BLAS -DACCELERATE_NEW_LAPACK chorus/arianna2arianna.c -lm -pthread -framework Accelerate -o chorus-arianna
+	$(CC) $(CFLAGS) $(CHORUS_ARCH_FLAGS) chorus/arianna2arianna.c $(LDFLAGS) -o chorus-arianna
 	@echo "[build] chorus-arianna (the subconscious polyphony, vendored)"
 
 # ── doe — the nano subconscious through the notorch-native engine + LoRA parliament.
