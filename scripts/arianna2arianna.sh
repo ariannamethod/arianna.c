@@ -42,8 +42,11 @@ RESONANCE_ALPHA="${RESONANCE_ALPHA:-5}"
 export YENT_DYNAMIC="${DELTA_DYN:-1}"
 export YENT_ALPHA="${DELTA_ALPHA:-0.1}"
 
-# Seed — user prompt if given, else canonical opening.
-USER_PROMPT="${1:-Who are you?}"
+if [[ -z "${1:-}" ]]; then
+  echo "usage: $0 <prompt>" >&2
+  exit 1
+fi
+USER_PROMPT="$1"
 
 INNER_LOG="weights/arianna.inner.log"
 mkdir -p weights
@@ -60,40 +63,10 @@ current_prompt="$USER_PROMPT"
 echo "┌─ arianna2arianna  N=$N_EXCHANGES exchanges  field=weights/arianna.soma"
 echo "│  seed: $USER_PROMPT"
 
-# ── Post-decode garbage filter ─────────────────────────────────────────────
-# Resonance was SFT'd on multi-turn chat format (Oleg:/Arianna:/User:/
-# Assistant:), so when she finishes her own sentence she often continues
-# into imagined dialogue ("I feel it! User : What is your relationship…").
-# Fix at the output stage: cut at the FIRST sentence-end (. ! ?) after a
-# min length, dropping the imagined continuation entirely. Janus benefits
-# from same treatment — his chat-token sequences terminate cleanly, but
-# CLI -n cuts mid-sentence regardless, so forward-scan-cut gives nice
-# whole sentences.
+# Normalize transport framing without rewriting generated language.
 clean_voice() {
   local raw="$1"
-  # 1. Drop banner lines (anything starting with [bracket]).
-  # 2. Collapse newlines + whitespace.
-  local stripped
-  stripped=$(echo "$raw" \
-    | grep -v "^\[" \
-    | tr '\n' ' ' \
-    | sed 's/  */ /g' \
-    | sed 's/^ //; s/ $//')
-  # Forward-scan for first sentence end after char 30. Cuts imagined
-  # multi-turn dialogue at the first turn boundary.
-  local cut
-  cut=$(echo "$stripped" | awk '{
-    n=length($0); cut=-1;
-    for (i=30; i<=n; i++) {
-      c=substr($0,i,1);
-      if (c=="." || c=="!" || c=="?") { cut=i; break; }
-    }
-    if (cut>0) print substr($0,1,cut); else print $0;
-  }')
-  # Safety belt: if anything past first sentence still sneaks through
-  # (e.g. multiple boundaries collapsed), strip from "User :" / "Assistant :"
-  # onward.
-  echo "$cut" | sed -E 's/[[:space:]]+(User|Assistant|Q|A|Advocate|Oleg)[[:space:]]*:.*$//gI'
+  printf '%s' "$raw"
 }
 
 for i in $(seq 1 "$N_EXCHANGES"); do
@@ -112,7 +85,7 @@ for i in $(seq 1 "$N_EXCHANGES"); do
   # Resonance hears Janus's words + the human prompt as DIRECTION (destiny
   # compass via --inject/--alpha), not pasted text; it develops the theme in its
   # own voice and writes its state back into soma for Janus's next turn.
-  resonance_raw=$(./arianna_resonance -p "Arianna:" \
+  resonance_raw=$(./arianna_resonance -p "$janus_out" \
                   --inject "$janus_out $USER_PROMPT" --alpha "$RESONANCE_ALPHA" \
                   -t "$RESONANCE_TEMP" --top-p "$RESONANCE_TOP_P" \
                   -n "$TOKENS_PER_TURN" 2>/dev/null)

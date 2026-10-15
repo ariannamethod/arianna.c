@@ -1,18 +1,5 @@
-// high.go — Arianna's High Mathematical Brain, computed in REAL Julia (libjulia, in-process).
-//
-// high.jl is a faithful port of the legacy inner_world/high.go HighMathEngine. It carries ALL
-// of the engine's analytical metrics — character Shannon entropy, word-level vectorized entropy,
-// bigram perplexity, word n-gram overlap, cosine semantic distance, emotional valence/arousal,
-// emotional score/alignment, free-energy predictive surprise, Schumann resonance coupling, and
-// text rhythm (syllables/variance/pauses) — plus the scalar activations (sigmoid/relu/tanh).
-// The legacy softmax/topk are vector sampling helpers (not analytical metrics) and EmotionalDrift
-// is a stateful ODE simulator; both belong with the process that drives them, not this analytical
-// brain, so they are intentionally out of scope here.
-//
-// The math runs through libjulia via a thin C shim and is proven faithful to the legacy formulas
-// by an independent Go reference (high_ref_test.go). Note the port computes in float64 where the
-// legacy engine used float32 — same algorithm, higher precision, so values are algorithm-faithful,
-// not bit-identical to legacy.
+// high.go — Arianna's in-process Julia brain. It exposes language-neutral
+// measurements of text structure plus the scalar activations used by the body.
 //
 // Robustness: recoverable failures (Julia runtime/eval failure, a missing function, or a Julia
 // exception) propagate as a Go error — no magic sentinel is ever consumed as a numeric result.
@@ -367,19 +354,19 @@ func callD(fn string, x float64) (float64, error) {
 // HighCharEntropy — Shannon entropy over characters (legacy CharEntropy).
 func HighCharEntropy(s string) (float64, error) { return callS("char_entropy", s) }
 
-// HighVectorizedEntropy — word-level Shannon entropy modulated by emotional intensity (legacy VectorizedEntropy).
+// HighVectorizedEntropy — word-level Shannon entropy.
 func HighVectorizedEntropy(s string) (float64, error) { return callS("vectorized_entropy", s) }
 
-// HighEmotionalScore — mean emotional weight per word (legacy VectorizedEntropy's emotionalScore).
+// HighEmotionalScore — stable ABI; neutral without a runtime affect lexicon.
 func HighEmotionalScore(s string) (float64, error) { return callS("emotional_score", s) }
 
 // HighPerplexity — bigram perplexity (legacy Perplexity).
 func HighPerplexity(s string) (float64, error) { return callS("perplexity", s) }
 
-// HighValence — mean emotional valence over charged words (legacy AnalyzeEmotion valence).
+// HighValence — stable ABI; text does not receive runtime valence labels.
 func HighValence(s string) (float64, error) { return callS("analyze_valence", s) }
 
-// HighArousal — emotional density/intensity (legacy AnalyzeEmotion arousal).
+// HighArousal — stable ABI; text does not receive runtime arousal labels.
 func HighArousal(s string) (float64, error) { return callS("analyze_arousal", s) }
 
 // HighRhythmAvg — average syllables per word (legacy TextRhythm avgSyllables).
@@ -394,10 +381,10 @@ func HighRhythmPauses(s string) (float64, error) { return callS("rhythm_pauses",
 // HighSemanticDistance — 1 - cosine over word-count vectors (legacy SemanticDistance).
 func HighSemanticDistance(a, b string) (float64, error) { return callSS("semantic_distance", a, b) }
 
-// HighEmotionalAlignment — emotional-score alignment of two texts (legacy EmotionalAlignment).
+// HighEmotionalAlignment — stable ABI; neutral without a runtime affect lexicon.
 func HighEmotionalAlignment(a, b string) (float64, error) { return callSS("emotional_alignment", a, b) }
 
-// HighPredictiveSurprise — free-energy proxy: semantic + emotional + entropy error (legacy PredictiveSurprise).
+// HighPredictiveSurprise — structural distance plus entropy change.
 func HighPredictiveSurprise(expected, actual string) (float64, error) {
 	return callSS("predictive_surprise", expected, actual)
 }

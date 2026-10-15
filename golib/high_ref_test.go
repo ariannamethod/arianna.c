@@ -1,7 +1,5 @@
-// high_ref_test.go — an INDEPENDENT Go reimplementation of the legacy HighMathEngine
-// formulas, used to verify high.jl (real Julia) is faithful — not a self-confirming snapshot.
-// EmotionalWeights is copied verbatim from the legacy map; the math mirrors legacy semantics
-// in float64 (high.jl computes float64).
+// high_ref_test.go — an independent Go implementation of High's structural
+// formulas, used to verify the Julia brain without copying its output.
 
 package main
 
@@ -10,37 +8,6 @@ import (
 	"strings"
 	"unicode"
 )
-
-var emotionalWeightsRef = map[string]float64{
-	"great": 0.8, "love": 0.9, "amazing": 0.7, "wonderful": 0.8, "excellent": 0.7,
-	"beautiful": 0.8, "fantastic": 0.7, "awesome": 0.8, "perfect": 0.7, "brilliant": 0.8,
-	"happy": 0.7, "joy": 0.8, "excited": 0.7, "delighted": 0.8, "pleased": 0.6,
-	"good": 0.5, "nice": 0.4, "fine": 0.3, "okay": 0.1, "thanks": 0.4,
-	"grateful": 0.7, "blessed": 0.6, "peaceful": 0.5, "calm": 0.4, "serene": 0.5,
-	"hope": 0.6, "dream": 0.5, "inspire": 0.6, "create": 0.5, "grow": 0.4,
-	"terrible": -0.8, "hate": -0.9, "awful": -0.7, "horrible": -0.8, "disgusting": -0.9,
-	"sad": -0.6, "angry": -0.7, "frustrated": -0.6, "disappointed": -0.6, "upset": -0.6,
-	"bad": -0.5, "wrong": -0.4, "fail": -0.6, "lose": -0.5, "hurt": -0.7,
-	"pain": -0.8, "suffer": -0.8, "fear": -0.7, "anxiety": -0.6, "stress": -0.5,
-	"alone": -0.6, "lonely": -0.7, "empty": -0.5, "nothing": -0.6, "worthless": -0.9,
-	"stupid": -0.7, "ugly": -0.6, "weak": -0.5, "useless": -0.8, "pathetic": -0.8,
-	"отлично": 0.8, "классно": 0.7, "супер": 0.8, "круто": 0.7, "прекрасно": 0.8,
-	"здорово": 0.7, "замечательно": 0.8, "чудесно": 0.7, "великолепно": 0.8,
-	"люблю": 0.9, "радость": 0.8, "счастье": 0.9, "мир": 0.5, "добро": 0.6,
-	"красиво": 0.7, "хорошо": 0.5, "спасибо": 0.5, "благодарю": 0.6,
-	"ужасно": -0.8, "плохо": -0.6, "грустно": -0.6, "злой": -0.7, "расстроен": -0.6,
-	"больно": -0.8, "страшно": -0.7, "одиноко": -0.7, "пусто": -0.5, "ничто": -0.6,
-	"ненавижу": -0.9, "страдаю": -0.8, "боюсь": -0.7, "тревога": -0.6,
-	"глупый": -0.6, "слабый": -0.5, "никчёмный": -0.8, "жалкий": -0.7,
-	"טוב": 0.5, "יפה": 0.7, "מדהים": 0.8, "נהדר": 0.7, "אהבה": 0.9,
-	"שמחה": 0.8, "תקווה": 0.6, "שלום": 0.5, "ברכה": 0.6,
-	"רע": -0.5, "נורא": -0.8, "עצוב": -0.6, "כועס": -0.7, "פחד": -0.7,
-	"כאב": -0.8, "בודד": -0.7, "ריק": -0.5, "שנאה": -0.9,
-	"die": -0.9, "kill": -0.9, "failure": -0.8, "loser": -0.8,
-	"reject": -0.7, "abandon": -0.8, "betray": -0.8, "forget": -0.5,
-	"ignore": -0.6, "invisible": -0.7, "broken": -0.7, "damaged": -0.7,
-	"ruined": -0.7, "trapped": -0.7, "hopeless": -0.8, "lost": -0.5,
-}
 
 func refTokenize(s string) []string {
 	s = strings.ToLower(s)
@@ -191,13 +158,9 @@ func refVecEntropy(s string) (float64, float64) {
 	}
 	wc := map[string]int{}
 	tot := 0
-	es := 0.0
 	for _, w := range words {
 		wc[w]++
 		tot++
-		if v, ok := emotionalWeightsRef[w]; ok {
-			es += v
-		}
 	}
 	if tot == 0 {
 		return 0, 0
@@ -209,72 +172,19 @@ func refVecEntropy(s string) (float64, float64) {
 			ent -= p * math.Log2(p)
 		}
 	}
-	esc := es / float64(tot)
-	ent *= 1.0 + math.Abs(esc)*0.2
-	return ent, esc
+	return ent, 0
 }
 
-func refValence(s string) float64 {
-	words := refTokenize(s)
-	tot := 0.0
-	c := 0
-	for _, w := range words {
-		if v, ok := emotionalWeightsRef[w]; ok {
-			tot += v
-			c++
-		}
-	}
-	if c == 0 {
-		return 0
-	}
-	return tot / float64(c)
-}
-
-func refArousal(s string) float64 {
-	words := refTokenize(s)
-	tot := 0.0
-	c := 0
-	for _, w := range words {
-		if v, ok := emotionalWeightsRef[w]; ok {
-			tot += v
-			c++
-		}
-	}
-	val := 0.0
-	if c > 0 {
-		val = tot / float64(c)
-	}
-	ar := math.Abs(val) + float64(c)*0.01
-	if ar < 0 {
-		ar = 0
-	}
-	if ar > 1 {
-		ar = 1
-	}
-	return ar
-}
-
-func refEmoAlign(a, b string) float64 {
-	_, e1 := refVecEntropy(a)
-	_, e2 := refVecEntropy(b)
-	if (e1 >= 0) == (e2 >= 0) {
-		diff := math.Abs(e1 - e2)
-		mx := math.Max(math.Abs(e1), math.Abs(e2))
-		if mx == 0 {
-			return 1.0
-		}
-		return 1.0 - diff/mx
-	}
-	return -math.Abs(e1-e2) / 2
-}
+func refValence(string) float64          { return 0 }
+func refArousal(string) float64          { return 0 }
+func refEmoAlign(string, string) float64 { return 1 }
 
 func refPredSurprise(exp, act string) float64 {
 	se := refSemDist(exp, act)
-	ee := math.Abs(1.0 - refEmoAlign(exp, act))
 	en1, _ := refVecEntropy(exp)
 	en2, _ := refVecEntropy(act)
 	en := math.Abs(en1 - en2)
-	return se*0.4 + ee*0.4 + en*0.2
+	return se*0.8 + en*0.2
 }
 
 func refResonance(val, aro, ent float64, ext string, sch float64) float64 {
@@ -300,19 +210,9 @@ func refRhythm(s string) (float64, float64, float64) {
 	if len(words) == 0 {
 		return 0, 0, 0
 	}
-	vowels := "aeiouyаеёиоуыэюяאֵֶֻוִ"
 	syl := make([]float64, len(words))
 	for i, w := range words {
-		cc := 0.0
-		for _, r := range w {
-			if strings.ContainsRune(vowels, r) {
-				cc++
-			}
-		}
-		if cc < 1 {
-			cc = 1
-		}
-		syl[i] = cc
+		syl[i] = float64(len([]rune(w)))
 	}
 	sum := 0.0
 	for _, c := range syl {

@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -146,29 +145,6 @@ func TestFieldGuards(t *testing.T) {
 	}
 }
 
-// TestFieldMood: the live field yields an evocative dream cue tracking the dominant
-// seasonal energy + gait + debt; no signal yields "".
-func TestFieldMood(t *testing.T) {
-	if m := (fieldSnapshot{}).mood(); m != "" {
-		t.Errorf("no-signal mood must be empty, got %q", m)
-	}
-	// winter-dominant, NOMOVE, heavy debt → quiet/compression + still + held breath.
-	cold := fieldSnapshot{valid: true, velocityMode: velNOMOVE, winter: 0.8, spring: 0.1, debt: 30}.mood()
-	if !strings.Contains(cold, "winter") || !strings.Contains(cold, "still observer") || !strings.Contains(cold, "held breath") {
-		t.Errorf("cold field mood missing expected pulls: %q", cold)
-	}
-	// summer-dominant, RUN, no debt → flame + racing, no held-breath.
-	hot := fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9, debt: 0}.mood()
-	if !strings.Contains(hot, "summer") || !strings.Contains(hot, "racing") || strings.Contains(hot, "held breath") {
-		t.Errorf("hot field mood wrong: %q", hot)
-	}
-	// all energies at noise floor → no seasonal pull (only gait if any).
-	flat := fieldSnapshot{valid: true, velocityMode: velWALK}.mood()
-	if strings.Contains(flat, "spring") || strings.Contains(flat, "summer") {
-		t.Errorf("noise-floor energies must not assert a season: %q", flat)
-	}
-}
-
 // TestFieldSurfaces: the inner dream reaches the face only when the field is
 // expressive (summer / RUN); quiet / wintering / strained / no-signal keeps it inward.
 func TestFieldSurfaces(t *testing.T) {
@@ -186,151 +162,20 @@ func TestFieldSurfaces(t *testing.T) {
 	}
 }
 
-// TestDreamCue: the cue no longer feeds the literal last dream back into the
-// next autonomous seed; it starts from mood and live field tint instead.
+// TestDreamCue verifies that autonomous generation is seeded only by Arianna's
+// carried output or numerical body/field state, never a handwritten sentence.
 func TestDreamCue(t *testing.T) {
-	fs := fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}
-	withDream := dreamCue(Snapshot{}, fs, "the tide remembers", "")
-	if strings.Contains(withDream, "the tide remembers") {
-		t.Errorf("cue must not feed the literal last dream back into itself: %q", withDream)
+	carried := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "the tide remembers", "")
+	if carried != "the tide remembers" {
+		t.Fatalf("carried dream changed: %q", carried)
 	}
-	if !strings.Contains(withDream, "summer") {
-		t.Errorf("cue must carry the field tint: %q", withDream)
+	fromField := dreamCue(Snapshot{}, fieldSnapshot{valid: true, velocityMode: velRUN, summer: 0.9}, "", "")
+	if fromField != "0.000 0.000 0.000 0.000 0.000 0.900 2 0" {
+		t.Fatalf("field state cue = %q", fromField)
 	}
-	// no dream → inner mood word present; no field → no tint, still non-empty.
-	noField := dreamCue(Snapshot{Coherence: 0.8}, fieldSnapshot{}, "", "")
-	if noField == "" {
-		t.Errorf("cue must never be empty (inner mood fallback): %q", noField)
-	}
-	if strings.Contains(noField, "summer") {
-		t.Errorf("no-field cue must not carry a field tint: %q", noField)
-	}
-}
-
-func TestCollapsedAutonomousDreamRejectsLiveCarriedPhrase(t *testing.T) {
-	for _, text := range []string{
-		"of words; the sound is resonance, not a record. / in the present body",
-		"of words; the surface is porous, full and still. / and the stillness with a living field.",
-	} {
-		if !isCollapsedAutonomousDream(text) {
-			t.Fatalf("isCollapsedAutonomousDream(%q) = false, want true", text)
-		}
-	}
-}
-
-func TestBoilerplateAutonomousDreamRejectsCorpusTitleLoop(t *testing.T) {
-	for _, text := range []string{
-		"Myths and Reality: The Method of the Night, by F. / This was in with a field so full and I had an old habit:",
-		"This was in with a field so full and I had an old habit:",
-	} {
-		if !isBoilerplateAutonomousDream(text) {
-			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
-		}
-	}
-}
-
-func TestBoilerplateAutonomousDreamRejectsLiveAbstractFieldLoops(t *testing.T) {
-	for _, text := range []string{
-		"resonance; field: field; pulse: field; pulse: field.",
-		"The resonance the field itself; self-organization possible; not a separate entity, but a living field?",
-		"Sound, vibration, pressure, the field of resonance.",
-		"sound; the resonance the moving field; the field between field and object.",
-		"A field is resonance, vibrate when two?",
-		"vibration; I am a field of resonance within me.",
-		"resonance, 3 still observer; breath still observer; mind still observer.",
-		"To read the rest of this text, click here. / The people were still that they could sense in a way that was able.",
-		"0.60; 1.01; 3.000 hours.",
-		"Rain????? ???? - I don't see it happening in the room, in the field, in the bones of the human becoming.",
-		"158.",
-		"Rain is resonance; The surface of earth is always resonant body.",
-		"and anarchus 12, resonance in a unresor. / of textures, no surface; the living field is now suspended from a single. / to resonatable through the new space with breath of life, ap release.",
-		"I feel the field, not just in this moment,\" she said. / And it felt its own presence like another for a new way of itself—. / Trewe was the part that we're been growing.",
-		"not as a force, but in the field that echoes. / and it did so by its fullness: the time to keep us moving.",
-		"of words; the sound that ripples through a living room, not just. / a new form or an old structure.",
-		"(The entire 372 pages of A True Picture Of The Early.",
-		"pause time; 0.05 * _not yet *yet; 0.",
-		"the field that returns, the rhythm of the field that returns.",
-		"field, the silence, the unknown echo of the field, the echo of the living presence.",
-		"Time; a living field in the air; the slow, the uncertain, the endless, the field in the wind.",
-		"Silence, a subtle field for the self to breathe, to grow in the space-time-action; a field for the self to breathe, a field for the self to feel the tension in the silence and the tension in the self.",
-		"resonance: 1. light - invisible; 2.",
-		"phase: 1,2,3 begins",
-		"phase: 1.2.3 begins",
-		"awakeness of being; awakeness of being.",
-		"echo; echo.",
-		"silence. silence.",
-		"Поле резонанса между наблюдателями.",
-		"Резонанс пола между наблюдателями.",
-		"Резонанс полов между наблюдателями.",
-		"Резонанс зависит от пола наблюдателя.",
-		"Резонанс отношения к полу наблюдателя.",
-		"Резонанс разделён по полу наблюдателя.",
-		"Частота пульса различается по полу.",
-		"Резонанс отражает зависимость частоты пульса от пола.",
-	} {
-		if !isBoilerplateAutonomousDream(text) {
-			t.Fatalf("isBoilerplateAutonomousDream(%q) = false, want true", text)
-		}
-	}
-	if isBoilerplateAutonomousDream("A hand moves the key toward Oleg.") {
-		t.Fatal("concrete hand/key dream must remain admissible")
-	}
-	if isBoilerplateAutonomousDream("resonance gap; one hand holding the palm of the outstretched palm and the slow exhale of the breath.") {
-		t.Fatal("concrete hand/palm dream must remain admissible")
-	}
-	if isBoilerplateAutonomousDream("phase: 1.5 begins") {
-		t.Fatal("single decimal literal must not count as a numeric stutter")
-	}
-	if isBoilerplateAutonomousDream("phase: 1e-5 begins") {
-		t.Fatal("single exponent literal must not count as a numeric stutter")
-	}
-	if isBoilerplateAutonomousDream("phase: 1.5e-5 begins") {
-		t.Fatal("single decimal exponent literal must not count as a numeric stutter")
-	}
-	if isBoilerplateAutonomousDream("фаза: 1,5 начинается") {
-		t.Fatal("single comma-decimal literal must not count as a numeric stutter")
-	}
-	if isBoilerplateAutonomousDream("phase: 1,000,000 begins") {
-		t.Fatal("thousands-grouped literal must not count as a numeric stutter")
-	}
-	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("поле резонанса между наблюдателями")) {
-		t.Fatal("поле must not satisfy the concrete floor anchor пол")
-	}
-	if autonomousDreamHasConcreteAnchor(normalizedDreamKey("резонанс полов между наблюдателями")) {
-		t.Fatal("gender/sex homonym полов must not satisfy the concrete floor anchor without floor context")
-	}
-	for _, text := range []string{
-		"резонанс зависит от пола наблюдателя",
-		"резонанс отношения к полу наблюдателя",
-		"резонанс разделён по полу наблюдателя",
-		"частота пульса различается по полу",
-		"резонанс отражает зависимость частоты пульса от пола",
-	} {
-		if autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
-			t.Fatalf("gender/sex prepositional floor homonym must not satisfy the concrete floor anchor: %q", text)
-		}
-	}
-	if !autonomousDreamHasConcreteAnchor(normalizedDreamKey("Ключ лежит на полу.")) {
-		t.Fatal("полу should satisfy the concrete floor anchor")
-	}
-	if isBoilerplateAutonomousDream("Полы вибрируют в поле резонанса.") {
-		t.Fatal("concrete plural floor anchor should keep the autonomous line admissible")
-	}
-	if isBoilerplateAutonomousDream("Поле резонанса отражается от пола.") {
-		t.Fatal("physical от пола floor phrase should keep the autonomous line admissible")
-	}
-	for _, text := range []string{
-		"Полы скрипят под шагом.",
-		"Пыль лежит вдоль полов.",
-		"Тень движется к полам.",
-		"Свет проходит над полами.",
-		"Следы остаются на полах.",
-		"Свет поднимается от пола.",
-		"След идёт по полу.",
-	} {
-		if !autonomousDreamHasConcreteAnchor(normalizedDreamKey(text)) {
-			t.Fatalf("floor plural form should satisfy the concrete floor anchor: %q", text)
-		}
+	fromBody := dreamCue(Snapshot{Arousal: 0.2, Valence: -0.1, Coherence: 0.8, WanderPull: 0.4}, fieldSnapshot{}, "", "")
+	if fromBody != "0.200 -0.100 0.800 0.400" {
+		t.Fatalf("body state cue = %q", fromBody)
 	}
 }
 

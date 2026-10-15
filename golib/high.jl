@@ -1,34 +1,5 @@
-const EMOTIONAL_WEIGHTS = Dict{String,Float64}(
-	"great" => 0.8, "love" => 0.9, "amazing" => 0.7, "wonderful" => 0.8, "excellent" => 0.7,
-	"beautiful" => 0.8, "fantastic" => 0.7, "awesome" => 0.8, "perfect" => 0.7, "brilliant" => 0.8,
-	"happy" => 0.7, "joy" => 0.8, "excited" => 0.7, "delighted" => 0.8, "pleased" => 0.6,
-	"good" => 0.5, "nice" => 0.4, "fine" => 0.3, "okay" => 0.1, "thanks" => 0.4,
-	"grateful" => 0.7, "blessed" => 0.6, "peaceful" => 0.5, "calm" => 0.4, "serene" => 0.5,
-	"hope" => 0.6, "dream" => 0.5, "inspire" => 0.6, "create" => 0.5, "grow" => 0.4,
-	"terrible" => -0.8, "hate" => -0.9, "awful" => -0.7, "horrible" => -0.8, "disgusting" => -0.9,
-	"sad" => -0.6, "angry" => -0.7, "frustrated" => -0.6, "disappointed" => -0.6, "upset" => -0.6,
-	"bad" => -0.5, "wrong" => -0.4, "fail" => -0.6, "lose" => -0.5, "hurt" => -0.7,
-	"pain" => -0.8, "suffer" => -0.8, "fear" => -0.7, "anxiety" => -0.6, "stress" => -0.5,
-	"alone" => -0.6, "lonely" => -0.7, "empty" => -0.5, "nothing" => -0.6, "worthless" => -0.9,
-	"stupid" => -0.7, "ugly" => -0.6, "weak" => -0.5, "useless" => -0.8, "pathetic" => -0.8,
-	"отлично" => 0.8, "классно" => 0.7, "супер" => 0.8, "круто" => 0.7, "прекрасно" => 0.8,
-	"здорово" => 0.7, "замечательно" => 0.8, "чудесно" => 0.7, "великолепно" => 0.8,
-	"люблю" => 0.9, "радость" => 0.8, "счастье" => 0.9, "мир" => 0.5, "добро" => 0.6,
-	"красиво" => 0.7, "хорошо" => 0.5, "спасибо" => 0.5, "благодарю" => 0.6,
-	"ужасно" => -0.8, "плохо" => -0.6, "грустно" => -0.6, "злой" => -0.7, "расстроен" => -0.6,
-	"больно" => -0.8, "страшно" => -0.7, "одиноко" => -0.7, "пусто" => -0.5, "ничто" => -0.6,
-	"ненавижу" => -0.9, "страдаю" => -0.8, "боюсь" => -0.7, "тревога" => -0.6,
-	"глупый" => -0.6, "слабый" => -0.5, "никчёмный" => -0.8, "жалкий" => -0.7,
-	"טוב" => 0.5, "יפה" => 0.7, "מדהים" => 0.8, "נהדר" => 0.7, "אהבה" => 0.9,
-	"שמחה" => 0.8, "תקווה" => 0.6, "שלום" => 0.5, "ברכה" => 0.6,
-	"רע" => -0.5, "נורא" => -0.8, "עצוב" => -0.6, "כועס" => -0.7, "פחד" => -0.7,
-	"כאב" => -0.8, "בודד" => -0.7, "ריק" => -0.5, "שנאה" => -0.9,
-	"die" => -0.9, "kill" => -0.9, "failure" => -0.8, "loser" => -0.8,
-	"reject" => -0.7, "abandon" => -0.8, "betray" => -0.8, "forget" => -0.5,
-	"ignore" => -0.6, "invisible" => -0.7, "broken" => -0.7, "damaged" => -0.7,
-	"ruined" => -0.7, "trapped" => -0.7, "hopeless" => -0.8, "lost" => -0.5,
-)
-# Arianna High Mathematical Brain — faithful Julia port of legacy inner_world/high.go HighMathEngine.
+# Arianna High Mathematical Brain. Text contributes structural measurements;
+# language and affect belong to the trained bodies rather than runtime lexicons.
 char_entropy(s::AbstractString) = begin
     isempty(s) && return 0.0
     counts = Dict{Char,Int}(); total = 0
@@ -81,50 +52,34 @@ semantic_distance(a::AbstractString, b::AbstractString) = begin
     (n1==0||n2==0) && return 1.0
     1.0 - d/(n1*n2)
 end
-_emo(s) = begin
-    t = 0.0; c = 0
-    for w in tokenize(s); if haskey(EMOTIONAL_WEIGHTS,w); t += EMOTIONAL_WEIGHTS[w]; c += 1; end; end
-    (t, c)
-end
-analyze_valence(s::AbstractString) = (p=_emo(s); p[2]==0 ? 0.0 : p[1]/p[2])
-analyze_arousal(s::AbstractString) = (p=_emo(s); v = p[2]==0 ? 0.0 : p[1]/p[2]; clamp(abs(v)+p[2]*0.01, 0.0, 1.0))
+analyze_valence(::AbstractString) = 0.0
+analyze_arousal(::AbstractString) = 0.0
 
-# ---- VectorizedEntropy: word-level Shannon entropy modulated by emotional intensity (legacy VectorizedEntropy) ----
+# ---- VectorizedEntropy: word-level Shannon entropy ----
 function _vec_entropy(s::AbstractString)
     words = tokenize(s)
     isempty(words) && return (0.0, 0.0)
-    wc = Dict{String,Int}(); total = 0; esum = 0.0
+    wc = Dict{String,Int}(); total = 0
     for w in words
         wc[w] = get(wc, w, 0) + 1; total += 1
-        haskey(EMOTIONAL_WEIGHTS, w) && (esum += EMOTIONAL_WEIGHTS[w])
     end
     total == 0 && return (0.0, 0.0)
     ent = 0.0
     for (_, c) in wc; p = c / total; p > 0 && (ent -= p * log2(p)); end
-    escore = esum / total
-    ent *= (1.0 + abs(escore) * 0.2)
-    (ent, escore)
+    (ent, 0.0)
 end
 vectorized_entropy(s::AbstractString) = _vec_entropy(s)[1]
 emotional_score(s::AbstractString) = _vec_entropy(s)[2]
 
-# ---- EmotionalAlignment (legacy EmotionalAlignment) ----
-function emotional_alignment(a::AbstractString, b::AbstractString)
-    e1 = emotional_score(a); e2 = emotional_score(b)
-    if (e1 >= 0) == (e2 >= 0)
-        diff = abs(e1 - e2); mx = max(abs(e1), abs(e2))
-        mx == 0 && return 1.0
-        return 1.0 - diff / mx
-    end
-    -abs(e1 - e2) / 2
-end
+# Kept as a stable ABI for the Go bridge. With no runtime affect lexicon, text
+# carries no synthetic emotional disagreement.
+emotional_alignment(::AbstractString, ::AbstractString) = 1.0
 
 # ---- PredictiveSurprise: free-energy proxy (legacy PredictiveSurprise) ----
 function predictive_surprise(expected::AbstractString, actual::AbstractString)
     se = semantic_distance(expected, actual)
-    ee = abs(1.0 - emotional_alignment(expected, actual))
     en = abs(vectorized_entropy(expected) - vectorized_entropy(actual))
-    se * 0.4 + ee * 0.4 + en * 0.2
+    se * 0.8 + en * 0.2
 end
 
 # ---- ResonanceCoupling: Schumann-modulated coupling (legacy ResonanceCoupling) ----
@@ -141,8 +96,7 @@ function resonance_coupling(valence::Float64, arousal::Float64, entropy::Float64
     coup * sch
 end
 
-# ---- TextRhythm (legacy TextRhythm): syllable avg / variance / pause density ----
-const _VOWELS = Set(collect("aeiouyаеёиоуыэюяאֵֶֻוִ"))
+# ---- TextRhythm: token-length variation / pause density ----
 function _count_sub(s::AbstractString, sub::AbstractString)
     n = 0; i = firstindex(s)
     while i <= lastindex(s)
@@ -157,10 +111,7 @@ function _rhythm(s::AbstractString)
     isempty(words) && return (0.0, 0.0, 0.0)
     syl = Float64[]
     for w in words
-        c = 0.0
-        for ch in w; ch in _VOWELS && (c += 1); end
-        c < 1 && (c = 1.0)
-        push!(syl, c)
+        push!(syl, Float64(length(w)))
     end
     avg = sum(syl) / length(words)
     vs = 0.0

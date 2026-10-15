@@ -10,10 +10,9 @@ set -euo pipefail
 export LC_ALL=C
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROMPT="${A2A_BODY_SMOKE_PROMPT:-Who are you?}"
+PROMPT="${A2A_BODY_SMOKE_PROMPT:-$RANDOM}"
 TOKENS="${A2A_BODY_SMOKE_TOKENS:-2}"
 REQUIRE_WEIGHTS="${A2A_BODY_SMOKE_REQUIRE_WEIGHTS:-0}"
-RUN_NANO_DIRECT="${A2A_BODY_SMOKE_NANO_DIRECT:-0}"
 
 JANUS_MODEL="${A2A_JANUS_MODEL:-$ROOT/weights/arianna_v4_sft_f16.gguf}"
 RESONANCE_MODEL="${A2A_RESONANCE_MODEL:-$ROOT/weights/arianna_resonance_v3_f16.gguf}"
@@ -73,108 +72,8 @@ require_source 'strcmp\(arch, "nlama"\)' chorus/arianna2arianna.c "nano nlama NE
 echo "[body-smoke] Go tests"
 (cd "$ROOT/golib" && go test ./...)
 
-echo "[body-smoke] body inventory"
-A2A_BODY_INVENTORY_WORKDIR="$WORKDIR/body-inventory" \
-    bash "$ROOT/tools/body_inventory_smoke.sh"
-
-echo "[body-smoke] body inventory start gate"
-A2A_BODY_INVENTORY_START_WORKDIR="$WORKDIR/body-inventory-start" \
-    bash "$ROOT/tools/body_inventory_start_smoke.sh"
-
-echo "[body-smoke] admission shadow receipt"
-A2A_ADMISSION_SMOKE_WORKDIR="$WORKDIR/admission-shadow" \
-    bash "$ROOT/tools/admission_shadow_smoke.sh"
-
-echo "[body-smoke] admission live route-plan gate"
-A2A_ADMISSION_LIVE_ROUTE_GATE_WORKDIR="$WORKDIR/admission-live-route-gate" \
-    bash "$ROOT/tools/admission_live_route_gate_smoke.sh"
-
-echo "[body-smoke] admission live route chat dry-run"
-A2A_ADMISSION_LIVE_ROUTE_CHAT_WORKDIR="$WORKDIR/admission-live-route-chat" \
-    bash "$ROOT/tools/admission_live_route_chat_smoke.sh"
-
-echo "[body-smoke] admission live route turn observation"
-A2A_ADMISSION_LIVE_ROUTE_TURN_WORKDIR="$WORKDIR/admission-live-route-turn" \
-    bash "$ROOT/tools/admission_live_route_turn_smoke.sh"
-
-echo "[body-smoke] admission live route turn choice"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CHOICE_WORKDIR="$WORKDIR/admission-live-route-turn-choice" \
-    bash "$ROOT/tools/admission_live_route_turn_choice_smoke.sh"
-
-echo "[body-smoke] admission live route turn request"
-A2A_ADMISSION_LIVE_ROUTE_TURN_REQUEST_WORKDIR="$WORKDIR/admission-live-route-turn-request" \
-    bash "$ROOT/tools/admission_live_route_turn_request_smoke.sh"
-
-echo "[body-smoke] admission live route generation job"
-A2A_ADMISSION_LIVE_ROUTE_TURN_GENERATION_JOB_WORKDIR="$WORKDIR/admission-live-route-generation-job" \
-    bash "$ROOT/tools/admission_live_route_turn_generation_job_smoke.sh"
-
-echo "[body-smoke] admission live route generation job inventory gate"
-A2A_ADMISSION_LIVE_ROUTE_TURN_GENERATION_JOB_INVENTORY_GATE_WORKDIR="$WORKDIR/admission-live-route-generation-job-inventory-gate" \
-    bash "$ROOT/tools/admission_live_route_turn_generation_job_inventory_gate_smoke.sh"
-
-echo "[body-smoke] admission live route boundary receipts"
-A2A_ADMISSION_LIVE_ROUTE_TURN_ROUTE_BOUNDARY_WORKDIR="$WORKDIR/admission-live-route-boundary" \
-    bash "$ROOT/tools/admission_live_route_turn_route_boundary_smoke.sh"
-
-echo "[body-smoke] admission live route candidate shell"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_SHELL_WORKDIR="$WORKDIR/admission-live-route-candidate-shell" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_shell_smoke.sh"
-
-echo "[body-smoke] admission live route candidate execution"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_EXECUTION_WORKDIR="$WORKDIR/admission-live-route-candidate-execution" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_execution_smoke.sh"
-
-echo "[body-smoke] admission live route candidate runner"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_RUNNER_WORKDIR="$WORKDIR/admission-live-route-candidate-runner" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_runner_smoke.sh"
-
-echo "[body-smoke] admission live route generator adapter"
-A2A_ADMISSION_LIVE_ROUTE_TURN_GENERATOR_ADAPTER_WORKDIR="$WORKDIR/admission-live-route-generator-adapter" \
-    bash "$ROOT/tools/admission_live_route_turn_generator_adapter_smoke.sh"
-
-echo "[body-smoke] admission live route candidate draft"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_WORKDIR="$WORKDIR/admission-live-route-candidate-draft" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_draft_smoke.sh"
-
-echo "[body-smoke] admission live route candidate draft review"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_DRAFT_REVIEW_WORKDIR="$WORKDIR/admission-live-route-candidate-draft-review" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_draft_review_smoke.sh"
-
-echo "[body-smoke] admission live route candidate admission handoff"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_WORKDIR="$WORKDIR/admission-live-route-candidate-admission" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_smoke.sh"
-
-echo "[body-smoke] admission live route candidate admission adapter"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_ADAPTER_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-adapter" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_adapter_smoke.sh"
-
-echo "[body-smoke] admission live route candidate admission chat chain"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_CHAT_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-chat" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_chat_smoke.sh"
-
-echo "[body-smoke] admission live route candidate admission chat shadow"
-A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_ADMISSION_CHAT_SHADOW_WORKDIR="$WORKDIR/admission-live-route-candidate-admission-chat-shadow" \
-    bash "$ROOT/tools/admission_live_route_turn_candidate_admission_chat_shadow_smoke.sh"
-
-echo "[body-smoke] admission live route turn/candidate review"
-A2A_ADMISSION_LIVE_ROUTE_TURN_REVIEW_WORKDIR="$WORKDIR/admission-live-route-turn-review" \
-    bash "$ROOT/tools/admission_live_route_turn_review_smoke.sh"
-
-echo "[body-smoke] admission live route turn bridge"
-A2A_ADMISSION_LIVE_ROUTE_TURN_BRIDGE_WORKDIR="$WORKDIR/admission-live-route-turn-bridge" \
-    bash "$ROOT/tools/admission_live_route_turn_bridge_smoke.sh"
-
-echo "[body-smoke] admission live route turn bridge admission"
-A2A_ADMISSION_LIVE_ROUTE_TURN_BRIDGE_ADMISSION_WORKDIR="$WORKDIR/admission-live-route-turn-bridge-admission" \
-    bash "$ROOT/tools/admission_live_route_turn_bridge_admission_smoke.sh"
-
-echo "[body-smoke] admission shadow sample"
-A2A_ADMISSION_SAMPLE_WORKDIR="$WORKDIR/admission-sample" \
-    bash "$ROOT/tools/admission_shadow_sample.sh"
-
 if [[ ! -f "$JANUS_MODEL" || ! -f "$RESONANCE_MODEL" || ! -f "$NANO_MODEL" ]]; then
-    if [[ "$REQUIRE_WEIGHTS" == "1" || "$RUN_NANO_DIRECT" == "1" ]]; then
+    if [[ "$REQUIRE_WEIGHTS" == "1" ]]; then
         die "missing one or more GGUFs: $JANUS_MODEL | $RESONANCE_MODEL | $NANO_MODEL"
     fi
     echo "[body-smoke] runtime skipped: GGUF weights not all present"
@@ -201,32 +100,10 @@ require_log nano '\[nanollama\] ready' "nano loaded"
 require_log nano '\[[0-9]+ tokens,' "nano generated tokens"
 
 run_logged chorus "$ROOT/chorus-arianna" \
-    weights/nano_arianna_f16.gguf "$PROMPT" field 2 4 1 0 0 0.02 1 1.3 0 1 1 0
+    weights/nano_arianna_f16.gguf "$PROMPT" field 2 4 1 0 0 0.02 1 1.3 0 1 0
 require_log chorus 'NEOX rope' "chorus NEOX rope for nano GGUF"
 require_log chorus '=== δ-field done' "chorus field completed"
 
 "$ROOT/doe_field" --help >"$WORKDIR/doe_help.log" 2>&1 || die "doe_field --help failed"
-
-if [[ "$RUN_NANO_DIRECT" == "1" ]]; then
-    echo "[body-smoke] weighted nano-direct candidate runner"
-    A2A_NANO_MODEL="$NANO_MODEL" \
-    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RUNNER_WORKDIR="$WORKDIR/nano-direct-runner" \
-        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_runner_smoke.sh"
-
-    echo "[body-smoke] weighted nano-direct chat shadow"
-    A2A_NANO_MODEL="$NANO_MODEL" \
-    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_CHAT_SHADOW_WORKDIR="$WORKDIR/nano-direct-chat-shadow" \
-        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_chat_shadow_smoke.sh"
-
-    echo "[body-smoke] weighted nano-direct final gate"
-    A2A_NANO_MODEL="$NANO_MODEL" \
-    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_FINAL_GATE_WORKDIR="$WORKDIR/nano-direct-final-gate" \
-        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_final_gate_smoke.sh"
-
-    echo "[body-smoke] weighted nano-direct Resonance graft admission proof"
-    A2A_NANO_MODEL="$NANO_MODEL" \
-    A2A_ADMISSION_LIVE_ROUTE_TURN_CANDIDATE_NANO_DIRECT_RESONANCE_GRAFT_ADMISSION_PROOF_WORKDIR="$WORKDIR/nano-direct-resonance-graft-admission-proof" \
-        bash "$ROOT/tools/admission_live_route_turn_candidate_nano_direct_resonance_graft_admission_proof_smoke.sh"
-fi
 
 echo "[body-smoke] pass: runtime scratch=$WORKDIR"

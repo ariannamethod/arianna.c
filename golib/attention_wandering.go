@@ -69,10 +69,10 @@ type Interest struct {
 
 // Distraction is something that pulls attention away
 type Distraction struct {
-	Source   string
-	Pull     float32 // how strongly it pulls (0-1)
-	Urgency  float32 // time pressure
-	Created  time.Time
+	Source  string
+	Pull    float32 // how strongly it pulls (0-1)
+	Urgency float32 // time pressure
+	Created time.Time
 }
 
 // NewAttentionWandering creates a new attention wandering process
@@ -214,12 +214,8 @@ func (aw *AttentionWandering) wander() {
 		aw.interests[bestIdx].LastSeen = time.Now()
 		aw.interests[bestIdx].Novelty *= 0.8 // Reduce novelty on access
 	} else {
-		// Random wander
-		directions := []string{
-			"tangent", "metaphor", "memory", "abstraction",
-			"sensory", "emotional", "creative", "analytical",
-		}
-		aw.wanderDirection = directions[rand.Intn(len(directions))]
+		// The body may wander without inventing a semantic destination.
+		aw.wanderDirection = ""
 	}
 
 	// Emit signal
@@ -230,9 +226,9 @@ func (aw *AttentionWandering) wander() {
 			Source:    aw.Name(),
 			Timestamp: time.Now(),
 			Metadata: map[string]any{
-				"direction":    aw.wanderDirection,
-				"from_focus":   aw.currentFocus,
-				"focus_level":  aw.focusStrength,
+				"direction":   aw.wanderDirection,
+				"from_focus":  aw.currentFocus,
+				"focus_level": aw.focusStrength,
 			},
 		})
 	}

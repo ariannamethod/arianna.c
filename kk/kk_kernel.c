@@ -1342,19 +1342,6 @@ static char *normalize_text(const char *input) {
  * KEYWORD EXTRACTION
  * ═══════════════════════════════════════════════════════════════════ */
 
-static int is_stopword(const char *tok) {
-    static const char *words[] = {
-        "the", "and", "that", "with", "from", "this", "there", "their", "have", "will",
-        "would", "could", "should", "into", "about", "after", "before", "under", "over",
-        "your", "ours", "they", "them", "were", "been", "than", "then", "what", "when",
-        "where", "which", "while", "just", "also", "does", "done", "each", "more", "most",
-        "such", "only", "very", "some", "much", "many", "into", "onto", "across", "because",
-        "kernel", "knowledge"
-    };
-    for (size_t i = 0; i < sizeof(words) / sizeof(words[0]); i++) if (!strcmp(tok, words[i])) return 1;
-    return 0;
-}
-
 static int keyword_exists(char terms[KK_MAX_KEYWORDS][KK_KEYWORD_LEN], int count, const char *tok) {
     for (int i = 0; i < count; i++) if (!strcmp(terms[i], tok)) return 1;
     return 0;
@@ -1367,14 +1354,14 @@ static int collect_keywords(const char *text, char terms[KK_MAX_KEYWORDS][KK_KEY
     for (char *tok = strtok_r(copy, " \t\n,.;:!?()[]{}<>\"'/-", &save);
          tok && count < KK_MAX_KEYWORDS;
          tok = strtok_r(NULL, " \t\n,.;:!?()[]{}<>\"'/-", &save)) {
-        char lower[KK_KEYWORD_LEN];
+        char term[KK_KEYWORD_LEN];
         size_t n = strlen(tok);
-        if (n < 4) continue;
-        if (n >= sizeof(lower)) n = sizeof(lower) - 1;
-        for (size_t i = 0; i < n; i++) lower[i] = (char)tolower((unsigned char)tok[i]);
-        lower[n] = '\0';
-        if (is_stopword(lower) || keyword_exists(terms, count, lower)) continue;
-        strncpy(terms[count], lower, sizeof(terms[count]));
+        if (n == 0) continue;
+        if (n >= sizeof(term)) n = sizeof(term) - 1;
+        memcpy(term, tok, n);
+        term[n] = '\0';
+        if (keyword_exists(terms, count, term)) continue;
+        strncpy(terms[count], term, sizeof(terms[count]));
         terms[count][sizeof(terms[count]) - 1] = '\0';
         count++;
     }
@@ -2151,13 +2138,13 @@ static int build_query_terms(const char *query_text, char terms[KK_MAX_QUERY_TOK
     for (char *tok = strtok_r(copy, " \t\n,.;:!?()[]{}<>\"'", &save);
          tok && count < KK_MAX_QUERY_TOKENS;
          tok = strtok_r(NULL, " \t\n,.;:!?()[]{}<>\"'", &save)) {
-        char lower[64];
+        char term[64];
         size_t n = strlen(tok);
-        if (n >= sizeof(lower)) n = sizeof(lower) - 1;
-        for (size_t i = 0; i < n; i++) lower[i] = (char)tolower((unsigned char)tok[i]);
-        lower[n] = '\0';
-        if (n >= 2) {
-            strncpy(terms[count], lower, sizeof(terms[count]));
+        if (n >= sizeof(term)) n = sizeof(term) - 1;
+        memcpy(term, tok, n);
+        term[n] = '\0';
+        if (n > 0) {
+            strncpy(terms[count], term, sizeof(terms[count]));
             terms[count][sizeof(terms[count]) - 1] = '\0';
             count++;
         }
@@ -2182,7 +2169,7 @@ static void log_retrieval(sqlite3 *db, const char *query_text, const char *acces
 static char *build_fts_match(const char *query_text) {
     char terms[KK_MAX_QUERY_TOKENS][64];
     int count = build_query_terms(query_text, terms);
-    if (count == 0) return xstrdup("kernel");
+    if (count == 0) return NULL;
     StrBuf sb;
     sb_init(&sb);
     for (int i = 0; i < count; i++) {
@@ -2395,6 +2382,7 @@ static int fetch_results(kk_ctx *ctx, const char *query_text, const char *access
         "ORDER BY lexical DESC LIMIT ?;";
     sqlite3_stmt *stmt = NULL;
     char *fts_query = build_fts_match(query_text);
+    if (!fts_query) return 0;
     ScorePolicy policy = load_score_policy();
     if (policy_out) *policy_out = policy;
     if (sqlite3_prepare_v2(ctx->db, sql, -1, &stmt, NULL) != SQLITE_OK) { die_sqlite(ctx->db, "prepare query"); free(fts_query); return 0; }
@@ -2436,6 +2424,7 @@ static int fetch_results_exact_scope(kk_ctx *ctx, const char *query_text, const 
         "ORDER BY lexical DESC LIMIT ?;";
     sqlite3_stmt *stmt = NULL;
     char *fts_query = build_fts_match(query_text);
+    if (!fts_query) return 0;
     ScorePolicy policy = load_score_policy();
     if (policy_out) *policy_out = policy;
     if (sqlite3_prepare_v2(ctx->db, sql, -1, &stmt, NULL) != SQLITE_OK) { die_sqlite(ctx->db, "prepare scoped query"); free(fts_query); return 0; }

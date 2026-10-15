@@ -16,24 +16,23 @@ func TestHighWiredOverthinking(t *testing.T) {
 	}
 }
 
-// TestHighWiredEmotion proves the brain is wired into the emotional drift: positive text pulls
-// valence up and negative text pulls it down, through the real HighValence in ProcessText.
-func TestHighWiredEmotion(t *testing.T) {
+// TestHighWiredStructuralSurprise proves that arbitrary vocabulary receives no
+// runtime valence label while cross-turn structural surprise still reaches the body.
+func TestHighWiredStructuralSurprise(t *testing.T) {
 	iw := NewInnerWorld()
 	iw.Start(false)
 	ed := iw.GetEmotionalDrift()
 	if ed == nil {
 		t.Fatal("emotional_drift not registered")
 	}
-	before := ed.position.Valence
-	iw.ProcessText("I love this beautiful wonderful joyful brilliant field")
-	up := ed.position.Valence
-	if up <= before {
-		t.Errorf("positive text should nudge valence up via the High brain: %v -> %v", before, up)
+	iw.ProcessText("amber silver cedar river")
+	afterFirst := ed.position.Valence
+	if afterFirst != 0 {
+		t.Fatalf("first arbitrary utterance assigned runtime valence: %v", afterFirst)
 	}
-	iw.ProcessText("I hate this terrible awful horrible painful empty void")
-	down := ed.position.Valence
-	if down >= up {
-		t.Errorf("negative text should nudge valence down via the High brain: %v -> %v", up, down)
+	iw.ProcessText("quartz orbit linen thunder")
+	afterSecond := ed.position.Valence
+	if afterSecond >= afterFirst {
+		t.Errorf("cross-turn structural surprise did not reach emotional drift: %v -> %v", afterFirst, afterSecond)
 	}
 }

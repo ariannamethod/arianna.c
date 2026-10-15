@@ -26,7 +26,9 @@ package main
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
 )
 
 // MemoryConsolidation manages memory formation and decay
@@ -53,15 +55,15 @@ type MemoryConsolidation struct {
 
 // ConsolidatableMemory is a memory with consolidation metadata
 type ConsolidatableMemory struct {
-	Content     string
-	Created     time.Time
-	LastAccess  time.Time
-	Strength    float32 // 0-1, decays over time
-	Emotion     float32 // -1 to 1, affects consolidation priority
-	Arousal     float32 // 0-1, affects consolidation priority
-	AccessCount int
+	Content      string
+	Created      time.Time
+	LastAccess   time.Time
+	Strength     float32 // 0-1, decays over time
+	Emotion      float32 // -1 to 1, affects consolidation priority
+	Arousal      float32 // 0-1, affects consolidation priority
+	AccessCount  int
 	Consolidated bool
-	Connections []int // indices of connected memories
+	Connections  []int // indices of connected memories
 }
 
 // NewMemoryConsolidation creates a new memory consolidation process
@@ -403,21 +405,17 @@ func filterMemories(mems []ConsolidatableMemory, threshold float32) []Consolidat
 }
 
 func extractKeywords(text string) []string {
-	// Simple keyword extraction - in production would use better NLP
 	words := make([]string, 0)
-	current := ""
-	for _, r := range text {
-		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' {
-			current += string(r)
-		} else if len(current) > 3 {
-			words = append(words, current)
-			current = ""
-		} else {
-			current = ""
+	for _, field := range strings.Fields(strings.ToLower(text)) {
+		word := strings.Map(func(r rune) rune {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				return r
+			}
+			return -1
+		}, field)
+		if word != "" {
+			words = append(words, word)
 		}
-	}
-	if len(current) > 3 {
-		words = append(words, current)
 	}
 	return words
 }

@@ -115,7 +115,7 @@ static void resonance_save_breath(void) {
 BLOOD MAIN {
 int main(int argc, char **argv) {
     const char *weights_path = "weights/arianna_resonance_v3_f16.gguf";
-    const char *prompt       = "Who are you?";
+    const char *prompt       = NULL;
     int   max_tokens         = 100;
     float temp               = 0.7f;
     float top_p              = 1.0f;   /* champion: full nucleus. top_p 0.9 starves Resonance (empty/broken). */
@@ -141,6 +141,10 @@ int main(int argc, char **argv) {
     /* R-5: atof yields NaN/inf on junk; the downstream temp<=0 guard is NaN-transparent. */
     if (!isfinite(temp) || temp <= 0.0f) temp = 0.7f;
     if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 1.0f;
+    if (!daemon_mode && (!prompt || !*prompt)) {
+        fprintf(stderr, "usage: %s --daemon | -p <prompt> [options]\n", argv[0]);
+        return 1;
+    }
 
     srand((unsigned)time(NULL));
 

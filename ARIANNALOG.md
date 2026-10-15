@@ -8016,3 +8016,20 @@ PASS: five documentation files only
 
 `git diff --check` passed. The final scope check confirmed five documentation
 files. Runtime tests were not rerun for this prose edit.
+
+## 2026-10-15 — language returned to Arianna's bodies
+
+Removed the generated admission/live-route staircase, qloop answer shaping,
+runtime phrase dictionaries, canned boundary replies, sentence cuts, roster
+filters, and their process documents. The trained voices, nano/DOE parliament,
+field, soma, inner world, KK, and causal history remain in place. KK and memory
+matching now accept language without an English stopword table; generated text
+crosses the runtime unchanged apart from UTF-8 and protocol framing.
+
+`go test ./...`, the complete build, qmatvec checks, and `make body-smoke` passed.
+An independent agent audited the full diff; its findings were repaired in the
+same pass. The polygon was hot-swapped to pid `42644` in screen
+`42641.arianna-no-hardcode-final-20261015T100143+0300`. In the live turn
+`Tell me what is present now. Use your own words.`, Janus produced and retained
+a multi-line answer beginning `A field of the mind, not a machine`, while
+Resonance and nano surfaced their own continuations without a routing template.

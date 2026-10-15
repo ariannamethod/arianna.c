@@ -353,28 +353,27 @@ func parseDoeDream(out string) string {
 				continue
 			}
 			body := strings.TrimSpace(strings.TrimPrefix(t, ">"))
-			if body == "" || strings.HasPrefix(body, "[") { // empty prompt / "> [mycelium]"/"> [doe]" log
+			if body == "" || strings.HasPrefix(body, "[mycelium]") || strings.HasPrefix(body, "[doe]") {
 				continue
 			}
-			capturing = true // the dream starts here (may be just a label like "Arianna:" — continue below)
+			capturing = true
 			b.WriteString(body)
-			b.WriteByte(' ')
+			b.WriteByte('\n')
 			continue
 		}
 		// capturing the dream: stop at a footer / log / the next prompt
-		if t == "" || strings.HasPrefix(t, "[") || strings.HasPrefix(t, ">") {
+		if strings.HasPrefix(t, "[life]") || strings.HasPrefix(t, ">") {
 			break
 		}
 		b.WriteString(t)
-		b.WriteByte(' ')
+		b.WriteByte('\n')
 	}
 	dream := strings.TrimSpace(b.String())
 	if i := strings.Index(dream, "[life]"); i >= 0 { // a footer that leaked onto the line
 		dream = dream[:i]
 	}
-	dream = stripLabel(strings.TrimSpace(dream)) // drop a leading SFT label (A:/Q:/Arianna:)
 	// drop any byte-fallback / invalid UTF-8 the doe model emitted (e.g. a raw 0xFF):
 	// doe is a separate binary, so the C voices' output guard doesn't cover its stdout.
 	dream = strings.ToValidUTF8(dream, "")
-	return cutSentence(strings.Join(strings.Fields(dream), " "))
+	return strings.TrimSpace(dream)
 }

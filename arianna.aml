@@ -324,8 +324,6 @@ static void arianna_generate_single(Weights *w, const char *prompt,
     struct timespec ts0, ts1;
     clock_gettime(CLOCK_MONOTONIC, &ts0);
     int gen_start = len;
-    int gen_chars = 0;                 /* chars emitted this turn */
-    const int MIN_SENT_CHARS = 30;     /* min before honoring a . ! ? cut */
     for (int step = 0; step < max_tokens && len < T; step++) {
         /* Within-turn decay: direction is a compass, strong at the start, fading
          * (~halves every 5 tokens) so the voice develops the theme in its own
@@ -341,29 +339,12 @@ static void arianna_generate_single(Weights *w, const char *prompt,
         char decoded[64];
         int n = nt_bpe_decode(&g_bpe, &next, 1, decoded, sizeof(decoded) - 1);
         if (olen + n < (int)sizeof(obuf)) { memcpy(obuf + olen, decoded, n); olen += n; }
-        gen_chars += n;
-
         am_register_prophecy_debt(am_compute_prophecy_debt(logits, next, V));
         am_step(0.05f);
         dir_age(next);
 
         ctx[len] = next;
         len++;
-
-        /* Forward-scan sentence stop (port of clean_voice from old project,
-         * arianna.c/scripts/arianna2arianna.sh:67-77): after a min length,
-         * end the turn at the first . ! ? so the CLI -n cap never severs a
-         * word mid-sentence. Whole sentences out, no mid-word truncation. */
-        if (gen_chars >= MIN_SENT_CHARS) {
-            int sent_end = 0, kpos = -1;
-            for (int k = 0; k < n; k++)
-                if (decoded[k] == '.' || decoded[k] == '!' || decoded[k] == '?') {
-                    sent_end = 1; kpos = k; break;
-                }
-            /* Skip a false boundary after a single-letter clip ("inner v."). */
-            if (sent_end && !sent_end_ok(obuf, (olen - n) + kpos)) sent_end = 0;
-            if (sent_end) break;
-        }
 
         forward_token(w, next, len - 1, logits, hidden);
     }
@@ -407,17 +388,7 @@ static void arianna_generate_single(Weights *w, const char *prompt,
      * sampled (e.g. raw 0xFF) before it reaches the terminal. Whole-buffer pass over
      * the accumulated reply; valid multi-byte (em-dash etc.) survives. */
     olen = utf8_sanitize(obuf, olen);
-    /* Post-decode space-guard over the WHOLE text: insert a space at every
-     * [a-z][A-Z] boundary. BPE sometimes emits a word-token without its
-     * leading space ("eConnected", and glue living INSIDE one token's decode
-     * that the per-token guard missed). lowercase→Uppercase is always a word
-     * boundary in natural English (no camelCase inside words). Digits left
-     * alone ("15th" is legitimate). Whole-text pass = deterministic zero. */
     for (int i = 0; i < olen; i++) {
-        if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
-            obuf[i-1] >= 'a' && obuf[i-1] <= 'z') {
-            putchar(' ');
-        }
         putchar((unsigned char)obuf[i]);
     }
     fflush(stdout);
@@ -594,7 +565,7 @@ static void arianna_chain_display(const char *prompt,
 BLOOD MAIN {
 int main(int argc, char **argv) {
     const char *gguf_path = "weights/arianna_v4_sft_f16.gguf";
-    const char *prompt    = "Who are you?";
+    const char *prompt    = NULL;
     int   max_tokens      = 120;
     float temp            = 0.8f;     /* Phase 7 Arianna champion */
     float top_p           = 0.9f;     /* Phase 7 champion (top_k=40 делает реальный cut) */
@@ -625,6 +596,10 @@ int main(int argc, char **argv) {
     /* J-11: atof yields NaN/inf on junk; the downstream temp<=0 / total<=0 gates are NaN-transparent. */
     if (!isfinite(temp) || temp <= 0.0f) temp = 0.8f;
     if (!isfinite(top_p) || top_p <= 0.0f || top_p > 1.0f) top_p = 0.9f;
+    if (!daemon_mode && (!prompt || !*prompt)) {
+        fprintf(stderr, "usage: %s --daemon | -p <prompt> [options]\n", argv[0]);
+        return 1;
+    }
 
     srand((unsigned)time(NULL));
     jcal_init();

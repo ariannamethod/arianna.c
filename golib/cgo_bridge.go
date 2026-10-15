@@ -331,32 +331,6 @@ func inner_world_is_spiraling() C.int {
 	return 0
 }
 
-//export inner_world_suggest_break
-func inner_world_suggest_break(buf *C.char, buf_size C.int) {
-	// Safety: check buffer is valid
-	if buf == nil || buf_size <= 0 {
-		return
-	}
-	if ol := Global().GetOverthinkingLoops(); ol != nil {
-		suggestion := ol.SuggestBreak()
-		if len(suggestion) == 0 {
-			*buf = 0
-			return
-		}
-
-		// Safe copy with bounds check
-		size := len(suggestion)
-		if size >= int(buf_size) {
-			size = int(buf_size) - 1
-		}
-		// Copy directly from Go string to C buffer
-		for i := 0; i < size; i++ {
-			*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(i))) = C.char(suggestion[i])
-		}
-		*(*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(buf)) + uintptr(size))) = 0
-	}
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // DSL COMMANDS (from ariannamethod.lang style)
 // ═══════════════════════════════════════════════════════════════════════════════

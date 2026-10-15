@@ -71,8 +71,8 @@ func newNano(bin, gguf string) *nano {
 	return &nano{bin: bin, gguf: gguf, maxTok: "32", temp: "0.9", topP: "0.92"}
 }
 
-// dream spawns the nano on a seed and returns its murmur (label-stripped and
-// sentence-cut). "" on failure. Routes through the doe parliament engine when set
+// dream spawns the nano on a seed and returns its murmur.
+// "" on failure. Routes through the doe parliament engine when set
 // (the SAME nano body, notorch-native), else the nanollama one-shot below.
 func (n *nano) dream(parent context.Context, seed string) string {
 	n.mu.Lock() // one model-load at a time across the turn dream + the breathing fallback
@@ -125,31 +125,18 @@ func cleanDream(out string) string {
 	if marker < 0 || marker+1 >= len(lines) {
 		return ""
 	}
-	murmur := stripLabel(strings.Join(lines[marker+1:], " "))
+	murmur := strings.Join(lines[marker+1:], "\n")
 	// drop any byte-fallback / invalid UTF-8 the nanollama model emitted (separate
 	// binary — not covered by the C voices' output guard).
 	murmur = strings.ToValidUTF8(murmur, "")
-	return cutSentence(strings.Join(strings.Fields(murmur), " "))
-}
-
-// stripLabel drops a leading SFT chat-label ("A:", "Arianna:", "Q:") — the
-// subconscious murmurs, it does not answer as an assistant.
-func stripLabel(s string) string {
-	s = strings.TrimSpace(s)
-	for _, p := range []string{"A:", "Arianna:", "Q:", "Assistant:", "User:", "Oleg:"} {
-		if strings.HasPrefix(s, p) {
-			return strings.TrimSpace(s[len(p):])
-		}
-	}
-	return s
+	return strings.TrimSpace(murmur)
 }
 
 // dreamResult is what a single round of the subconscious produces: the KK
 // fragment that seeded it (the resonant book-passage, "" if none) and the dream.
 type dreamResult struct {
-	frag      string
-	dream     string
-	candidate dreamCandidate
+	frag  string
+	dream string
 }
 
 // kkPacket is the minimal shape of the Knowledge Kernel's compressed-mode JSON.
@@ -227,11 +214,7 @@ func runSubconscious(n *nano, cli, db string, seedCh <-chan string, dreamCh chan
 		}
 		// publish the LATEST dream (F-4): drain any unread previous one, then send —
 		// the subconscious surfaces with its newest state, not a stale backlog.
-		r := dreamResult{
-			frag:      frag,
-			dream:     d,
-			candidate: newDreamCandidate("nano", "human-turn", seed, frag, d, nil),
-		}
+		r := dreamResult{frag: frag, dream: d}
 		select {
 		case dreamCh <- r:
 		default:

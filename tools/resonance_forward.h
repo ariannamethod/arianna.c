@@ -624,10 +624,7 @@ static int resonance_sample_token(float *logits, int *cctx, int len,
     for (int i = 0; i < V; i++) logits[i] /= temp;
     softmax_f(logits, V);
 
-    /* Top-p over partial-sorted top 100. 2026-05-14 garbage-trim:
-     * was 256 — long tail leaked training-format echoes ("User:/Assistant:/
-     * Oleg :") through Resonance's completion register. 100 tightens
-     * without losing voice (Phase 7 sweet spot temp=0.5-0.7 well within). */
+    /* Top-p over the partial-sorted top 100. */
     typedef struct { float p; int idx; } PI;
     static PI topk[100];
     int filled = 0;
@@ -678,18 +675,6 @@ static int resonance_sample_token(float *logits, int *cctx, int len,
         if (c >= r) return topk[k].idx;
     }
     return topk[nuc - 1].idx;
-}
-
-/* A .!? at obuf[pos] is a real sentence end unless it follows a single isolated
- * letter ("the inner v." — v is a clipped "voice"). Such a one-letter word with
- * a space (or start) before it is an abbreviation/clip, not a thought boundary. */
-static int sent_end_ok(const char *obuf, int pos) {
-    int j = pos - 1;
-    int run = 0;
-    while (j >= 0 && ((obuf[j] >= 'a' && obuf[j] <= 'z') ||
-                      (obuf[j] >= 'A' && obuf[j] <= 'Z'))) { run++; j--; }
-    if (run == 1 && (j < 0 || obuf[j] == ' ')) return 0;
-    return 1;
 }
 
 /* Road-1c: a chorus-dream inject is marked with this sentinel by the autonomous
@@ -792,8 +777,6 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
     struct timespec ts0, ts1;
     clock_gettime(CLOCK_MONOTONIC, &ts0);
     int gen_start = len;
-    int gen_chars = 0;
-    const int MIN_SENT_CHARS = 30;
     for (int step = 0; step < max_gen && len < T; step++) {
         dir_recompute(ctx->w.tok_emb);                 /* rebuild caches if dirtied by aging */
         /* Within-turn decay: the direction is a COMPASS, strong at the turn's
@@ -806,8 +789,6 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
         char dec[64];
         int n = nt_bpe_decode(&ctx->bpe, &next, 1, dec, sizeof(dec) - 1);
         if (olen + n < (int)sizeof(obuf)) { memcpy(obuf + olen, dec, n); olen += n; }
-        gen_chars += n;
-
         am_register_prophecy_debt(am_compute_prophecy_debt(logits, next, V));
         am_step(0.05f);
         dir_age(next);                                 /* age prophecy targets, prune fulfilled */
@@ -815,17 +796,6 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
         cctx[len] = next;
         len++;
 
-        /* Thought-boundary (. ! ? after min length). Plain sentence-stop + clean
-         * ablation + roster cut (arianna2arianna.sh:67-81). Injection no longer
-         * plants tokens here — the direction was seeded before generation. */
-        if (gen_chars >= MIN_SENT_CHARS) {
-            int boundary = 0, kpos = -1;
-            for (int k = 0; k < n; k++)
-                if (dec[k]=='.'||dec[k]=='!'||dec[k]=='?') { boundary = 1; kpos = k; break; }
-            /* Skip a false boundary after a single-letter clip ("inner v."). */
-            if (boundary && !sent_end_ok(obuf, (olen - n) + kpos)) boundary = 0;
-            if (boundary) break;
-        }
         forward_token(&ctx->w, next, len - 1, logits, NULL);
     }
     /* Word circulation (B1.4): ingest this turn's generated tokens into the
@@ -849,67 +819,10 @@ static void resonance_generate(ResonanceCtx *ctx, const char *prompt,
         }
     }
     am_field_sync_out();  /* B/F-8: publish this turn's field-carry (debt/dissonance/season) to the live shared field */
-    /* Roster strip safety belt (arianna2arianna.sh:81): срез от chat-roster маркера. */
-    {
-        /* Resonance was SFT'd on chat (User:/Assistant:/Oleg:), so she sometimes
-         * prefixes her words with a roster label — including from token 0. The old
-         * strip truncated AT the marker (olen=i), which nuked the whole output to
-         * EMPTY whenever she opened with a label (~half the runs). She is the inner
-         * voice and the words after the label are hers, so REMOVE the label
-         * ("User:"/"Assistant:"/"Oleg:" + the colon and a space) and keep the
-         * content, wherever the label appears. */
-        /* #14: a roster label at token 0 has no space/newline before it, so the
-         * prefixed patterns below miss it. Strip the BARE "Label:" SFT artifact at
-         * position 0 only — the colon must follow the label IMMEDIATELY, so legitimate
-         * leading content ("Users: …", "Userland: …", "User X: …") is kept. */
-        {
-            static const char *lead[] = { "User", "Assistant", "Oleg" };
-            for (size_t li = 0; li < sizeof(lead)/sizeof(lead[0]); li++) {
-                int rl = (int)strlen(lead[li]);
-                if (olen > rl && strncmp(obuf, lead[li], rl) == 0 && obuf[rl] == ':') {
-                    int j = rl + 1;
-                    if (j < olen && obuf[j] == ' ') j++;            /* skip ": " */
-                    memmove(obuf, obuf + j, (size_t)(olen - j));     /* drop the leading label */
-                    olen -= j;
-                    break;                                          /* at most one leading label */
-                }
-            }
-        }
-        static const char *rosters[] = { " User", " Assistant", " Oleg", "\nUser", "\nAssistant", "\nOleg" };
-        for (size_t ri = 0; ri < sizeof(rosters)/sizeof(rosters[0]); ri++) {
-            int rl = (int)strlen(rosters[ri]);
-            for (int i = 0; i + rl <= olen; ) {
-                if (strncmp(obuf + i, rosters[ri], rl) == 0) {
-                    int j = i + rl;
-                    while (j < olen && obuf[j] != ':' && j < i + rl + 4) j++;  /* find the colon */
-                    if (j < olen && obuf[j] == ':') {
-                        j++;
-                        if (j < olen && obuf[j] == ' ') j++;                  /* skip ": " */
-                        memmove(obuf + i, obuf + j, (size_t)(olen - j));      /* drop the label, keep content */
-                        olen -= (j - i);
-                        continue;                                            /* re-check from i */
-                    }
-                }
-                i++;
-            }
-        }
-        while (olen > 0 && (obuf[0] == ' ' || obuf[0] == '\n' || obuf[0] == '\r')) {
-            memmove(obuf, obuf + 1, (size_t)(olen - 1)); olen--;             /* trim leading space */
-        }
-    }
     /* UTF-8 output guard: drop any byte-fallback / invalid-UTF-8 byte (raw 0xFF, a
      * lone continuation) before output; valid multi-byte survives. */
     olen = utf8_sanitize(obuf, olen);
-    /* Output: collapse \n→space (clean_voice, arianna2arianna.sh:62) + post-filter
-     * пробел на границе [a-z][A-Z] (порт arianna.aml:281, ловит склейки). */
     for (int i = 0; i < olen; i++) {
-        if (obuf[i] == '\n' || obuf[i] == '\r') { putchar(' '); continue; }
-        if (i > 0 && obuf[i] >= 'A' && obuf[i] <= 'Z' &&
-            obuf[i-1] >= 'a' && obuf[i-1] <= 'z') putchar(' ');
-        /* space after sentence punctuation glued to the next word ("?What" after
-         * a roster-label removal) */
-        if (i > 0 && (obuf[i-1] == '.' || obuf[i-1] == '!' || obuf[i-1] == '?') &&
-            ((obuf[i] >= 'A' && obuf[i] <= 'Z') || (obuf[i] >= 'a' && obuf[i] <= 'z'))) putchar(' ');
         putchar((unsigned char)obuf[i]);
     }
     fflush(stdout);
