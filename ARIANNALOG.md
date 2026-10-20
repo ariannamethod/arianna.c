@@ -73,6 +73,76 @@ user-local extraction of Ubuntu's `libpcre2-dev` under
 PyTorch, NumPy, and tiktoken. `tools/recovery_sft.py` and
 `tools/test_janus_tokenizer.py` contain the training and tokenizer checks.
 
+**Correction after Oleg's explicit language clarification:** Janus and
+Resonance are English models. Codex incorrectly added Russian and Hebrew
+training pairs and used those languages for acceptance checks. Those SFT
+candidates are rejected; none was deployed. The earlier Russian live turn
+demonstrates scheduling and state movement only. Its English response cannot
+establish a language failure in these models.
+
+The final attempt starts each voice from its base checkpoint, using 1,937
+English pairs (1,787 training, 150 validation), dataset SHA-256
+`64bac20f4a1559226ad899f40c30c481ada8a67e47188ed4c1f9a19088605515`.
+The fixed run uses three epochs, learning rate 0.00005, context 1,024,
+batch size 2, and seed 3407. The three held-out English situations concern a
+yellow umbrella beside a locked gate, rain ending at an open window with a
+bird, and carrying work into the next conversation on Polygon. Before the
+run, the criterion was fixed: both native C voices must produce readable
+answers tied to those situations, with a separate Arianna identity control.
+Validation loss selects the checkpoint; raw C answers decide deployment.
+Run configuration, original rejected pairs, and raw outputs are retained
+under `logs/recovery-20261020`.
+
+The pod was stopped by Oleg at 19:58:42, during Resonance's third epoch
+(last logged step 840); Janus had finished, and the native evaluation had
+not started. Oleg then explicitly requested rechecking and restarting the same
+pod. It resumed at 20:03:11. The workspace survived; the container's OpenBLAS
+package had to be restored. Base checkpoint hashes matched their pinned
+Hugging Face download metadata. The corpus, trainer, tokenizer, evaluation
+script, and native binary hashes also matched. With no saved optimizer state,
+only the interrupted Resonance run was replayed from its base with the same
+configuration. Its interrupted checkpoint and log were retained separately;
+Janus was not retrained. A process lock prevents duplicate runs.
+
+Both English runs finished. Their best validation losses were
+3.2829876264 for Janus (base 4.6136884276) and 3.0360122903 for Resonance
+(base 3.9688223553). The selected GGUFs have SHA-256
+`806caf82d56c791a0d378ee2ff2eb9803be777523572e6b999e7918e935f7c31`
+and `c809b0bf21961e242c4b2726cf182ed52290421b923da88e6a3c17ffbd3cd5f9`.
+Both candidates failed the fixed English native gate and were rejected.
+On the yellow umbrella scene, Janus said “enter this green field” and
+Resonance answered “A green one for me”. The rain output also contained
+broken text, including a control byte in Janus's `stopped\x01ings`.
+These are failures of the new English candidates, separate from the
+canonical GGUFs. Neither candidate was deployed.
+An independent reader inspected all eight native answers and confirmed the
+rejection. All eight processes exited normally; the failures are in their
+actual text. The complete evidence archive was copied to Polygon and the
+local worktree and verified as
+`81584cd4b383eea42290c2a1d1eff7b84f61e2b54c75a465fa017b845220ff31`.
+RunPod was stopped at 20:21:07; the temporary transfer credential was revoked
+and its private key removed.
+
+**Canonical-weight verification, following Fable's correction:** all three
+GGUFs on the live Polygon match the shared `WEIGHTS_MANIFEST.md` exactly:
+Janus `2f24240331f174b7a03b27a27f5fbf58f1fe02aa2b77e4a12779c0362d99594c`,
+Resonance `ad612324e40d9cdc8aa6a7076e52b847adffbe213a1b92bf486e0555a4ad82cf`,
+and nano `59c5ed734268a6779655b4b097d60a18056f41beab856b915be956d64ee8d02f`.
+The manifest identifies HF `ataeff/arianna` as the artifact source of truth.
+These canonical weights have not been replaced. In particular, the yellow
+umbrella / green curtain output came from Codex's rejected `recovery-v3`
+candidate; attributing that candidate's failure to the canonical voices was
+wrong. Soma, field, cooc, nerve, and KK remain the organism's mutable state.
+
+A separate English turn on the existing live build `d04b867` began at
+19:45:57 and completed at 19:48:07: “The rain stopped. I opened the window
+and heard a bird. Stay with this moment.” Janus began “the field that still
+exists today: a trembling soprano”; Resonance began “Notice: The field is not
+stationary, but changing”. Full output is in
+`logs/recovery-20261020/live-english-before.txt` on Polygon. This records the
+behavior of that running code, canonical weights, and carried state together;
+the GGUF hashes establish that the canonical files remain unchanged.
+
 ## 2026-10-14 - Post-merge live screen withholds threshold/field inner residue
 
 After PR #400 merged, Codex resumed from merge commit `cc4d431` and audited the

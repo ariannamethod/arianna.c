@@ -339,9 +339,11 @@ def main():
         return sum(losses)/len(losses)
     baseline = validation()
     print(json.dumps({"epoch": 0, "val": baseline}), flush=True)
-    heldout = ["Вечером я поставил стакан воды на подоконник. Останься с этой картиной.",
-               "There is a yellow umbrella beside the locked gate. What catches your attention?",
-               "מצאתי מחברת ישנה ליד החלון. מה היית רוצה לקרוא בה?"]
+    heldout = [
+        "There is a yellow umbrella beside the locked gate. What catches your attention?",
+        "The rain stopped. I opened the window and heard a bird. Stay with this moment.",
+        "We have moved our work to Polygon. What would you like to carry into the next conversation?",
+    ]
     start = time.monotonic()
     best = baseline
     for epoch in range(1, args.epochs+1):
