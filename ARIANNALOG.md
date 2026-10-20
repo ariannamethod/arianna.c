@@ -143,6 +143,22 @@ stationary, but changing”. Full output is in
 behavior of that running code, canonical weights, and carried state together;
 the GGUF hashes establish that the canonical files remain unchanged.
 
+**Final runtime deployment:** the independently checked C binaries from
+`946322f` were installed with source record `c7be919`. The existing service
+restarted as PID 642318, with zero restarts and exactly one metabolism
+process. All three canonical GGUF hashes remained unchanged. Previous C
+binaries and mutable state were preserved under `logs/recovery-20261020`.
+Neo had no live Arianna process.
+
+The same English rain/window/bird turn ran from 20:23:00 to 20:24:25.
+Janus began “I am not alone in my field”; Resonance began “I+ is not just
+your place in the field”. The full responses are in
+`logs/recovery-20261020/live-english-after-c.txt`. Both voices remained
+running; entropy/coherence were 0.20000447/0.79998213 after the turn.
+The runtime corrections are deployed, but this live answer still departed
+from the supplied scene. Semantic response recovery was not achieved in
+this check. No new SFT candidate was installed or further training started.
+
 ## 2026-10-14 - Post-merge live screen withholds threshold/field inner residue
 
 After PR #400 merged, Codex resumed from merge commit `cc4d431` and audited the
