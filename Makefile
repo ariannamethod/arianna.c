@@ -22,6 +22,10 @@ NVCC    ?= nvcc
 AR      ?= ar
 CFLAGS  = -O2 -Wall -Wextra -std=c11
 LDFLAGS = -lm -lpthread
+# Janus uses its base tokenizer's Unicode pre-tokenization pattern.
+# Override these for a user-local PCRE2 installation.
+PCRE2_CFLAGS ?= $(shell pcre2-config --cflags 2>/dev/null)
+PCRE2_LIBS   ?= $(shell pcre2-config --libs8 2>/dev/null || echo -lpcre2-8)
 
 # DoE has packed int8 row kernels gated on compiler feature macros. Native arm64
 # builds should enable them when the host/compiler supports the ISA; keep the
@@ -166,12 +170,12 @@ $(LIBVAGUS): vagus/vagus.zig vagus/build.zig vagus/vagus.h vagus/larynx.h
 	@echo "[build] libvagus (Zig nerve + Larynx)"
 
 arianna: arianna.aml $(LIBNOTORCH) $(LIBAML) $(AMLC) $(LIBVAGUS) \
-         tools/yent_forward.h tools/janus_v4_bpe_merges.h \
+         tools/yent_forward.h tools/janus_v4_bpe_merges.h tools/janus_tokenizer.h \
          tools/jannus_calendar.h tools/jannus_spa.h tools/jannus_split.h vagus/larynx.h
 	$(AMLC) arianna.aml --emit-c > arianna.c
-	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) $(INCLUDES) \
+	$(CC) $(CFLAGS) $(BLAS_FLAGS) $(CUDA_FLAGS) $(INCLUDES) $(PCRE2_CFLAGS) \
 	    arianna.c $(LIBNOTORCH) $(LIBAML) \
-	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) $(VAGUS_LINK) \
+	    $(BLAS_LIBS) $(CUDA_LIBS) $(LDFLAGS) $(VAGUS_LINK) $(PCRE2_LIBS) \
 	    -o arianna
 	@echo "[build] arianna (Janus 176M) USE_CUDA=$(USE_CUDA)"
 

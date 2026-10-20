@@ -252,6 +252,10 @@ static void dir_age(int emitted) {
     g_proph_n = w;
 }
 
+/* Legacy notorch derivatives used unscaled RRPRAM. Fresh PyTorch-base
+ * derivatives declare their trained operator in GGUF metadata. */
+static float resonance_rrpram_scale = 1.0f;
+
 /* Forward one token at position pos, using KV cache. */
 static void forward_token(Weights *w, int tok, int pos,
                           float *logits, float *hidden) {
@@ -331,7 +335,7 @@ static void forward_token(Weights *w, int tok, int pos,
             for (int j = 0; j <= pos; j++) {
                 float s = 0;
                 for (int r = 0; r < R; r++) s += temp[r] * wr_b_h[r * T + j];
-                r_attn[j] = s;
+                r_attn[j] = s * resonance_rrpram_scale;
             }
             softmax_f(r_attn, pos + 1);
             float out[128] = {0};
@@ -502,6 +506,18 @@ static const uint8_t *_rload_packed(gguf_file *gf, const char *name) {
 static int resonance_load_gguf(ResonanceCtx *ctx, const char *path) {
     gguf_file *gf = gguf_open(path);
     if (!gf) { fprintf(stderr, "[resonance] gguf_open('%s') failed\n", path); return 1; }
+    const gguf_kv *rr_scale = gguf_get_kv(gf, "resonance.rrpram.scale");
+    if (rr_scale && rr_scale->type != 6) {
+        fprintf(stderr, "[resonance] RRPRAM scale must be float32\n");
+        gguf_close(gf);
+        return 1;
+    }
+    resonance_rrpram_scale = rr_scale ? rr_scale->val.f32 : 1.0f;
+    if (!isfinite(resonance_rrpram_scale) || resonance_rrpram_scale <= 0.0f) {
+        fprintf(stderr, "[resonance] invalid RRPRAM scale\n");
+        gguf_close(gf);
+        return 1;
+    }
 #define RKV(key, tgt) do {                                                    \
         const gguf_kv *kv = gguf_get_kv(gf, key);                             \
         if (!kv) { fprintf(stderr, "[resonance] missing kv '%s'\n", key);     \
@@ -603,6 +619,11 @@ static int resonance_sample_token(float *logits, int *cctx, int len,
     int start = len > window ? len - window : 0;
     for (int j = start; j < len; j++) {
         int t = cctx[j];
+        int seen = 0;
+        for (int k = start; k < j; k++) {
+            if (cctx[k] == t) { seen = 1; break; }
+        }
+        if (seen) continue;
         if (t >= 0 && t < V)
             logits[t] = logits[t] > 0 ? logits[t] / rep_penalty
                                       : logits[t] * rep_penalty;

@@ -500,8 +500,10 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
      * gate = smear_lambda * sigmoid(smear_gate @ x[:, :24])
      * x[t] += gate[t] * x[t-1]  (for t >= 1) */
     float smear_l = *w->smear_l;
-    if (smear_l > 1e-6f) {
-        for (int p = 1; p < n; p++) {
+    if (smear_l != 0.0f) {
+        /* Descend so the previous embedding is still the original normalized
+         * embedding, matching both training and the decode cache. */
+        for (int p = n - 1; p >= 1; p--) {
             float dot = 0;
             for (int d = 0; d < 24; d++) dot += w->smear_g[d] * xs[p*E+d];
             float gate = smear_l / (1.0f + expf(-dot));
@@ -657,8 +659,6 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         qmm(ao, cat, w->b[bl].cproj, w->wdtype, n, E, E);
         for (int i = 0; i < n*E; i++) xs[i] += ao[i];
 
-        if (bl == backout_layer) memcpy(x_backout, xs, (size_t)n*E*4);
-
         /* MLP: norm → gate/up → silu*up → down + residual */
         float *rn2s = yent_xcalloc((size_t)n*E, 4);
         for (int p = 0; p < n; p++) rmsnorm(rn2s + p*E, xs + p*E, E);
@@ -668,6 +668,7 @@ static void prefill_batch(Weights *w, int *toks, int n, float *logits, float *hi
         for (int i = 0; i < n*M; i++) mg[i] = siluf(mg[i]) * mu[i];
         qmm(mo, mg, w->b[bl].wd, w->wdtype, n, M, E);
         for (int i = 0; i < n*E; i++) xs[i] += mo[i];
+        if (bl == backout_layer) memcpy(x_backout, xs, (size_t)n*E*4);
 
         free(rns); free(qa); free(ka); free(va); free(vra);
         free(echo); free(echo_back); free(echo_score); free(cat); free(ao); free(rn2s); free(mg); free(mu); free(mo);
@@ -712,7 +713,7 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
      * pre-smear embeddings, then the current token may receive the previous one. */
     float pre_smear[1024];
     memcpy(pre_smear, x, E * sizeof(float));
-    if (kv_has_prev_embedding && *w->smear_l > 1e-6f) {
+    if (kv_has_prev_embedding && *w->smear_l != 0.0f) {
         float dot = 0.0f;
         for (int d = 0; d < 24; d++) dot += w->smear_g[d] * x[d];
         float gate = *w->smear_l / (1.0f + expf(-dot));
@@ -854,10 +855,6 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
         nt_qmatvec(ao, w->b[bl].cproj, w->wdtype, cat, E, E);
         for (int e = 0; e < E; e++) x[e] += ao[e];
 
-        /* Cache mid-layer for backout */
-        if (bl == backout_layer)
-            memcpy(x_backout, x, E * sizeof(float));
-
         /* MLP: x = x + mlp(norm(x)) */
         rmsnorm(rn2, x, E);
         float mg[2048], mu[2048], mo[1024];
@@ -866,6 +863,9 @@ static void forward_token(Weights *w, int tok, int pos, float *logits, float *hi
         for (int i = 0; i < M; i++) mg[i] = siluf(mg[i]) * mu[i];
         nt_qmatvec(mo, w->b[bl].wd, w->wdtype, mg, E, M);
         for (int e = 0; e < E; e++) x[e] += mo[e];
+        /* The training backout observes the complete block, including MLP. */
+        if (bl == backout_layer)
+            memcpy(x_backout, x, E * sizeof(float));
 
     }
 

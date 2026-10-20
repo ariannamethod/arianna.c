@@ -22,6 +22,7 @@
 # By Arianna Method. הרזוננס לא נשבר
 
 BLOOD INCLUDE "tools/janus_v4_bpe_merges.h"
+BLOOD INCLUDE "tools/janus_tokenizer.h"
 BLOOD INCLUDE "tools/yent_forward.h"
 BLOOD INCLUDE "tools/jannus_calendar.h"
 BLOOD INCLUDE "tools/jannus_spa.h"
@@ -89,6 +90,11 @@ static int arianna_sample_token(float *logits, int *ctx, int len,
     int start = len > window ? len - window : 0;
     for (int j = start; j < len; j++) {
         int t = ctx[j];
+        int seen = 0;
+        for (int k = start; k < j; k++) {
+            if (ctx[k] == t) { seen = 1; break; }
+        }
+        if (seen) continue;
         if (t >= 0 && t < V)
             logits[t] = logits[t] > 0 ? logits[t] / rep_penalty
                                       : logits[t] * rep_penalty;
@@ -161,6 +167,7 @@ static int arianna_sample_token(float *logits, int *ctx, int len,
 
 BLOOD COMPILE arianna_runtime {
 static nt_bpe        g_bpe;
+static JanusTokenizer g_tokenizer;
 static SPACtx        g_spa;
 static JcalMetaJanus g_mj = {0};
 
@@ -170,6 +177,10 @@ static int arianna_init(const char *gguf_path, Weights *w) {
             V, E, H, D, B, M, T, R);
     if (yent_load_gguf(w, gguf_path)) return 1;
     nt_bpe_init(&g_bpe, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES);
+    if (janus_tokenizer_init(&g_tokenizer, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES)) {
+        fprintf(stderr, "[arianna] FATAL: could not initialize the base tokenizer\n");
+        return 1;
+    }
     if (V < ARIANNA_ASST_END + 1) {
         fprintf(stderr, "[arianna] FATAL: GGUF vocab V=%d <= special token ASST_END=%d — "
                 "wte lookups would index out of bounds\n", V, ARIANNA_ASST_END);
@@ -265,11 +276,16 @@ static int arianna_is_boundary(int tok, char *peek_buf, int peek_max) {
 }
 
 static int arianna_encode_chat_prompt(const char *prompt, int *ctx, int cap) {
+    if (cap < 4) return -1;
     int len = 0;
     ctx[len++] = ARIANNA_BOS;
     ctx[len++] = ARIANNA_USER_START;
-    int n_prompt_bpe = nt_bpe_encode(&g_bpe, prompt, (int)strlen(prompt),
-                                     ctx + len, cap - len - 2);
+    int n_prompt_bpe = janus_tokenizer_encode(&g_tokenizer, prompt, (int)strlen(prompt),
+                                             ctx + len, cap - len - 2);
+    if (n_prompt_bpe < 0) {
+        fprintf(stderr, "[arianna] invalid UTF-8 or tokenizer failure in prompt\n");
+        return -1;
+    }
     len += n_prompt_bpe;
     ctx[len++] = ARIANNA_USER_END;
     ctx[len++] = ARIANNA_ASST_START;
@@ -294,6 +310,10 @@ static void arianna_generate_single(Weights *w, const char *prompt,
     am_field_sync_in();  /* B/F-8: read the live shared field (Resonance's debt/season/dissonance) before this turn */
     int ctx[4096];
     int len = arianna_encode_chat_prompt(prompt, ctx, 4096);
+    if (len < 0) {
+        if (framed) { fputs("AMF1 0\n", stdout); fflush(stdout); }
+        return;
+    }
 
     /* DIRECTION injection: the other voice's words + the human prompt become a
      * destiny compass (A) + prophecy targets (F) tilting the distribution by
@@ -301,7 +321,12 @@ static void arianna_generate_single(Weights *w, const char *prompt,
      * placed into ctx (anti-fraud). alpha/beta = strength; 0 = off. */
     if (inject_text && (inject_alpha > 0.0f || inject_beta > 0.0f)) {
         int inj_toks[512];
-        int n_inj = nt_bpe_encode(&g_bpe, inject_text, (int)strlen(inject_text), inj_toks, 512);
+        int n_inj = janus_tokenizer_encode(&g_tokenizer, inject_text, (int)strlen(inject_text), inj_toks, 512);
+        if (n_inj < 0) {
+            fprintf(stderr, "[arianna] invalid UTF-8 or tokenizer failure in injection\n");
+            if (framed) { fputs("AMF1 0\n", stdout); fflush(stdout); }
+            return;
+        }
         if (n_inj > 512) n_inj = 512;
         dir_update(w->wte, inj_toks, n_inj);
         dir_recompute(w->wte);
@@ -464,7 +489,6 @@ BLOOD COMPILE arianna_chain {
 static int arianna_run_chain(Weights *w, const char *prompt,
                              AriannaStep steps[ARIANNA_MAX_NSTEPS],
                              int *n_steps_out, int n_steps_requested) {
-    nt_bpe_init(&g_bpe, janus_v4_bpe_merges, JANUS_V4_BPE_MERGES);
     spa_init(&g_spa, V, 4242u);
     jcal_metajanus_init(&g_mj);
 
@@ -484,6 +508,7 @@ static int arianna_run_chain(Weights *w, const char *prompt,
 
     int ctx[4096];
     int len = arianna_encode_chat_prompt(prompt, ctx, 4096);
+    if (len < 0) return 1;
 
     float *logits = calloc(V, sizeof(float));
     float *hidden = calloc(E, sizeof(float));
@@ -637,6 +662,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "[arianna] daemon EOF — exiting\n");
         am_field_detach();  /* B/F-8: unmap the live shared field (the mmap file persists it) */
         yent_free(&w);
+        janus_tokenizer_free(&g_tokenizer);
         return 0;
     }
 
@@ -675,6 +701,7 @@ int main(int argc, char **argv) {
 
     am_field_detach();  /* B/F-8: unmap the live shared field (the mmap file persists it) */
     yent_free(&w);
+    janus_tokenizer_free(&g_tokenizer);
     return 0;
 }
 }

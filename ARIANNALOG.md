@@ -34,6 +34,45 @@ build passed. Deployment and fresh base-model SFT results are recorded below
 when observed. Existing raw evidence remains under `logs/recovery-20261020`
 and Polygon `/tmp/arianna-framing-20261020.en90v_dg`.
 
+Deployed commit `d04b867` to the existing `arianna-live.service`, replacing
+PID 1347 with PID 640383 after graceful state consolidation. Mutable sidecars
+and prior binaries were preserved in `logs/recovery-20261020` on Polygon.
+The Russian rain/window/bird turn entered at 18:20:30 and completed at
+18:23:01 local time. No autonomous inner turn began between those events.
+Entropy/coherence changed from 1/0 to 0.22460483/0.7753954 at the completed
+turn, then to 0.20000447/0.79998213. The old voice weights still produced
+unrelated English text; this deployment repaired physiology and scheduling.
+
+The weight audit exposed a separate Janus tokenizer defect. Although every
+decoded token byte string matched the base vocabulary, the reconstructed merge
+pairs did not reproduce its byte-rank encoder: 193 of 350 dataset strings
+differed. `Hello, Arianna.` formerly began `[72,461,111,...]`; the base begins
+`[14063,...]`. Janus now uses the base Unicode pre-tokenization pattern and
+dynamic byte-rank merges in both its sequence prompt and field injection.
+All 1,825 independent comparisons passed, including Unicode boundaries,
+capacity limits, and invalid UTF-8, with ASAN/UBSAN enabled.
+
+Janus prefill smear now uses the original preceding normalized embedding,
+signed smear weights remain active, and backout captures the complete middle
+block. Fresh Resonance exports record their trained RRPRAM scale of 0.125;
+old GGUFs without that metadata retain their original scale of 1. Both voice
+samplers apply repetition pressure once per distinct recent token. Previously,
+repeated byte tokens accumulated the penalty exponentially.
+
+The new base-model trainer follows the C prefill/decode contract and masks
+answer loss. Janus RRPRAM no longer sees future answer tokens during training.
+Independent C/PyTorch comparisons on the same F16 weights differed by at most
+0.000073 in logits, with matching argmax in every tested case. Initial SFT
+attempts exposed a wrong Janus RoPE constant and then the tokenizer mismatch;
+those attempts were rejected and retained as evidence.
+
+The Janus build now requires PCRE2 development headers/library, discovered
+through `pcre2-config` or explicit `PCRE2_CFLAGS`/`PCRE2_LIBS`. Polygon uses a
+user-local extraction of Ubuntu's `libpcre2-dev` under
+`~/.local/arianna-deps/pcre2`, linked statically. Training additionally requires
+PyTorch, NumPy, and tiktoken. `tools/recovery_sft.py` and
+`tools/test_janus_tokenizer.py` contain the training and tokenizer checks.
+
 ## 2026-10-14 - Post-merge live screen withholds threshold/field inner residue
 
 After PR #400 merged, Codex resumed from merge commit `cc4d431` and audited the

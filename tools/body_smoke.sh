@@ -66,7 +66,7 @@ done
 
 require_source 'matvec_weight_right\(echo_back' tools/yent_forward.h "Janus Echo backprojection"
 require_source 'kv_prev_embedding' tools/yent_forward.h "Janus decode smear cache"
-require_source 'r_attn\[j\] = s;' tools/resonance_forward.h "Resonance RRPRAM unscaled score"
+require_source 'r_attn\[j\] = s \* resonance_rrpram_scale;' tools/resonance_forward.h "Resonance trained RRPRAM scale"
 require_source 'strcmp\(arch, "nlama"\)' chorus/arianna2arianna.c "nano nlama NEOX route"
 
 echo "[body-smoke] Go tests"
