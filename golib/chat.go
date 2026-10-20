@@ -107,7 +107,15 @@ func runChat() {
 	input := make(chan chatInput, 1)
 	go func() {
 		for sc.Scan() {
-			input <- chatInput{text: sc.Text()}
+			line := strings.TrimSpace(sc.Text())
+			if line != "" && line != "/quit" && line != "/exit" {
+				tc.pendingHumans.Add(1)
+			}
+			select {
+			case input <- chatInput{text: line}:
+			case <-shutdownRequested:
+				return
+			}
 		}
 		input <- chatInput{err: sc.Err(), done: true}
 	}()
@@ -207,6 +215,7 @@ chatLoop:
 			"janus_response_chars":     len(janus),
 			"resonance_response_chars": len(reson),
 		})
+		tc.pendingHumans.Add(-1)
 		voiceMu.Unlock()
 		fmt.Print("│\n└▶ ")
 	}

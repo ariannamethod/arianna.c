@@ -138,12 +138,17 @@ type Process interface {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // NewInnerState creates a new inner state with defaults
+const (
+	baselineEntropy   float32 = 0.2
+	baselineCoherence float32 = 0.8
+)
+
 func NewInnerState() *InnerState {
 	return &InnerState{
 		Arousal:    0.3,
 		Valence:    0.0,
-		Entropy:    0.2,
-		Coherence:  0.8,
+		Entropy:    baselineEntropy,
+		Coherence:  baselineCoherence,
 
 		TraumaLevel:    0.0,
 		TraumaAnchors:  make([]string, 0),

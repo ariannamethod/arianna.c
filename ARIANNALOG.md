@@ -13,6 +13,27 @@ Plan: `~/.claude/plans/stateful-greeting-sunbeam.md` (approved by Oleg 2026-05-2
 
 ---
 
+## 2026-10-20 — Recovery of the live rhythm on Polygon
+
+All 6,986 audited live records held entropy at 1 and coherence at 0. The
+inner world now relaxes both toward its existing 0.2/0.8 baselines with a
+60-second time constant, including when trauma is zero. Human lines are counted
+when received; breathing checks the count before and after taking the voice
+lock, so it cannot start another inner-voice turn ahead of queued human input.
+An already running voice request finishes normally.
+
+Nano and chorus share the trained `Q: …\nA:` frame. Chorus prompt paths now
+include the model's BOS token. Isolated Polygon timing found three generations
+inside a one-cell field call: the requested generation plus two noise-floor
+rounds. One English 8-token call took 18.7 seconds; the Russian call exceeded
+60 seconds. `AM_CHORUS=0` lets this machine use nano immediately while keeping
+the chorus available for explicit runs.
+
+Validation: the complete Go suite, focused race tests, and local metabolism
+build passed. Deployment and fresh base-model SFT results are recorded below
+when observed. Existing raw evidence remains under `logs/recovery-20261020`
+and Polygon `/tmp/arianna-framing-20261020.en90v_dg`.
+
 ## 2026-10-14 - Post-merge live screen withholds threshold/field inner residue
 
 After PR #400 merged, Codex resumed from merge commit `cc4d431` and audited the

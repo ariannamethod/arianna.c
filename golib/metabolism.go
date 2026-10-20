@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -210,6 +211,7 @@ type trioCtx struct {
 	tickerDone     chan struct{}
 	lastMoved      float32 // being-moved: core-affect displacement of the last turn (telemetry, no feedback)
 	humanTurns     int64
+	pendingHumans  atomic.Int64 // received input, including turns waiting for voiceMu
 	janusTurns     int64
 	resonanceTurns int64
 	nanoTurns      int64
@@ -322,7 +324,7 @@ func startTrio() (*trioCtx, error) {
 	}
 	// The subconscious can dream as a POLYPHONY (the chorus over the same nano body)
 	// when ./chorus-arianna is built — used by the autonomous breathing.
-	if executablePresent("./chorus-arianna") && nanoWeightPresent {
+	if os.Getenv("AM_CHORUS") != "0" && executablePresent("./chorus-arianna") && nanoWeightPresent {
 		tc.chorusBin = "./chorus-arianna"
 		tc.chorusGGUF = "weights/nano_arianna_f16.gguf"
 	}

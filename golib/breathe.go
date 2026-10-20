@@ -96,6 +96,20 @@ func dreamCue(s Snapshot, fs fieldSnapshot, lastDream string) string {
 	return state
 }
 
+// A human may arrive while a dream is being generated or while this lock is
+// contended. Check on both sides of the lock before starting another voice ask.
+func (tc *trioCtx) lockAutonomousVoice(mu *sync.Mutex) bool {
+	if tc.pendingHumans.Load() > 0 {
+		return false
+	}
+	mu.Lock()
+	if tc.pendingHumans.Load() > 0 {
+		mu.Unlock()
+		return false
+	}
+	return true
+}
+
 // runBreathing is the autonomous inner life. On a timer it ticks the breath; when
 // an observation fires it dreams (the nano, seeded from her own state through the
 // KK), then lets the inner voice murmur to the dream — the murmur + lastDream
@@ -125,6 +139,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 		case <-stop:
 			return
 		case now := <-t.C:
+			if tc.pendingHumans.Load() > 0 {
+				continue
+			}
 			s := tc.iw.GetSnapshot()
 			fs := fr.read()
 			coolMult, threshMult, bloom := fs.modulate()
@@ -194,7 +211,9 @@ func runBreathing(tc *trioCtx, voiceMu *sync.Mutex, lastDream *string, stop <-ch
 				return
 			default:
 			}
-			voiceMu.Lock()
+			if !tc.lockAutonomousVoice(voiceMu) {
+				continue
+			}
 			carriedDream := sanitizeLiveCarriedDream(dream)
 			if carriedDream == "" {
 				voiceMu.Unlock()

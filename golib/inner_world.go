@@ -23,6 +23,7 @@
 package main
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -101,6 +102,15 @@ func (iw *InnerWorld) Step(dt float32) {
 	for _, proc := range iw.processes {
 		proc.Step(dt)
 	}
+
+	// Relax accumulated excitation on the same clock as the processes. Without
+	// recovery, repeated text events permanently pin entropy/coherence at 1/0.
+	// A one-minute time constant preserves a disturbance across several breaths.
+	recovery := float32(-math.Expm1(-float64(dt) / 60))
+	iw.State.mu.Lock()
+	iw.State.Entropy += (baselineEntropy - iw.State.Entropy) * recovery
+	iw.State.Coherence += (baselineCoherence - iw.State.Coherence) * recovery
+	iw.State.mu.Unlock()
 
 	// Adapt parameters based on current state (Linux-like dynamic config)
 	AdaptGlobal()

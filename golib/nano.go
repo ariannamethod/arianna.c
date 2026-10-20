@@ -71,6 +71,14 @@ func newNano(bin, gguf string) *nano {
 	return &nano{bin: bin, gguf: gguf, maxTok: "32", temp: "0.9", topP: "0.92"}
 }
 
+// nanoPrompt is the shared training frame for both engines over the nano body.
+func nanoPrompt(seed string) string {
+	if seed = strings.TrimSpace(seed); seed != "" {
+		return "Q: " + seed + "\nA:"
+	}
+	return ""
+}
+
 // dream spawns the nano on a seed and returns its murmur.
 // "" on failure. Routes through the doe parliament engine when set
 // (the SAME nano body, notorch-native), else the nanollama one-shot below.
@@ -81,9 +89,7 @@ func (n *nano) dream(parent context.Context, seed string) string {
 	// fragment, or it drifts to word-salad (Codex arianna2arianna format sweep: qa beat raw,
 	// repetition 3→0). Format fix, not weights. doeDream collapses the \n to a space (one-line
 	// REPL); the one-shot path keeps it — both carry the Q:/A: markers the nano was trained on.
-	if s := strings.TrimSpace(seed); s != "" {
-		seed = "Q: " + s + "\nA:"
-	}
+	seed = nanoPrompt(seed)
 	select {
 	case <-parent.Done(): // cancelled while waiting for the lock (e.g. /quit) — don't spawn
 		return ""

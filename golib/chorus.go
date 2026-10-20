@@ -46,7 +46,7 @@ func choir(ctx context.Context, bin, gguf, seed string, nCells int) []chorusCell
 	// field <cells> <frag> <rounds> <alpha> <leap> <xcell>: nCells voices, 16 tokens
 	// each, one round, soma-alpha 0 (it does not earn resonance), cross-cell 0.3
 	// (the cells hear each other).
-	out, err := exec.CommandContext(cctx, bin, gguf, seed, "field", strconv.Itoa(nCells), "16", "1", "0", "0", "0.3").Output()
+	out, err := exec.CommandContext(cctx, bin, gguf, nanoPrompt(seed), "field", strconv.Itoa(nCells), "16", "1", "0", "0", "0.3").Output()
 	if err != nil {
 		return nil
 	}

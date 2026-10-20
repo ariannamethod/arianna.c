@@ -1350,7 +1350,7 @@ static float cell_speak(model_t *m, bpe_tokenizer *tok, const int *ids, int np, 
  * low entropy = a decisive prompt (collapse toward one cell); high = open (bloom to a chorus). */
 static float probe_entropy(model_t *m, bpe_tokenizer *tok, const char *prompt) {
     int max_seq = 512, ids[512];
-    int np = bpe_encode(tok, prompt, ids, max_seq - 1);
+    int np = bpe_encode_prompt(tok, prompt, ids, max_seq - 1);
     kv_cache *kv = kv_new(m->n_layers, max_seq, m->kv_dim);
     float *logits = (float*)xzalloc(m->vocab, sizeof(float));
     for (int i = 0; i < np; i++) forward(m, kv, ids[i], i, logits);
@@ -1428,7 +1428,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                        int *hist, char *out_chorus, int out_cap, float *out_shuf, FILE *flog,
                        float *out_disso, float *out_kv_delta, float *out_kv_floor, float *out_kv_infl) {
     int max_seq = 512, ids[512], sids[512], cell_ids[256], cell_n;
-    int np_prompt = bpe_encode(tok, prompt, ids, max_seq);   /* prompt token count = shuffle boundary */
+    int np_prompt = bpe_encode_prompt(tok, prompt, ids, max_seq);   /* prompt token count = shuffle boundary */
     char this_chorus[4096]; int tc = 0; this_chorus[0] = 0;
     char ctx[8704], frag[2048];
     float ent_sum = 0, shuf_sum = 0, kv_delta_sum = 0, kv_floor_sum = 0, kv_infl_sum = 0;
@@ -1454,7 +1454,7 @@ static float run_round(model_t *m, bpe_tokenizer *tok, const char *prompt, const
                 } else snprintf(ctx, sizeof(ctx), "%s %s", prompt, g_round_frag[dis]);   /* v1: ONLY the dissenter (short) */
             } else snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus ? prev_chorus : "", this_chorus);  /* CONVERGE: full */
         } else snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus ? prev_chorus : "", this_chorus);
-        int np = bpe_encode(tok, ctx, ids, max_seq - nfrag - 1);
+        int np = bpe_encode_prompt(tok, ctx, ids, max_seq - nfrag - 1);
         float temp = (g_life_on && c < POP_MAX) ? g_pop[c].temp : field_temp_for_cell(c, n_cells);
         unsigned seed = (g_life_on && c < POP_MAX) ? (g_pop[c].seed ^ ((unsigned)r * 2654435761u)) : seed_base + (unsigned)c * 7919u;  /* identity persists, utterance renews each tick */
         if (g_life_on && c < POP_MAX) { g_xcell = g_pop[c].lambda; g_xrep = g_pop[c].xrep; }   /* per-cell perception (genome) */
@@ -1769,7 +1769,7 @@ static void field_life(model_t *m, bpe_tokenizer *tok, const char *prompt, int n
  * is coupling beyond length; if they fall equally, the trend is a length artifact. Reported as measured. */
 static void field_resonance_test(model_t *m, bpe_tokenizer *tok, const char *prompt, int n_cells, int nfrag, int n_rounds, int eos) {
     int max_seq = 512, ids[512], pids[512];
-    int np_prompt = bpe_encode(tok, prompt, pids, max_seq);
+    int np_prompt = bpe_encode_prompt(tok, prompt, pids, max_seq);
     char frag[2048];
     if (n_rounds < 1) n_rounds = 1;
     printf("\n=== resonance test: coherent vs same-length SHUFFLED context (%d cells × %d rounds, prompt \"%s\") ===\n", n_cells, n_rounds, prompt);
@@ -1781,7 +1781,7 @@ static void field_resonance_test(model_t *m, bpe_tokenizer *tok, const char *pro
             char this_chorus[4096]; int tc = 0; this_chorus[0] = 0; float ent_sum = 0;
             for (int c = 0; c < n_cells; c++) {
                 snprintf(ctx, sizeof(ctx), "%s%s%s", prompt, prev_chorus, this_chorus);
-                int np = bpe_encode(tok, ctx, ids, max_seq - nfrag - 1);
+                int np = bpe_encode_prompt(tok, ctx, ids, max_seq - nfrag - 1);
                 if (control && np > np_prompt) shuffle_ids(ids, np_prompt, np, 12345u + (unsigned)(r * 31 + c));
                 float temp = field_temp_for_cell(c, n_cells);
                 ent_sum += cell_speak(m, tok, ids, np, nfrag, temp, 40, 1.4f,
